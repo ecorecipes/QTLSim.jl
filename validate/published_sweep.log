@@ -1,0 +1,103 @@
+published table: 119984 runs loaded (11 s); CAP=2000 generations after the move; SCALE=1.00; 8 threads
+  no unique table row for QT0100-Possion3.0/Input-10458.txt; skipped
+  no unique table row for QT0100-Possion5.0/Input-06296.txt; skipped
+  no unique table row for QT0100-Possion5.0/Input-07335.txt; skipped
+  no unique table row for QT0500-Possion5.0/Input-03279.txt; skipped
+  no unique table row for QT1000-Possion5.0/Input-14195.txt; skipped
+matched 589 sampled input files to table rows
+
+── 1. anchor: local QTSim on unmodified shipped files vs the published row ──
+  QT0100-Possion3.0/Input-00001.txt row 2      pre-move (mean, V_G, survivors) IDENTICAL; dies at gen 10168, table says 169 after the move (offset +1)
+  QT0100-Possion3.0/Input-00002.txt row 3      pre-move (mean, V_G, survivors) IDENTICAL; dies at gen 10199, table says 200 after the move (offset +1)
+  QT0500-Possion5.0/Input-00001.txt row 44996  pre-move (mean, V_G, survivors) IDENTICAL; dies at gen 10176, table says 177 after the move (offset +1)
+  QT0500-Possion5.0/Input-00002.txt row 44997  pre-move (mean, V_G, survivors) IDENTICAL; dies at gen 10225, table says 226 after the move (offset +1)
+  QT1000-Possion3.0/Input-00001.txt row 59994  pre-move (mean, V_G, survivors) IDENTICAL; dies at gen 10169, table says 170 after the move (offset +1)
+  QT1000-Possion3.0/Input-00002.txt row 59995  pre-move (mean, V_G, survivors) IDENTICAL; dies at gen 10219, table says 220 after the move (offset +1)
+  ⇒ the local QTSim reproduces the published per-run values exactly; table time = (dying generation − 10000) + 1
+
+running 1154 Julia simulations …
+  50/1154 done (2 min)
+  100/1154 done (4 min)
+  150/1154 done (5 min)
+  200/1154 done (7 min)
+  250/1154 done (8 min)
+  300/1154 done (9 min)
+  350/1154 done (10 min)
+  400/1154 done (12 min)
+  450/1154 done (13 min)
+  500/1154 done (14 min)
+  550/1154 done (15 min)
+  600/1154 done (17 min)
+  650/1154 done (18 min)
+  700/1154 done (20 min)
+  750/1154 done (23 min)
+  800/1154 done (28 min)
+  850/1154 done (33 min)
+  900/1154 done (43 min)
+  950/1154 done (50 min)
+  1000/1154 done (60 min)
+  1050/1154 done (71 min)
+  1100/1154 done (92 min)
+  1150/1154 done (142 min)
+per-run results written to julia/validate/published_sweep_results.csv
+
+── 2. equilibrium just before the move (table generation 10000; paired by input; Julia vs published) ──
+  stratum            model     n  log V_G ratio: mean ± SE (p)   survivors diff: mean ± SE (p)
+  QT0100-Possion3.0  qtsim   149  +0.017 ± 0.027 (p=0.52)           -0.5 ±  0.6 (p=0.41)
+  QT0100-Possion3.0  all     149  +0.018 ± 0.023 (p=0.44)           -0.8 ±  0.8 (p=0.27)
+  QT0100-Possion5.0  qtsim   148  +0.043 ± 0.025 (p=0.10)           +0.9 ±  0.4 (p=0.05)
+  QT0100-Possion5.0  all     148  +0.068 ± 0.024 (p=0.01)           +1.1 ±  0.4 (p=0.00)
+  QT0500-Possion3.0  qtsim    90  -0.014 ± 0.020 (p=0.49)           +0.4 ±  0.6 (p=0.53)
+  QT0500-Possion3.0  all      90  +0.018 ± 0.016 (p=0.27)           +0.3 ±  0.6 (p=0.63)
+  QT0500-Possion5.0  qtsim    89  -0.028 ± 0.022 (p=0.20)           +0.1 ±  0.7 (p=0.88)
+  QT0500-Possion5.0  all      89  +0.103 ± 0.018 (p=0.00)           -3.2 ±  1.1 (p=0.00)
+  QT1000-Possion3.0  qtsim    45  -0.019 ± 0.028 (p=0.49)           -0.3 ±  0.9 (p=0.73)
+  QT1000-Possion3.0  all      45  +0.044 ± 0.029 (p=0.13)           -1.7 ±  1.1 (p=0.13)
+  QT1000-Possion5.0  qtsim    44  -0.026 ± 0.028 (p=0.35)           -0.1 ±  0.8 (p=0.87)
+  QT1000-Possion5.0  all      44  +0.118 ± 0.029 (p=0.00)           -5.4 ±  1.3 (p=0.00)
+  QT5000-Possion3.0  qtsim    12  +0.008 ± 0.038 (p=0.83)           +4.0 ±  2.2 (p=0.09)
+  QT5000-Possion5.0  qtsim    12  +0.093 ± 0.071 (p=0.22)           +0.2 ±  1.9 (p=0.90)
+  all strata         qtsim   589  +0.007 ± 0.011 (p=0.51)           +0.2 ±  0.3 (p=0.40)
+  all strata         all     565  +0.054 ± 0.010 (p=0.00)           -0.9 ±  0.3 (p=0.01)
+
+── 3. extinction after the move, censored at 2000 generations (paired by input) ──
+  stratum            model     n  median time pub / jl   survive≥CAP pub / jl   paired log-time p (signed rank)
+  QT0100-Possion3.0  qtsim   149      129 / 130           10.1% / 10.7%          p=0.12
+  QT0100-Possion3.0  all     149      129 / 135           10.1% / 10.7%          p=0.00
+  QT0100-Possion5.0  qtsim   148      125 / 122           11.5% / 11.5%          p=0.34
+  QT0100-Possion5.0  all     148      125 / 138           11.5% / 13.5%          p=0.00
+  QT0500-Possion3.0  qtsim    90      152 / 152           10.0% / 10.0%          p=0.03
+  QT0500-Possion3.0  all      90      152 / 158           10.0% / 14.4%          p=0.00
+  QT0500-Possion5.0  qtsim    89      150 / 151            5.6% / 5.6%           p=0.32
+  QT0500-Possion5.0  all      89      150 / 169            5.6% / 6.7%           p=0.00
+  QT1000-Possion3.0  qtsim    45      170 / 157           11.1% / 11.1%          p=0.67
+  QT1000-Possion3.0  all      45      170 / 172           11.1% / 11.1%          p=0.00
+  QT1000-Possion5.0  qtsim    44      115 / 112            4.5% / 4.5%           p=0.86
+  QT1000-Possion5.0  all      44      115 / 140            4.5% / 6.8%           p=0.00
+  QT5000-Possion3.0  qtsim    12      116 / 117            8.3% / 8.3%           p=0.72
+  QT5000-Possion5.0  qtsim    12      106 / 102            0.0% / 0.0%           p=1.00
+  all strata         qtsim   589      130 / 134            9.2% / 9.3%           p=0.93
+  all strata         all     565      133 / 152            9.4% / 11.2%          p=0.00
+
+── headline: median time to extinction (censored at 2000) by standardised rate d_env/√V_P ──
+  d_env/√V_P bin       n   published  Julia :qtsim  Julia :all
+  0.0025–0.2414      74        2000          2000        2000
+  0.2414–0.4994      74         444           422         492
+  0.4994–0.7817      73         188           199         212
+  0.7817–0.9775      74         152           152         184
+  0.9775–1.1964      73         102           101         106
+  1.1964–1.5152      74         108           106         112
+  1.5152–1.8770      73          88            82          85
+  1.8770–2.7198      74          72            74          74
+
+total 146 min
+exit=0
+
+Note added after this run (2026-11-04): the 5 skipped inputs have table rows that
+round MutationScalar or d_env to 3 significant figures, beyond the tolerance this
+run used; the script now matches them (0.5% on those two columns). Julia/published ratios with 95% intervals, this
+run and an earlier run with different seeds (583 inputs):
+  CrossoverModel :qtsim  extinction time 1.008 [0.990, 1.026] and 0.999 [0.993, 1.006]
+                         pre-move V_G    1.007 [0.986, 1.029] and 0.999 [0.979, 1.020]
+  CrossoverModel :all    extinction time 1.123 [1.094, 1.152] and 1.123 [1.092, 1.155]
+                         pre-move V_G    1.056 [1.035, 1.077] and 1.061 [1.040, 1.082]

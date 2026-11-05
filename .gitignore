@@ -1,0 +1,9 @@
+.DS_Store
+/Manifest.toml
+/Manifest-v*.toml
+docs/Manifest.toml
+docs/Manifest-v*.toml
+docs/.quarto/
+*.cov
+*.mem
+*.jl.*.cov

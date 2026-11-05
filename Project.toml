@@ -1,0 +1,24 @@
+name = "CategoricalQuantGen"
+uuid = "b3d9c2a1-4e6f-4b28-9f7a-1c2d3e4f5a6b"
+version = "0.1.0"
+authors = ["Simon Frost"]
+
+[deps]
+ACSets = "227ef7b5-1206-438b-ac65-934d6da304b8"
+Catlab = "134e5e36-593f-5add-ad60-77f754baafbe"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+
+[compat]
+ACSets = "0.2.29"
+Catlab = "0.17.6"
+Distributions = "0.25"
+julia = "1.10"
+
+[extras]
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
