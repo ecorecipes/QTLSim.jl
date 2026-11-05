@@ -70,7 +70,7 @@ Whatever the crossover pattern, a gamete takes each locus from one parental chro
 and the starting chromosome is chosen fairly. On average, then, a gamete carries half of
 the parent's additive genotype under either model, so neither biases the mean. Lean
 proves this for any assignment of loci to strands (`gamete_expected_sum_by` in
-`lean/QTLSim/Recombination.lean`). With random allelic effects:
+`lean/CategoricalQuantGen/Recombination.lean`). With random allelic effects:
 
 ```{julia}
 a = randn(Xoshiro(2), L); b = randn(Xoshiro(3), L)
@@ -117,7 +117,7 @@ end
 Applying every crossover point lets the populations survive the moving optimum about 10%
 longer, and they tend to hold more genetic variance (in these runs the interval for the
 variance only just includes no difference). The comparison of the Julia model with the paper's
-published results ([Validation against QTSim](../07_validation_against_qtsim/07_validation_against_qtsim.qmd))
+published results ([Validation against QTSim](../08_validation_against_qtsim/08_validation_against_qtsim.qmd))
 shows the same effect across all the paper's strata, and shows that only QTSim's model
 reproduces the published numbers.
 
@@ -149,6 +149,6 @@ fig
 A 5000-locus population takes several milliseconds per generation, roughly fifteen times
 as long as a 100-locus one, so the paper's 250,000-generation runs at that size are
 expensive; the
-[replication](../08_replicating_pagel_2025/08_replicating_pagel_2025.qmd) therefore
+[replication](../09_replicating_pagel_2025/09_replicating_pagel_2025.qmd) therefore
 samples the paper's inputs and stops each run 2000 generations after the optimum starts
 to move.

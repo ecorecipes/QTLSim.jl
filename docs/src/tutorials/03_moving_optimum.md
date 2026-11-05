@@ -166,7 +166,7 @@ The function below computes them from a run, following the conventions
 of the paper’s results table, which counts generations from one (so its
 “generation 10,000” is the last generation before the move). The
 [replication
-vignette](08_replicating_pagel_2025.md)
+vignette](09_replicating_pagel_2025.md)
 checks it against the table itself.
 
 ``` julia
@@ -264,7 +264,7 @@ indefinitely, though: the paper ran its populations for up to 240,000
 generations, and its estimate of the sustainable rate, about 3% of a
 standard deviation per generation, comes from the populations that
 lasted that long. The [replication
-vignette](08_replicating_pagel_2025.md)
+vignette](09_replicating_pagel_2025.md)
 maps the boundary across the paper’s whole parameter space.
 
 ```@raw html

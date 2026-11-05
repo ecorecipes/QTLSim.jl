@@ -44,18 +44,34 @@ loads when Catlab is loaded:
 using QTLSim
 import Catlab
 using Catlab: ⋅, ⊗
-(; develop, select, reproduce, mutate, swap, generation) = operators()
+L = lifecycle()                                                        # the life cycle as syntax
+(; develop, select, reproduce, mutate, swap, generation) = operators()  # its image in the kernel
 ```
+
+### The life cycle and its lowerings
+
+```@docs
+lifecycle
+lower
+slim_script
+run_composed
+```
+
+### Operators
 
 ```@docs
 operators
 operator
 demes
-run_composed
 migrate!
 migration
 totalpop
 ndemes
+```
+
+### The population as an ACSet
+
+```@docs
 population_schema
 lift
 lower!
@@ -72,6 +88,8 @@ CurrentModule = Main
 
 ```@docs
 QTLSimCatlabExt
+QTLSimCatlabExt.Stage
+QTLSimCatlabExt.EidosCode
 QTLSimCatlabExt.Operator
 QTLSimCatlabExt.Demes
 QTLSimCatlabExt.Stratified

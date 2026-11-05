@@ -2421,7 +2421,7 @@ window.Quarto = {
 
 <section id="overview" class="level2">
 <h2 class="anchored" data-anchor-id="overview">Overview</h2>
-<p><code>QTLSim.jl</code> simulates the quantitative-genetic model of Pagel, Gardner and Meade <span class="citation" data-cites="Pagel2025">(<a href="#ref-Pagel2025" role="doc-biblioref">Pagel et al. 2025</a>)</span>, who used it to ask how fast a population can track a steadily changing environment before it goes extinct. Their simulations were run with QTSim, a C program by Andrew Meade; this package is a Julia port of it, built around a fast kernel that reproduces QTSim’s output (see <a href="../07_validation_against_qtsim/07_validation_against_qtsim.qmd">Validation against QTSim</a>). An optional categorical layer, loaded with Catlab, describes the population and its life cycle as a composition of operators (<a href="../04_categorical_layer/04_categorical_layer.qmd">The categorical layer</a>).</p>
+<p><code>QTLSim.jl</code> simulates the quantitative-genetic model of Pagel, Gardner and Meade <span class="citation" data-cites="Pagel2025">(<a href="#ref-Pagel2025" role="doc-biblioref">Pagel et al. 2025</a>)</span>, who used it to ask how fast a population can track a steadily changing environment before it goes extinct. Their simulations were run with QTSim, a C program by Andrew Meade; this package is a Julia port of it, built around a fast kernel that reproduces QTSim’s output (see <a href="../08_validation_against_qtsim/08_validation_against_qtsim.qmd">Validation against QTSim</a>). An optional categorical layer, loaded with Catlab, describes the population and its life cycle as a composition of operators (<a href="../04_categorical_layer/04_categorical_layer.qmd">The categorical layer</a>).</p>
 <p>The model follows a population of <span class="math inline">\(N\)</span> diploid individuals with one quantitative trait.</p>
 <ul>
 <li>Each individual carries two copies of <code>NoQTL</code> loci. Its genotype <span class="math inline">\(G\)</span> is the sum of the allelic effects at all of them, and its phenotype is <span class="math inline">\(z = G + E\)</span>, where the environmental deviation <span class="math inline">\(E\)</span> is drawn from <span class="math inline">\(\mathcal{N}(0, V_E)\)</span> at birth.</li>
@@ -2613,7 +2613,7 @@ Figure 2: The optimum (dashed) starts moving at generation 2000. At the slow ra
 </figure>
 </div>
 </div>
-<p>This population can keep up with surprisingly fast change: it holds a lot of genetic variance, and its narrow fitness function turns a small lag into strong selection. Across the range of populations the paper simulated, sustainable change is limited to a few per cent of a standard deviation per generation; <a href="../03_moving_optimum/03_moving_optimum.qmd">Adaptation to a moving optimum</a> measures this the way the paper does, and <a href="../08_replicating_pagel_2025/08_replicating_pagel_2025.qmd">Replicating Pagel, Gardner and Meade (2025)</a> reproduces the paper’s results.</p>
+<p>This population can keep up with surprisingly fast change: it holds a lot of genetic variance, and its narrow fitness function turns a small lag into strong selection. Across the range of populations the paper simulated, sustainable change is limited to a few per cent of a standard deviation per generation; <a href="../03_moving_optimum/03_moving_optimum.qmd">Adaptation to a moving optimum</a> measures this the way the paper does, and <a href="../09_replicating_pagel_2025/09_replicating_pagel_2025.qmd">Replicating Pagel, Gardner and Meade (2025)</a> reproduces the paper’s results.</p>
 </section>
 <section id="where-next" class="level2">
 <h2 class="anchored" data-anchor-id="where-next">Where next</h2>
@@ -2621,8 +2621,8 @@ Figure 2: The optimum (dashed) starts moving at generation 2000. At the slow ra
 <li><a href="../02_mutation_selection_balance/02_mutation_selection_balance.qmd">Mutation–selection balance</a>: how much genetic variance the population maintains, compared with theory.</li>
 <li><a href="../03_moving_optimum/03_moving_optimum.qmd">Adaptation to a moving optimum</a>: the ways the optimum can move, and the paper’s measures of lag and extinction.</li>
 <li><a href="../04_categorical_layer/04_categorical_layer.qmd">The categorical layer</a> and <a href="../05_recomposing_the_model/05_recomposing_the_model.qmd">Recomposing the model</a>: the population as an ACSet, and a generation as a composite of operators that can be rearranged.</li>
-<li><a href="../06_loci_and_recombination/06_loci_and_recombination.qmd">Loci and recombination</a>: many loci, and the way QTSim recombines them.</li>
-<li><a href="../07_validation_against_qtsim/07_validation_against_qtsim.qmd">Validation against QTSim</a> and <a href="../08_replicating_pagel_2025/08_replicating_pagel_2025.qmd">Replicating Pagel, Gardner and Meade (2025)</a>.</li>
+<li><a href="../07_loci_and_recombination/07_loci_and_recombination.qmd">Loci and recombination</a>: many loci, and the way QTSim recombines them.</li>
+<li><a href="../08_validation_against_qtsim/08_validation_against_qtsim.qmd">Validation against QTSim</a> and <a href="../09_replicating_pagel_2025/09_replicating_pagel_2025.qmd">Replicating Pagel, Gardner and Meade (2025)</a>.</li>
 </ul>
 
 </section>

@@ -10,6 +10,7 @@ Simon Frost
 - [Figure 1](#figure-1)
 - [Genetic variance at equilibrium](#genetic-variance-at-equilibrium)
 - [How fast is too fast](#how-fast-is-too-fast)
+- [Survivors](#survivors)
 - [Summary](#summary)
 
 ## Overview
@@ -37,14 +38,16 @@ them in the same way, and compares them with the published runs of the
 same populations and with the paper’s full results.
 
 Three things differ from the paper. Each rerun stops 2000 generations
-after the optimum starts to move, rather than 240,000; most populations
-are dead by then, and comparisons that depend on long survival are made
-at the same 2000-generation horizon for the published runs. The sample
-takes 125 populations from each stratum with 100 or 500 loci, 75 with
-1000 and 30 with 5000, where runs are slowest, and weights every stratum
-equally when pooling, as the paper’s equal-sized strata do. And the
-reruns use QTLSim’s own random numbers, so each one is a new realisation
-of the same population, not a copy of the published run.
+after the optimum starts to move, rather than 240,000, unless the
+population is still alive then: most populations are dead by then, and
+comparisons of the 2000-generation reruns with the published runs are
+made at the same horizon. The populations still alive are run on to
+240,000 generations for the paper’s statistics of the survivors. The
+sample takes 125 populations from each stratum with 100 or 500 loci, 75
+with 1000 and 30 with 5000, where runs are slowest, and weights every
+stratum equally when pooling, as the paper’s equal-sized strata do. And
+the reruns use QTLSim’s own random numbers, so each one is a new
+realisation of the same population, not a copy of the published run.
 
 The results tables come with the paper’s code and data, not with this
 package. The vignette looks for them in a `Repository/Results` folder
@@ -54,7 +57,7 @@ next to the package’s folder.
 
 ``` julia
 using QTLSim
-using CairoMakie, DelimitedFiles, Printf, Random, Statistics, XLSX
+using CairoMakie, DelimitedFiles, Distributions, Printf, Random, Statistics, XLSX
 CairoMakie.activate!(type = "png")
 
 const PKG = normpath(joinpath(@__DIR__, "..", ".."))
@@ -62,6 +65,7 @@ const RESULTS = normpath(joinpath(PKG, "..", "Repository", "Results"))
 const MASTER = joinpath(RESULTS, "Master Output file.xlsx")
 const FIGDATA = joinpath(RESULTS, "Figures 1-2 and SI Figures 1-3 data.xlsx")
 const CACHE = joinpath(@__DIR__, "replication_runs.csv")
+const SURVIVOR_CACHE = joinpath(@__DIR__, "survivor_runs.csv")
 isfile(MASTER) || error("this vignette needs the paper's results tables in $RESULTS")
 Threads.nthreads()
 ```
@@ -94,7 +98,8 @@ function read_master(path)
        rate_ext = f("Standardised phenotypic change to extinction"),
        rate50 = f("standardised phenotypic change to 50% mortality"), lag = f("standardised lag"),
        P47 = f("P Survived at generation 10047"), VG = f("Genotype Var at 10000"),
-       shc = f("Burger Vg(SHC) eq 21a"), kc = f("standardised kc"), survived = f("Extinct (0,1)") .== 1)
+       shc = f("Burger Vg(SHC) eq 21a"), kc = f("standardised kc"),
+adjusted = f("mutation adjusted standardised change"), survived = f("Extinct (0,1)") .== 1)
 end
 
 t = read_master(MASTER)
@@ -108,7 +113,7 @@ interquartile ranges. The rate of phenotypic change is how far the mean
 phenotype moved per generation, until extinction or until 50% mortality,
 in units of the phenotypic standard deviation at 50% mortality;
 [Adaptation to a moving
-optimum](03_moving_optimum.md) defines each
+optimum](../03_moving_optimum/03_moving_optimum.qmd) defines each
 measure. The quantiles below are weighted, which matters for the sample
 later; for the full table every weight is one.
 
@@ -144,9 +149,28 @@ end
 
 The survivors’ median rate of phenotypic change, about 0.03 standard
 deviations per generation, is the paper’s estimate of the maximum
-sustainable rate. (The paper also weights the survivors by how likely
-their mutation scalar is, which brings the median down to 0.019; that
-adjustment is not repeated here.)
+sustainable rate. The survivors’ mutation scalars are larger than those
+of the populations as a whole, so the paper also reweights them (its
+equation 1): each survivor’s rate is multiplied by the density of its
+mutation scalar under a gamma distribution, relative to the survivors’
+mean density. The gamma distribution turns out to be the
+maximum-likelihood fit to the mutation scalars of all 119,984
+populations, and with it the adjustment reproduces the table’s column:
+
+``` julia
+const MGAMMA = fit_mle(Gamma, t.m)
+"Rates weighted by the density of their mutation scalars, relative to the (weighted) mean density."
+mutation_adjusted(rate, m, w = ones(length(m))) =
+    rate .* pdf.(MGAMMA, m) ./ (sum(w .* pdf.(MGAMMA, m)) / sum(w))
+adj = mutation_adjusted(t.rate_ext[t.survived], t.m[t.survived])
+(gamma_shape = shape(MGAMMA), gamma_scale = scale(MGAMMA),
+ largest_relative_difference = maximum(abs.(adj ./ t.adjusted[t.survived] .- 1)),
+ median_adjusted = median(adj))
+```
+
+    (gamma_shape = 1.2010380894230446, gamma_scale = 0.004635457830592143, largest_relative_difference = 6.544547792586286e-9, median_adjusted = 0.019677242570054217)
+
+The adjusted median, 0.0197, is the paper’s 0.019.
 
 Figure 1d of the paper fits the time to extinction against the
 standardised lag, the amount per generation by which a population falls
@@ -187,6 +211,49 @@ end
 
     0.044 standard deviations per generation is at the 68.3th percentile of k_c (5755 survivors)
     0.088 standard deviations per generation is at the 86.2th percentile of k_c (5755 survivors)
+
+The critical rate is the paper’s equation 2, Bürger and Lynch’s maximum
+rate of environmental change a population can sustain. It needs only
+quantities that every run reports: the genetic variance $\sigma_g^2$
+just before the move, the fitness width $\omega$, the environmental
+variance $V_E$, and the number $n$ of survivors at the table’s
+generation 10,047, from which the table takes the expected number of
+offspring per surviving parent $N_0 = N(2n-3)/(2n(n-2))$, the variance
+in offspring number $V_k = 2N_0(1 - 2N_0/N)$ and Falconer’s effective
+size $N_e = 4N/(V_k + 2)$. With $V_s = \omega^2 + V_E$,
+$V_\lambda = V_s + \sigma_g^2 + V_s/(2N_e)$ and
+$B_0 = N_0\,\omega/\sqrt{V_\lambda}$, the table’s column is
+
+$$k_c = \frac{\sigma_g^2}{\sigma_g^2 + V_s}\sqrt{2 V_\lambda \ln B_0}$$
+
+in units of the phenotypic standard deviation at 50% mortality, where
+$B_0 > 1$. The equation as printed has no factor of 2 and has
+$V_s + \sigma_g^2$ in place of $V_\lambda$; the table’s form, which
+gives the paper’s numbers, is Bürger and Lynch’s ([Bürger and Lynch
+1995](#ref-BurgerLynch1995)). This function reproduces the column:
+
+``` julia
+# Bürger and Lynch's critical rate k_c, as the paper's results table computes it, in units of
+# the phenotypic standard deviation `sd50` at 50% mortality; `n` is the number of survivors
+# at the table's generation 10,047 and `VG` the genetic variance just before the move.
+function critical_rate(; n, VG, ω, VE, sd50, N = POP)
+    n >= 3 || return NaN
+    No = N * (2n - 3) / (2n * (n - 2))          # offspring per surviving parent
+    Vk = 2No * (1 - 2No / N)                    # variance in offspring number
+    Ne = 4N / (Vk + 2)                          # Falconer's effective size
+    Vs = ω^2 + VE
+    Vλ = Vs + VG + Vs / (2Ne)
+    B0 = No * ω / sqrt(Vλ)
+    B0 > 1 ? VG / (VG + Vs) * sqrt(2Vλ * log(B0)) / sd50 : NaN
+end
+kc_recomputed = [critical_rate(n = t.P47[i], VG = t.VG[i], ω = t.ω[i], VE = (1 - t.h2[i]) * t.VP[i],
+                               sd50 = t.sd50[i]) for i in eachindex(t.L)]
+ok = isfinite.(t.kc)
+(defined_where_the_table_is = isfinite.(kc_recomputed) == ok,
+ largest_relative_difference = maximum(abs.(kc_recomputed[ok] ./ t.kc[ok] .- 1)))
+```
+
+    (defined_where_the_table_is = true, largest_relative_difference = 8.111256111220655e-11)
 
 ## Rerunning a sample with QTLSim
 
@@ -287,10 +354,10 @@ end
 nothing
 ```
 
-The runs take about 40 minutes on ten threads, mostly for the
-populations with many loci, so each finished run is stored next to this
-vignette and read back on later renders. Deleting the file reruns them,
-and an interrupted replication resumes where it stopped.
+The runs take about an hour on ten threads, mostly for the populations
+with many loci, so each finished run is stored next to this vignette and
+read back on later renders. Deleting the file reruns them, and an
+interrupted replication resumes where it stopped.
 
 ``` julia
 runs = run_replication(t, rows, CACHE)
@@ -429,11 +496,11 @@ axislegend(ax_d, position = :lb)
 fig
 ```
 
-```@raw html
 <div id="fig-figure1">
-```
 
-![](08_replicating_pagel_2025_files/figure-commonmark/fig-figure1-output-1.png)
+<img
+src="09_replicating_pagel_2025_files/figure-commonmark/fig-figure1-output-1.png"
+width="1000" height="800" />
 
 Figure 1: Figure 1 of the paper (gray, from its figure data) with the
 same summaries of the sampled populations: their published runs (navy)
@@ -444,9 +511,7 @@ standardised lag. (c) Median mortality at generation 47 against the
 median lag. (d) Generations to extinction against standardised lag for
 the QTLSim reruns, with the paper’s fitted curve.
 
-```@raw html
 </div>
-```
 
 The QTLSim reruns (crimson) and the published runs of the same
 populations (navy) lie on the paper’s curves (gray) in every panel.
@@ -488,7 +553,7 @@ The paper checks its populations’ genetic variance at the end of the
 stabilising phase against Bürger’s stochastic house-of-cards
 approximation ([Bürger et al. 1989](#ref-Burger1989)) (its Supplementary
 Figure S1; see [Mutation–selection
-balance](02_mutation_selection_balance.md)).
+balance](../02_mutation_selection_balance/02_mutation_selection_balance.qmd)).
 The same check for the reruns, with the effective population size
 computed from each rerun’s own number of survivors:
 
@@ -522,20 +587,18 @@ end
 fig
 ```
 
-```@raw html
 <div id="fig-shc">
-```
 
-![](08_replicating_pagel_2025_files/figure-commonmark/fig-shc-output-1.png)
+<img
+src="09_replicating_pagel_2025_files/figure-commonmark/fig-shc-output-1.png"
+width="900" height="400" />
 
 Figure 2: Genetic variance just before the optimum moves against the
 stochastic house-of-cards approximation, for the published runs (left)
 and the QTLSim reruns (right) of the sampled populations. The line is
 equality.
 
-```@raw html
 </div>
-```
 
 ## How fast is too fast
 
@@ -565,20 +628,18 @@ axislegend(ax, position = :rt)
 fig
 ```
 
-```@raw html
 <div id="fig-survival">
-```
 
-![](08_replicating_pagel_2025_files/figure-commonmark/fig-survival-output-1.png)
+<img
+src="09_replicating_pagel_2025_files/figure-commonmark/fig-survival-output-1.png"
+width="640" height="400" />
 
 Figure 3: Fraction of populations still alive 2000 generations after the
 optimum starts moving, against the standardised rate of environmental
 change, for all 119,984 published populations (gray), the published runs
 of the sampled populations (navy) and their QTLSim reruns (crimson).
 
-```@raw html
 </div>
-```
 
 ``` julia
 alive = .!runs.extinct; alive_pub = pub(:T) .>= CAP
@@ -597,6 +658,94 @@ deviations per generation. The paper’s populations that lasted all
 estimate of a maximum sustainable rate of about 3% of a standard
 deviation per generation.
 
+## Survivors
+
+In the paper, 6158 of the 119,984 populations (5.1%) were still alive
+240,000 generations after their optimum started to move. Its maximum
+sustainable rate is the survivors’ median rate of phenotypic change, and
+its comparison with the field uses their critical rate. The sampled
+populations whose reruns were still alive after 2000 generations are run
+on to 240,000 generations, stored next to this vignette as the other
+runs are. Each is the same run carried further, so its measures before
+the move are those of its 2000-generation rerun:
+
+``` julia
+const FULL = 240_000
+long = run_replication(t, runs.row[.!runs.extinct], SURVIVOR_CACHE; cap = FULL)
+k = indexin(long.row, runs.row)
+@printf("%d reruns run on to %d generations; the same runs before the move: %s\n", length(long.row), FULL,
+        long.VG == runs.VG[k] && long.ns_eq == runs.ns_eq[k] && isequal(long.P47, runs.P47[k]))
+```
+
+    63 reruns run on to 240000 generations; the same runs before the move: true
+
+Which of the sampled populations survived, in their published runs and
+in their reruns:
+
+``` julia
+survived_jl = falses(length(runs.row)); survived_jl[k] .= .!long.extinct
+survived_pub = pub(:survived)
+share(alive, w = ones(length(alive))) = 100 * sum(w .* alive) / sum(w)
+println("| | rerun survived | rerun died |\n|:--|--:|--:|")
+@printf("| published run survived | %d | %d |\n", count(survived_pub .& survived_jl), count(survived_pub .& .!survived_jl))
+@printf("| published run died | %d | %d |\n", count(.!survived_pub .& survived_jl), count(.!survived_pub .& .!survived_jl))
+@printf("\nSurvived 240,000 generations, strata weighted equally: QTLSim %.1f%%, published runs %.1f%%; all published populations %.1f%%.\n",
+        share(survived_jl, w), share(survived_pub, w), share(t.survived))
+```
+
+|                        | rerun survived | rerun died |
+|:-----------------------|---------------:|-----------:|
+| published run survived |             40 |          1 |
+| published run died     |              0 |        669 |
+
+Survived 240,000 generations, strata weighted equally: QTLSim 5.4%,
+published runs 5.5%; all published populations 5.1%.
+
+The survivors’ statistics, for the reruns measured as the table measures
+the published runs: the rate of phenotypic change over all 240,000
+generations, and $k_c$ from each rerun’s own genetic variance, survivors
+at generation 10,047 and phenotypic standard deviation at 50% mortality.
+
+``` julia
+sv = findall(.!long.extinct)                                  # surviving reruns
+rows_jl = long.row[sv]; w_jl = [1 / SAMPLE_SIZE[L] for L in long.L[sv]]
+rate_jl = long.rate_ext[sv]
+kc_jl = [critical_rate(n = long.P47[i], VG = long.VG[i], ω = t.ω[r], VE = (1 - t.h2[r]) * t.VP[r],
+                       sd50 = long.sd50[i]) for (i, r) in zip(sv, rows_jl)]
+rows_pub = runs.row[survived_pub]; w_pub = w[survived_pub]   # surviving published runs of the sample
+adj_pub = mutation_adjusted(t.rate_ext[rows_pub], t.m[rows_pub], w_pub)
+adj_jl = mutation_adjusted(rate_jl, t.m[rows_jl], w_jl)
+println("| survivors' statistic | paper | all published survivors | published runs of the sample | QTLSim reruns |")
+println("|:--|:--|:--|:--|:--|")
+for (name, paper, all_pub, s_pub, s_jl) in (
+        ("rate of phenotypic change", "0.031 (0.011–0.066)", t.rate_ext[t.survived], t.rate_ext[rows_pub], rate_jl),
+        ("the same, adjusted for the mutation scalar", "0.019 (0.006–0.055)", adj, adj_pub, adj_jl),
+        ("critical rate k_c", "0.022 (0.008–0.056)", t.kc[t.survived], t.kc[rows_pub], kc_jl))
+    println("| ", name, " | ", paper, " | ", iqr(all_pub), " | ", iqr(s_pub, w_pub), " | ", iqr(s_jl, w_jl), " |")
+end
+both = intersect(rows_pub, rows_jl); ib = indexin(both, rows_jl)
+@printf("\nIn the %d populations that survived in both, the rerun's rate of phenotypic change is %.3f times the published one and its k_c %.3f times (medians of the ratios).\n",
+        length(both), median(rate_jl[ib] ./ t.rate_ext[both]), median(filter(isfinite, kc_jl[ib] ./ t.kc[both])))
+```
+
+| survivors’ statistic | paper | all published survivors | published runs of the sample | QTLSim reruns |
+|:---|:---|:---|:---|:---|
+| rate of phenotypic change | 0.031 (0.011–0.066) | 0.0307 (0.0117–0.0661) | 0.0375 (0.0193–0.0741) | 0.0392 (0.0182–0.0735) |
+| the same, adjusted for the mutation scalar | 0.019 (0.006–0.055) | 0.0197 (0.00656–0.0551) | 0.0158 (0.011–0.0359) | 0.0162 (0.0118–0.0344) |
+| critical rate k_c | 0.022 (0.008–0.056) | 0.0222 (0.00821–0.0559) | 0.0312 (0.00986–0.0612) | 0.0303 (0.0112–0.0631) |
+
+In the 40 populations that survived in both, the rerun’s rate of
+phenotypic change is 0.994 times the published one and its k_c 1.017
+times (medians of the ratios).
+
+The reruns survive in the same populations as the published runs, and
+their survivors change at the same rates and have the same critical
+rates, population by population. The survivors of the sample have higher
+medians than all the paper’s survivors, in the published runs as much as
+in the reruns: with about forty survivors that difference is sampling
+error in the choice of populations, not a difference between QTSim and
+QTLSim.
+
 ## Summary
 
 The paper’s numbers next to the same quantities recomputed from its
@@ -606,7 +755,6 @@ generations and strata weighted equally):
 
 ``` julia
 med(v, w = ones(length(v))) = (ok = isfinite.(v); wquantile(v[ok], w[ok], 0.5))
-share(alive, w = ones(length(alive))) = 100 * sum(w .* alive) / sum(w)
 ft, fp, fj = logfit(t.lag, t.T), logfit(pub(:lag), capT(pub(:T)), w), logfit(runs.lag, capT(runs.T), w)
 println("| result | paper | paper's table | published runs of the sample | QTLSim reruns |")
 println("|:--|:--|:--|:--|:--|")
@@ -624,6 +772,14 @@ println("|:--|:--|:--|:--|:--|")
         med(pub(:VG) ./ pub(:shc), w), med(runs.VG ./ shc_jl, w))
 @printf("| alive 2000 generations after the move | | %.1f%% | %.1f%% | %.1f%% |\n",
         share(t.T .>= CAP), share(pub(:T) .>= CAP, w), share(.!runs.extinct, w))
+@printf("| survived 240,000 generations | 5.1%% | %.1f%% | %.1f%% | %.1f%% |\n",
+        share(t.survived), share(survived_pub, w), share(survived_jl, w))
+@printf("| rate of phenotypic change, survivors | 0.031 | %.3f | %.3f | %.3f |\n",
+        med(t.rate_ext[t.survived]), med(t.rate_ext[rows_pub], w_pub), med(rate_jl, w_jl))
+@printf("| the same, adjusted for the mutation scalar | 0.019 | %.3f | %.3f | %.3f |\n",
+        med(adj), med(adj_pub, w_pub), med(adj_jl, w_jl))
+@printf("| critical rate k_c, survivors | 0.022 | %.3f | %.3f | %.3f |\n",
+        med(t.kc[t.survived]), med(t.kc[rows_pub], w_pub), med(kc_jl, w_jl))
 @printf("| percentiles of k_c at 0.044 and 0.088 | 68th, 86th | %.0fth, %.0fth | | |\n",
         100 * mean(kc .<= 0.044), 100 * mean(kc .<= 0.088))
 ```
@@ -637,63 +793,53 @@ println("|:--|:--|:--|:--|:--|")
 | slope of log time to extinction on log lag | −0.91 | -0.91 | -0.86 (capped) | -0.91 (capped) |
 | genetic variance / house of cards | close to 1 |  | 0.90 | 0.89 |
 | alive 2000 generations after the move |  | 8.1% | 9.0% | 8.8% |
+| survived 240,000 generations | 5.1% | 5.1% | 5.5% | 5.4% |
+| rate of phenotypic change, survivors | 0.031 | 0.031 | 0.038 | 0.039 |
+| the same, adjusted for the mutation scalar | 0.019 | 0.020 | 0.016 | 0.016 |
+| critical rate k_c, survivors | 0.022 | 0.022 | 0.031 | 0.030 |
 | percentiles of k_c at 0.044 and 0.088 | 68th, 86th | 68th, 86th |  |  |
 
 Every number the paper reports that can be computed from its results
-table is reproduced exactly from it. On a stratified sample of 710 of
-its populations, QTLSim reproduces the published runs: survival, rates
-of change, lag, mortality and genetic variance agree with the published
-runs of the same populations to within the scatter between two
-realisations of each population, and with the paper’s figures. Two steps
-of the paper are not repeated: weighting the survivors by the
-probability of their mutation scalar, and the critical rate $k_c$ of the
-reruns, whose ingredients come from the paper’s equation 2.
+table is reproduced exactly from it, including the adjustment for the
+mutation scalar and the critical rate $k_c$, whose recipes are recovered
+here. On a stratified sample of 710 of its populations, QTLSim
+reproduces the published runs: survival, rates of change, lag, mortality
+and genetic variance agree with the published runs of the same
+populations to within the scatter between two realisations of each
+population, and with the paper’s figures. Run on to the paper’s horizon
+of 240,000 generations, the reruns survive in the same populations as
+the published runs, and their survivors’ rates of change and critical
+rates agree with the published ones to within a few per cent.
 
-```@raw html
 <div id="refs" class="references csl-bib-body hanging-indent">
-```
 
-```@raw html
 <div id="ref-BurgerLynch1995" class="csl-entry">
-```
 
 Bürger, Reinhard, and Michael Lynch. 1995. “Evolution and Extinction in
 a Changing Environment: A Quantitative-Genetic Analysis.” *Evolution* 49
 (1): 151–63. <https://doi.org/10.1111/j.1558-5646.1995.tb05967.x>.
 
-```@raw html
 </div>
-```
 
-```@raw html
 <div id="ref-Burger1989" class="csl-entry">
-```
 
 Bürger, Reinhard, Günter P. Wagner, and Franz Stettinger. 1989. “How
 Much Heritable Variation Can Be Maintained in Finite Populations by
 Mutation-Selection Balance?” *Evolution* 43 (8): 1748–66.
 <https://doi.org/10.1111/j.1558-5646.1989.tb02624.x>.
 
-```@raw html
 </div>
-```
 
-```@raw html
 <div id="ref-LynchLande1993" class="csl-entry">
-```
 
 Lynch, Michael, and Russell Lande. 1993. “Evolution and Extinction in
 Response to Environmental Change.” In *Biotic Interactions and Global
 Change*, edited by Peter M. Kareiva, Joel G. Kingsolver, and Raymond B.
 Huey. Sinauer.
 
-```@raw html
 </div>
-```
 
-```@raw html
 <div id="ref-Pagel2025" class="csl-entry">
-```
 
 Pagel, Mark, Jacob D. Gardner, and Andrew Meade. 2025.
 “Quantitative-Genetic Analysis of Directional Adaptation Suggests Low
@@ -701,10 +847,6 @@ Maximum Sustainable Rates of Change in Agreement with Data from Field
 Populations.” *Scientific Reports* 15.
 <https://doi.org/10.1038/s41598-025-24445-2>.
 
-```@raw html
 </div>
-```
 
-```@raw html
 </div>
-```

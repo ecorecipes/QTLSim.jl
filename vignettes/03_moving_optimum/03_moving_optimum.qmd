@@ -129,7 +129,7 @@ compared. With the move starting at generation $g_0$:
 The function below computes them from a run, following the conventions of the paper's
 results table, which counts generations from one (so its "generation 10,000" is the last
 generation before the move). The
-[replication vignette](../08_replicating_pagel_2025/08_replicating_pagel_2025.qmd) checks
+[replication vignette](../09_replicating_pagel_2025/09_replicating_pagel_2025.qmd) checks
 it against the table itself.
 
 ```{julia}
@@ -198,5 +198,5 @@ phenotypic standard deviation per generation, and every one died at about 7% and
 Surviving 2000 generations is not surviving indefinitely, though: the paper ran its
 populations for up to 240,000 generations, and its estimate of the sustainable rate,
 about 3% of a standard deviation per generation, comes from the populations that lasted
-that long. The [replication vignette](../08_replicating_pagel_2025/08_replicating_pagel_2025.qmd)
+that long. The [replication vignette](../09_replicating_pagel_2025/09_replicating_pagel_2025.qmd)
 maps the boundary across the paper's whole parameter space.

@@ -17,7 +17,7 @@ fast a population can track a steadily changing environment before it
 goes extinct. Their simulations were run with QTSim, a C program by
 Andrew Meade; this package is a Julia port of it, built around a fast
 kernel that reproduces QTSim’s output (see [Validation against
-QTSim](../07_validation_against_qtsim/07_validation_against_qtsim.qmd)).
+QTSim](../08_validation_against_qtsim/08_validation_against_qtsim.qmd)).
 An optional categorical layer, loaded with Catlab, describes the
 population and its life cycle as a composition of operators ([The
 categorical layer](../04_categorical_layer/04_categorical_layer.qmd)).
@@ -219,7 +219,7 @@ simulated, sustainable change is limited to a few per cent of a standard
 deviation per generation; [Adaptation to a moving
 optimum](../03_moving_optimum/03_moving_optimum.qmd) measures this the
 way the paper does, and [Replicating Pagel, Gardner and Meade
-(2025)](../08_replicating_pagel_2025/08_replicating_pagel_2025.qmd)
+(2025)](../09_replicating_pagel_2025/09_replicating_pagel_2025.qmd)
 reproduces the paper’s results.
 
 ## Where next
@@ -238,12 +238,12 @@ reproduces the paper’s results.
   population as an ACSet, and a generation as a composite of operators
   that can be rearranged.
 - [Loci and
-  recombination](../06_loci_and_recombination/06_loci_and_recombination.qmd):
+  recombination](../07_loci_and_recombination/07_loci_and_recombination.qmd):
   many loci, and the way QTSim recombines them.
 - [Validation against
-  QTSim](../07_validation_against_qtsim/07_validation_against_qtsim.qmd)
+  QTSim](../08_validation_against_qtsim/08_validation_against_qtsim.qmd)
   and [Replicating Pagel, Gardner and Meade
-  (2025)](../08_replicating_pagel_2025/08_replicating_pagel_2025.qmd).
+  (2025)](../09_replicating_pagel_2025/09_replicating_pagel_2025.qmd).
 
 <div id="refs" class="references csl-bib-body hanging-indent">
 

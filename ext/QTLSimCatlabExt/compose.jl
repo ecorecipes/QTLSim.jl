@@ -1,13 +1,9 @@
-# Evolutionary processes as first-class operators. A generation is the left-to-right
-# composite
-#
-#     generation = develop ⋅ select ⋅ reproduce ⋅ mutate ⋅ swap
-#
-# `⋅` is Catlab's diagrammatic composition, `(f ⋅ g)(w) = g(f(w))`: it reads in the
-# biological order and is the reverse of the `∘` in Composition.lean
-# (`generation = mutate ∘ reproduce ∘ select`). Catlab's monoidal product `⊗` builds a
-# metapopulation of demes over which the same operators act pointwise, with a migration
-# operator coupling them.
+# Evolutionary processes as first-class operators: the image of the life cycle
+# (lifecycle.jl) in the simulation kernel. An operator acts on a `World` and composes
+# left to right with Catlab's `⋅`, `(f ⋅ g)(w) = g(f(w))`, which reads in the biological
+# order and is the reverse of the `∘` in Composition.lean. Catlab's monoidal product `⊗`
+# builds a metapopulation of demes over which the same operators act pointwise, with a
+# migration operator coupling them.
 
 """
     Operator(name, act, scope)
@@ -44,49 +40,67 @@ function ⋅(f::Operator, g::Operator)
     end, sc)
 end
 
+# Catlab's `compose` is `⋅` on operators, so that a functor from the life-cycle category
+# can land in them: GATlab's `functor` composes the images of the steps with `compose`.
+compose(f::Operator, g::Operator) = f ⋅ g
+compose(f::Operator, g::Operator, h::Operator, rest::Operator...) = foldl(⋅, (f, g, h, rest...))
+
 isextinct(w::World) = w.extinct
 
-# --- the steps of QTSim's generation loop, wrapping the kernel ----------------
+# --- the kernel image of each step of the life cycle ---------------------
 
-const develop = Operator(:develop, (w, rng) -> QTLSim.develop!(w))
-const select = Operator(:select, (w, rng) -> QTLSim.select!(w, rng))
-const reproduce = Operator(:reproduce, (w, rng) -> isextinct(w) ? w : QTLSim.reproduce!(w, rng))
-const mutate = Operator(:mutate, (w, rng) -> QTLSim.mutate!(w, rng))
-const swap = Operator(:swap, (w, rng) -> (QTLSim.swapbuffers!(w); w.gen += 1; w))
-const generation = develop ⋅ select ⋅ reproduce ⋅ mutate ⋅ swap
+"Empty columns for the statistics `record` collects, as `run!` returns them."
+records() = (gen = Int[], pheno_mean = Float64[], pheno_var = Float64[], geno_var = Float64[],
+             nsurv = Int[], theta = Float64[], omega = Float64[])
 
-operators() = (; develop, select, reproduce, mutate, swap, generation)
+"Append the parent generation's statistics to `rec` every `Sample` generations (QTSim `Output`)."
+function record!(rec, w::World)
+    (rec === nothing || w.gen % w.p.Sample != 0) && return w
+    push!(rec.gen, w.gen); push!(rec.pheno_mean, mean(w.phenotype))
+    push!(rec.pheno_var, var(w.phenotype)); push!(rec.geno_var, var(w.genotype))
+    push!(rec.nsurv, w.nsurv); push!(rec.theta, w.θ); push!(rec.omega, w.ω)
+    w
+end
 
-# --- a run driven by the composed operator -------------------------------
+"Change the fitness width at `ChangeFitnessGen`, effective from the next generation."
+function rescale!(w::World)
+    w.gen == w.p.ChangeFitnessGen && (w.ω = w.p.ChangeFitnessSD)
+    w
+end
 
-function run_composed(w::World, rng; record::Bool=true)
+"""
+The kernel image of each step of the life cycle, by name. `record` appends to `rec`, or
+discards its observations when `rec` is `nothing`.
+"""
+kernel_images(rec = nothing) = Dict{Symbol,Any}(
+    :develop => Operator(:develop, (w, rng) -> QTLSim.develop!(w)),
+    :select => Operator(:select, (w, rng) -> QTLSim.select!(w, rng)),
+    :reproduce => Operator(:reproduce, (w, rng) -> isextinct(w) ? w : QTLSim.reproduce!(w, rng)),
+    :record => Operator(:record, (w, rng) -> record!(rec, w)),
+    :rescale => Operator(:rescale, (w, rng) -> rescale!(w)),
+    :mutate => Operator(:mutate, (w, rng) -> QTLSim.mutate!(w, rng)),
+    :swap => Operator(:swap, (w, rng) -> (QTLSim.swapbuffers!(w); w.gen += 1; w)))
+
+# --- a run driven by one lowered life cycle -------------------------------
+
+function run_composed(w::World, rng; record::Bool=true, cycle = lifecycle().generation,
+                      images = Dict{Symbol,Any}())
+    zygotes = LifeCycle[:Zygotes]
+    dom(cycle) == zygotes && codom(cycle) == zygotes ||
+        throw(ArgumentError("a run iterates a life cycle Zygotes → Zygotes; got $(dom(cycle)) → $(codom(cycle))"))
+    rec = records()
+    step = lower(cycle, :kernel; images, record = record ? rec : nothing)
     p = w.p
     esd = envsd(p)
     @inbounds for i in 1:p.PopSize
         w.env[i] = esd * randn(rng)
     end
-    gen = Int[]; pmean = Float64[]; pvar = Float64[]
-    gvar = Float64[]; nsurv = Int[]; θs = Float64[]; ωs = Float64[]
     for it in 0:p.NoGenerations-1
         w.gen = it
-        develop(w, rng)
-        select(w, rng)
-        if w.extinct
-            return (extinct=true, extinct_gen=it, gen=gen, pheno_mean=pmean,
-                    pheno_var=pvar, geno_var=gvar, nsurv=nsurv, theta=θs, omega=ωs)
-        end
-        reproduce(w, rng)
-        if record && (it % p.Sample == 0)
-            push!(gen, it); push!(pmean, mean(w.phenotype)); push!(pvar, var(w.phenotype))
-            push!(gvar, var(w.genotype)); push!(nsurv, w.nsurv)
-            push!(θs, w.θ); push!(ωs, w.ω)
-        end
-        it == p.ChangeFitnessGen && (w.ω = p.ChangeFitnessSD)
-        mutate(w, rng)
-        swap(w, rng)
+        step(w, rng)
+        w.extinct && return (extinct=true, extinct_gen=it, rec...)
     end
-    (extinct=false, extinct_gen=-1, gen=gen, pheno_mean=pmean,
-     pheno_var=pvar, geno_var=gvar, nsurv=nsurv, theta=θs, omega=ωs)
+    (extinct=false, extinct_gen=-1, rec...)
 end
 
 # --- stratification: ⊗ builds a metapopulation of demes ------------------

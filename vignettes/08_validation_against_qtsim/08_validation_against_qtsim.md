@@ -169,18 +169,16 @@ if have_qtsim
 end
 ```
 
-```@raw html
 <div id="fig-ecdf">
-```
 
-![](07_validation_against_qtsim_files/figure-commonmark/fig-ecdf-output-1.png)
+<img
+src="08_validation_against_qtsim_files/figure-commonmark/fig-ecdf-output-1.png"
+width="1000" height="560" />
 
 Figure 1: Empirical distribution functions of the summary statistics,
 Julia (teal) against QTSim (crimson), 100 runs each.
 
-```@raw html
 </div>
-```
 
 The distributions coincide. The genetic-variance statistics of scenario
 B, a single locus under weak selection, are heavy-tailed and noisy even
@@ -287,20 +285,18 @@ scatter!(ax2, pub_T, jT, color = (:crimson, 0.5), markersize = 6)
 fig
 ```
 
-```@raw html
 <div id="fig-published">
-```
 
-![](07_validation_against_qtsim_files/figure-commonmark/fig-published-output-1.png)
+<img
+src="08_validation_against_qtsim_files/figure-commonmark/fig-published-output-1.png"
+width="900" height="400" />
 
 Figure 2: The Julia model (QTSim’s crossover model) against the paper’s
 published results for the same 589 inputs. Left: genetic variance just
 before the optimum starts moving. Right: generations to extinction after
 the move, capped at 2000. The lines are equality.
 
-```@raw html
 </div>
-```
 
 Individual runs scatter around the line, as they must: the Julia model
 and QTSim use different random numbers, so the same input gives a
@@ -310,4 +306,4 @@ Applying every crossover point instead gives populations that hold about
 6% more genetic variance and survive about 12% longer than the published
 ones, so the published results depend on QTSim’s single-crossover
 recombination ([Loci and
-recombination](06_loci_and_recombination.md)).
+recombination](../07_loci_and_recombination/07_loci_and_recombination.qmd)).

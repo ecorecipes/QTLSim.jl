@@ -2401,7 +2401,7 @@ window.Quarto = {
 
 <section id="overview" class="level2">
 <h2 class="anchored" data-anchor-id="overview">Overview</h2>
-<p>A generation is the composite <code>develop ⋅ select ⋅ reproduce ⋅ mutate ⋅ swap</code> (<a href="../04_categorical_layer/04_categorical_layer.qmd">The categorical layer</a>). Because each step is a value, the model can be changed by changing the composite: replacing a step, dropping one, repeating one, inserting a new one, or stratifying the population into demes. The validated kernel functions are reused unchanged in every variant below; only the wiring differs.</p>
+<p>A generation is the composite <code>develop ⋅ select ⋅ reproduce ⋅ record ⋅ rescale ⋅ mutate ⋅ swap</code> (<a href="../04_categorical_layer/04_categorical_layer.qmd">The categorical layer</a>); the variants below leave out <code>record</code> and <code>rescale</code>, which would do nothing in them. Because each step is a value, the model can be changed by changing the composite: replacing a step, dropping one, repeating one, inserting a new one, or stratifying the population into demes. The validated kernel functions are reused unchanged in every variant below; only the wiring differs.</p>
 </section>
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
@@ -2414,7 +2414,7 @@ window.Quarto = {
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>(; develop, select, reproduce, mutate, swap, generation) <span class="op">=</span> <span class="fu">operators</span>()</span>
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="cn">nothing</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p><code>run!</code> and <code>run_composed</code> always use the standard generation, so we write a small driver that runs any composed generation and records the mean phenotype and genetic variance of the parents each generation. Recording calls <code>develop!</code>, which uses no random numbers, so it does not disturb the run.</p>
+<p><code>run!</code> runs the standard generation, and <code>run_composed</code> runs a life cycle written as syntax (<a href="../06_one_life_cycle_two_backends/06_one_life_cycle_two_backends.qmd">One life cycle, two backends</a>). For operators composed directly, as here, we write a small driver that runs any composite and records the mean phenotype and genetic variance of the parents each generation. Recording calls <code>develop!</code>, which uses no random numbers, so it does not disturb the run.</p>
 <div id="4" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">run_variant</span>(genop, p<span class="op">::</span><span class="dt">Params</span>; seed)</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    rng <span class="op">=</span> <span class="fu">Xoshiro</span>(seed); w <span class="op">=</span> <span class="fu">World</span>(p)</span>
@@ -2616,7 +2616,7 @@ Figure 4: Four neutral demes. Left: isolated, their means drift apart. Right: w
 </figure>
 </div>
 </div>
-<p>Every variant here is a line of composition rather than a change to the simulator. That rearranging the operators is well defined, that composition is associative and a run is the iterate of one composed generation, is what <code>lean/QTLSim/Composition.lean</code> proves.</p>
+<p>Every variant here is a line of composition rather than a change to the simulator. That rearranging the operators is well defined, that composition is associative and a run is the iterate of one composed generation, is what <code>lean/CategoricalQuantGen/Composition.lean</code> proves.</p>
 </section>
 
 </main>

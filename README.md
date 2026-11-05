@@ -43,22 +43,34 @@ so every gamete has at most one crossover. The published simulations were run th
 ## The categorical layer
 
 Loading Catlab adds a categorical description of the same model, the package extension
-`QTLSimCatlabExt`: the population as an attributed C-set (ACSet), and the life cycle as a
-composite of operators that can be rearranged and stratified into demes.
+`QTLSimCatlabExt`. The life cycle is written once, as a morphism of a free category whose
+objects are the stages of a generation and whose generators are its steps, and functors
+lower it to the simulation kernel and to a model for the population-genetics simulator
+SLiM, in its language Eidos:
 
 ```julia
 import Catlab
 using Catlab: ⋅, ⊗
 using Random
-(; develop, select, reproduce, mutate, swap, generation) = operators()
+L = lifecycle()
+qtsim = L.develop ⋅ L.select ⋅ L.reproduce ⋅ L.record ⋅ L.rescale ⋅ L.mutate ⋅ L.swap
+# develop⋅select⋅reproduce⋅record⋅rescale⋅mutate⋅swap: Zygotes → Zygotes
 
-generation                         # develop ⋅ select ⋅ reproduce ⋅ mutate ⋅ swap
-run_composed(World(p), Xoshiro(1)) # the same run as run!(World(p), Xoshiro(1)), bit for bit
+run_composed(World(p), Xoshiro(1); cycle = qtsim)   # the same run as run!, bit for bit
+print(slim_script(qtsim, Params(p; NoQTL = 1)))     # the same life cycle as a SLiM model
+```
+
+The SLiM model generated this way agrees with QTSim in distribution. In the kernel the
+steps are operators that can be rearranged and stratified into demes, and the population
+is also an attributed C-set (ACSet):
+
+```julia
+(; develop, select, reproduce, mutate, swap, generation) = operators()
 p ⊗ demes(4)                       # a metapopulation of four demes
 ```
 
-The facts that justify the decomposition are proved in Lean 4 in the project this
-package comes from (cited in comments as `lean/CategoricalQuantGen/…`).
+The facts that justify the decomposition and the lowering are proved in Lean 4 in the
+project this package comes from (cited in comments as `lean/CategoricalQuantGen/…`).
 
 ## Validation
 
@@ -79,15 +91,16 @@ julia --project=. validate/gsl_locked.jl                         # exact parity 
 julia -t 10 --project=vignettes validate/published_sweep.jl      # against the published results
 ```
 
-The validation scripts and vignettes 07 and 08 need the code and data published with the
-paper, which are not part of this repository. They look for them in a `Repository/`
+The validation scripts and vignettes 06, 08 and 09 need the code and data published with
+the paper, which are not part of this repository. They look for them in a `Repository/`
 folder next to this package's folder: QTSim built at
 `Repository/Code/QTSim/src/QTSim`, the input files under `Repository/Simulations/`, and
-the results tables under `Repository/Results/`.
+the results tables under `Repository/Results/`. Vignette 06 also needs SLiM (version 4
+or later) and the project's hand-written SLiM port of QTSim (`slim_port/qtsim.slim`).
 
 ## Documentation and vignettes
 
-The [documentation](https://ecorecipes.github.io/QTLSim.jl/dev/) includes eight
+The [documentation](https://ecorecipes.github.io/QTLSim.jl/dev/) includes nine
 tutorials, rendered from the Quarto vignettes in [`vignettes/`](vignettes/), which go
 from a first simulation to a replication of the paper's results.
 

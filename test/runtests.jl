@@ -3,9 +3,9 @@ using Test, Statistics, Random
 
 # The categorical layer is the package extension QTLSimCatlabExt, loaded with Catlab.
 import Catlab
-using Catlab: ⋅, ⊗
+using Catlab: ⋅, ⊗, dom, codom, Hom
 const Ext = Base.get_extension(QTLSim, :QTLSimCatlabExt)
-const (develop, select, reproduce, mutate, swap, generation) = values(operators())
+(; develop, select, reproduce, mutate, swap, generation) = operators()
 
 @testset "derived quantities (mirror Lean Heritability.lean)" begin
     p = Params(PhenotypeVar=0.02, Heritability=0.5, MutationScalar=0.001)
@@ -68,7 +68,7 @@ end
 
 @testset "Catlab loads the categorical layer" begin
     @test Ext isa Module
-    @test generation isa Ext.Operator && length(operators()) == 6
+    @test generation isa Ext.Operator && length(operators()) == 8
 end
 
 
@@ -196,4 +196,72 @@ end
     @test q.NoQTL == 10 && q.Seed == 3 && q.MoveType === :continuous
     @test Params(p) == p
     @test_throws ArgumentError Params(p; Nonsense = 1)
+end
+
+# ─── the life cycle as syntax, lowered to the kernel and to Eidos ─────────
+
+@testset "the life cycle is a typed morphism" begin
+    L = lifecycle()
+    Z = L.presentation[:Zygotes]
+    @test dom(L.generation) == Z && codom(L.generation) == Z
+    @test L.generation == L.develop ⋅ L.select ⋅ L.reproduce ⋅ L.record ⋅ L.rescale ⋅ L.mutate ⋅ L.swap
+    @test codom(L.develop) == dom(L.select)                  # Adults
+    @test_throws Exception L.select ⋅ L.develop              # stages do not match
+end
+
+@testset "the kernel lowering is a functor and drives run_composed" begin
+    L = lifecycle()
+    p = Params(PopSize=200, NoQTL=5, Ploidy=2, NoGenerations=60, RecombPoissonMean=2.0,
+               PhenotypeVar=0.02, Heritability=0.5, MutationScalar=0.002, MutationRatePerGamete=0.01,
+               MoveFitnessSDGen=20, MoveFitnessSD=0.5, ChangeFitnessGen=30, ChangeFitnessSD=0.5)
+    # image of a composite = composite of the images, on the same state and random numbers
+    f, g = L.develop ⋅ L.select, L.reproduce ⋅ L.record ⋅ L.rescale ⋅ L.mutate ⋅ L.swap
+    w1 = World(p); w2 = World(p)
+    for w in (w1, w2), i in 1:p.PopSize; w.env[i] = 0.1 * i / p.PopSize; end
+    lower(f ⋅ g, :kernel)(w1, MersenneTwister(4))
+    r = MersenneTwister(4); lower(f, :kernel)(w2, r); lower(g, :kernel)(w2, r)
+    @test w1.genome == w2.genome && w1.env == w2.env && w1.θ == w2.θ && w1.gen == w2.gen == 1
+    # the lowered life cycle is run!, with the width schedule and through extinction
+    a = run!(World(p), MersenneTwister(8)); b = run_composed(World(p), MersenneTwister(8))
+    @test all(getfield(a, k) == getfield(b, k) for k in keys(a))
+    @test b.omega[end] == 0.5
+    pe = Params(PopSize=200, NoQTL=1, Ploidy=2, NoGenerations=500, PhenotypeVar=0.02, Heritability=0.5,
+                MutationScalar=0.001, InitFitnessSD=1e-4, MoveFitnessSDGen=0, MoveFitnessSD=5.0)
+    a = run!(World(pe), MersenneTwister(1)); b = run_composed(World(pe), MersenneTwister(1))
+    @test a.extinct && b.extinct && a.extinct_gen == b.extinct_gen && a.gen == b.gen
+    @test_throws ArgumentError run_composed(World(p), MersenneTwister(1); cycle = L.develop)
+end
+
+@testset "the Eidos lowering is a functor and slim_script builds a SLiM model" begin
+    L = lifecycle()
+    steps = (:develop, :select, :reproduce, :record, :rescale, :mutate, :swap)
+    code(f) = lower(f, :eidos).code
+    @test code(L.generation) == join(code(getfield(L, s)) for s in steps)
+    @test code(L.develop ⋅ L.select) == code(L.develop) * code(L.select)
+    p = Params(PopSize=500, NoQTL=1, Ploidy=2, NoGenerations=123, PhenotypeVar=0.03, MoveType=:continuous)
+    s = slim_script(L.generation, p)
+    @test occursin("initializeSLiMModelType(\"nonWF\")", s) && occursin("reproduction() {", s)
+    @test occursin("defineConstant(\"N\", 500)", s) && occursin("defineConstant(\"NGEN\", 123)", s)
+    @test occursin("defineConstant(\"moveType\", \"continuous\")", s)
+    @test issorted([findfirst("// $st:", s).start for st in steps])
+    @test slim_script(L.generation, p) == s
+    @test_throws ArgumentError slim_script(L.generation, Params(p; NoQTL = 10))
+    @test_throws ArgumentError slim_script(L.develop ⋅ L.select, p)
+end
+
+@testset "a new step lowers through its images" begin
+    L = lifecycle()
+    A = codom(L.develop)
+    fluctuate = Hom(:fluctuate, A, A)
+    cycle = L.develop ⋅ fluctuate ⋅ L.select ⋅ L.reproduce ⋅ L.record ⋅ L.rescale ⋅ L.mutate ⋅ L.swap
+    @test dom(cycle) == codom(cycle)
+    @test_throws ArgumentError lower(cycle, :kernel)
+    kick = (w, rng) -> (w.θ = 0.05 * randn(rng); w)
+    p = Params(PopSize=200, NoQTL=1, Ploidy=2, NoGenerations=40, PhenotypeVar=0.02,
+               Heritability=0.5, MutationScalar=0.001)
+    o = run_composed(World(p), MersenneTwister(2); cycle, images = Dict(:fluctuate => kick))
+    @test length(o.gen) == 40 && length(unique(o.theta)) == 40
+    s = slim_script(cycle, p; images = Dict(:fluctuate => "    defineGlobal(\"THETA\", rnorm(1, 0.0, 0.05));\n"))
+    @test occursin("rnorm(1, 0.0, 0.05)", s)
+    @test findfirst("rnorm(1, 0.0, 0.05)", s).start < findfirst("// select:", s).start
 end

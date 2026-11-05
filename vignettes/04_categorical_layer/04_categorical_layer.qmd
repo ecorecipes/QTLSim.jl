@@ -24,7 +24,7 @@ that loop into separate operators and keeps two descriptions of the population:
 This vignette shows the population as an ACSet, moves it between the two levels, and
 builds a generation out of operators. The facts that make the decomposition legitimate,
 that composition is associative and that a run is the iterate of one composed generation,
-are proved in Lean in `lean/QTLSim/Composition.lean`.
+are proved in Lean in `lean/CategoricalQuantGen/Composition.lean`.
 
 ## Setup
 
@@ -115,9 +115,11 @@ wb2 = World(big); lower!(popb, wb2)
 
 Each step of the life cycle is an operator: `develop` computes genotypes and
 phenotypes, `select` moves the optimum if it is due to move and draws the survivors,
-`reproduce` makes the offspring, `mutate` adds mutations to them and `swap` makes the
-offspring the next parents. One generation is their composite, written with Catlab's
-diagrammatic composition `⋅`, which reads left to right:
+`reproduce` makes the offspring, `record` notes the parents' statistics (here it
+discards them), `rescale` changes the width of the fitness function if a change is due,
+`mutate` adds mutations to the offspring and `swap` makes the offspring the next
+parents. One generation is their composite, written with Catlab's diagrammatic
+composition `⋅`, which reads left to right:
 
 ```{julia}
 generation
@@ -175,4 +177,7 @@ step(meta, rng)
 ```
 
 [Recomposing the model](../05_recomposing_the_model/05_recomposing_the_model.qmd) uses
-these pieces to change the model's biology without touching the kernel.
+these pieces to change the model's biology without touching the kernel. The operators are
+themselves the kernel's image of a life cycle written once as syntax:
+[One life cycle, two backends](../06_one_life_cycle_two_backends/06_one_life_cycle_two_backends.qmd)
+derives them, and a SLiM model, from it.

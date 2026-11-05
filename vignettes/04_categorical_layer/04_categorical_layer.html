@@ -2425,7 +2425,7 @@ window.Quarto = {
 <li>an <strong>abstract</strong> one, in which the population is an attributed C-set (ACSet), the categorical data structure of AlgebraicJulia <span class="citation" data-cites="Patterson2022">(<a href="#ref-Patterson2022" role="doc-biblioref">Patterson et al. 2022</a>)</span>, and each evolutionary process is an <code>Operator</code> that can be composed with <code>⋅</code> and stratified with <code>⊗</code>;</li>
 <li>a <strong>lowered</strong> one, the array kernel that does the numerical work and reproduces QTSim’s output.</li>
 </ul>
-<p>This vignette shows the population as an ACSet, moves it between the two levels, and builds a generation out of operators. The facts that make the decomposition legitimate, that composition is associative and that a run is the iterate of one composed generation, are proved in Lean in <code>lean/QTLSim/Composition.lean</code>.</p>
+<p>This vignette shows the population as an ACSet, moves it between the two levels, and builds a generation out of operators. The facts that make the decomposition legitimate, that composition is associative and that a run is the iterate of one composed generation, are proved in Lean in <code>lean/CategoricalQuantGen/Composition.lean</code>.</p>
 </section>
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
@@ -2436,22 +2436,6 @@ window.Quarto = {
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Catlab</span>: ⋅, ⊗, nparts, incident, subpart, set_subpart!, generators</span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>(; develop, select, reproduce, mutate, swap, generation) <span class="op">=</span> <span class="fu">operators</span>()</span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Printf</span>, <span class="bu">Random</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-stdout">
-<div class="ansi-escaped-output">
-<pre><span class="ansi-green-fg ansi-bold">Precompiling</span> packages...
-   5033.2 ms<span class="ansi-green-fg">  ✓ </span><span class="ansi-bright-black-fg">StringManipulation</span>
-   5979.4 ms<span class="ansi-green-fg">  ✓ </span><span class="ansi-bright-black-fg">Compose</span>
-  29924.2 ms<span class="ansi-green-fg">  ✓ </span><span class="ansi-bright-black-fg">PrettyTables</span>
-  37534.6 ms<span class="ansi-green-fg">  ✓ </span><span class="ansi-bright-black-fg">GATlab</span>
-  13700.1 ms<span class="ansi-green-fg">  ✓ </span><span class="ansi-bright-black-fg">ACSets</span>
-  53468.0 ms<span class="ansi-green-fg">  ✓ </span>Catlab
-  6 dependencies successfully precompiled in 104 seconds. 77 already precompiled.
-<span class="ansi-green-fg ansi-bold">Precompiling</span> packages...
-   6883.2 ms<span class="ansi-green-fg">  ✓ </span>QTLSim → QTLSimCatlabExt
-  1 dependency successfully precompiled in 9 seconds. 125 already precompiled.
-</pre>
-</div>
-</div>
 </div>
 </section>
 <section id="the-population-schema" class="level2">
@@ -2627,17 +2611,17 @@ window.Quarto = {
 <span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="pp">@printf</span>(<span class="st">&quot;%d alleles; lift took %.2f s; genome recovered exactly: %s</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
 <span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>        <span class="fu">nparts</span>(popb, <span class="op">:</span>Allele), t, wb2.genome <span class="op">==</span> wb.genome)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>200000 alleles; lift took 0.03 s; genome recovered exactly: true</code></pre>
+<pre><code>200000 alleles; lift took 0.02 s; genome recovered exactly: true</code></pre>
 </div>
 </div>
 </section>
 <section id="a-generation-as-a-composite-of-operators" class="level2">
 <h2 class="anchored" data-anchor-id="a-generation-as-a-composite-of-operators">A generation as a composite of operators</h2>
-<p>Each step of the life cycle is an operator: <code>develop</code> computes genotypes and phenotypes, <code>select</code> moves the optimum if it is due to move and draws the survivors, <code>reproduce</code> makes the offspring, <code>mutate</code> adds mutations to them and <code>swap</code> makes the offspring the next parents. One generation is their composite, written with Catlab’s diagrammatic composition <code>⋅</code>, which reads left to right:</p>
+<p>Each step of the life cycle is an operator: <code>develop</code> computes genotypes and phenotypes, <code>select</code> moves the optimum if it is due to move and draws the survivors, <code>reproduce</code> makes the offspring, <code>record</code> notes the parents’ statistics (here it discards them), <code>rescale</code> changes the width of the fitness function if a change is due, <code>mutate</code> adds mutations to the offspring and <code>swap</code> makes the offspring the next parents. One generation is their composite, written with Catlab’s diagrammatic composition <code>⋅</code>, which reads left to right:</p>
 <div id="14" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>generation</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>Operator(:develop⋅select⋅reproduce⋅mutate⋅swap)</code></pre>
+<pre><code>Operator(:develop⋅select⋅reproduce⋅record⋅rescale⋅mutate⋅swap)</code></pre>
 </div>
 </div>
 <p><code>(f ⋅ g)(w, rng)</code> applies <code>f</code> and then <code>g</code>, skipping the rest of a composite once the population is extinct. Because composition is associative, how a composite is bracketed does not matter. Lean proves this for composition in general; here it is for one case, run for 50 generations from the same state and seed:</p>
@@ -2686,7 +2670,7 @@ window.Quarto = {
 <pre><code>(demes = 4, total = 12, generation_of_each_deme = [1, 1, 1, 1])</code></pre>
 </div>
 </div>
-<p><a href="../05_recomposing_the_model/05_recomposing_the_model.qmd">Recomposing the model</a> uses these pieces to change the model’s biology without touching the kernel.</p>
+<p><a href="../05_recomposing_the_model/05_recomposing_the_model.qmd">Recomposing the model</a> uses these pieces to change the model’s biology without touching the kernel. The operators are themselves the kernel’s image of a life cycle written once as syntax: <a href="../06_one_life_cycle_two_backends/06_one_life_cycle_two_backends.qmd">One life cycle, two backends</a> derives them, and a SLiM model, from it.</p>
 
 </section>
 

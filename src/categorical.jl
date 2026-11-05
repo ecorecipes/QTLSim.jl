@@ -2,14 +2,58 @@
 # QTLSimCatlabExt (ext/), which Julia loads when Catlab is loaded (`import Catlab`).
 
 """
+    lifecycle()
+
+The life cycle as syntax: a named tuple of the Catlab presentation (`presentation`) of
+the free category whose objects are the stages of a generation (`Zygotes`, `Adults`,
+`Survivors`, `Offspring`), its generating steps (`develop`, `select`, `reproduce`,
+`record`, `rescale`, `mutate`, `swap`) and QTSim's generation (`generation`), their
+composite `develop ⋅ select ⋅ reproduce ⋅ record ⋅ rescale ⋅ mutate ⋅ swap`, a morphism
+`Zygotes → Zygotes`. Composites type-check: a step can follow another only where the
+stages match. [`lower`](@ref) gives a life cycle its meaning in a backend. Requires
+Catlab.
+"""
+function lifecycle end
+
+"""
+    lower(f, target; images = Dict(), record = nothing)
+
+The image of the life-cycle morphism `f` under the lowering functor to `target`:
+`:kernel` gives an operator on a [`World`](@ref), and `:eidos` a fragment of Eidos code
+for SLiM. A functor out of a free category is fixed by the images of the generators, so
+the image of a composite is the composite of the images. `record` steps in the kernel
+append the parent generation's statistics to `record`, a named tuple of vectors like the
+one [`run!`](@ref) returns, or discard them when it is `nothing`. Steps that are not in
+[`lifecycle`](@ref), made with Catlab's `Hom(name, dom, codom)`, need an image in
+`images`, keyed by name: an operator or a function `(state, rng) -> state` for
+`:kernel`, a string of Eidos for `:eidos`. Requires Catlab.
+"""
+function lower end
+
+"""
+    slim_script(f, p::Params; images = Dict())
+
+A complete SLiM model, as Eidos source, that iterates the life cycle `f`, a morphism
+`Zygotes → Zygotes`: the image of `f` under [`lower`](@ref) to Eidos runs once per tick
+in a `reproduction()` callback. The parameters of `p` are the defaults, which
+`slim -d "NAME=value"` overrides (`N`, `VP`, `h2`, `m`, `rate`, `NGEN`, `sampleEvery`,
+`moveGen`, `moveSD`, `moveType`, `changeGen`, `changeSD`, `initOmega`, `drift`,
+`standardise`). The Eidos images of the steps cover one locus in diploids (`NoQTL = 1`,
+`Ploidy = 2`). Requires Catlab.
+"""
+function slim_script end
+
+"""
     operators()
 
-The operators of one generation, as the named tuple
-`(; develop, select, reproduce, mutate, swap, generation)`. An operator is called as
-`op(world, rng)`, composes left to right with Catlab's `⋅` (`(f ⋅ g)(w, rng)` applies
-`f` then `g`), and acts deme by deme on a metapopulation built with `⊗`. `generation` is
-the composite `develop ⋅ select ⋅ reproduce ⋅ mutate ⋅ swap`, the order of QTSim's
-generation loop. Requires Catlab.
+The kernel images of the steps of the life cycle ([`lifecycle`](@ref)), as the named
+tuple `(; develop, select, reproduce, record, rescale, mutate, swap, generation)`. An
+operator is called as `op(world, rng)`, composes left to right with Catlab's `⋅`
+(`(f ⋅ g)(w, rng)` applies `f` then `g`), and acts deme by deme on a metapopulation
+built with `⊗`. `generation` is the image of QTSim's generation,
+`develop ⋅ select ⋅ reproduce ⋅ record ⋅ rescale ⋅ mutate ⋅ swap`, in the order of its
+generation loop; here `record` discards what it observes (see [`run_composed`](@ref)).
+Requires Catlab.
 """
 function operators end
 
@@ -33,11 +77,13 @@ Catlab.
 function demes end
 
 """
-    run_composed(w::World, rng; record = true)
+    run_composed(w::World, rng; record = true, cycle = lifecycle().generation, images = Dict())
 
-Run a simulation by applying the composite `generation` operator once per generation.
-Returns the same statistics as [`run!`](@ref), and for the same seed the same run, bit
-for bit. Requires Catlab.
+Run a simulation by applying the kernel image of the life cycle `cycle`, a morphism
+`Zygotes → Zygotes`, once per generation ([`lower`](@ref); `images` gives the kernel
+images of steps that are not in [`lifecycle`](@ref)). Returns the statistics its
+`record` steps collect, as [`run!`](@ref) does; with the default life cycle, for the same
+seed, it is the same run as `run!`, bit for bit. Requires Catlab.
 """
 function run_composed end
 
@@ -122,9 +168,9 @@ Catlab.
 """
 function genome_from_acset end
 
-const CATEGORICAL = (operators, operator, demes, run_composed, migrate!, migration,
-                     totalpop, ndemes, population_schema, lift, lower!, genotypes,
-                     phenotypes, genome_from_acset)
+const CATEGORICAL = (lifecycle, lower, slim_script, operators, operator, demes,
+                     run_composed, migrate!, migration, totalpop, ndemes, population_schema,
+                     lift, lower!, genotypes, phenotypes, genome_from_acset)
 
 function __init__()
     Base.Experimental.register_error_hint(MethodError) do io, exc, argtypes, kwargs

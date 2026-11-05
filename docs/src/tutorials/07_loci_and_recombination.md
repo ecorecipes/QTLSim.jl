@@ -64,25 +64,27 @@ end
 fig
 ```
 
+```@raw html
 <div id="fig-gametes">
+```
 
-<img
-src="06_loci_and_recombination_files/figure-commonmark/fig-gametes-output-1.png"
-width="900" height="330" />
+![](07_loci_and_recombination_files/figure-commonmark/fig-gametes-output-1.png)
 
 Figure 1: Forty gametes (rows) from a parent with one chromosome of
 zeros (light) and one of ones (dark), 100 loci, a mean of five crossover
 points. Under QTSim’s model (left) each gamete switches strands at most
 once; when every point switches (right) gametes are mosaics.
 
+```@raw html
 </div>
+```
 
 Whatever the crossover pattern, a gamete takes each locus from one
 parental chromosome, and the starting chromosome is chosen fairly. On
 average, then, a gamete carries half of the parent’s additive genotype
 under either model, so neither biases the mean. Lean proves this for any
 assignment of loci to strands (`gamete_expected_sum_by` in
-`lean/QTLSim/Recombination.lean`). With random allelic effects:
+`lean/CategoricalQuantGen/Recombination.lean`). With random allelic effects:
 
 ``` julia
 a = randn(Xoshiro(2), L); b = randn(Xoshiro(3), L)
@@ -138,7 +140,7 @@ optimum about 10% longer, and they tend to hold more genetic variance
 (in these runs the interval for the variance only just includes no
 difference). The comparison of the Julia model with the paper’s
 published results ([Validation against
-QTSim](../07_validation_against_qtsim/07_validation_against_qtsim.qmd))
+QTSim](08_validation_against_qtsim.md))
 shows the same effect across all the paper’s strata, and shows that only
 QTSim’s model reproduces the published numbers.
 
@@ -173,29 +175,35 @@ scatterlines!(ax, Ls, costs, color = :navy)
 fig
 ```
 
+```@raw html
 <div id="fig-cost">
+```
 
-<img
-src="06_loci_and_recombination_files/figure-commonmark/fig-cost-output-1.png"
-width="480" height="360" />
+![](07_loci_and_recombination_files/figure-commonmark/fig-cost-output-1.png)
 
 Figure 2: Time per generation against the number of loci for 1000
 diploid individuals, on one thread. With a few loci the fixed cost of
 each individual dominates; from a few hundred loci on, the cost grows
 steadily with the number of loci.
 
+```@raw html
 </div>
+```
 
 A 5000-locus population takes several milliseconds per generation,
 roughly fifteen times as long as a 100-locus one, so the paper’s
 250,000-generation runs at that size are expensive; the
-[replication](../08_replicating_pagel_2025/08_replicating_pagel_2025.qmd)
+[replication](09_replicating_pagel_2025.md)
 therefore samples the paper’s inputs and stops each run 2000 generations
 after the optimum starts to move.
 
+```@raw html
 <div id="refs" class="references csl-bib-body hanging-indent">
+```
 
+```@raw html
 <div id="ref-Pagel2025" class="csl-entry">
+```
 
 Pagel, Mark, Jacob D. Gardner, and Andrew Meade. 2025.
 “Quantitative-Genetic Analysis of Directional Adaptation Suggests Low
@@ -203,6 +211,10 @@ Maximum Sustainable Rates of Change in Agreement with Data from Field
 Populations.” *Scientific Reports* 15.
 <https://doi.org/10.1038/s41598-025-24445-2>.
 
+```@raw html
 </div>
+```
 
+```@raw html
 </div>
+```

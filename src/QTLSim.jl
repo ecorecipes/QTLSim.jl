@@ -26,7 +26,8 @@ export Params, World, simulate, run!, generation!,
        develop!, select!, moveoptimum!, reproduce!, mutate!, gamete!, swapbuffers!,
        geneticVar, envVar, analyticalFitSD, initFitSD, muteVar
 # the categorical layer (implemented by QTLSimCatlabExt; load Catlab to use it)
-export operators, operator, demes, run_composed, migrate!, migration, totalpop, ndemes,
-       population_schema, lift, lower!, genotypes, phenotypes, genome_from_acset
+export lifecycle, lower, slim_script, operators, operator, demes, run_composed, migrate!,
+       migration, totalpop, ndemes, population_schema, lift, lower!, genotypes, phenotypes,
+       genome_from_acset
 
 end # module

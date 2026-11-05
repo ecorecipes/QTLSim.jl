@@ -43,24 +43,33 @@ optimum for every sampled generation.
 ## The categorical layer
 
 Loading Catlab adds a categorical description of the same model, as the package
-extension `QTLSimCatlabExt`. The population becomes an attributed C-set (ACSet), and the
-life cycle becomes a composite of operators that can be rearranged, extended or
-stratified into demes:
+extension `QTLSimCatlabExt`. The life cycle is written once, as a morphism of a free
+category whose objects are the stages of a generation and whose generators are its
+steps, and functors lower it to the simulation kernel and to a model for the
+population-genetics simulator SLiM, in its language Eidos:
 
 ```julia
 import Catlab
 using Catlab: ⋅, ⊗
 using Random
-(; develop, select, reproduce, mutate, swap, generation) = operators()
+L = lifecycle()
+qtsim = L.develop ⋅ L.select ⋅ L.reproduce ⋅ L.record ⋅ L.rescale ⋅ L.mutate ⋅ L.swap
+# develop⋅select⋅reproduce⋅record⋅rescale⋅mutate⋅swap: Zygotes → Zygotes
 
-generation         # develop ⋅ select ⋅ reproduce ⋅ mutate ⋅ swap: one generation of QTSim
+run_composed(World(p), Xoshiro(1); cycle = qtsim)   # the same run as run!, bit for bit
+print(slim_script(qtsim, Params(p; NoQTL = 1)))     # the same life cycle as a SLiM model
+```
+
+The SLiM model generated this way agrees with QTSim in distribution. In the kernel the
+steps are operators, which can be rearranged, extended or stratified into demes, and the
+population is also an attributed C-set (ACSet):
+
+```julia
+(; develop, select, reproduce, mutate, swap, generation) = operators()
 double = develop ⋅ select ⋅ reproduce ⋅ mutate ⋅ mutate ⋅ swap   # twice the mutation
 meta = p ⊗ demes(4)                                               # four demes
 (generation ⋅ migration(0.01))(meta, Xoshiro(1))                  # with migration
 ```
-
-A run driven by the composed `generation` (`run_composed`) is identical, bit for bit,
-to the kernel's own loop.
 
 ## Validation
 
@@ -74,8 +83,8 @@ The kernel reproduces QTSim at three strengths:
   model's genetic variance before the move and its time to extinction are within about
   1% of the published values.
 
-The [validation tutorial](tutorials/07_validation_against_qtsim.md) shows all three,
-and the [replication](tutorials/08_replicating_pagel_2025.md) reproduces the paper's
+The [validation tutorial](tutorials/08_validation_against_qtsim.md) shows all three,
+and the [replication](tutorials/09_replicating_pagel_2025.md) reproduces the paper's
 results.
 
 ## Tutorials
@@ -85,9 +94,10 @@ results.
 3. [Adaptation to a moving optimum](tutorials/03_moving_optimum.md)
 4. [The categorical layer](tutorials/04_categorical_layer.md)
 5. [Recomposing the model](tutorials/05_recomposing_the_model.md)
-6. [Loci and recombination](tutorials/06_loci_and_recombination.md)
-7. [Validation against QTSim](tutorials/07_validation_against_qtsim.md)
-8. [Replicating Pagel, Gardner and Meade (2025)](tutorials/08_replicating_pagel_2025.md)
+6. [One life cycle, two backends](tutorials/06_one_life_cycle_two_backends.md)
+7. [Loci and recombination](tutorials/07_loci_and_recombination.md)
+8. [Validation against QTSim](tutorials/08_validation_against_qtsim.md)
+9. [Replicating Pagel, Gardner and Meade (2025)](tutorials/09_replicating_pagel_2025.md)
 
 ## Licence
 

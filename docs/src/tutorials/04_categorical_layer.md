@@ -26,7 +26,7 @@ This vignette shows the population as an ACSet, moves it between the two
 levels, and builds a generation out of operators. The facts that make
 the decomposition legitimate, that composition is associative and that a
 run is the iterate of one composed generation, are proved in Lean in
-`lean/QTLSim/Composition.lean`.
+`lean/CategoricalQuantGen/Composition.lean`.
 
 ## Setup
 
@@ -151,14 +151,16 @@ wb2 = World(big); lower!(popb, wb2)
         nparts(popb, :Allele), t, wb2.genome == wb.genome)
 ```
 
-    200000 alleles; lift took 0.01 s; genome recovered exactly: true
+    200000 alleles; lift took 0.02 s; genome recovered exactly: true
 
 ## A generation as a composite of operators
 
 Each step of the life cycle is an operator: `develop` computes genotypes
 and phenotypes, `select` moves the optimum if it is due to move and
-draws the survivors, `reproduce` makes the offspring, `mutate` adds
-mutations to them and `swap` makes the offspring the next parents. One
+draws the survivors, `reproduce` makes the offspring, `record` notes the
+parents’ statistics (here it discards them), `rescale` changes the width
+of the fitness function if a change is due, `mutate` adds mutations to
+the offspring and `swap` makes the offspring the next parents. One
 generation is their composite, written with Catlab’s diagrammatic
 composition `⋅`, which reads left to right:
 
@@ -166,7 +168,7 @@ composition `⋅`, which reads left to right:
 generation
 ```
 
-    Operator(:develop⋅select⋅reproduce⋅mutate⋅swap)
+    Operator(:develop⋅select⋅reproduce⋅record⋅rescale⋅mutate⋅swap)
 
 `(f ⋅ g)(w, rng)` applies `f` and then `g`, skipping the rest of a
 composite once the population is extinct. Because composition is
@@ -231,6 +233,10 @@ step(meta, rng)
 [Recomposing the
 model](05_recomposing_the_model.md) uses
 these pieces to change the model’s biology without touching the kernel.
+The operators are themselves the kernel’s image of a life cycle written
+once as syntax: [One life cycle, two
+backends](06_one_life_cycle_two_backends.md)
+derives them, and a SLiM model, from it.
 
 ```@raw html
 <div id="refs" class="references csl-bib-body hanging-indent">

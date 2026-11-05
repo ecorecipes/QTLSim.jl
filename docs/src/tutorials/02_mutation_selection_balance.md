@@ -54,7 +54,7 @@ $\alpha^2 = m V_E / (2 n \mu)$ to a random locus. The scaling is chosen
 so that, in expectation, mutation adds exactly $V_m = m V_E$ to the
 genetic variance of a diploid individual each generation, whatever the
 number of loci and the mutation rate. That statement is proved in Lean
-(`mutationalVarianceInput_eq` in `lean/QTLSim/Mutation.lean`); here we
+(`mutationalVarianceInput_eq` in `lean/CategoricalQuantGen/Mutation.lean`); here we
 check it by applying the mutation operator to a large population of zero
 genomes, for several locus counts and rates.
 
@@ -93,7 +93,7 @@ $\omega = V_G / \sqrt{m V_E}$ with $V_G = h^2 V_P$. That is the Gaussian
 approximation solved for $\omega$, with $V_s \approx \omega^2$: if
 $V_G = \sqrt{V_m \omega^2}$ and $V_m = m V_E$, then
 $\omega = V_G / \sqrt{m V_E}$. The algebra is proved in
-`lean/QTLSim/Heritability.lean` (`analyticalFitSD_eq`). The width is
+`lean/CategoricalQuantGen/Heritability.lean` (`analyticalFitSD_eq`). The width is
 therefore exactly the one that would hold the population at the target
 $h^2 V_P$ if the Gaussian approximation were right, which makes it a
 direct test of that approximation. The paper itself does not use it: it
@@ -287,7 +287,7 @@ The equilibrium variance grows with the number of loci, as the house of
 cards predicts, while the Gaussian approximation misses the trend
 entirely. In these single runs the house of cards overestimates the
 level by about a quarter at 100 loci and above. The [replication
-vignette](08_replicating_pagel_2025.md)
+vignette](09_replicating_pagel_2025.md)
 makes the same comparison for the paper’s own parameter sets.
 
 ```@raw html
