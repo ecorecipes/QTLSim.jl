@@ -18,9 +18,10 @@ using QTLSim: World, Params, envsd
 import QTLSim: operators, operator, demes, run_composed, migrate!, migration, totalpop,
                ndemes, population_schema, lift, lower!, genotypes, phenotypes,
                genome_from_acset, lifecycle, lower, slim_script
-using Catlab: @present, @acset_type, FreeSchema, FreeCategory, add_parts!, add_part!,
-              set_subpart!, nparts, incident, functor, head, args, dom, codom, GATExpr, ObExpr
-import Catlab: ⋅, ⊗, compose, id
+using Catlab: @present, @acset_type, FreeSchema, FreeSymmetricMonoidalCategory, add_parts!,
+              add_part!, set_subpart!, nparts, incident, functor, head, args, dom, codom, Hom,
+              GATExpr, ObExpr
+import Catlab: ⋅, ⊗, compose, id, otimes, braid, munit
 using Statistics: mean, var
 
 include("schema.jl")

@@ -90,6 +90,8 @@ CurrentModule = Main
 QTLSimCatlabExt
 QTLSimCatlabExt.Stage
 QTLSimCatlabExt.EidosCode
+QTLSimCatlabExt.EidosMeta
+QTLSimCatlabExt.DemeOp
 QTLSimCatlabExt.Operator
 QTLSimCatlabExt.Demes
 QTLSimCatlabExt.Stratified

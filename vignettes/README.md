@@ -12,7 +12,7 @@ Each vignette lives in its own directory `NN_name/NN_name.qmd` and is rendered w
 | `03_moving_optimum` | the three ways the optimum can move, an extinction, the paper's measures, survival against the rate of change |
 | `04_categorical_layer` | the population as an ACSet, and a generation as a composite of operators |
 | `05_recomposing_the_model` | changing the model by changing the composite: selection, mutation, a fluctuating optimum, demes and migration |
-| `06_one_life_cycle_two_backends` | the life cycle written once as a morphism of a free category and lowered by functors to the kernel and to a SLiM model, which is the hand-written SLiM port run for run and agrees with QTSim |
+| `06_one_life_cycle_two_backends` | the life cycle written once as a morphism of a free symmetric monoidal category and lowered by functors to the kernel and to a SLiM model, which is the hand-written SLiM port run for run and agrees with QTSim with one locus or a hundred; demes coupled by migration in both backends |
 | `07_loci_and_recombination` | how gametes are made, QTSim's single-crossover recombination, and the cost of more loci |
 | `08_validation_against_qtsim` | statistical, exact and published-results checks against QTSim |
 | `09_replicating_pagel_2025` | the paper's results, recomputed from its table and replicated by rerunning 710 of its populations, the survivors to the full 240,000 generations |

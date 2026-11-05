@@ -15,18 +15,20 @@ julia:
 ## Overview
 
 The previous vignettes build a generation by composing the kernel's operators directly.
-Here the life cycle is written once, as syntax: a morphism of a free category whose
-objects are the stages of a generation and whose generating morphisms are the steps
-between them. A functor out of a free category is fixed by where it sends the
-generators, so giving each step a meaning in a backend gives every life cycle built from
+Here the life cycle is written once, as syntax: a morphism of a free symmetric monoidal
+category whose objects are the stages of a generation and whose generating morphisms
+are the steps between them. A functor out of a free category is fixed by where it sends
+the generators, so giving each step a meaning in a backend gives every life cycle built from
 those steps a meaning there. Two such functors lower the life cycle: one to the
 simulation kernel and one to Eidos, the scripting language of the population-genetics
 simulator SLiM [@Haller2023].
 
 The SLiM model lowered from QTSim's life cycle is, run for run, the SLiM port of QTSim
-that was written by hand for this project, and it agrees with QTSim in distribution. A
-new step, given a meaning in both backends, yields two simulators of a model QTSim does
-not have, which can be checked against each other.
+that was written by hand for this project, and it agrees with QTSim in distribution,
+with one locus or a hundred. A new step, given a meaning in both backends, yields two
+simulators of a model QTSim does not have, which can be checked against each other: a
+fluctuating optimum, and demes coupled by migration, which the monoidal product `⊗`
+places side by side.
 
 The vignette needs SLiM (version 4 or later), the hand-written port and QTSim. It looks
 for the first two in `slim/build/slim` and `slim_port/qtsim.slim` in the folder that
@@ -39,7 +41,7 @@ stand in for the first), and for QTSim built from the source that comes with the
 ```{julia}
 using QTLSim
 import Catlab                       # loads QTLSim's categorical layer
-using Catlab: ⋅, dom, codom, Hom
+using Catlab: ⋅, ⊗, dom, codom, Hom
 using CairoMakie, HypothesisTests, Printf, Random, Statistics
 CairoMakie.activate!(type = "png")
 
@@ -56,7 +58,8 @@ Threads.nthreads()
 
 ## The life cycle as a morphism
 
-`lifecycle()` returns the syntax: the Catlab presentation of a free category with four
+`lifecycle()` returns the syntax: the Catlab presentation of a free symmetric monoidal
+category with four
 objects, the stages of a generation, and seven generating morphisms, the steps of
 QTSim's generation loop.
 
@@ -223,6 +226,7 @@ function write_qtsim_options(path, q::Params, seed)
         println(io, "OptimumMoveType $(q.MoveType)\nPhenotypeVar $(q.PhenotypeVar)")
         println(io, "MutationScalar $(q.MutationScalar)\nHeritability $(q.Heritability)")
         println(io, "MutationRatePerGamete $(q.MutationRatePerGamete)")
+        q.NoQTL > 1 && println(io, "RecombinationPoissonMean $(q.RecombPoissonMean)")
         q.InitFitnessSD >= 0 && println(io, "InitFitnessSD $(q.InitFitnessSD)")
         println(io, "Seed $seed")
     end
@@ -362,7 +366,7 @@ kernel, a function that draws a new optimum; in Eidos, the statement that does t
 images = (kernel = Dict(:fluctuate => (w, rng) -> (w.θ = σθ * randn(rng); w)),
           eidos = Dict(:fluctuate => """
               // fluctuate: a new optimum each generation   [Adults → Adults]
-              defineGlobal("THETA", rnorm(1, 0.0, $σθ));
+              @POP@.setValue("THETA", rnorm(1, 0.0, $σθ));
           """))
 noisy_model = slim_script(noisy, scen.A; images = images.eidos)
 print(noisy_model[findfirst("// develop", noisy_model).start:findfirst("// reproduce", noisy_model).start-1])
@@ -401,14 +405,136 @@ The two backends agree with each other, and both match what Gaussian selection
 predicts: a fluctuating optimum adds its variance to the spread of phenotypes about the
 optimum, and so lowers survival.
 
+## Many loci
+
+The paper's simulations had 100 to 5000 loci. The Eidos images of `develop`,
+`reproduce` and `mutate` handle any number: each individual carries its two chromosomes
+as vectors of allele values, the genotype sums them, each gamete copies a parental
+chromosome and switches strands at most once, as QTSim does, and each mutation lands on
+a random locus. With one locus they reduce to the statements of the hand-written port,
+which is why the comparison above still holds. Two scenarios with 100 loci, each run 50
+times by QTSim, by the generated SLiM model and by the kernel: stabilising selection
+(scenario D), and the optimum moving by 0.05 per generation from generation 1000, about
+a third of a phenotypic standard deviation, until the population dies (scenario E).
+
+```{julia}
+#| output: asis
+D = Params(PopSize = 1000, NoQTL = 100, RecombPoissonMean = 3.0, Ploidy = 2, NoGenerations = 2000,
+           PhenotypeVar = 0.03, Heritability = 0.4, MutationScalar = 0.005, MutationRatePerGamete = 1e-4,
+           InitFitnessSD = 4.0)
+E = Params(D; RecombPoissonMean = 5.0, MoveFitnessSDGen = 1000, MoveFitnessSD = 0.05, MoveType = :continuous)
+loci = (D = D, E = E)
+loci_models = map(q -> slim_script(qtsim, q), loci)
+jobs_l = [(prog, s, k) for prog in programs for s in keys(loci) for k in 1:R]
+runs_l = Vector{Any}(undef, length(jobs_l))
+Threads.@threads :greedy for j in eachindex(jobs_l)
+    prog, s, k = jobs_l[j]
+    q = loci[s]
+    runs_l[j] = prog === :QTSim ? run_qtsim(q, 3000 + k) :
+                prog === :SLiM ? run_slim(loci_models[s], 4000 + k) :
+                run_composed(World(q), Xoshiro(5000 + k); cycle = qtsim)
+end
+result_l(prog, s) = [runs_l[j] for j in eachindex(jobs_l) if jobs_l[j][1] === prog && jobs_l[j][2] === s]
+after_move(r) = (r.extinct ? last(r.gen) + 1 : 2000) - 1000     # no program prints the dying generation
+println("| scenario | statistic | QTSim | SLiM (generated) | kernel | KS p, SLiM | KS p, kernel |")
+println("|:--|:--|--:|--:|--:|--:|--:|")
+for (s, name, f) in ((:D, "genetic variance, generations 1500–1999", r -> mean(r.geno_var[window(r, 1500, 1999)])),
+                     (:D, "survival, generations 1500–1999", r -> mean(r.nsurv[window(r, 1500, 1999)]) / 1000),
+                     (:E, "genetic variance before the move", r -> mean(r.geno_var[window(r, 900, 999)])),
+                     (:E, "generations to extinction after the move", r -> Float64(after_move(r))))
+    v = Dict(prog => [f(r) for r in result_l(prog, s)] for prog in programs)
+    @printf("| %s | %s | %.4g | %.4g | %.4g | %.2f | %.2f |\n", s, name, median(v[:QTSim]), median(v[:SLiM]),
+            median(v[:kernel]), ksp(v[:SLiM], v[:QTSim]), ksp(v[:kernel], v[:QTSim]))
+end
+@printf("\nExtinct in scenario E: %s.\n", join(("$prog $(count(r -> r.extinct, result_l(prog, :E)))/$R" for prog in programs), ", "))
+```
+
+With 100 loci the generated SLiM model agrees with QTSim: no statistic separates them.
+One comparison of the kernel falls just below 0.05, its genetic variance in scenario D;
+among eight tests that is not unusual, and the kernel's algorithm is QTSim's, as
+[Validation against QTSim](../08_validation_against_qtsim/08_validation_against_qtsim.qmd)
+checks bit for bit with QTSim's own random numbers.
+
+## Demes and migration
+
+The life cycle is a morphism of a free *symmetric monoidal* category: besides composing
+steps in sequence with `⋅`, it places life cycles side by side with Catlab's `⊗`.
+`qtsim ⊗ qtsim ⊗ qtsim` is three demes, each running QTSim's generation, from
+`Zygotes⊗Zygotes⊗Zygotes` to itself, and `L.migrate(3)` is a new kind of step on such a
+product: each offspring changes places, with a given probability, with an offspring of
+another deme.
+
+```{julia}
+meta = qtsim ⊗ qtsim ⊗ qtsim ⋅ L.migrate(3)
+```
+
+Both functors preserve `⊗` as well as `⋅`. In the kernel, the image of a product acts on
+each deme of a metapopulation (`p ⊗ demes(3)`) with the image of its factor, and the
+image of `migrate` exchanges individuals between demes, so `run_composed` runs the
+metapopulation. In Eidos, each factor's code runs in its own subpopulation, in a block
+of its own that a deme's extinction leaves early, and migration acts on the offspring of
+all three:
+
+```{julia}
+meta_script = slim_script(meta, p; migration_rate = 0.01)
+print(meta_script[findfirst("    // migrate:", meta_script).start:findfirst("    dead = 0;", meta_script).start-1])
+```
+
+QTSim has no demes, so here the two backends check each other. With no selection
+(`Drift = true`), the means of isolated demes drift apart, and migration holds them
+together; three demes of 300 individuals with 10 loci each, for 500 generations, run 50
+times by each backend at each of three migration rates:
+
+```{julia}
+#| output: asis
+neutral = Params(PopSize = 300, NoQTL = 10, RecombPoissonMean = 1.0, Ploidy = 2, NoGenerations = 500,
+                 PhenotypeVar = 0.02, Heritability = 0.5, MutationScalar = 0.02, MutationRatePerGamete = 0.01,
+                 Drift = true)
+rates = (0.0, 0.01, 0.1)
+jobs_m = [(prog, m, k) for prog in (:SLiM, :kernel) for m in rates for k in 1:R]
+runs_m = Vector{Any}(undef, length(jobs_m))
+meta_models = Dict(m => slim_script(meta, neutral; migration_rate = m) for m in rates)
+Threads.@threads :greedy for j in eachindex(jobs_m)
+    prog, m, k = jobs_m[j]
+    runs_m[j] = if prog === :SLiM
+        r = run_slim(meta_models[m], 6000 + k)          # its rows end with the deme
+        (; r.gen, r.pheno_mean, r.geno_var, deme = [parse(Int, split(l, '\t')[7]) for l in r.lines])
+    else
+        run_composed(neutral ⊗ demes(3), Xoshiro(7000 + k); cycle = meta, migration_rate = m)
+    end
+end
+at_end(r, f) = [f(r)[(r.gen .== 499) .& (r.deme .== d)][1] for d in 1:3]
+among(r) = var(at_end(r, x -> x.pheno_mean))          # variance among the three deme means
+within(r) = mean(at_end(r, x -> x.geno_var))          # mean genetic variance within a deme
+println("| migration rate | statistic | SLiM (generated) | kernel | KS p |\n|:--|:--|--:|--:|--:|")
+for m in rates, (name, f) in (("variance among deme means", among), ("genetic variance within a deme", within))
+    sl = [f(runs_m[j]) for j in eachindex(jobs_m) if jobs_m[j][1] === :SLiM && jobs_m[j][2] == m]
+    ke = [f(runs_m[j]) for j in eachindex(jobs_m) if jobs_m[j][1] === :kernel && jobs_m[j][2] == m]
+    @printf("| %g | %s | %.4g | %.4g | %.2f |\n", m, name, median(sl), median(ke), ksp(sl, ke))
+end
+```
+
+The two backends agree at every migration rate: without migration the deme means
+spread apart by drift, and migration at 1% or 10% per generation keeps them together
+while raising the genetic variance within each deme, which now receives variation from
+the others. `lean/CategoricalQuantGen/Demes.lean` proves the laws the metapopulation
+relies on: running products step by step is running each deme on its own (the
+interchange law, also for independent Markov kernels, so the order in which a backend
+visits the demes does not matter), demes without migration iterate independently, and
+migration, which only rearranges individuals among positions, keeps every deme's size
+and every total over the metapopulation.
+
 ## Summary
 
 QTSim's life cycle is written once, as the morphism
-`develop ⋅ select ⋅ reproduce ⋅ record ⋅ rescale ⋅ mutate ⋅ swap` of a free category,
-and two functors lower it: to the simulation kernel, where it is `run!` bit for bit, and
-to Eidos, where it is the hand-written SLiM port run for run, in agreement with QTSim in
-distribution, including the continuous move of the optimum that the port never had. A
-new step needs one image per backend and nothing else. That a lowering is fixed by its
-images on the steps, and that for Markov kernels two lowerings whose steps agree in
-distribution give the whole generation the same distribution, is proved in Lean in
-`lean/CategoricalQuantGen/Lowering.lean`.
+`develop ⋅ select ⋅ reproduce ⋅ record ⋅ rescale ⋅ mutate ⋅ swap` of a free symmetric
+monoidal category, and two functors lower it: to the simulation kernel, where it is
+`run!` bit for bit, and to Eidos, where it is the hand-written SLiM port run for run, in
+agreement with QTSim in distribution, including the continuous move of the optimum and
+the many loci that the port never had. A new step needs one image per backend and
+nothing else, and the monoidal product turns one population into demes, which migration
+couples, in both backends at once. That a lowering is fixed by its images on the steps,
+and that for Markov kernels two lowerings whose steps agree in distribution give the
+whole generation the same distribution, is proved in Lean in
+`lean/CategoricalQuantGen/Lowering.lean`, and the laws of demes and migration in
+`Demes.lean`.

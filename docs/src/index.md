@@ -44,9 +44,9 @@ optimum for every sampled generation.
 
 Loading Catlab adds a categorical description of the same model, as the package
 extension `QTLSimCatlabExt`. The life cycle is written once, as a morphism of a free
-category whose objects are the stages of a generation and whose generators are its
-steps, and functors lower it to the simulation kernel and to a model for the
-population-genetics simulator SLiM, in its language Eidos:
+symmetric monoidal category whose objects are the stages of a generation and whose
+generators are its steps, and functors lower it to the simulation kernel and to a model
+for the population-genetics simulator SLiM, in its language Eidos:
 
 ```julia
 import Catlab
@@ -57,10 +57,16 @@ qtsim = L.develop ⋅ L.select ⋅ L.reproduce ⋅ L.record ⋅ L.rescale ⋅ L.
 # develop⋅select⋅reproduce⋅record⋅rescale⋅mutate⋅swap: Zygotes → Zygotes
 
 run_composed(World(p), Xoshiro(1); cycle = qtsim)   # the same run as run!, bit for bit
-print(slim_script(qtsim, Params(p; NoQTL = 1)))     # the same life cycle as a SLiM model
+print(slim_script(qtsim, p))                        # the same life cycle as a SLiM model
+
+meta = qtsim ⊗ qtsim ⊗ qtsim ⋅ L.migrate(3)         # three demes coupled by migration
+run_composed(p ⊗ demes(3), Xoshiro(1); cycle = meta, migration_rate = 0.01)
+print(slim_script(meta, p; migration_rate = 0.01))  # the same metapopulation in SLiM
 ```
 
-The SLiM model generated this way agrees with QTSim in distribution. In the kernel the
+The SLiM model generated this way agrees with QTSim in distribution, with one locus or
+many, and on a model QTSim does not have, demes coupled by migration, the kernel and the
+SLiM model agree with each other. In the kernel the
 steps are operators, which can be rearranged, extended or stratified into demes, and the
 population is also an attributed C-set (ACSet):
 

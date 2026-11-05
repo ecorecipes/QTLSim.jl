@@ -245,7 +245,8 @@ end
     @test occursin("defineConstant(\"moveType\", \"continuous\")", s)
     @test issorted([findfirst("// $st:", s).start for st in steps])
     @test slim_script(L.generation, p) == s
-    @test_throws ArgumentError slim_script(L.generation, Params(p; NoQTL = 10))
+    @test_throws ArgumentError slim_script(L.generation, Params(p; NoQTL = 10, CrossoverModel = :all))
+    @test_throws ArgumentError slim_script(L.generation, Params(p; Ploidy = 1))
     @test_throws ArgumentError slim_script(L.develop ⋅ L.select, p)
 end
 
@@ -261,7 +262,51 @@ end
                Heritability=0.5, MutationScalar=0.001)
     o = run_composed(World(p), MersenneTwister(2); cycle, images = Dict(:fluctuate => kick))
     @test length(o.gen) == 40 && length(unique(o.theta)) == 40
-    s = slim_script(cycle, p; images = Dict(:fluctuate => "    defineGlobal(\"THETA\", rnorm(1, 0.0, 0.05));\n"))
+    s = slim_script(cycle, p; images = Dict(:fluctuate => "    @POP@.setValue(\"THETA\", rnorm(1, 0.0, 0.05));\n"))
     @test occursin("rnorm(1, 0.0, 0.05)", s)
     @test findfirst("rnorm(1, 0.0, 0.05)", s).start < findfirst("// select:", s).start
+end
+
+@testset "the life cycle on several demes: tensor products, migration and braidings" begin
+    L = lifecycle(); g = L.generation; Z = dom(g)
+    meta = g ⊗ g ⊗ g ⋅ L.migrate(3)
+    @test dom(meta) == codom(meta) == Z ⊗ Z ⊗ Z
+    @test_throws ArgumentError L.migrate(1)
+    p = Params(PopSize=100, NoQTL=1, Ploidy=2, NoGenerations=30, PhenotypeVar=0.02, Heritability=0.5,
+               MutationScalar=0.02, MutationRatePerGamete=0.5, InitFitnessSD=0.3)
+    init!(s, rng) = foreach(w -> (w.env .= QTLSim.envsd(p) .* randn(rng, p.PopSize)), s.demes)
+    # the image of g ⊗ g ⊗ g acts deme by deme, as the generation operator does on a metapopulation
+    s1 = p ⊗ demes(3); init!(s1, MersenneTwister(1)); s2 = deepcopy(s1)
+    lower(g ⊗ g ⊗ g, :kernel).act(s1, [1, 2, 3], MersenneTwister(9))
+    operators().generation(s2, MersenneTwister(9))
+    @test all(s1.demes[i].genome == s2.demes[i].genome for i in 1:3)
+    # a braiding relabels the demes and moves no data
+    b = lower((g ⊗ g) ⋅ Catlab.braid(Z, Z), :kernel)
+    @test b.perm == [2, 1]
+    s3 = p ⊗ demes(2); init!(s3, MersenneTwister(2)); s4 = deepcopy(s3)
+    b.act(s3, [1, 2], MersenneTwister(4)); lower(g ⊗ g, :kernel).act(s4, [1, 2], MersenneTwister(4))
+    @test s3.demes[1].genome == s4.demes[1].genome && s3.demes[2].genome == s4.demes[2].genome
+    # runs: a row per deme and sampled generation; migration conserves every deme's size
+    o = run_composed(p ⊗ demes(3), MersenneTwister(5); cycle = meta, migration_rate = 0.2)
+    @test length(o.gen) == 3 * p.NoGenerations && sort(unique(o.deme)) == [1, 2, 3]
+    @test !o.extinct && o.extinct_gen == [-1, -1, -1]
+    @test_throws ArgumentError run_composed(p ⊗ demes(2), MersenneTwister(5); cycle = meta)
+    o2 = run_composed(p ⊗ demes(2), MersenneTwister(6); cycle = (g ⊗ g) ⋅ Catlab.braid(Z, Z))
+    @test length(o2.gen) == 2 * p.NoGenerations
+end
+
+@testset "Eidos for several demes and many loci" begin
+    L = lifecycle(); g = L.generation
+    Ext_ = Base.get_extension(QTLSim, :QTLSimCatlabExt)
+    p = Params(PopSize=100, NoQTL=1, Ploidy=2, NoGenerations=30)
+    # the image of a tensor product runs each factor's code in its own deme block
+    @test lower(g ⊗ g, :eidos).emit(["p1", "p2"]) ==
+          Ext_.deme_block(lower(g, :eidos).code, "p1") * Ext_.deme_block(lower(g, :eidos).code, "p2")
+    s = slim_script(g ⊗ g ⊗ g ⋅ L.migrate(3), p; migration_rate = 0.05)
+    @test occursin("defineConstant(\"DEMES\", 3)", s) && occursin("defineConstant(\"migRate\", 0.05)", s)
+    @test all(occursin("do {   // deme p$i", s) for i in 1:3) && occursin("// migrate:", s)
+    @test findfirst("// migrate:", s).start > findfirst("do {   // deme p3", s).start
+    @test_throws ArgumentError slim_script((g ⊗ g) ⋅ Catlab.braid(dom(g), dom(g)), p)
+    sm = slim_script(g, Params(p; NoQTL = 20, RecombPoissonMean = 3.0))
+    @test occursin("defineConstant(\"L\", 20)", sm) && occursin("defineConstant(\"RECOMB\", 3.0)", sm)
 end

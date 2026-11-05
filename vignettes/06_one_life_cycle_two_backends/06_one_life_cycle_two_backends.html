@@ -2251,6 +2251,8 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
   <li><a href="#the-generated-model-is-the-hand-written-port" id="toc-the-generated-model-is-the-hand-written-port" class="nav-link" data-scroll-target="#the-generated-model-is-the-hand-written-port">The generated model is the hand-written port</a></li>
   <li><a href="#the-generated-model-agrees-with-qtsim" id="toc-the-generated-model-agrees-with-qtsim" class="nav-link" data-scroll-target="#the-generated-model-agrees-with-qtsim">The generated model agrees with QTSim</a></li>
   <li><a href="#a-new-step-lowered-twice" id="toc-a-new-step-lowered-twice" class="nav-link" data-scroll-target="#a-new-step-lowered-twice">A new step, lowered twice</a></li>
+  <li><a href="#many-loci" id="toc-many-loci" class="nav-link" data-scroll-target="#many-loci">Many loci</a></li>
+  <li><a href="#demes-and-migration" id="toc-demes-and-migration" class="nav-link" data-scroll-target="#demes-and-migration">Demes and migration</a></li>
   <li><a href="#summary" id="toc-summary" class="nav-link" data-scroll-target="#summary">Summary</a></li>
   </ul>
 <div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="06_one_life_cycle_two_backends.md"><i class="bi bi-file-code"></i>Github (GFM)</a></li></ul></div></nav>
@@ -2284,8 +2286,8 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 
 <section id="overview" class="level2">
 <h2 class="anchored" data-anchor-id="overview">Overview</h2>
-<p>The previous vignettes build a generation by composing the kernel’s operators directly. Here the life cycle is written once, as syntax: a morphism of a free category whose objects are the stages of a generation and whose generating morphisms are the steps between them. A functor out of a free category is fixed by where it sends the generators, so giving each step a meaning in a backend gives every life cycle built from those steps a meaning there. Two such functors lower the life cycle: one to the simulation kernel and one to Eidos, the scripting language of the population-genetics simulator SLiM <span class="citation" data-cites="Haller2023">(<a href="#ref-Haller2023" role="doc-biblioref">Haller and Messer 2023</a>)</span>.</p>
-<p>The SLiM model lowered from QTSim’s life cycle is, run for run, the SLiM port of QTSim that was written by hand for this project, and it agrees with QTSim in distribution. A new step, given a meaning in both backends, yields two simulators of a model QTSim does not have, which can be checked against each other.</p>
+<p>The previous vignettes build a generation by composing the kernel’s operators directly. Here the life cycle is written once, as syntax: a morphism of a free symmetric monoidal category whose objects are the stages of a generation and whose generating morphisms are the steps between them. A functor out of a free category is fixed by where it sends the generators, so giving each step a meaning in a backend gives every life cycle built from those steps a meaning there. Two such functors lower the life cycle: one to the simulation kernel and one to Eidos, the scripting language of the population-genetics simulator SLiM <span class="citation" data-cites="Haller2023">(<a href="#ref-Haller2023" role="doc-biblioref">Haller and Messer 2023</a>)</span>.</p>
+<p>The SLiM model lowered from QTSim’s life cycle is, run for run, the SLiM port of QTSim that was written by hand for this project, and it agrees with QTSim in distribution, with one locus or a hundred. A new step, given a meaning in both backends, yields two simulators of a model QTSim does not have, which can be checked against each other: a fluctuating optimum, and demes coupled by migration, which the monoidal product <code>⊗</code> places side by side.</p>
 <p>The vignette needs SLiM (version 4 or later), the hand-written port and QTSim. It looks for the first two in <code>slim/build/slim</code> and <code>slim_port/qtsim.slim</code> in the folder that holds the package’s folder (the <code>SLIM</code> environment variable, or a <code>slim</code> on the path, can stand in for the first), and for QTSim built from the source that comes with the package (<code>make -C reference/QTSim</code>) or in the paper’s code.</p>
 </section>
 <section id="setup" class="level2">
@@ -2293,7 +2295,7 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 <div id="2" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">QTLSim</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> <span class="bu">Catlab</span>                       <span class="co"># loads QTLSim&#39;s categorical layer</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Catlab</span>: ⋅, dom, codom, Hom</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Catlab</span>: ⋅, ⊗, dom, codom, Hom</span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">CairoMakie</span>, <span class="bu">HypothesisTests</span>, <span class="bu">Printf</span>, <span class="bu">Random</span>, <span class="bu">Statistics</span></span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>CairoMakie.<span class="fu">activate!</span>(<span class="kw">type</span> <span class="op">=</span> <span class="st">&quot;png&quot;</span>)</span>
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
@@ -2313,7 +2315,7 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 </section>
 <section id="the-life-cycle-as-a-morphism" class="level2">
 <h2 class="anchored" data-anchor-id="the-life-cycle-as-a-morphism">The life cycle as a morphism</h2>
-<p><code>lifecycle()</code> returns the syntax: the Catlab presentation of a free category with four objects, the stages of a generation, and seven generating morphisms, the steps of QTSim’s generation loop.</p>
+<p><code>lifecycle()</code> returns the syntax: the Catlab presentation of a free symmetric monoidal category with four objects, the stages of a generation, and seven generating morphisms, the steps of QTSim’s generation loop.</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>L <span class="op">=</span> <span class="fu">lifecycle</span>()</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> STEP_NAMES <span class="op">=</span> (<span class="op">:</span>develop, <span class="op">:</span>select, <span class="op">:</span>reproduce, <span class="op">:</span>record, <span class="op">:</span>rescale, <span class="op">:</span>mutate, <span class="op">:</span>swap)</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">&quot;| step | from | to |</span><span class="sc">\n</span><span class="st">|:--|:--|:--|&quot;</span>)</span>
@@ -2414,17 +2416,20 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">lower</span>(select, <span class="op">:</span>eidos)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>    // select: move the optimum, Gaussian fitness with QTSim&#39;s 0.4, viability   [Adults → Survivors]
+    THETA = @POP@.getValue(&quot;THETA&quot;);
+    OMEGA = @POP@.getValue(&quot;OMEGA&quot;);
     if (moveGen &gt;= 0 &amp; gen &gt;= moveGen) {
-        if (moveType == &quot;phenotype&quot;) defineGlobal(&quot;THETA&quot;, mean(pheno) + sqrt(VP) * moveSD);
-        else if (moveType == &quot;fitness&quot;) defineGlobal(&quot;THETA&quot;, mean(pheno) + OMEGA * moveSD);
-        else defineGlobal(&quot;THETA&quot;, THETA + moveSD);
+        if (moveType == &quot;phenotype&quot;) THETA = mean(pheno) + sqrt(VP) * moveSD;
+        else if (moveType == &quot;fitness&quot;) THETA = mean(pheno) + OMEGA * moveSD;
+        else THETA = THETA + moveSD;
+        @POP@.setValue(&quot;THETA&quot;, THETA);
     }
     x = standardise ? (pheno - THETA) / sd(pheno) else pheno - THETA;
     W = drift ? rep(1.0, size(adults)) else dnorm(x, 0.0, OMEGA) / (0.4 / OMEGA);
     survived = runif(size(adults)) &lt; W;
     sidx = which(survived);
     ns = size(sidx);
-    if (ns &lt; 2) { catn(&quot;Pop all died.&quot;); sim.simulationFinished(); self.active = 0; return; }</code></pre>
+    if (ns &lt; 2) { @POP@.setValue(&quot;extinct&quot;, T); adults.fitnessScaling = 0.0; break; }</code></pre>
 </div>
 </div>
 <p>Composition goes to concatenation, so the image of the generation is the seven fragments in order:</p>
@@ -2447,8 +2452,8 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 //     develop⋅select⋅reproduce⋅record⋅rescale⋅mutate⋅swap: Zygotes → Zygotes
 //
 // by the lowering to Eidos: each step of the life cycle is a fragment of the
-// reproduction() callback below, in the order of the composite. Regenerate it with
-// QTLSim&#39;s `slim_script` rather than editing it.
+// reproduction() callback below, in the order of the composite, for each of its
+// 1 deme. Regenerate it with QTLSim&#39;s `slim_script` rather than editing it.
 //
 // Parameters can be overridden with  slim -d &quot;NAME=value&quot;  and the seed set with -s.
 
@@ -2460,6 +2465,8 @@ initialize() {
     if (!exists(&quot;h2&quot;))          defineConstant(&quot;h2&quot;, 0.5);
     if (!exists(&quot;m&quot;))           defineConstant(&quot;m&quot;, 0.001);
     if (!exists(&quot;rate&quot;))        defineConstant(&quot;rate&quot;, 0.0002);
+    if (!exists(&quot;L&quot;))           defineConstant(&quot;L&quot;, 1);
+    if (!exists(&quot;RECOMB&quot;))      defineConstant(&quot;RECOMB&quot;, 1.0);
     if (!exists(&quot;NGEN&quot;))        defineConstant(&quot;NGEN&quot;, 6500);
     if (!exists(&quot;sampleEvery&quot;)) defineConstant(&quot;sampleEvery&quot;, 1);
     if (!exists(&quot;moveGen&quot;))     defineConstant(&quot;moveGen&quot;, 5000);
@@ -2470,11 +2477,13 @@ initialize() {
     if (!exists(&quot;initOmega&quot;))   defineConstant(&quot;initOmega&quot;, -1.0);
     if (!exists(&quot;drift&quot;))       defineConstant(&quot;drift&quot;, F);
     if (!exists(&quot;standardise&quot;)) defineConstant(&quot;standardise&quot;, F);
+    if (!exists(&quot;migRate&quot;))     defineConstant(&quot;migRate&quot;, 0.0);
+    defineConstant(&quot;DEMES&quot;, 1);                             // fixed by the life cycle
 
     defineConstant(&quot;VG&quot;, h2 * VP);
     defineConstant(&quot;VE&quot;, VP - VG);
     defineConstant(&quot;ESD&quot;, sqrt(VE));
-    defineConstant(&quot;MUTVAR&quot;, (m / (2 * rate)) * VE);           // m/(Ploidy·NoQTL·rate)·V_E
+    defineConstant(&quot;MUTVAR&quot;, (m / (2 * L * rate)) * VE);       // m/(Ploidy·NoQTL·rate)·V_E
     defineConstant(&quot;OMEGA0&quot;, initOmega &lt; 0 ? VG / sqrt(m * VE) else initOmega);
 
     // vestigial genetics: SLiM supplies only the life cycle
@@ -2486,62 +2495,99 @@ initialize() {
 }
 
 1 first() {
-    sim.addSubpop(&quot;p1&quot;, N);
-    p1.individuals.setValue(&quot;a0&quot;, 0.0);      // founders: allele values 0
-    p1.individuals.setValue(&quot;a1&quot;, 0.0);
-    defineGlobal(&quot;THETA&quot;, 0.0);
-    defineGlobal(&quot;OMEGA&quot;, OMEGA0);
+    for (i in seqLen(DEMES)) {
+        pop = sim.addSubpop(i + 1, N);
+        pop.individuals.setValue(&quot;a0&quot;, rep(0.0, L));   // founders: allele values 0
+        pop.individuals.setValue(&quot;a1&quot;, rep(0.0, L));
+        pop.setValue(&quot;THETA&quot;, 0.0);
+        pop.setValue(&quot;OMEGA&quot;, OMEGA0);
+        pop.setValue(&quot;extinct&quot;, F);
+    }
 }
 
 // one generation per tick, done in the first call of the callback
 reproduction() {
     gen = sim.cycle - 1;                       // QTSim&#39;s generation index
-    // develop: genotype a0 + a1, phenotype genotype + e with e ~ N(0, V_E)   [Zygotes → Adults]
-    adults = p1.individuals;
-    a0 = adults.getValue(&quot;a0&quot;);
-    a1 = adults.getValue(&quot;a1&quot;);
-    genotype = a0 + a1;
-    env = rnorm(size(adults), 0.0, ESD);
-    pheno = genotype + env;
-    // select: move the optimum, Gaussian fitness with QTSim&#39;s 0.4, viability   [Adults → Survivors]
-    if (moveGen &gt;= 0 &amp; gen &gt;= moveGen) {
-        if (moveType == &quot;phenotype&quot;) defineGlobal(&quot;THETA&quot;, mean(pheno) + sqrt(VP) * moveSD);
-        else if (moveType == &quot;fitness&quot;) defineGlobal(&quot;THETA&quot;, mean(pheno) + OMEGA * moveSD);
-        else defineGlobal(&quot;THETA&quot;, THETA + moveSD);
-    }
-    x = standardise ? (pheno - THETA) / sd(pheno) else pheno - THETA;
-    W = drift ? rep(1.0, size(adults)) else dnorm(x, 0.0, OMEGA) / (0.4 / OMEGA);
-    survived = runif(size(adults)) &lt; W;
-    sidx = which(survived);
-    ns = size(sidx);
-    if (ns &lt; 2) { catn(&quot;Pop all died.&quot;); sim.simulationFinished(); self.active = 0; return; }
-    // reproduce: N offspring of two distinct survivors, a random allele from each   [Survivors → Offspring]
-    sa0 = a0[sidx]; sa1 = a1[sidx];
-    i1 = rdunif(N, 0, ns - 1);
-    i2 = rdunif(N, 0, ns - 1);
-    dup = which(i1 == i2);
-    while (size(dup) &gt; 0) { i2[dup] = rdunif(size(dup), 0, ns - 1); dup = which(i1 == i2); }
-    c0 = ifelse(runif(N) &lt; 0.5, sa1[i1], sa0[i1]);
-    c1 = ifelse(runif(N) &lt; 0.5, sa1[i2], sa0[i2]);
-    // record: the parent generation&#39;s statistics, every `sampleEvery` generations   [Offspring → Offspring]
-    if (gen == 0) catn(&quot;gen\tphenoMean\tgenoVar\tnSurv\ttheta\tomega&quot;);
-    if (gen % sampleEvery == 0)
-        catn(gen + &quot;\t&quot; + mean(pheno) + &quot;\t&quot; + var(genotype) + &quot;\t&quot; + ns + &quot;\t&quot; + THETA + &quot;\t&quot; + OMEGA);
-    // rescale: the scheduled change of the fitness width, from the next generation   [Offspring → Offspring]
-    if (gen == changeGen) defineGlobal(&quot;OMEGA&quot;, changeSD);
-    // mutate: Poisson(rate) increments of N(0, MUTVAR) per offspring chromosome   [Offspring → Offspring]
-    k0 = rpois(N, rate);
-    k1 = rpois(N, rate);
-    c0 = c0 + rnorm(N, 0.0, sqrt(k0 * MUTVAR));
-    c1 = c1 + rnorm(N, 0.0, sqrt(k1 * MUTVAR));
-    // swap: the offspring replace their parents   [Offspring → Zygotes]
-    for (k in seqLen(N)) {
-        child = p1.addEmpty();
-        child.setValue(&quot;a0&quot;, c0[k]);
-        child.setValue(&quot;a1&quot;, c1[k]);
-    }
-    adults.fitnessScaling = 0.0;
-    if (gen &gt;= NGEN - 1) sim.simulationFinished();
+    if (gen == 0) catn(&quot;gen\tphenoMean\tgenoVar\tnSurv\ttheta\tomega&quot; + ((DEMES &gt; 1) ? &quot;\tdeme&quot; else &quot;&quot;));
+    kids_p1 = p1.individuals[integer(0)];
+    do {   // deme p1
+        if (p1.getValue(&quot;extinct&quot;)) break;
+        // develop: genotype the sum of allele values, phenotype genotype + e with e ~ N(0, V_E)   [Zygotes → Adults]
+        adults = p1.individuals;
+        a0 = adults.getValue(&quot;a0&quot;);
+        a1 = adults.getValue(&quot;a1&quot;);
+        genotype = (L == 1) ? a0 + a1 else colSums(matrix(a0, nrow = L)) + colSums(matrix(a1, nrow = L));
+        env = rnorm(size(adults), 0.0, ESD);
+        pheno = genotype + env;
+        // select: move the optimum, Gaussian fitness with QTSim&#39;s 0.4, viability   [Adults → Survivors]
+        THETA = p1.getValue(&quot;THETA&quot;);
+        OMEGA = p1.getValue(&quot;OMEGA&quot;);
+        if (moveGen &gt;= 0 &amp; gen &gt;= moveGen) {
+            if (moveType == &quot;phenotype&quot;) THETA = mean(pheno) + sqrt(VP) * moveSD;
+            else if (moveType == &quot;fitness&quot;) THETA = mean(pheno) + OMEGA * moveSD;
+            else THETA = THETA + moveSD;
+            p1.setValue(&quot;THETA&quot;, THETA);
+        }
+        x = standardise ? (pheno - THETA) / sd(pheno) else pheno - THETA;
+        W = drift ? rep(1.0, size(adults)) else dnorm(x, 0.0, OMEGA) / (0.4 / OMEGA);
+        survived = runif(size(adults)) &lt; W;
+        sidx = which(survived);
+        ns = size(sidx);
+        if (ns &lt; 2) { p1.setValue(&quot;extinct&quot;, T); adults.fitnessScaling = 0.0; break; }
+        // reproduce: N offspring of two distinct survivors; each gamete copies a parental
+        // chromosome, switching strands at most once, as QTSim does   [Survivors → Offspring]
+        i1 = rdunif(N, 0, ns - 1);
+        i2 = rdunif(N, 0, ns - 1);
+        dup = which(i1 == i2);
+        while (size(dup) &gt; 0) { i2[dup] = rdunif(size(dup), 0, ns - 1); dup = which(i1 == i2); }
+        if (L == 1) {
+            sa0 = a0[sidx]; sa1 = a1[sidx];
+            c0 = ifelse(runif(N) &lt; 0.5, sa1[i1], sa0[i1]);
+            c1 = ifelse(runif(N) &lt; 0.5, sa1[i2], sa0[i2]);
+        } else {
+            par = c(sidx[i1], sidx[i2]);                        // the parent of each of the 2N gametes
+            npts = rpois(2 * N, RECOMB);                        // crossover points drawn for each gamete
+            first = runif(2 * N) &lt; 0.5;                         // T: the gamete starts on the parent&#39;s a0
+            cut = rep(L - 1, 2 * N);                            // the last locus taken from the starting strand
+            for (j in which(npts &gt; 0 &amp; npts &lt; L)) cut[j] = min(sample(0:(L - 2), npts[j]));
+            loc = rep(0:(L - 1), 2 * N);
+            at = repEach(par * L, L) + loc;
+            g = ifelse((loc &lt;= repEach(cut, L)) == repEach(first, L), a0[at], a1[at]);
+            c0 = g[0:(N * L - 1)];
+            c1 = g[(N * L):(2 * N * L - 1)];
+        }
+        // record: the parent generation&#39;s statistics, every `sampleEvery` generations   [Offspring → Offspring]
+        if (gen % sampleEvery == 0)
+            catn(gen + &quot;\t&quot; + mean(pheno) + &quot;\t&quot; + var(genotype) + &quot;\t&quot; + ns + &quot;\t&quot; + p1.getValue(&quot;THETA&quot;) + &quot;\t&quot; + p1.getValue(&quot;OMEGA&quot;) + ((DEMES &gt; 1) ? &quot;\t&quot; + p1.id else &quot;&quot;));
+        // rescale: the scheduled change of the fitness width, from the next generation   [Offspring → Offspring]
+        if (gen == changeGen) p1.setValue(&quot;OMEGA&quot;, changeSD);
+        // mutate: Poisson(L·rate) mutations per offspring chromosome, each adding N(0, MUTVAR)
+        // to a random locus   [Offspring → Offspring]
+        k0 = rpois(N, L * rate);
+        k1 = rpois(N, L * rate);
+        if (L == 1) {
+            c0 = c0 + rnorm(N, 0.0, sqrt(k0 * MUTVAR));
+            c1 = c1 + rnorm(N, 0.0, sqrt(k1 * MUTVAR));
+        } else {
+            at = repEach(0:(N - 1), k0) * L + rdunif(sum(k0), 0, L - 1);
+            eff = rnorm(sum(k0), 0.0, sqrt(MUTVAR));
+            for (j in seqAlong(at)) c0[at[j]] = c0[at[j]] + eff[j];
+            at = repEach(0:(N - 1), k1) * L + rdunif(sum(k1), 0, L - 1);
+            eff = rnorm(sum(k1), 0.0, sqrt(MUTVAR));
+            for (j in seqAlong(at)) c1[at[j]] = c1[at[j]] + eff[j];
+        }
+        // swap: the offspring replace their parents   [Offspring → Zygotes]
+        kids_p1 = p1.addEmpty(count = N);
+        for (k in seqLen(N)) {
+            kids_p1[k].setValue(&quot;a0&quot;, c0[(k * L):(k * L + L - 1)]);
+            kids_p1[k].setValue(&quot;a1&quot;, c1[(k * L):(k * L + L - 1)]);
+        }
+        adults.fitnessScaling = 0.0;
+    } while (F);
+    dead = 0;
+    for (pop in sim.subpopulations) dead = dead + asInteger(pop.getValue(&quot;extinct&quot;));
+    if (dead == DEMES) { catn(&quot;Pop all died.&quot;); sim.simulationFinished(); }
+    else if (gen &gt;= NGEN - 1) sim.simulationFinished();
     self.active = 0;
 }
 
@@ -2640,41 +2686,42 @@ reproduction() {
 <span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a>        <span class="fu">println</span>(io, <span class="st">&quot;OptimumMoveType </span><span class="sc">$</span>(q.MoveType)<span class="sc">\n</span><span class="st">PhenotypeVar </span><span class="sc">$</span>(q.PhenotypeVar)<span class="st">&quot;</span>)</span>
 <span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>        <span class="fu">println</span>(io, <span class="st">&quot;MutationScalar </span><span class="sc">$</span>(q.MutationScalar)<span class="sc">\n</span><span class="st">Heritability </span><span class="sc">$</span>(q.Heritability)<span class="st">&quot;</span>)</span>
 <span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a>        <span class="fu">println</span>(io, <span class="st">&quot;MutationRatePerGamete </span><span class="sc">$</span>(q.MutationRatePerGamete)<span class="st">&quot;</span>)</span>
-<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a>        q.InitFitnessSD <span class="op">&gt;=</span> <span class="fl">0</span> <span class="op">&amp;&amp;</span> <span class="fu">println</span>(io, <span class="st">&quot;InitFitnessSD </span><span class="sc">$</span>(q.InitFitnessSD)<span class="st">&quot;</span>)</span>
-<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a>        <span class="fu">println</span>(io, <span class="st">&quot;Seed </span><span class="sc">$</span>seed<span class="st">&quot;</span>)</span>
-<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
-<span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb20-20"><a href="#cb20-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-21"><a href="#cb20-21" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">run_qtsim</span>(q<span class="op">::</span><span class="dt">Params</span>, seed)</span>
-<span id="cb20-22"><a href="#cb20-22" aria-hidden="true" tabindex="-1"></a>    opts <span class="op">=</span> <span class="fu">tempname</span>() <span class="op">*</span> <span class="st">&quot;.txt&quot;</span>; <span class="fu">write_qtsim_options</span>(opts, q, seed)</span>
-<span id="cb20-23"><a href="#cb20-23" aria-hidden="true" tabindex="-1"></a>    text <span class="op">=</span> <span class="cf">try</span> <span class="fu">read</span>(<span class="ss">`$QTSIM $opts`</span>, <span class="dt">String</span>) <span class="cf">finally</span> <span class="fu">rm</span>(opts; force <span class="op">=</span> <span class="cn">true</span>) <span class="cf">end</span></span>
-<span id="cb20-24"><a href="#cb20-24" aria-hidden="true" tabindex="-1"></a>    gen <span class="op">=</span> <span class="dt">Int</span>[]; zbar <span class="op">=</span> <span class="dt">Float64</span>[]; vg <span class="op">=</span> <span class="dt">Float64</span>[]; ns <span class="op">=</span> <span class="dt">Int</span>[]; θ <span class="op">=</span> <span class="dt">Float64</span>[]; inbody <span class="op">=</span> <span class="cn">false</span></span>
-<span id="cb20-25"><a href="#cb20-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> line <span class="kw">in</span> <span class="fu">split</span>(text, <span class="ch">&#39;\n&#39;</span>)</span>
-<span id="cb20-26"><a href="#cb20-26" aria-hidden="true" tabindex="-1"></a>        <span class="fu">startswith</span>(line, <span class="st">&quot;Pop all died&quot;</span>) <span class="op">&amp;&amp;</span></span>
-<span id="cb20-27"><a href="#cb20-27" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> (; gen, pheno_mean <span class="op">=</span> zbar, geno_var <span class="op">=</span> vg, nsurv <span class="op">=</span> ns, theta <span class="op">=</span> θ, extinct <span class="op">=</span> <span class="cn">true</span>)</span>
-<span id="cb20-28"><a href="#cb20-28" aria-hidden="true" tabindex="-1"></a>        <span class="fu">startswith</span>(line, <span class="st">&quot;Generation</span><span class="sc">\t</span><span class="st">&quot;</span>) <span class="op">&amp;&amp;</span> (inbody <span class="op">=</span> <span class="cn">true</span>; <span class="cf">continue</span>)</span>
-<span id="cb20-29"><a href="#cb20-29" aria-hidden="true" tabindex="-1"></a>        (inbody <span class="op">&amp;&amp;</span> !<span class="fu">isempty</span>(<span class="fu">strip</span>(line))) <span class="op">||</span> <span class="cf">continue</span></span>
-<span id="cb20-30"><a href="#cb20-30" aria-hidden="true" tabindex="-1"></a>        f <span class="op">=</span> <span class="fu">split</span>(line, <span class="ch">&#39;\t&#39;</span>)</span>
-<span id="cb20-31"><a href="#cb20-31" aria-hidden="true" tabindex="-1"></a>        <span class="fu">push!</span>(gen, <span class="fu">parse</span>(<span class="dt">Int</span>, f[<span class="fl">1</span>])); <span class="fu">push!</span>(zbar, <span class="fu">parse</span>(<span class="dt">Float64</span>, f[<span class="fl">2</span>])); <span class="fu">push!</span>(vg, <span class="fu">parse</span>(<span class="dt">Float64</span>, f[<span class="fl">4</span>]))</span>
-<span id="cb20-32"><a href="#cb20-32" aria-hidden="true" tabindex="-1"></a>        <span class="fu">push!</span>(ns, <span class="fu">parse</span>(<span class="dt">Int</span>, f[<span class="fl">5</span>])); <span class="fu">push!</span>(θ, <span class="fu">parse</span>(<span class="dt">Float64</span>, f[<span class="fl">6</span>]))</span>
-<span id="cb20-33"><a href="#cb20-33" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
-<span id="cb20-34"><a href="#cb20-34" aria-hidden="true" tabindex="-1"></a>    (; gen, pheno_mean <span class="op">=</span> zbar, geno_var <span class="op">=</span> vg, nsurv <span class="op">=</span> ns, theta <span class="op">=</span> θ, extinct <span class="op">=</span> <span class="cn">false</span>)</span>
-<span id="cb20-35"><a href="#cb20-35" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
-<span id="cb20-36"><a href="#cb20-36" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-37"><a href="#cb20-37" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> R <span class="op">=</span> <span class="fl">50</span></span>
-<span id="cb20-38"><a href="#cb20-38" aria-hidden="true" tabindex="-1"></a>programs <span class="op">=</span> (<span class="op">:</span>QTSim, <span class="op">:</span>SLiM, <span class="op">:</span>kernel)</span>
-<span id="cb20-39"><a href="#cb20-39" aria-hidden="true" tabindex="-1"></a>models <span class="op">=</span> <span class="fu">map</span>(q <span class="op">-&gt;</span> <span class="fu">slim_script</span>(qtsim, q), scen)</span>
-<span id="cb20-40"><a href="#cb20-40" aria-hidden="true" tabindex="-1"></a>jobs <span class="op">=</span> [(prog, s, k) for prog <span class="kw">in</span> programs for s <span class="kw">in</span> <span class="fu">keys</span>(scen) for k <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>R]</span>
-<span id="cb20-41"><a href="#cb20-41" aria-hidden="true" tabindex="-1"></a>runs <span class="op">=</span> <span class="fu">Vector</span><span class="dt">{Any}</span>(<span class="cn">undef</span>, <span class="fu">length</span>(jobs))</span>
-<span id="cb20-42"><a href="#cb20-42" aria-hidden="true" tabindex="-1"></a><span class="bu">Threads</span>.<span class="pp">@threads</span> <span class="op">:</span>greedy <span class="cf">for</span> j <span class="kw">in</span> <span class="fu">eachindex</span>(jobs)</span>
-<span id="cb20-43"><a href="#cb20-43" aria-hidden="true" tabindex="-1"></a>    prog, s, k <span class="op">=</span> jobs[j]</span>
-<span id="cb20-44"><a href="#cb20-44" aria-hidden="true" tabindex="-1"></a>    q <span class="op">=</span> scen[s]</span>
-<span id="cb20-45"><a href="#cb20-45" aria-hidden="true" tabindex="-1"></a>    runs[j] <span class="op">=</span> prog <span class="op">===</span> <span class="op">:</span>QTSim ? <span class="fu">run_qtsim</span>(q, <span class="fl">1000</span>k) <span class="op">:</span></span>
-<span id="cb20-46"><a href="#cb20-46" aria-hidden="true" tabindex="-1"></a>              prog <span class="op">===</span> <span class="op">:</span>SLiM ? <span class="fu">run_slim</span>(models[s], <span class="fl">1000</span>k <span class="op">+</span> <span class="fl">1</span>) <span class="op">:</span></span>
-<span id="cb20-47"><a href="#cb20-47" aria-hidden="true" tabindex="-1"></a>              <span class="fu">run_composed</span>(<span class="fu">World</span>(q), <span class="fu">Xoshiro</span>(<span class="fl">1000</span>k <span class="op">+</span> <span class="fl">2</span>); cycle <span class="op">=</span> qtsim)</span>
-<span id="cb20-48"><a href="#cb20-48" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb20-49"><a href="#cb20-49" aria-hidden="true" tabindex="-1"></a><span class="fu">result</span>(prog, s) <span class="op">=</span> [runs[j] for j <span class="kw">in</span> <span class="fu">eachindex</span>(jobs) if jobs[j][<span class="fl">1</span>] <span class="op">===</span> prog <span class="op">&amp;&amp;</span> jobs[j][<span class="fl">2</span>] <span class="op">===</span> s]</span>
-<span id="cb20-50"><a href="#cb20-50" aria-hidden="true" tabindex="-1"></a><span class="cn">nothing</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a>        q.NoQTL <span class="op">&gt;</span> <span class="fl">1</span> <span class="op">&amp;&amp;</span> <span class="fu">println</span>(io, <span class="st">&quot;RecombinationPoissonMean </span><span class="sc">$</span>(q.RecombPoissonMean)<span class="st">&quot;</span>)</span>
+<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a>        q.InitFitnessSD <span class="op">&gt;=</span> <span class="fl">0</span> <span class="op">&amp;&amp;</span> <span class="fu">println</span>(io, <span class="st">&quot;InitFitnessSD </span><span class="sc">$</span>(q.InitFitnessSD)<span class="st">&quot;</span>)</span>
+<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a>        <span class="fu">println</span>(io, <span class="st">&quot;Seed </span><span class="sc">$</span>seed<span class="st">&quot;</span>)</span>
+<span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb20-20"><a href="#cb20-20" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb20-21"><a href="#cb20-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-22"><a href="#cb20-22" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">run_qtsim</span>(q<span class="op">::</span><span class="dt">Params</span>, seed)</span>
+<span id="cb20-23"><a href="#cb20-23" aria-hidden="true" tabindex="-1"></a>    opts <span class="op">=</span> <span class="fu">tempname</span>() <span class="op">*</span> <span class="st">&quot;.txt&quot;</span>; <span class="fu">write_qtsim_options</span>(opts, q, seed)</span>
+<span id="cb20-24"><a href="#cb20-24" aria-hidden="true" tabindex="-1"></a>    text <span class="op">=</span> <span class="cf">try</span> <span class="fu">read</span>(<span class="ss">`$QTSIM $opts`</span>, <span class="dt">String</span>) <span class="cf">finally</span> <span class="fu">rm</span>(opts; force <span class="op">=</span> <span class="cn">true</span>) <span class="cf">end</span></span>
+<span id="cb20-25"><a href="#cb20-25" aria-hidden="true" tabindex="-1"></a>    gen <span class="op">=</span> <span class="dt">Int</span>[]; zbar <span class="op">=</span> <span class="dt">Float64</span>[]; vg <span class="op">=</span> <span class="dt">Float64</span>[]; ns <span class="op">=</span> <span class="dt">Int</span>[]; θ <span class="op">=</span> <span class="dt">Float64</span>[]; inbody <span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb20-26"><a href="#cb20-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> line <span class="kw">in</span> <span class="fu">split</span>(text, <span class="ch">&#39;\n&#39;</span>)</span>
+<span id="cb20-27"><a href="#cb20-27" aria-hidden="true" tabindex="-1"></a>        <span class="fu">startswith</span>(line, <span class="st">&quot;Pop all died&quot;</span>) <span class="op">&amp;&amp;</span></span>
+<span id="cb20-28"><a href="#cb20-28" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> (; gen, pheno_mean <span class="op">=</span> zbar, geno_var <span class="op">=</span> vg, nsurv <span class="op">=</span> ns, theta <span class="op">=</span> θ, extinct <span class="op">=</span> <span class="cn">true</span>)</span>
+<span id="cb20-29"><a href="#cb20-29" aria-hidden="true" tabindex="-1"></a>        <span class="fu">startswith</span>(line, <span class="st">&quot;Generation</span><span class="sc">\t</span><span class="st">&quot;</span>) <span class="op">&amp;&amp;</span> (inbody <span class="op">=</span> <span class="cn">true</span>; <span class="cf">continue</span>)</span>
+<span id="cb20-30"><a href="#cb20-30" aria-hidden="true" tabindex="-1"></a>        (inbody <span class="op">&amp;&amp;</span> !<span class="fu">isempty</span>(<span class="fu">strip</span>(line))) <span class="op">||</span> <span class="cf">continue</span></span>
+<span id="cb20-31"><a href="#cb20-31" aria-hidden="true" tabindex="-1"></a>        f <span class="op">=</span> <span class="fu">split</span>(line, <span class="ch">&#39;\t&#39;</span>)</span>
+<span id="cb20-32"><a href="#cb20-32" aria-hidden="true" tabindex="-1"></a>        <span class="fu">push!</span>(gen, <span class="fu">parse</span>(<span class="dt">Int</span>, f[<span class="fl">1</span>])); <span class="fu">push!</span>(zbar, <span class="fu">parse</span>(<span class="dt">Float64</span>, f[<span class="fl">2</span>])); <span class="fu">push!</span>(vg, <span class="fu">parse</span>(<span class="dt">Float64</span>, f[<span class="fl">4</span>]))</span>
+<span id="cb20-33"><a href="#cb20-33" aria-hidden="true" tabindex="-1"></a>        <span class="fu">push!</span>(ns, <span class="fu">parse</span>(<span class="dt">Int</span>, f[<span class="fl">5</span>])); <span class="fu">push!</span>(θ, <span class="fu">parse</span>(<span class="dt">Float64</span>, f[<span class="fl">6</span>]))</span>
+<span id="cb20-34"><a href="#cb20-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb20-35"><a href="#cb20-35" aria-hidden="true" tabindex="-1"></a>    (; gen, pheno_mean <span class="op">=</span> zbar, geno_var <span class="op">=</span> vg, nsurv <span class="op">=</span> ns, theta <span class="op">=</span> θ, extinct <span class="op">=</span> <span class="cn">false</span>)</span>
+<span id="cb20-36"><a href="#cb20-36" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb20-37"><a href="#cb20-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-38"><a href="#cb20-38" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> R <span class="op">=</span> <span class="fl">50</span></span>
+<span id="cb20-39"><a href="#cb20-39" aria-hidden="true" tabindex="-1"></a>programs <span class="op">=</span> (<span class="op">:</span>QTSim, <span class="op">:</span>SLiM, <span class="op">:</span>kernel)</span>
+<span id="cb20-40"><a href="#cb20-40" aria-hidden="true" tabindex="-1"></a>models <span class="op">=</span> <span class="fu">map</span>(q <span class="op">-&gt;</span> <span class="fu">slim_script</span>(qtsim, q), scen)</span>
+<span id="cb20-41"><a href="#cb20-41" aria-hidden="true" tabindex="-1"></a>jobs <span class="op">=</span> [(prog, s, k) for prog <span class="kw">in</span> programs for s <span class="kw">in</span> <span class="fu">keys</span>(scen) for k <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>R]</span>
+<span id="cb20-42"><a href="#cb20-42" aria-hidden="true" tabindex="-1"></a>runs <span class="op">=</span> <span class="fu">Vector</span><span class="dt">{Any}</span>(<span class="cn">undef</span>, <span class="fu">length</span>(jobs))</span>
+<span id="cb20-43"><a href="#cb20-43" aria-hidden="true" tabindex="-1"></a><span class="bu">Threads</span>.<span class="pp">@threads</span> <span class="op">:</span>greedy <span class="cf">for</span> j <span class="kw">in</span> <span class="fu">eachindex</span>(jobs)</span>
+<span id="cb20-44"><a href="#cb20-44" aria-hidden="true" tabindex="-1"></a>    prog, s, k <span class="op">=</span> jobs[j]</span>
+<span id="cb20-45"><a href="#cb20-45" aria-hidden="true" tabindex="-1"></a>    q <span class="op">=</span> scen[s]</span>
+<span id="cb20-46"><a href="#cb20-46" aria-hidden="true" tabindex="-1"></a>    runs[j] <span class="op">=</span> prog <span class="op">===</span> <span class="op">:</span>QTSim ? <span class="fu">run_qtsim</span>(q, <span class="fl">1000</span>k) <span class="op">:</span></span>
+<span id="cb20-47"><a href="#cb20-47" aria-hidden="true" tabindex="-1"></a>              prog <span class="op">===</span> <span class="op">:</span>SLiM ? <span class="fu">run_slim</span>(models[s], <span class="fl">1000</span>k <span class="op">+</span> <span class="fl">1</span>) <span class="op">:</span></span>
+<span id="cb20-48"><a href="#cb20-48" aria-hidden="true" tabindex="-1"></a>              <span class="fu">run_composed</span>(<span class="fu">World</span>(q), <span class="fu">Xoshiro</span>(<span class="fl">1000</span>k <span class="op">+</span> <span class="fl">2</span>); cycle <span class="op">=</span> qtsim)</span>
+<span id="cb20-49"><a href="#cb20-49" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb20-50"><a href="#cb20-50" aria-hidden="true" tabindex="-1"></a><span class="fu">result</span>(prog, s) <span class="op">=</span> [runs[j] for j <span class="kw">in</span> <span class="fu">eachindex</span>(jobs) if jobs[j][<span class="fl">1</span>] <span class="op">===</span> prog <span class="op">&amp;&amp;</span> jobs[j][<span class="fl">2</span>] <span class="op">===</span> s]</span>
+<span id="cb20-51"><a href="#cb20-51" aria-hidden="true" tabindex="-1"></a><span class="cn">nothing</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>The summary statistics are those of the validation vignette: the genetic variance at equilibrium or at the end, the fraction of each generation that survives selection after the move, and how far the mean phenotype advances. The table gives their medians over the runs, and the p-values of two-sample Kolmogorov–Smirnov tests against QTSim.</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">window</span>(r, lo, hi) <span class="op">=</span> <span class="fu">findall</span>(g <span class="op">-&gt;</span> lo <span class="op">&lt;=</span> g <span class="op">&lt;=</span> hi, r.gen)</span>
@@ -2891,33 +2938,36 @@ Figure 1: Scenario C: how far the mean phenotype lags behind the optimum after 
 <span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> (kernel <span class="op">=</span> <span class="fu">Dict</span>(<span class="op">:</span>fluctuate <span class="op">=&gt;</span> (w, rng) <span class="op">-&gt;</span> (w.θ <span class="op">=</span> σθ <span class="op">*</span> <span class="fu">randn</span>(rng); w)),</span>
 <span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>          eidos <span class="op">=</span> <span class="fu">Dict</span>(<span class="op">:</span>fluctuate <span class="op">=&gt;</span> <span class="st">&quot;&quot;&quot;</span></span>
 <span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a><span class="st">              // fluctuate: a new optimum each generation   [Adults → Adults]</span></span>
-<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a><span class="st">              defineGlobal(&quot;THETA&quot;, rnorm(1, 0.0, </span><span class="sc">$</span><span class="st">σθ));</span></span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a><span class="st">              @POP@.setValue(&quot;THETA&quot;, rnorm(1, 0.0, </span><span class="sc">$</span><span class="st">σθ));</span></span>
 <span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a><span class="st">          &quot;&quot;&quot;))</span></span>
 <span id="cb26-7"><a href="#cb26-7" aria-hidden="true" tabindex="-1"></a>noisy_model<span class="st"> = slim_script(noisy, scen.A; images = images.eidos)</span></span>
 <span id="cb26-8"><a href="#cb26-8" aria-hidden="true" tabindex="-1"></a><span class="st">print(noisy_model[findfirst(&quot;// develop&quot;, noisy_model).start:findfirst(&quot;// reproduce&quot;, noisy_model).start-1])</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>// develop: genotype a0 + a1, phenotype genotype + e with e ~ N(0, V_E)   [Zygotes → Adults]
-    adults = p1.individuals;
-    a0 = adults.getValue(&quot;a0&quot;);
-    a1 = adults.getValue(&quot;a1&quot;);
-    genotype = a0 + a1;
-    env = rnorm(size(adults), 0.0, ESD);
-    pheno = genotype + env;
-    // fluctuate: a new optimum each generation   [Adults → Adults]
-    defineGlobal(&quot;THETA&quot;, rnorm(1, 0.0, 0.15));
-    // select: move the optimum, Gaussian fitness with QTSim&#39;s 0.4, viability   [Adults → Survivors]
-    if (moveGen &gt;= 0 &amp; gen &gt;= moveGen) {
-        if (moveType == &quot;phenotype&quot;) defineGlobal(&quot;THETA&quot;, mean(pheno) + sqrt(VP) * moveSD);
-        else if (moveType == &quot;fitness&quot;) defineGlobal(&quot;THETA&quot;, mean(pheno) + OMEGA * moveSD);
-        else defineGlobal(&quot;THETA&quot;, THETA + moveSD);
-    }
-    x = standardise ? (pheno - THETA) / sd(pheno) else pheno - THETA;
-    W = drift ? rep(1.0, size(adults)) else dnorm(x, 0.0, OMEGA) / (0.4 / OMEGA);
-    survived = runif(size(adults)) &lt; W;
-    sidx = which(survived);
-    ns = size(sidx);
-    if (ns &lt; 2) { catn(&quot;Pop all died.&quot;); sim.simulationFinished(); self.active = 0; return; }
-    </code></pre>
+<pre><code>// develop: genotype the sum of allele values, phenotype genotype + e with e ~ N(0, V_E)   [Zygotes → Adults]
+        adults = p1.individuals;
+        a0 = adults.getValue(&quot;a0&quot;);
+        a1 = adults.getValue(&quot;a1&quot;);
+        genotype = (L == 1) ? a0 + a1 else colSums(matrix(a0, nrow = L)) + colSums(matrix(a1, nrow = L));
+        env = rnorm(size(adults), 0.0, ESD);
+        pheno = genotype + env;
+        // fluctuate: a new optimum each generation   [Adults → Adults]
+        p1.setValue(&quot;THETA&quot;, rnorm(1, 0.0, 0.15));
+        // select: move the optimum, Gaussian fitness with QTSim&#39;s 0.4, viability   [Adults → Survivors]
+        THETA = p1.getValue(&quot;THETA&quot;);
+        OMEGA = p1.getValue(&quot;OMEGA&quot;);
+        if (moveGen &gt;= 0 &amp; gen &gt;= moveGen) {
+            if (moveType == &quot;phenotype&quot;) THETA = mean(pheno) + sqrt(VP) * moveSD;
+            else if (moveType == &quot;fitness&quot;) THETA = mean(pheno) + OMEGA * moveSD;
+            else THETA = THETA + moveSD;
+            p1.setValue(&quot;THETA&quot;, THETA);
+        }
+        x = standardise ? (pheno - THETA) / sd(pheno) else pheno - THETA;
+        W = drift ? rep(1.0, size(adults)) else dnorm(x, 0.0, OMEGA) / (0.4 / OMEGA);
+        survived = runif(size(adults)) &lt; W;
+        sidx = which(survived);
+        ns = size(sidx);
+        if (ns &lt; 2) { p1.setValue(&quot;extinct&quot;, T); adults.fitnessScaling = 0.0; break; }
+        </code></pre>
 </div>
 </div>
 <p>With the optimum’s standard deviation at 0.15, about one phenotypic standard deviation, the two backends are two independent simulators of the new model. Each is run 50 times under scenario A, with the constant optimum’s runs from above for comparison (medians, and the p-value of a Kolmogorov–Smirnov test between the backends):</p>
@@ -2992,9 +3042,217 @@ Figure 1: Scenario C: how far the mean phenotype lags behind the optimum after 
 <p>Gaussian selection predicts survival 0.917 with the constant optimum and 0.833 with the fluctuating one, at the genetic variance the kernel’s runs reach.</p>
 <p>The two backends agree with each other, and both match what Gaussian selection predicts: a fluctuating optimum adds its variance to the spread of phenotypes about the optimum, and so lowers survival.</p>
 </section>
+<section id="many-loci" class="level2">
+<h2 class="anchored" data-anchor-id="many-loci">Many loci</h2>
+<p>The paper’s simulations had 100 to 5000 loci. The Eidos images of <code>develop</code>, <code>reproduce</code> and <code>mutate</code> handle any number: each individual carries its two chromosomes as vectors of allele values, the genotype sums them, each gamete copies a parental chromosome and switches strands at most once, as QTSim does, and each mutation lands on a random locus. With one locus they reduce to the statements of the hand-written port, which is why the comparison above still holds. Two scenarios with 100 loci, each run 50 times by QTSim, by the generated SLiM model and by the kernel: stabilising selection (scenario D), and the optimum moving by 0.05 per generation from generation 1000, about a third of a phenotypic standard deviation, until the population dies (scenario E).</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb29"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>D <span class="op">=</span> <span class="fu">Params</span>(PopSize <span class="op">=</span> <span class="fl">1000</span>, NoQTL <span class="op">=</span> <span class="fl">100</span>, RecombPoissonMean <span class="op">=</span> <span class="fl">3.0</span>, Ploidy <span class="op">=</span> <span class="fl">2</span>, NoGenerations <span class="op">=</span> <span class="fl">2000</span>,</span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>           PhenotypeVar <span class="op">=</span> <span class="fl">0.03</span>, Heritability <span class="op">=</span> <span class="fl">0.4</span>, MutationScalar <span class="op">=</span> <span class="fl">0.005</span>, MutationRatePerGamete <span class="op">=</span> <span class="fl">1e-4</span>,</span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>           InitFitnessSD <span class="op">=</span> <span class="fl">4.0</span>)</span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>E <span class="op">=</span> <span class="fu">Params</span>(D; RecombPoissonMean <span class="op">=</span> <span class="fl">5.0</span>, MoveFitnessSDGen <span class="op">=</span> <span class="fl">1000</span>, MoveFitnessSD <span class="op">=</span> <span class="fl">0.05</span>, MoveType <span class="op">=</span> <span class="op">:</span>continuous)</span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>loci <span class="op">=</span> (D <span class="op">=</span> D, E <span class="op">=</span> E)</span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>loci_models <span class="op">=</span> <span class="fu">map</span>(q <span class="op">-&gt;</span> <span class="fu">slim_script</span>(qtsim, q), loci)</span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a>jobs_l <span class="op">=</span> [(prog, s, k) for prog <span class="kw">in</span> programs for s <span class="kw">in</span> <span class="fu">keys</span>(loci) for k <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>R]</span>
+<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a>runs_l <span class="op">=</span> <span class="fu">Vector</span><span class="dt">{Any}</span>(<span class="cn">undef</span>, <span class="fu">length</span>(jobs_l))</span>
+<span id="cb29-9"><a href="#cb29-9" aria-hidden="true" tabindex="-1"></a><span class="bu">Threads</span>.<span class="pp">@threads</span> <span class="op">:</span>greedy <span class="cf">for</span> j <span class="kw">in</span> <span class="fu">eachindex</span>(jobs_l)</span>
+<span id="cb29-10"><a href="#cb29-10" aria-hidden="true" tabindex="-1"></a>    prog, s, k <span class="op">=</span> jobs_l[j]</span>
+<span id="cb29-11"><a href="#cb29-11" aria-hidden="true" tabindex="-1"></a>    q <span class="op">=</span> loci[s]</span>
+<span id="cb29-12"><a href="#cb29-12" aria-hidden="true" tabindex="-1"></a>    runs_l[j] <span class="op">=</span> prog <span class="op">===</span> <span class="op">:</span>QTSim ? <span class="fu">run_qtsim</span>(q, <span class="fl">3000</span> <span class="op">+</span> k) <span class="op">:</span></span>
+<span id="cb29-13"><a href="#cb29-13" aria-hidden="true" tabindex="-1"></a>                prog <span class="op">===</span> <span class="op">:</span>SLiM ? <span class="fu">run_slim</span>(loci_models[s], <span class="fl">4000</span> <span class="op">+</span> k) <span class="op">:</span></span>
+<span id="cb29-14"><a href="#cb29-14" aria-hidden="true" tabindex="-1"></a>                <span class="fu">run_composed</span>(<span class="fu">World</span>(q), <span class="fu">Xoshiro</span>(<span class="fl">5000</span> <span class="op">+</span> k); cycle <span class="op">=</span> qtsim)</span>
+<span id="cb29-15"><a href="#cb29-15" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb29-16"><a href="#cb29-16" aria-hidden="true" tabindex="-1"></a><span class="fu">result_l</span>(prog, s) <span class="op">=</span> [runs_l[j] for j <span class="kw">in</span> <span class="fu">eachindex</span>(jobs_l) if jobs_l[j][<span class="fl">1</span>] <span class="op">===</span> prog <span class="op">&amp;&amp;</span> jobs_l[j][<span class="fl">2</span>] <span class="op">===</span> s]</span>
+<span id="cb29-17"><a href="#cb29-17" aria-hidden="true" tabindex="-1"></a><span class="fu">after_move</span>(r) <span class="op">=</span> (r.extinct ? <span class="fu">last</span>(r.gen) <span class="op">+</span> <span class="fl">1</span> <span class="op">:</span> <span class="fl">2000</span>) <span class="op">-</span> <span class="fl">1000</span>     <span class="co"># no program prints the dying generation</span></span>
+<span id="cb29-18"><a href="#cb29-18" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">&quot;| scenario | statistic | QTSim | SLiM (generated) | kernel | KS p, SLiM | KS p, kernel |&quot;</span>)</span>
+<span id="cb29-19"><a href="#cb29-19" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">&quot;|:--|:--|--:|--:|--:|--:|--:|&quot;</span>)</span>
+<span id="cb29-20"><a href="#cb29-20" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (s, name, f) <span class="kw">in</span> ((<span class="op">:</span>D, <span class="st">&quot;genetic variance, generations 1500–1999&quot;</span>, r <span class="op">-&gt;</span> <span class="fu">mean</span>(r.geno_var[<span class="fu">window</span>(r, <span class="fl">1500</span>, <span class="fl">1999</span>)])),</span>
+<span id="cb29-21"><a href="#cb29-21" aria-hidden="true" tabindex="-1"></a>                     (<span class="op">:</span>D, <span class="st">&quot;survival, generations 1500–1999&quot;</span>, r <span class="op">-&gt;</span> <span class="fu">mean</span>(r.nsurv[<span class="fu">window</span>(r, <span class="fl">1500</span>, <span class="fl">1999</span>)]) <span class="op">/</span> <span class="fl">1000</span>),</span>
+<span id="cb29-22"><a href="#cb29-22" aria-hidden="true" tabindex="-1"></a>                     (<span class="op">:</span>E, <span class="st">&quot;genetic variance before the move&quot;</span>, r <span class="op">-&gt;</span> <span class="fu">mean</span>(r.geno_var[<span class="fu">window</span>(r, <span class="fl">900</span>, <span class="fl">999</span>)])),</span>
+<span id="cb29-23"><a href="#cb29-23" aria-hidden="true" tabindex="-1"></a>                     (<span class="op">:</span>E, <span class="st">&quot;generations to extinction after the move&quot;</span>, r <span class="op">-&gt;</span> <span class="fu">Float64</span>(<span class="fu">after_move</span>(r))))</span>
+<span id="cb29-24"><a href="#cb29-24" aria-hidden="true" tabindex="-1"></a>    v <span class="op">=</span> <span class="fu">Dict</span>(prog <span class="op">=&gt;</span> [<span class="fu">f</span>(r) for r <span class="kw">in</span> <span class="fu">result_l</span>(prog, s)] <span class="cf">for</span> prog <span class="kw">in</span> programs)</span>
+<span id="cb29-25"><a href="#cb29-25" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@printf</span>(<span class="st">&quot;| %s | %s | %.4g | %.4g | %.4g | %.2f | %.2f |</span><span class="sc">\n</span><span class="st">&quot;</span>, s, name, <span class="fu">median</span>(v[<span class="op">:</span>QTSim]), <span class="fu">median</span>(v[<span class="op">:</span>SLiM]),</span>
+<span id="cb29-26"><a href="#cb29-26" aria-hidden="true" tabindex="-1"></a>            <span class="fu">median</span>(v[<span class="op">:</span>kernel]), <span class="fu">ksp</span>(v[<span class="op">:</span>SLiM], v[<span class="op">:</span>QTSim]), <span class="fu">ksp</span>(v[<span class="op">:</span>kernel], v[<span class="op">:</span>QTSim]))</span>
+<span id="cb29-27"><a href="#cb29-27" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb29-28"><a href="#cb29-28" aria-hidden="true" tabindex="-1"></a><span class="pp">@printf</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">Extinct in scenario E: %s.</span><span class="sc">\n</span><span class="st">&quot;</span>, <span class="fu">join</span>((<span class="st">&quot;</span><span class="sc">$</span>prog<span class="st"> </span><span class="sc">$</span>(<span class="fu">count</span>(r <span class="op">-&gt;</span> r.extinct, <span class="fu">result_l</span>(prog, <span class="op">:</span>E)))<span class="st">/</span><span class="sc">$</span>R<span class="st">&quot;</span> <span class="cf">for</span> prog <span class="kw">in</span> programs), <span class="st">&quot;, &quot;</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 14%">
+<col style="width: 14%">
+<col style="width: 14%">
+<col style="width: 14%">
+<col style="width: 14%">
+<col style="width: 14%">
+<col style="width: 14%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">scenario</th>
+<th style="text-align: left;">statistic</th>
+<th style="text-align: right;">QTSim</th>
+<th style="text-align: right;">SLiM (generated)</th>
+<th style="text-align: right;">kernel</th>
+<th style="text-align: right;">KS p, SLiM</th>
+<th style="text-align: right;">KS p, kernel</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">D</td>
+<td style="text-align: left;">genetic variance, generations 1500–1999</td>
+<td style="text-align: right;">0.08787</td>
+<td style="text-align: right;">0.08928</td>
+<td style="text-align: right;">0.08336</td>
+<td style="text-align: right;">0.71</td>
+<td style="text-align: right;">0.04</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D</td>
+<td style="text-align: left;">survival, generations 1500–1999</td>
+<td style="text-align: right;">0.9938</td>
+<td style="text-align: right;">0.9938</td>
+<td style="text-align: right;">0.994</td>
+<td style="text-align: right;">0.54</td>
+<td style="text-align: right;">0.11</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">E</td>
+<td style="text-align: left;">genetic variance before the move</td>
+<td style="text-align: right;">0.05843</td>
+<td style="text-align: right;">0.05799</td>
+<td style="text-align: right;">0.06027</td>
+<td style="text-align: right;">0.18</td>
+<td style="text-align: right;">0.18</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">E</td>
+<td style="text-align: left;">generations to extinction after the move</td>
+<td style="text-align: right;">387</td>
+<td style="text-align: right;">393.5</td>
+<td style="text-align: right;">380.5</td>
+<td style="text-align: right;">0.54</td>
+<td style="text-align: right;">0.86</td>
+</tr>
+</tbody>
+</table>
+<p>Extinct in scenario E: QTSim 50/50, SLiM 50/50, kernel 50/50.</p>
+<p>With 100 loci the generated SLiM model agrees with QTSim: no statistic separates them. One comparison of the kernel falls just below 0.05, its genetic variance in scenario D; among eight tests that is not unusual, and the kernel’s algorithm is QTSim’s, as <a href="../08_validation_against_qtsim/08_validation_against_qtsim.qmd">Validation against QTSim</a> checks bit for bit with QTSim’s own random numbers.</p>
+</section>
+<section id="demes-and-migration" class="level2">
+<h2 class="anchored" data-anchor-id="demes-and-migration">Demes and migration</h2>
+<p>The life cycle is a morphism of a free <em>symmetric monoidal</em> category: besides composing steps in sequence with <code>⋅</code>, it places life cycles side by side with Catlab’s <code>⊗</code>. <code>qtsim ⊗ qtsim ⊗ qtsim</code> is three demes, each running QTSim’s generation, from <code>Zygotes⊗Zygotes⊗Zygotes</code> to itself, and <code>L.migrate(3)</code> is a new kind of step on such a product: each offspring changes places, with a given probability, with an offspring of another deme.</p>
+<div id="40" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb30"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>meta <span class="op">=</span> qtsim <span class="op">⊗</span> qtsim <span class="op">⊗</span> qtsim <span class="op">⋅</span> L.<span class="fu">migrate</span>(<span class="fl">3</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display" data-execution_count="1">
+<pre><code>((develop⋅select⋅reproduce⋅record⋅rescale⋅mutate⋅swap)⊗(develop⋅select⋅reproduce⋅record⋅rescale⋅mutate⋅swap)⊗(develop⋅select⋅reproduce⋅record⋅rescale⋅mutate⋅swap))⋅migrate: Zygotes⊗Zygotes⊗Zygotes → Zygotes⊗Zygotes⊗Zygotes</code></pre>
+</div>
+</div>
+<p>Both functors preserve <code>⊗</code> as well as <code>⋅</code>. In the kernel, the image of a product acts on each deme of a metapopulation (<code>p ⊗ demes(3)</code>) with the image of its factor, and the image of <code>migrate</code> exchanges individuals between demes, so <code>run_composed</code> runs the metapopulation. In Eidos, each factor’s code runs in its own subpopulation, in a block of its own that a deme’s extinction leaves early, and migration acts on the offspring of all three:</p>
+<div id="42" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb32"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>meta_script <span class="op">=</span> <span class="fu">slim_script</span>(meta, p; migration_rate <span class="op">=</span> <span class="fl">0.01</span>)</span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(meta_script[<span class="fu">findfirst</span>(<span class="st">&quot;    // migrate:&quot;</span>, meta_script).start<span class="op">:</span><span class="fu">findfirst</span>(<span class="st">&quot;    dead = 0;&quot;</span>, meta_script).start<span class="op">-</span><span class="fl">1</span>])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>    // migrate: each offspring swaps places, with probability migRate, with a random
+    // offspring of a random other deme   [Zygotes^3 → Zygotes^3]
+    kids = c(kids_p1, kids_p2, kids_p3);
+    sizes = c(size(kids_p1), size(kids_p2), size(kids_p3));
+    starts = c(0, cumSum(sizes))[0:2];
+    for (d in 0:2) {
+        for (i in which(runif(sizes[d]) &lt; migRate)) {
+            e = rdunif(1, 0, 1); if (e &gt;= d) e = e + 1;
+            if (sizes[e] == 0) next;
+            a = kids[starts[d] + i]; b = kids[starts[e] + rdunif(1, 0, sizes[e] - 1)];
+            t0 = a.getValue(&quot;a0&quot;); t1 = a.getValue(&quot;a1&quot;);
+            a.setValue(&quot;a0&quot;, b.getValue(&quot;a0&quot;)); a.setValue(&quot;a1&quot;, b.getValue(&quot;a1&quot;));
+            b.setValue(&quot;a0&quot;, t0); b.setValue(&quot;a1&quot;, t1);
+        }
+    }</code></pre>
+</div>
+</div>
+<p>QTSim has no demes, so here the two backends check each other. With no selection (<code>Drift = true</code>), the means of isolated demes drift apart, and migration holds them together; three demes of 300 individuals with 10 loci each, for 500 generations, run 50 times by each backend at each of three migration rates:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb34"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a>neutral <span class="op">=</span> <span class="fu">Params</span>(PopSize <span class="op">=</span> <span class="fl">300</span>, NoQTL <span class="op">=</span> <span class="fl">10</span>, RecombPoissonMean <span class="op">=</span> <span class="fl">1.0</span>, Ploidy <span class="op">=</span> <span class="fl">2</span>, NoGenerations <span class="op">=</span> <span class="fl">500</span>,</span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>                 PhenotypeVar <span class="op">=</span> <span class="fl">0.02</span>, Heritability <span class="op">=</span> <span class="fl">0.5</span>, MutationScalar <span class="op">=</span> <span class="fl">0.02</span>, MutationRatePerGamete <span class="op">=</span> <span class="fl">0.01</span>,</span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>                 Drift <span class="op">=</span> <span class="cn">true</span>)</span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a>rates <span class="op">=</span> (<span class="fl">0.0</span>, <span class="fl">0.01</span>, <span class="fl">0.1</span>)</span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a>jobs_m <span class="op">=</span> [(prog, m, k) for prog <span class="kw">in</span> (<span class="op">:</span>SLiM, <span class="op">:</span>kernel) for m <span class="kw">in</span> rates for k <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>R]</span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a>runs_m <span class="op">=</span> <span class="fu">Vector</span><span class="dt">{Any}</span>(<span class="cn">undef</span>, <span class="fu">length</span>(jobs_m))</span>
+<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a>meta_models <span class="op">=</span> <span class="fu">Dict</span>(m <span class="op">=&gt;</span> <span class="fu">slim_script</span>(meta, neutral; migration_rate <span class="op">=</span> m) <span class="cf">for</span> m <span class="kw">in</span> rates)</span>
+<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a><span class="bu">Threads</span>.<span class="pp">@threads</span> <span class="op">:</span>greedy <span class="cf">for</span> j <span class="kw">in</span> <span class="fu">eachindex</span>(jobs_m)</span>
+<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a>    prog, m, k <span class="op">=</span> jobs_m[j]</span>
+<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a>    runs_m[j] <span class="op">=</span> <span class="cf">if</span> prog <span class="op">===</span> <span class="op">:</span>SLiM</span>
+<span id="cb34-11"><a href="#cb34-11" aria-hidden="true" tabindex="-1"></a>        r <span class="op">=</span> <span class="fu">run_slim</span>(meta_models[m], <span class="fl">6000</span> <span class="op">+</span> k)          <span class="co"># its rows end with the deme</span></span>
+<span id="cb34-12"><a href="#cb34-12" aria-hidden="true" tabindex="-1"></a>        (; r.gen, r.pheno_mean, r.geno_var, deme <span class="op">=</span> [<span class="fu">parse</span>(<span class="dt">Int</span>, <span class="fu">split</span>(l, <span class="ch">&#39;\t&#39;</span>)[<span class="fl">7</span>]) for l <span class="kw">in</span> r.lines])</span>
+<span id="cb34-13"><a href="#cb34-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span></span>
+<span id="cb34-14"><a href="#cb34-14" aria-hidden="true" tabindex="-1"></a>        <span class="fu">run_composed</span>(neutral <span class="op">⊗</span> <span class="fu">demes</span>(<span class="fl">3</span>), <span class="fu">Xoshiro</span>(<span class="fl">7000</span> <span class="op">+</span> k); cycle <span class="op">=</span> meta, migration_rate <span class="op">=</span> m)</span>
+<span id="cb34-15"><a href="#cb34-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb34-16"><a href="#cb34-16" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb34-17"><a href="#cb34-17" aria-hidden="true" tabindex="-1"></a><span class="fu">at_end</span>(r, f) <span class="op">=</span> [<span class="fu">f</span>(r)[(r.gen <span class="op">.==</span> <span class="fl">499</span>) <span class="op">.&amp;</span> (r.deme <span class="op">.==</span> d)][<span class="fl">1</span>] for d <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>]</span>
+<span id="cb34-18"><a href="#cb34-18" aria-hidden="true" tabindex="-1"></a><span class="fu">among</span>(r) <span class="op">=</span> <span class="fu">var</span>(<span class="fu">at_end</span>(r, x <span class="op">-&gt;</span> x.pheno_mean))          <span class="co"># variance among the three deme means</span></span>
+<span id="cb34-19"><a href="#cb34-19" aria-hidden="true" tabindex="-1"></a><span class="fu">within</span>(r) <span class="op">=</span> <span class="fu">mean</span>(<span class="fu">at_end</span>(r, x <span class="op">-&gt;</span> x.geno_var))          <span class="co"># mean genetic variance within a deme</span></span>
+<span id="cb34-20"><a href="#cb34-20" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">&quot;| migration rate | statistic | SLiM (generated) | kernel | KS p |</span><span class="sc">\n</span><span class="st">|:--|:--|--:|--:|--:|&quot;</span>)</span>
+<span id="cb34-21"><a href="#cb34-21" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> m <span class="kw">in</span> rates, (name, f) <span class="kw">in</span> ((<span class="st">&quot;variance among deme means&quot;</span>, among), (<span class="st">&quot;genetic variance within a deme&quot;</span>, within))</span>
+<span id="cb34-22"><a href="#cb34-22" aria-hidden="true" tabindex="-1"></a>    sl <span class="op">=</span> [<span class="fu">f</span>(runs_m[j]) for j <span class="kw">in</span> <span class="fu">eachindex</span>(jobs_m) if jobs_m[j][<span class="fl">1</span>] <span class="op">===</span> <span class="op">:</span>SLiM <span class="op">&amp;&amp;</span> jobs_m[j][<span class="fl">2</span>] <span class="op">==</span> m]</span>
+<span id="cb34-23"><a href="#cb34-23" aria-hidden="true" tabindex="-1"></a>    ke <span class="op">=</span> [<span class="fu">f</span>(runs_m[j]) for j <span class="kw">in</span> <span class="fu">eachindex</span>(jobs_m) if jobs_m[j][<span class="fl">1</span>] <span class="op">===</span> <span class="op">:</span>kernel <span class="op">&amp;&amp;</span> jobs_m[j][<span class="fl">2</span>] <span class="op">==</span> m]</span>
+<span id="cb34-24"><a href="#cb34-24" aria-hidden="true" tabindex="-1"></a>    <span class="pp">@printf</span>(<span class="st">&quot;| %g | %s | %.4g | %.4g | %.2f |</span><span class="sc">\n</span><span class="st">&quot;</span>, m, name, <span class="fu">median</span>(sl), <span class="fu">median</span>(ke), <span class="fu">ksp</span>(sl, ke))</span>
+<span id="cb34-25"><a href="#cb34-25" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: left;">migration rate</th>
+<th style="text-align: left;">statistic</th>
+<th style="text-align: right;">SLiM (generated)</th>
+<th style="text-align: right;">kernel</th>
+<th style="text-align: right;">KS p</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">0</td>
+<td style="text-align: left;">variance among deme means</td>
+<td style="text-align: right;">0.05984</td>
+<td style="text-align: right;">0.04101</td>
+<td style="text-align: right;">0.71</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">0</td>
+<td style="text-align: left;">genetic variance within a deme</td>
+<td style="text-align: right;">0.06756</td>
+<td style="text-align: right;">0.06794</td>
+<td style="text-align: right;">0.54</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">0.01</td>
+<td style="text-align: left;">variance among deme means</td>
+<td style="text-align: right;">0.003867</td>
+<td style="text-align: right;">0.004719</td>
+<td style="text-align: right;">0.54</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">0.01</td>
+<td style="text-align: left;">genetic variance within a deme</td>
+<td style="text-align: right;">0.08543</td>
+<td style="text-align: right;">0.08214</td>
+<td style="text-align: right;">0.27</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">0.1</td>
+<td style="text-align: left;">variance among deme means</td>
+<td style="text-align: right;">0.0004861</td>
+<td style="text-align: right;">0.0004871</td>
+<td style="text-align: right;">0.86</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">0.1</td>
+<td style="text-align: left;">genetic variance within a deme</td>
+<td style="text-align: right;">0.08486</td>
+<td style="text-align: right;">0.08425</td>
+<td style="text-align: right;">0.54</td>
+</tr>
+</tbody>
+</table>
+<p>The two backends agree at every migration rate: without migration the deme means spread apart by drift, and migration at 1% or 10% per generation keeps them together while raising the genetic variance within each deme, which now receives variation from the others. <code>lean/CategoricalQuantGen/Demes.lean</code> proves the laws the metapopulation relies on: running products step by step is running each deme on its own (the interchange law, also for independent Markov kernels, so the order in which a backend visits the demes does not matter), demes without migration iterate independently, and migration, which only rearranges individuals among positions, keeps every deme’s size and every total over the metapopulation.</p>
+</section>
 <section id="summary" class="level2">
 <h2 class="anchored" data-anchor-id="summary">Summary</h2>
-<p>QTSim’s life cycle is written once, as the morphism <code>develop ⋅ select ⋅ reproduce ⋅ record ⋅ rescale ⋅ mutate ⋅ swap</code> of a free category, and two functors lower it: to the simulation kernel, where it is <code>run!</code> bit for bit, and to Eidos, where it is the hand-written SLiM port run for run, in agreement with QTSim in distribution, including the continuous move of the optimum that the port never had. A new step needs one image per backend and nothing else. That a lowering is fixed by its images on the steps, and that for Markov kernels two lowerings whose steps agree in distribution give the whole generation the same distribution, is proved in Lean in <code>lean/CategoricalQuantGen/Lowering.lean</code>.</p>
+<p>QTSim’s life cycle is written once, as the morphism <code>develop ⋅ select ⋅ reproduce ⋅ record ⋅ rescale ⋅ mutate ⋅ swap</code> of a free symmetric monoidal category, and two functors lower it: to the simulation kernel, where it is <code>run!</code> bit for bit, and to Eidos, where it is the hand-written SLiM port run for run, in agreement with QTSim in distribution, including the continuous move of the optimum and the many loci that the port never had. A new step needs one image per backend and nothing else, and the monoidal product turns one population into demes, which migration couples, in both backends at once. That a lowering is fixed by its images on the steps, and that for Markov kernels two lowerings whose steps agree in distribution give the whole generation the same distribution, is proved in Lean in <code>lean/CategoricalQuantGen/Lowering.lean</code>, and the laws of demes and migration in <code>Demes.lean</code>.</p>
 
 </section>
 
