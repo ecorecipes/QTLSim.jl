@@ -30,7 +30,7 @@
 # Needs the QTSim binary (see docs/README.md) and a GSL shared library; set
 # ENV["LIBGSL"] if libgsl is not in a Homebrew location.
 
-using CategoricalQuantGen, Printf
+using QTLSim, Printf
 
 const ROOT   = normpath(joinpath(@__DIR__, "..", ".."))
 const QTSIM  = joinpath(ROOT, "Repository", "Code", "QTSim", "src", "QTSim")

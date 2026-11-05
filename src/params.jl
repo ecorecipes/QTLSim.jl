@@ -67,3 +67,19 @@ The Poisson mutation operator is calibrated to this value; see Lean
 `mutationalVarianceInput_eq`.
 """
 muteVar(p::Params) = p.MutationScalar * envVar(p)
+
+"""
+    Params(p::Params; kw...)
+
+A copy of `p` with the fields named in `kw` replaced, for example
+`Params(p; NoGenerations = 5000, MoveFitnessSD = 0.01)`. An unknown field name is an
+`ArgumentError`.
+"""
+function Params(p::Params; kw...)
+    fields = Dict{Symbol,Any}(f => getfield(p, f) for f in fieldnames(Params))
+    for (k, v) in kw
+        haskey(fields, k) || throw(ArgumentError("Params has no field $k"))
+        fields[k] = v
+    end
+    Params(; fields...)
+end

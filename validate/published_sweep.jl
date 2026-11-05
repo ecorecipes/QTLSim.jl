@@ -20,8 +20,8 @@
 # Checks 2–3 run for CrossoverModel = :qtsim (QTSim's single-crossover gametes,
 # the default) and :all (every Poisson crossover point applied).
 #
-# Run from the package root (needs the docs env for XLSX + HypothesisTests, and the QTSim binary):
-#   julia -t 10 --project=docs validate/published_sweep.jl [CAP=2000] [SCALE=1.0] [MAXL]
+# Run from the package root (needs the vignettes env for XLSX + HypothesisTests, and the QTSim binary):
+#   julia -t 10 --project=vignettes validate/published_sweep.jl [CAP=2000] [SCALE=1.0] [MAXL]
 # SCALE multiplies the per-stratum sample sizes; MAXL skips strata with more loci. Per-run results are written to
 # validate/published_sweep_results.csv.
 

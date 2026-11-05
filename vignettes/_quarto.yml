@@ -1,0 +1,27 @@
+project:
+  type: default
+  render:
+    - "*/*.qmd"
+
+# NOTE: quarto does not reliably apply a project-wide engine (quarto-cli#3157),
+# so every .qmd also sets `engine: julia` in its own front matter.
+engine: julia
+
+julia:
+  project: "."
+
+# Resolved relative to this project directory (vignettes/), not to the
+# individual vignette directories.
+bibliography: references.bib
+link-citations: true
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    embed-resources: true
+  gfm:
+    toc: true
+
+execute:
+  freeze: auto

@@ -10,7 +10,7 @@
 # identical; the claim being tested is that the two produce the SAME
 # distributions. |t| ≳ 2.5 on any metric flags a discrepancy worth checking.
 
-using CategoricalQuantGen
+using QTLSim
 using Statistics, Random, Printf
 
 const QTSIM = normpath(joinpath(@__DIR__, "..", "..",

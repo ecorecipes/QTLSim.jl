@@ -1,0 +1,525 @@
+---
+title: "Replicating Pagel, Gardner and Meade (2025)"
+author: "Simon Frost"
+format:
+  html:
+    code-fold: false
+    toc: true
+  gfm:
+    toc: true
+engine: julia
+julia:
+  exeflags: ["--threads=auto"]
+---
+
+## Overview
+
+Pagel, Gardner and Meade [@Pagel2025] simulated 119,984 populations with QTSim, in eight
+strata of about 15,000: 100, 500, 1000 or 5000 loci, with a mean of three or five
+crossover points per gamete. Each population had 1000 diploid individuals and its own
+phenotypic variance, heritability, mutation scalar, fitness width and rate of
+environmental change, drawn from the priors in the paper's Table 1. It spent 10,000
+generations under stabilising selection; then its optimum moved by a fixed amount every
+generation until it went extinct or 240,000 generations had passed. From these runs the
+paper reports how long populations survive and how fast they change (its Table 2), how
+survival, lag and mortality depend on the rate of environmental change (its Figure 1), a
+maximum sustainable rate of about 3% of a phenotypic standard deviation per generation,
+and a comparison with rates measured in the field.
+
+This vignette replicates those results in two steps. It first recomputes the paper's
+numbers from the paper's own per-run results table, which pins down exactly how each is
+defined. It then reruns a stratified random sample of 710 of the paper's populations with
+QTLSim, measures them in the same way, and compares them with the published runs of the
+same populations and with the paper's full results.
+
+Three things differ from the paper. Each rerun stops 2000 generations after the optimum
+starts to move, rather than 240,000; most populations are dead by then, and comparisons
+that depend on long survival are made at the same 2000-generation horizon for the
+published runs. The sample takes 125 populations from each stratum with 100 or 500 loci,
+75 with 1000 and 30 with 5000, where runs are slowest, and weights every stratum equally
+when pooling, as the paper's equal-sized strata do. And the reruns use QTLSim's own random
+numbers, so each one is a new realisation of the same population, not a copy of the
+published run.
+
+The results tables come with the paper's code and data, not with this package. The
+vignette looks for them in a `Repository/Results` folder next to the package's folder.
+
+## Setup
+
+```{julia}
+using QTLSim
+using CairoMakie, DelimitedFiles, Printf, Random, Statistics, XLSX
+CairoMakie.activate!(type = "png")
+
+const PKG = normpath(joinpath(@__DIR__, "..", ".."))
+const RESULTS = normpath(joinpath(PKG, "..", "Repository", "Results"))
+const MASTER = joinpath(RESULTS, "Master Output file.xlsx")
+const FIGDATA = joinpath(RESULTS, "Figures 1-2 and SI Figures 1-3 data.xlsx")
+const CACHE = joinpath(@__DIR__, "replication_runs.csv")
+isfile(MASTER) || error("this vignette needs the paper's results tables in $RESULTS")
+Threads.nthreads()
+```
+
+## The paper's results, recomputed
+
+The paper's results table has one row per population: its parameters and the measures
+computed from its run. We read the columns used here.
+
+```{julia}
+const MOVE_GEN = 10_000      # generations of stabilising selection before the optimum starts to move
+const CAP = 2_000            # generations of directional selection simulated (the paper ran up to 240 000)
+const POP = 1000
+# populations rerun from each stratum (each locus count and recombination rate): fewer
+# where runs are slow; pooled statistics weight every stratum equally, as in the paper
+const SAMPLE_SIZE = Dict(100 => 125, 500 => 125, 1000 => 75, 5000 => 30)
+
+"Read the columns used here from the paper's per-run results table."
+function read_master(path)
+    dt = XLSX.readtable(path, "Master output file")
+    lab = strip.(string.(dt.column_labels))
+    num(v) = v isa AbstractString ? parse(Float64, v) : v === missing ? NaN : Float64(v)
+    f(name) = num.(dt.data[findfirst(==(name), lab)])
+    (; L = round.(Int, f("No. Loci")), u = f("recombination u=3,5"), h2 = f("Heritability"),
+       VP = f("PhenotypeVar"), m = f("MutationScalar Vm/Ve"), d = f("d_env"), ω = f("w, fitness function sd"),
+       T = f("Generations to extinction"), T50 = f("Generations to 50% mortality"),
+       sd50 = f("Phenotype SD at 50% mortality"), x = f("d_env/trait sd at 50% mortality"),
+       rate_ext = f("Standardised phenotypic change to extinction"),
+       rate50 = f("standardised phenotypic change to 50% mortality"), lag = f("standardised lag"),
+       P47 = f("P Survived at generation 10047"), VG = f("Genotype Var at 10000"),
+       shc = f("Burger Vg(SHC) eq 21a"), kc = f("standardised kc"), survived = f("Extinct (0,1)") .== 1)
+end
+
+t = read_master(MASTER)
+@printf("%d populations, %d of which survived all 240,000 generations\n", length(t.L), count(t.survived))
+```
+
+The paper's Table 2 summarises the populations by medians and interquartile ranges. The
+rate of phenotypic change is how far the mean phenotype moved per generation, until
+extinction or until 50% mortality, in units of the phenotypic standard deviation at 50%
+mortality; [Adaptation to a moving optimum](../03_moving_optimum/03_moving_optimum.qmd)
+defines each measure. The quantiles below are weighted, which matters for the sample
+later; for the full table every weight is one.
+
+```{julia}
+#| output: asis
+function wquantile(v, w, p)
+    o = sortperm(v); c = cumsum(w[o])
+    v[o[searchsortedfirst(c, p * c[end])]]
+end
+function iqr(v, w = ones(length(v)))
+    ok = isfinite.(v)
+    @sprintf("%.3g (%.3g–%.3g)", (wquantile(v[ok], w[ok], p) for p in (0.5, 0.25, 0.75))...)
+end
+println("| quantity | paper | recomputed from the table |\n|:--|:--|:--|")
+for (name, paper, v) in (
+        ("generations to extinction, all populations", "141 (79–326)", t.T),
+        ("generations to 50% mortality, all populations", "47 (25–113)", t.T50),
+        ("rate of phenotypic change to extinction, all populations", "0.056 (0.030–0.103)", t.rate_ext),
+        ("rate of phenotypic change to 50% mortality, all populations", "0.033 (0.017–0.058)", t.rate50),
+        ("rate of phenotypic change, survivors", "0.031 (0.011–0.066)", t.rate_ext[t.survived]),
+        ("critical rate k_c, survivors", "0.022 (0.008–0.056)", t.kc[t.survived]))
+    println("| ", name, " | ", paper, " | ", iqr(v), " |")
+end
+```
+
+The survivors' median rate of phenotypic change, about 0.03 standard deviations per
+generation, is the paper's estimate of the maximum sustainable rate. (The paper also
+weights the survivors by how likely their mutation scalar is, which brings the median down
+to 0.019; that adjustment is not repeated here.)
+
+Figure 1d of the paper fits the time to extinction against the standardised lag, the
+amount per generation by which a population falls further behind the optimum, with a
+quadratic in natural logarithms. It reports $\log T = 4.0 - 0.91 \log(\text{lag}) + \dots$
+with $R^2 = 0.83$:
+
+```{julia}
+function logfit(lag, T, w = ones(length(T)))
+    ok = (lag .> 0) .& (T .> 0) .& isfinite.(lag)
+    x = log.(lag[ok]); y = log.(T[ok]); s = sqrt.(w[ok])
+    X = [ones(length(x)) x x .^ 2]
+    b = (s .* X) \ (s .* y)
+    ȳ = sum(w[ok] .* y) / sum(w[ok])
+    (; intercept = b[1], slope = b[2], quadratic = b[3],
+       R2 = 1 - sum(w[ok] .* (y - X * b) .^ 2) / sum(w[ok] .* (y .- ȳ) .^ 2), n = count(ok))
+end
+logfit(t.lag, t.T)
+```
+
+The field comparison works with the critical rate $k_c$ of the surviving populations,
+the fastest change theory says each could sustain [@LynchLande1993; @BurgerLynch1995].
+Birds advance their breeding by a median of 0.022 phenotypic standard deviations a year;
+with a generation time of two to four years that is 0.044 to 0.088 per generation, which
+the paper places at the 68th and 86th percentiles of $k_c$:
+
+```{julia}
+kc = filter(isfinite, t.kc[t.survived])
+for rate in (0.044, 0.088)
+    @printf("%.3f standard deviations per generation is at the %.1fth percentile of k_c (%d survivors)\n",
+            rate, 100 * mean(kc .<= rate), length(kc))
+end
+```
+
+## Rerunning a sample with QTLSim
+
+Each sampled population is simulated with its published parameters: 10,000 generations
+of stabilising selection, then the optimum moving by its rate $d$ per generation for up to
+2000 generations.
+
+```{julia}
+"Sample `n[L]` inputs from each stratum, reproducibly."
+function stratified_sample(t; n = SAMPLE_SIZE, seed = 2025)
+    rng = Xoshiro(seed)
+    rows = Int[]
+    for L in (100, 500, 1000, 5000), u in (3.0, 5.0)
+        s = findall(i -> t.L[i] == L && t.u[i] == u, eachindex(t.L))
+        append!(rows, sort(shuffle(rng, s)[1:n[L]]))
+    end
+    rows
+end
+
+rows = stratified_sample(t)
+length(rows)
+```
+
+The measures follow the conventions of the paper's results table, which numbers
+generations from one: its "generation 10,000" is the last generation before the move, and
+its "generation 10,047", where it records mortality, is the 45th generation of the move.
+Applied to QTSim's own output for published populations, this function reproduces the
+table's values exactly.
+
+```{julia}
+"""
+The paper's per-run measures, with the conventions of its results table: generations
+are counted as in the table (the table's 'at 10000' is generation 9999, and its
+'generation 10047' is generation 10044), and 50% mortality is the first generation
+after the move at which the number of survivors is closest to N/2.
+"""
+function paper_measures(gen, zbar, sd, ns; d, extinct::Bool, movegen = MOVE_GEN, N = POP)
+    i0 = findfirst(==(movegen - 1), gen)
+    post = findall(>=(movegen), gen)
+    k = isempty(post) ? lastindex(gen) : post[argmin(abs.(ns[post] .- N ÷ 2))]
+    T = extinct ? gen[end] + 2 - movegen : length(post)
+    T50 = gen[k] + 2 - movegen
+    sd50 = sd[k]
+    x = d / sd50
+    rate_ext = (zbar[end] - zbar[i0]) / T / sd50
+    rate50 = (zbar[k] - zbar[i0]) / T50 / sd50
+    j47 = findfirst(==(movegen + 44), gen)
+    (; T, extinct, T50, sd50, x, rate_ext, rate50, lag = x - rate_ext,
+       P47 = j47 === nothing ? NaN : Float64(ns[j47]))
+end
+
+"Simulate one published input with QTLSim and measure it."
+function replicate_run(t, i; cap = CAP)
+    p = Params(NoGenerations = MOVE_GEN + cap, Sample = 1, PopSize = POP, Ploidy = 2, NoQTL = t.L[i],
+               PhenotypeVar = t.VP[i], Heritability = t.h2[i], MutationScalar = t.m[i],
+               MutationRatePerGamete = 1e-4, RecombPoissonMean = t.u[i], InitFitnessSD = t.ω[i],
+               MoveFitnessSDGen = MOVE_GEN, MoveFitnessSD = t.d[i], MoveType = :continuous)
+    o = simulate(p; seed = i)
+    j = findfirst(==(MOVE_GEN - 1), o.gen)
+    j === nothing && return nothing                       # died before the optimum moved
+    r = paper_measures(o.gen, o.pheno_mean, sqrt.(o.pheno_var), o.nsurv; d = t.d[i], extinct = o.extinct)
+    (; row = i, L = t.L[i], u = t.u[i], r..., VG = o.geno_var[j], ns_eq = mean(o.nsurv[j-99:j]))
+end
+
+const FIELDS = (:row, :L, :u, :T, :extinct, :T50, :sd50, :x, :rate_ext, :rate50, :lag, :P47, :VG, :ns_eq)
+
+function read_runs(path)
+    a, h = readdlm(path, ',', header = true)
+    c(f) = a[:, findfirst(==(string(f)), vec(h))]
+    (; row = Int.(c(:row)), L = Int.(c(:L)), u = Float64.(c(:u)), T = Int.(c(:T)), extinct = Bool.(c(:extinct)),
+       T50 = Int.(c(:T50)), sd50 = Float64.(c(:sd50)), x = Float64.(c(:x)), rate_ext = Float64.(c(:rate_ext)),
+       rate50 = Float64.(c(:rate50)), lag = Float64.(c(:lag)), P47 = Float64.(c(:P47)), VG = Float64.(c(:VG)),
+       ns_eq = Float64.(c(:ns_eq)))
+end
+
+"""
+Run the sampled inputs on all threads, handing out runs one at a time, longest first.
+Each finished run is appended to `cache`, and runs already there are skipped, so an
+interrupted replication resumes where it stopped.
+"""
+function run_replication(t, rows, cache; cap = CAP)
+    isfile(cache) || open(io -> println(io, join(FIELDS, ',')), cache, "w")
+    done = countlines(cache) > 1 ? Set(read_runs(cache).row) : Set{Int}()
+    todo = filter(∉(done), rows)
+    lk = ReentrantLock()
+    Threads.@threads :greedy for i in todo[sortperm(t.L[todo]; rev = true)]
+        r = replicate_run(t, i; cap)
+        r === nothing && continue
+        lock(lk) do
+            open(io -> println(io, join((getfield(r, f) for f in FIELDS), ',')), cache, "a")
+        end
+    end
+    read_runs(cache)
+end
+nothing
+```
+
+The runs take about 40 minutes on ten threads, mostly for the populations with many
+loci, so each finished run is stored next to this vignette and read back on later
+renders. Deleting the file reruns them, and an interrupted replication resumes where it
+stopped.
+
+```{julia}
+runs = run_replication(t, rows, CACHE)
+w = [1 / SAMPLE_SIZE[L] for L in runs.L]                 # every stratum counts equally
+@printf("%d runs; they are exactly the sampled populations: %s\n",
+        length(runs.row), sort(runs.row) == sort(rows))
+```
+
+The stored results come from the code above: rerunning two of the populations reproduces
+them exactly.
+
+```{julia}
+k = findall(==(100), runs.L)[1:2]
+check = [replicate_run(t, runs.row[j]) for j in k]
+all(getfield(check[a], f) == getfield(runs, f)[k[a]] for a in 1:2
+    for f in (:T, :T50, :sd50, :x, :rate_ext, :rate50, :lag, :VG, :ns_eq))
+```
+
+## Population by population
+
+For each sampled population there are two realisations, the published run and the QTLSim
+rerun. Their genetic variance just before the optimum moves, and how long they last after
+it does, should agree on average.
+
+```{julia}
+#| output: asis
+pub(f) = getfield(t, f)[runs.row]
+capT(T) = min.(Float64.(T), CAP)
+println("| quantity | QTLSim / published | 95% interval |\n|:--|--:|--:|")
+for (name, a, b) in (("genetic variance before the move", runs.VG, pub(:VG)),
+                     ("generations to extinction, capped at 2000", capT(runs.T), capT(pub(:T))))
+    ok = (a .> 0) .& (b .> 0)
+    δ = log.(a[ok]) .- log.(b[ok]); ω = w[ok] ./ sum(w[ok])
+    m = sum(ω .* δ); se = sqrt(sum(ω .^ 2 .* (δ .- m) .^ 2))
+    @printf("| %s | %.3f | %.3f–%.3f |\n", name, exp(m), exp(m - 1.96se), exp(m + 1.96se))
+end
+@printf("\nAlive 2000 generations after the move: QTLSim %.1f%%, published runs %.1f%%.\n",
+        100 * sum(w .* .!runs.extinct) / sum(w), 100 * sum(w .* (pub(:T) .>= CAP)) / sum(w))
+```
+
+## Table 2
+
+The medians and quartiles of Table 2, three ways: for all 119,984 published populations,
+for the published runs of the sampled populations, and for their QTLSim reruns. For the
+two samples, times are capped at 2000 generations, and rates for populations still alive
+then are measured over those 2000 generations.
+
+```{julia}
+#| output: asis
+println("| quantity | all published | published sample | QTLSim sample |\n|:--|:--|:--|:--|")
+for (name, all_pub, s_pub, s_jl) in (
+        ("generations to extinction", t.T, capT(pub(:T)), capT(runs.T)),
+        ("generations to 50% mortality", t.T50, pub(:T50), Float64.(runs.T50)),
+        ("rate of phenotypic change to extinction", t.rate_ext, pub(:rate_ext), runs.rate_ext),
+        ("rate of phenotypic change to 50% mortality", t.rate50, pub(:rate50), runs.rate50),
+        ("standardised rate of environmental change x", t.x, pub(:x), runs.x),
+        ("standardised lag", t.lag, pub(:lag), runs.lag))
+    println("| ", name, " | ", iqr(all_pub), " | ", iqr(s_pub, w), " | ", iqr(s_jl, w), " |")
+end
+```
+
+## Figure 1
+
+The paper's Figure 1 bins populations by the standardised rate of environmental change
+$x$, the rate $d$ in units of the phenotypic standard deviation at 50% mortality, and
+plots medians per bin. Here the paper's own binned values, from its figure data, are
+drawn with the same summaries of the two samples in 24 bins of equal weight.
+
+```{julia}
+function binned(x, y, w = ones(length(x)); nbins = 24)
+    o = sortperm(x); c = cumsum(w[o]) ./ sum(w)
+    bin = min.(max.(ceil.(Int, c .* nbins), 1), nbins)
+    [(wquantile(x[o][bin .== b], w[o][bin .== b], 0.5), wquantile(y[o][bin .== b], w[o][bin .== b], 0.5))
+     for b in 1:nbins if any(==(b), bin)]
+end
+mortality(P47) = replace(1 .- P47 ./ POP, NaN => 1.0)   # dead before generation 47: all died
+
+fig1a = XLSX.readtable(FIGDATA, "Figure 1a,d")
+paper1a = sort(unique(collect(zip(Float64.(fig1a.data[1]), Float64.(fig1a.data[3])))))
+fig1bc = XLSX.readtable(FIGDATA, "Figures 1b,c")
+paper1bc = [Float64.(c) for c in fig1bc.data]            # x, lag, mortality: 50 bins
+
+samples = ((pub(:x), capT(pub(:T)), pub(:lag), mortality(pub(:P47)), "published runs", :navy),
+           (runs.x, capT(runs.T), runs.lag, mortality(runs.P47), "QTLSim", :crimson))
+nothing
+```
+
+```{julia}
+#| label: fig-figure1
+#| fig-cap: "Figure 1 of the paper (gray, from its figure data) with the same summaries of the sampled populations: their published runs (navy) and their QTLSim reruns (crimson). (a) Median generations to extinction against the standardised rate of environmental change; medians above 2000 generations are drawn at 2000, the length of the reruns. (b) Median standardised lag. (c) Median mortality at generation 47 against the median lag. (d) Generations to extinction against standardised lag for the QTLSim reruns, with the paper's fitted curve."
+fig = Figure(size = (1000, 800))
+ax_a = Axis(fig[1, 1], xscale = log10, yscale = log10, title = "(a)",
+            xlabel = "standardised rate of environmental change x", ylabel = "generations to extinction")
+ax_b = Axis(fig[1, 2], xscale = log10, yscale = log10, title = "(b)",
+            xlabel = "standardised rate of environmental change x", ylabel = "standardised lag")
+ax_c = Axis(fig[2, 1], xscale = log10, title = "(c)", xlabel = "standardised lag",
+            ylabel = "mortality at generation 47")
+ax_d = Axis(fig[2, 2], xscale = log10, yscale = log10, title = "(d)", xlabel = "standardised lag",
+            ylabel = "generations to extinction")
+scatterlines!(ax_a, first.(paper1a), min.(last.(paper1a), CAP), color = :gray, label = "paper")
+ok = paper1bc[2] .> 0
+scatterlines!(ax_b, paper1bc[1][ok], paper1bc[2][ok], color = :gray)
+scatterlines!(ax_c, paper1bc[2][ok], paper1bc[3][ok], color = :gray)
+for (x, T, lag, mort, name, c) in samples
+    scatterlines!(ax_a, binned(x, T, w), color = c, label = name)
+    pos = lag .> 0
+    scatterlines!(ax_b, binned(x[pos], lag[pos], w[pos]), color = c)
+    scatterlines!(ax_c, binned(lag[pos], mort[pos], w[pos]), color = c)
+end
+pos = runs.lag .> 0
+scatter!(ax_d, runs.lag[pos], capT(runs.T)[pos], color = (:crimson, 0.4), markersize = 5)
+ℓ = exp.(range(log(minimum(runs.lag[pos])), log(maximum(runs.lag[pos])), length = 100))
+fitp = logfit(t.lag, t.T)
+lines!(ax_d, ℓ, min.(exp.(fitp.intercept .+ fitp.slope .* log.(ℓ) .+ fitp.quadratic .* log.(ℓ) .^ 2), 2.4e5),
+       color = :gray, label = "paper's fit")
+axislegend(ax_a, position = :lb)
+axislegend(ax_d, position = :lb)
+fig
+```
+
+The QTLSim reruns (crimson) and the published runs of the same populations (navy) lie on
+the paper's curves (gray) in every panel. Populations facing change slower than about
+0.07 phenotypic standard deviations per generation mostly outlast the 2000 generations of
+the reruns, so their median is drawn at the cap; beyond that the time to extinction falls
+steeply, to about a hundred generations at half a standard deviation per generation. The
+lag grows in proportion to the rate of change, and mortality at generation 47 rises from
+almost none at lags of a few hundredths of a standard deviation per generation to about
+half at a lag of 0.2 and nearly all at a lag of 1.
+
+The quadratic fit of Figure 1d, made to the two samples with times capped at 2000:
+
+```{julia}
+#| output: asis
+println("| fit | intercept | slope | quadratic | R² | populations |\n|:--|--:|--:|--:|--:|--:|")
+for (name, f) in (("paper (all populations, uncapped)", logfit(t.lag, t.T)),
+                  ("published runs of the sample, capped", logfit(pub(:lag), capT(pub(:T)), w)),
+                  ("QTLSim reruns of the sample, capped", logfit(runs.lag, capT(runs.T), w)))
+    @printf("| %s | %.2f | %.3f | %.4f | %.2f | %d |\n", name, f.intercept, f.slope, f.quadratic, f.R2, f.n)
+end
+```
+
+Capped at 2000 generations, the published runs and the QTLSim reruns give almost the same
+fit. Both differ from the paper's fit to uncapped times: the cap flattens the times of
+the longest-lived populations, which lowers $R^2$ to about 0.6.
+
+## Genetic variance at equilibrium
+
+The paper checks its populations' genetic variance at the end of the stabilising phase
+against Bürger's stochastic house-of-cards approximation [@Burger1989] (its Supplementary
+Figure S1; see [Mutation–selection balance](../02_mutation_selection_balance/02_mutation_selection_balance.qmd)).
+The same check for the reruns, with the effective population size computed from each
+rerun's own number of survivors:
+
+```{julia}
+function house_of_cards(i, ns)
+    N, n, μ = POP, t.L[i], 1e-4
+    VE = (1 - t.h2[i]) * t.VP[i]
+    Vs = t.ω[i]^2 + VE
+    α2 = t.m[i] * VE / (2n * μ)
+    Ne = 4N / (2N * (ns - 1) / ns^2 + 2)
+    4n * μ * Vs / (1 + Vs / (Ne * α2))
+end
+shc_jl = [house_of_cards(i, ns) for (i, ns) in zip(runs.row, runs.ns_eq)]
+@printf("median V_G / house of cards: published runs %.2f, QTLSim reruns %.2f\n",
+        wquantile(pub(:VG) ./ pub(:shc), w, 0.5), wquantile(runs.VG ./ shc_jl, w, 0.5))
+```
+
+```{julia}
+#| label: fig-shc
+#| fig-cap: "Genetic variance just before the optimum moves against the stochastic house-of-cards approximation, for the published runs (left) and the QTLSim reruns (right) of the sampled populations. The line is equality."
+fig = Figure(size = (900, 400))
+for (k, (pred, obs, name, c)) in enumerate(((pub(:shc), pub(:VG), "published runs", :navy),
+                                            (shc_jl, runs.VG, "QTLSim reruns", :crimson)))
+    ax = Axis(fig[1, k], xscale = log10, yscale = log10, title = name,
+              xlabel = "house of cards", ylabel = "simulated V_G")
+    ok = (pred .> 0) .& (obs .> 0)
+    lo, hi = extrema(vcat(pred[ok], obs[ok]))
+    lines!(ax, [lo, hi], [lo, hi], color = :gray, linestyle = :dash)
+    scatter!(ax, pred[ok], obs[ok], color = (c, 0.4), markersize = 5)
+end
+fig
+```
+
+## How fast is too fast
+
+Which populations survive depends above all on the standardised rate of environmental
+change. The fraction still alive 2000 generations after the move, in bins of $x$, for all
+published populations (alive at 2000 generations, whatever happened later), for the
+published runs of the sample and for its QTLSim reruns:
+
+```{julia}
+#| label: fig-survival
+#| fig-cap: "Fraction of populations still alive 2000 generations after the optimum starts moving, against the standardised rate of environmental change, for all 119,984 published populations (gray), the published runs of the sampled populations (navy) and their QTLSim reruns (crimson)."
+fig = Figure(size = (640, 400))
+ax = Axis(fig[1, 1], xscale = log10, xlabel = "standardised rate of environmental change x",
+          ylabel = "alive after 2000 generations")
+mean_in_bins(x, y, w; nbins) = begin
+    o = sortperm(x); c = cumsum(w[o]) ./ sum(w)
+    bin = min.(max.(ceil.(Int, c .* nbins), 1), nbins)
+    [(wquantile(x[o][bin .== b], w[o][bin .== b], 0.5),
+      sum(w[o][bin .== b] .* y[o][bin .== b]) / sum(w[o][bin .== b])) for b in 1:nbins if any(==(b), bin)]
+end
+scatterlines!(ax, mean_in_bins(t.x, Float64.(t.T .>= CAP), ones(length(t.x)); nbins = 50),
+              color = :gray, label = "all published")
+scatterlines!(ax, mean_in_bins(pub(:x), Float64.(pub(:T) .>= CAP), w; nbins = 24),
+              color = :navy, label = "published sample")
+scatterlines!(ax, mean_in_bins(runs.x, Float64.(.!runs.extinct), w; nbins = 24),
+              color = :crimson, label = "QTLSim sample")
+axislegend(ax, position = :rt)
+fig
+```
+
+```{julia}
+alive = .!runs.extinct; alive_pub = pub(:T) .>= CAP
+@printf("rate of phenotypic change of populations alive after 2000 generations: QTLSim %s, published runs %s\n",
+        iqr(runs.rate_ext[alive], w[alive]), iqr(pub(:rate_ext)[alive_pub], w[alive_pub]))
+```
+
+In all three, half the populations are still alive 2000 generations after the move when
+the environment moves by about 0.07 phenotypic standard deviations per generation, and
+almost none above about 0.2. The populations still alive have changed at a median of
+about 0.03 standard deviations per generation. The paper's populations that lasted all
+240,000 generations changed at a median of 0.031, the basis of its estimate of a maximum
+sustainable rate of about 3% of a standard deviation per generation.
+
+## Summary
+
+The paper's numbers next to the same quantities recomputed from its table, from the
+published runs of the 710 sampled populations, and from their QTLSim reruns (medians;
+for the samples, times capped at 2000 generations and strata weighted equally):
+
+```{julia}
+#| output: asis
+med(v, w = ones(length(v))) = (ok = isfinite.(v); wquantile(v[ok], w[ok], 0.5))
+share(alive, w = ones(length(alive))) = 100 * sum(w .* alive) / sum(w)
+ft, fp, fj = logfit(t.lag, t.T), logfit(pub(:lag), capT(pub(:T)), w), logfit(runs.lag, capT(runs.T), w)
+println("| result | paper | paper's table | published runs of the sample | QTLSim reruns |")
+println("|:--|:--|:--|:--|:--|")
+@printf("| generations to extinction | 141 | %.0f | %.0f | %.0f |\n",
+        med(t.T), med(capT(pub(:T)), w), med(capT(runs.T), w))
+@printf("| generations to 50%% mortality | 47 | %.0f | %.0f | %.0f |\n",
+        med(t.T50), med(pub(:T50), w), med(Float64.(runs.T50), w))
+@printf("| rate of phenotypic change to extinction | 0.056 | %.3f | %.3f | %.3f |\n",
+        med(t.rate_ext), med(pub(:rate_ext), w), med(runs.rate_ext, w))
+@printf("| rate of phenotypic change to 50%% mortality | 0.033 | %.3f | %.3f | %.3f |\n",
+        med(t.rate50), med(pub(:rate50), w), med(runs.rate50, w))
+@printf("| slope of log time to extinction on log lag | −0.91 | %.2f | %.2f (capped) | %.2f (capped) |\n",
+        ft.slope, fp.slope, fj.slope)
+@printf("| genetic variance / house of cards | close to 1 | | %.2f | %.2f |\n",
+        med(pub(:VG) ./ pub(:shc), w), med(runs.VG ./ shc_jl, w))
+@printf("| alive 2000 generations after the move | | %.1f%% | %.1f%% | %.1f%% |\n",
+        share(t.T .>= CAP), share(pub(:T) .>= CAP, w), share(.!runs.extinct, w))
+@printf("| percentiles of k_c at 0.044 and 0.088 | 68th, 86th | %.0fth, %.0fth | | |\n",
+        100 * mean(kc .<= 0.044), 100 * mean(kc .<= 0.088))
+```
+
+Every number the paper reports that can be computed from its results table is
+reproduced exactly from it. On a stratified sample of 710 of its populations, QTLSim
+reproduces the published runs: survival, rates of change, lag, mortality and genetic
+variance agree with the published runs of the same populations to within the scatter
+between two realisations of each population, and with the paper's figures. Two steps of
+the paper are not repeated: weighting the survivors by the probability of their mutation
+scalar, and the critical rate $k_c$ of the reruns, whose ingredients come from the
+paper's equation 2.
