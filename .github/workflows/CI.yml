@@ -37,6 +37,24 @@ jobs:
         with:
           version: '1'
       - run: julia scripts/sync_vignettes.jl --check
+  qtsim:
+    name: QTSim parity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GSL
+        run: sudo apt-get update && sudo apt-get install -y libgsl-dev
+      - name: Check and build the bundled QTSim source
+        run: make -C reference/QTSim check && make -C reference/QTSim
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1'
+      - uses: julia-actions/cache@v2
+      - uses: julia-actions/julia-buildpkg@v1
+      - name: Bit for bit (GSL-locked replica)
+        run: julia --project=. validate/gsl_locked.jl
+      - name: In distribution (Julia kernel vs QTSim)
+        run: julia --project=. validate/compare_to_qtsim.jl
   docs:
     name: Documentation
     runs-on: ubuntu-latest

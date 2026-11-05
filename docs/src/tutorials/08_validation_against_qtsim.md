@@ -22,10 +22,11 @@ it. This vignette collects the evidence at three strengths:
     the paper’s published per-run results.
 
 The first two need the QTSim program, and the replica needs the GSL
-library QTSim is built on. They look for QTSim in a `Repository/` folder
-next to the package’s folder, which is where the paper’s code sits in
-the project this package comes from, and are skipped if it is not there.
-The third uses results stored with the package.
+library QTSim is built on. QTSim’s source comes with the package, in
+`reference/QTSim`, and `make -C reference/QTSim` builds it; the vignette
+also finds the binary in the paper’s code, unpacked in a `Repository/`
+folder next to the package’s folder, and skips these sections if there
+is neither. The third uses results stored with the package.
 
 ## Setup
 
@@ -35,7 +36,8 @@ using CairoMakie, DelimitedFiles, HypothesisTests, Printf, Random, Statistics
 CairoMakie.activate!(type = "png")
 
 const PKG = normpath(joinpath(@__DIR__, "..", ".."))
-const QTSIM_BIN = normpath(joinpath(PKG, "..", "Repository", "Code", "QTSim", "src", "QTSim"))
+include(joinpath(PKG, "validate", "qtsim.jl"))     # find_qtsim(): see reference/QTSim/README.md
+const QTSIM_BIN = something(find_qtsim(), "")
 have_qtsim = isfile(QTSIM_BIN)
 ```
 
@@ -142,7 +144,7 @@ if have_qtsim
             count(o -> o.prog === :julia && o.scen === :B && o.extinct, out), R,
             count(o -> o.prog === :qtsim && o.scen === :B && o.extinct, out), R)
 else
-    println("QTSim was not found at `$QTSIM_BIN`, so this section was skipped.")
+    println("QTSim was not found (see `reference/QTSim/README.md`), so this section was skipped.")
 end
 ```
 
@@ -198,9 +200,9 @@ QTSim’s printed output exactly: the mean phenotype and genetic variance
 to all six printed decimals and the number of survivors, every
 generation. `compare` runs both and reports any generation that differs.
 The checks cover the single-locus protocol and one of the paper’s own
-100-locus input files, which runs until the population dies; a negative
-control applies every crossover point, which QTSim does not, and must
-diverge.
+100-locus input files, which runs until the population dies (without the
+paper’s data, a 100-locus input of the same design); a negative control
+applies every crossover point, which QTSim does not, and must diverge.
 
 ``` julia
 include(joinpath(PKG, "validate", "gsl_locked.jl"))   # defines the replica; runs nothing
@@ -209,8 +211,10 @@ include(joinpath(PKG, "validate", "gsl_locked.jl"))   # defines the replica; run
 ``` julia
 if have_qtsim && isfile(LIBGSL)
     compare(B, 12345, "single-locus protocol, seed 12345")
-    q, seed = read_qtsim_opts(joinpath(SIMDIR, "QT0100-Possion3.0", "Input-00001.txt"))
-    compare(Params(q; NoGenerations = 10_600), seed, "QT0100-Possion3.0/Input-00001.txt")
+    file = joinpath(SIMDIR, "QT0100-Possion3.0", "Input-00001.txt")
+    label, q, seed = isfile(file) ? ("QT0100-Possion3.0/Input-00001.txt", read_qtsim_opts(file)...) :
+                                    first(multilocus_cases(published = false))   # without the paper's data
+    compare(Params(q; NoGenerations = 10_600), seed, label)
     compare(Params(q; NoGenerations = 2_000), seed, "same input, every crossover point";
             allpoints = true)
 else

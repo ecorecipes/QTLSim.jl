@@ -8,3 +8,4 @@ docs/.quarto/
 *.mem
 *.jl.*.cov
 docs/build/
+reference/QTSim/build/

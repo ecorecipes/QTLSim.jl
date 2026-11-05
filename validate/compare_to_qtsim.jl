@@ -2,8 +2,8 @@
 # QTSim C simulation. For each scenario, runs both R times and compares the
 # distributions of summary statistics with Welch t-tests.
 #
-# Usage (from the package root), after building the C binary
-# (../Repository/Code/QTSim/src/QTSim):
+# Usage (from the package root), with QTSim built from the bundled source
+# (`make -C reference/QTSim`; validate/qtsim.jl says where else it looks):
 #     julia --project=. validate/compare_to_qtsim.jl
 #
 # Different RNGs (Julia MersenneTwister vs GSL mt19937) mean runs are not
@@ -13,8 +13,8 @@
 using QTLSim
 using Statistics, Random, Printf
 
-const QTSIM = normpath(joinpath(@__DIR__, "..", "..",
-                                "Repository", "Code", "QTSim", "src", "QTSim"))
+include(joinpath(@__DIR__, "qtsim.jl"))
+const QTSIM = something(find_qtsim(), "")
 
 # --- QTSim reference -----------------------------------------------------
 
@@ -96,6 +96,7 @@ function report(name, a, b)
     verdict = abs(w.t) < 2.5 ? "consistent" : "CHECK"
     @printf("  %-20s  Julia %10.4g ± %-9.3g  C %10.4g ± %-9.3g   t=%+6.2f  [%s]\n",
             name, w.ma, w.sa, w.mb, w.sb, w.t, verdict)
+    abs(w.t)
 end
 
 function compare(p::Params, label; eqlo, eqhi, R=24)
@@ -113,19 +114,19 @@ function compare(p::Params, label; eqlo, eqhi, R=24)
         print("."); flush(stdout)
     end
     println()
-    report("equilibrium V_G", [x.eqVG for x in jl], [x.eqVG for x in cl])
+    t = report("equilibrium V_G", [x.eqVG for x in jl], [x.eqVG for x in cl])
     if p.MoveFitnessSDGen != -1
-        report("adaptation lag", [x.lag for x in jl], [x.lag for x in cl])
-        report("survival fraction", [x.surv for x in jl], [x.surv for x in cl])
+        t = max(t, report("adaptation lag", [x.lag for x in jl], [x.lag for x in cl]),
+                report("survival fraction", [x.surv for x in jl], [x.surv for x in cl]))
         @printf("  %-20s  Julia %d/%d              C %d/%d\n",
                 "extinctions", jext, R, cext, R)
     end
+    t                                     # the largest |t| of the scenario
 end
 
 # --- scenarios -----------------------------------------------------------
 
-isfile(QTSIM) || error("QTSim binary not found at $QTSIM — build it first " *
-    "(see docs/README.md: cc *.c -O2 -o QTSim -I<gsl>/include -L<gsl>/lib -lgsl -lgslcblas -lm)")
+isfile(QTSIM) || error(qtsim_missing())
 
 # 1. Well-conditioned mutation–selection balance: finite stabilizing width and a
 #    high mutation rate ⇒ a low-variance equilibrium V_G that sharply tests the
@@ -135,8 +136,8 @@ equilibrium = Params(
     PhenotypeVar=0.02, Heritability=0.5, MutationScalar=0.02,
     MutationRatePerGamete=0.5, InitFitnessSD=0.3,
 )
-compare(equilibrium, "stabilizing equilibrium (mutation–selection balance)";
-        eqlo=3000, eqhi=3999, R=40)
+worst = compare(equilibrium, "stabilizing equilibrium (mutation–selection balance)";
+                eqlo=3000, eqhi=3999, R=40)
 
 # 2. Directional adaptation to a moving optimum — the single-jump protocol of
 #    Scrips/CreateCGenomeSimInputDist.py (the published sweep is checked by
@@ -148,5 +149,13 @@ directional = Params(
     ChangeFitnessGen=5000, ChangeFitnessSD=0.30,
     MoveFitnessSDGen=5000, MoveFitnessSD=1.0, MoveType=:phenotype,
 )
-compare(directional, "directional adaptation (moving optimum)";
-        eqlo=4000, eqhi=4999, R=24)
+worst = max(worst, compare(directional, "directional adaptation (moving optimum)";
+                           eqlo=4000, eqhi=4999, R=24))
+
+# |t| ≥ 2.5 is flagged for a look; |t| ≥ 4, which chance all but never produces with
+# these replicate counts, fails the run (CI runs this script against the bundled QTSim).
+if worst >= 4
+    println("\nFAIL: largest |t| = $(round(worst, digits=2)), a discrepancy between the Julia model and QTSim")
+    exit(1)
+end
+println("\nlargest |t| = $(round(worst, digits=2))")

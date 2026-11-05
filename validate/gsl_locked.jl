@@ -13,9 +13,11 @@
 # Two regimes are checked:
 #   * the single-locus 6500-generation protocol written by
 #     Repository/Code/QTSim/Scrips/CreateCGenomeSimInputDist.py, and
-#   * the published sweep (Repository/Simulations/QT<NoQTL>-Possion<u>/): 100–5000
-#     loci, Poisson recombination, a continuously moving optimum from generation
-#     10000. Shipped input files are run as-is except for a generation cap.
+#   * the design of the published sweep: 100–1000 loci, Poisson recombination, a
+#     continuously moving optimum from generation 10000. With the paper's code and data
+#     unpacked next to the package, six of its input files are run as they are except
+#     for a generation cap (Repository/Simulations/QT<NoQTL>-Possion<u>/); without them,
+#     five inputs of the same design with parameters chosen here.
 #
 # QTSim's recombination (CreateCombMap + RecombinationPoissonChr) draws
 # Poisson(RecombinationPoissonMean) distinct crossover points but never advances
@@ -27,13 +29,14 @@
 # agnostic implementation; this replica exists only to prove algorithmic parity.
 #
 # Run from the package root:  julia --project=. validate/gsl_locked.jl
-# Needs the QTSim binary (see docs/README.md) and a GSL shared library; set
-# ENV["LIBGSL"] if libgsl is not in a Homebrew location.
+# Needs QTSim (validate/qtsim.jl: built from reference/QTSim, or ENV["QTSIM"]) and a GSL
+# shared library; set ENV["LIBGSL"] if libgsl is not in a Homebrew or Debian location.
 
 using QTLSim, Printf
 
 const ROOT   = normpath(joinpath(@__DIR__, "..", ".."))
-const QTSIM  = joinpath(ROOT, "Repository", "Code", "QTSim", "src", "QTSim")
+@isdefined(find_qtsim) || include(joinpath(@__DIR__, "qtsim.jl"))
+const QTSIM  = something(find_qtsim(), "")
 const SIMDIR = joinpath(ROOT, "Repository", "Simulations")
 const LIBGSL = let c = filter(isfile, [get(ENV, "LIBGSL", ""),
                                         "/opt/homebrew/opt/gsl/lib/libgsl.dylib",
@@ -268,9 +271,37 @@ function compare(p::Params, seed::Integer, label; allpoints::Bool=false)
     ok
 end
 
+"""
+    multilocus_cases(; published = isdir(SIMDIR)) -> [(label, Params, seed)]
+
+Inputs in the design of the published sweep, capped at 10600 generations: six of the
+paper's own input files if its code and data are unpacked next to the package, otherwise
+five inputs of the same design (1000 diploids, the optimum moving continuously from
+generation 10000) whose parameters are chosen here, within the paper's priors.
+"""
+function multilocus_cases(; published::Bool = isdir(SIMDIR))
+    if published
+        return map((("QT0100-Possion3.0", "Input-00000.txt"), ("QT0100-Possion3.0", "Input-00001.txt"),
+                    ("QT0100-Possion5.0", "Input-00002.txt"), ("QT0500-Possion3.0", "Input-00003.txt"),
+                    ("QT0500-Possion5.0", "Input-00004.txt"), ("QT1000-Possion3.0", "Input-00005.txt"))) do (dir, file)
+            q, seed = read_qtsim_opts(joinpath(SIMDIR, dir, file))
+            ("$dir/$file", Params(q; NoGenerations = min(q.NoGenerations, 10600)), seed)
+        end
+    end
+    design(L, u, VP, h2, m, ω, d) =
+        Params(Sample = 1, PopSize = 1000, Ploidy = 2, NoQTL = L, RecombPoissonMean = u, NoGenerations = 10600,
+               PhenotypeVar = VP, Heritability = h2, MutationScalar = m, MutationRatePerGamete = 1e-4,
+               InitFitnessSD = ω, MoveFitnessSDGen = 10000, MoveFitnessSD = d, MoveType = :continuous)
+    [("L100 u3, fast change", design(100, 3.0, 0.03, 0.4, 0.005, 4.0, 0.10), 101),
+     ("L100 u5, slow change", design(100, 5.0, 0.02, 0.6, 0.002, 6.0, 0.01), 202),
+     ("L500 u3", design(500, 3.0, 0.05, 0.3, 0.008, 3.0, 0.05), 303),
+     ("L500 u5", design(500, 5.0, 0.015, 0.5, 0.004, 8.0, 0.20), 404),
+     ("L1000 u3", design(1000, 3.0, 0.04, 0.45, 0.006, 5.0, 0.08), 505)]
+end
+
 function main()
     isfile(LIBGSL) || error("libgsl not found; set ENV[\"LIBGSL\"]")
-    isfile(QTSIM)  || error("QTSim binary not found at $QTSIM — build it (see docs/README.md)")
+    isfile(QTSIM)  || error(qtsim_missing())
     allok = true
     println("GSL-locked replica vs QTSim (same seed, same RNG stream & order)\n")
     println("── single-locus protocol (CreateCGenomeSimInputDist.py) ──")
@@ -287,20 +318,15 @@ function main()
     for s in (2222, 3333)
         allok &= compare(A, s, "equilibrium (A) seed $s")
     end
-    println("\n── published sweep: shipped input files, capped at 10600 generations ──")
-    for (dir, file) in (("QT0100-Possion3.0", "Input-00000.txt"), ("QT0100-Possion3.0", "Input-00001.txt"),
-                        ("QT0100-Possion5.0", "Input-00002.txt"), ("QT0500-Possion3.0", "Input-00003.txt"),
-                        ("QT0500-Possion5.0", "Input-00004.txt"), ("QT1000-Possion3.0", "Input-00005.txt"))
-        q, seed = read_qtsim_opts(joinpath(SIMDIR, dir, file))
-        kw = Dict{Symbol,Any}(k => getfield(q, k) for k in fieldnames(Params))
-        kw[:NoGenerations] = min(q.NoGenerations, 10600)
-        q = Params(; kw...)
-        allok &= compare(q, seed, "$dir/$file (L=$(q.NoQTL), u=$(q.RecombPoissonMean))")
+    cases = multilocus_cases()
+    println("\n── published-sweep design: ", isdir(SIMDIR) ? "the paper's input files" : "inputs of the same design",
+            ", capped at 10600 generations ──")
+    for (label, q, seed) in cases
+        allok &= compare(q, seed, "$label (L=$(q.NoQTL), u=$(q.RecombPoissonMean))")
     end
     println("\n── negative control: replica applying EVERY crossover point (not QTSim's behaviour) ──")
-    q, seed = read_qtsim_opts(joinpath(SIMDIR, "QT0100-Possion3.0", "Input-00000.txt"))
-    kw = Dict{Symbol,Any}(k => getfield(q, k) for k in fieldnames(Params)); kw[:NoGenerations] = 2000
-    detected = !compare(Params(; kw...), seed, "QT0100-Possion3.0/Input-00000.txt, all points"; allpoints=true)
+    label, q, seed = first(cases)
+    detected = !compare(Params(q; NoGenerations = 2000), seed, "$label, all points"; allpoints=true)
     println(detected ? "  ⇒ divergence detected, as expected: the check is sensitive to the crossover model" :
                        "  ⇒ NOT detected: the check cannot distinguish the crossover models")
     allok &= detected

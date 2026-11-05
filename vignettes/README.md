@@ -36,16 +36,17 @@ run their simulations on all threads (`julia: exeflags: ["--threads=auto"]`).
 `docs/src/tutorials/` for the documentation site, and CI runs
 `sync_vignettes.jl --check`, which fails if the copies are stale.
 
-## The paper's code and data, and SLiM
+## QTSim, the paper's data, and SLiM
 
-Vignettes 06, 08 and 09 use the code and data published with the paper, which are not
-part of this repository. They look for them in a `Repository/` folder next to the
-package's folder: QTSim built at `Repository/Code/QTSim/src/QTSim`, the input files under
-`Repository/Simulations/`, and the results tables under `Repository/Results/`. Vignette 08
-skips the sections that need QTSim when it is missing; vignettes 06 and 09 need QTSim and
-the results tables. Vignette 06 also needs SLiM, version 4 or later (`slim/build/slim`
-next to the package's folder, `ENV["SLIM"]`, or `slim` on the path), and the project's
-hand-written SLiM port of QTSim, `slim_port/qtsim.slim`.
+Vignettes 06 and 08 run QTSim, which they find as the validation scripts do
+(`validate/qtsim.jl`): built from the source that comes with the package
+(`make -C reference/QTSim`, which needs a C compiler and GSL), or in the paper's code and
+data if they are unpacked in a `Repository/` folder next to the package's folder.
+Vignette 08 skips the sections that need QTSim when there is none, and uses one of the
+paper's input files (`Repository/Simulations/`) when they are there. Vignette 09 needs
+the paper's results tables, `Repository/Results/`. Vignette 06 also needs SLiM, version 4
+or later (`slim/build/slim` next to the package's folder, `ENV["SLIM"]`, or `slim` on the
+path), and the project's hand-written SLiM port of QTSim, `slim_port/qtsim.slim`.
 
 Vignette 09's simulations are stored next to it and read back on later renders:
 `replication_runs.csv` holds the 710 reruns of 2000 generations after the move (about an

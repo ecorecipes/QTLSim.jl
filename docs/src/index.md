@@ -85,7 +85,9 @@ The kernel reproduces QTSim at three strengths:
 
 The [validation tutorial](tutorials/08_validation_against_qtsim.md) shows all three,
 and the [replication](tutorials/09_replicating_pagel_2025.md) reproduces the paper's
-results.
+results. QTSim's C source comes with the package, unmodified, in `reference/QTSim`, and
+the package's continuous integration builds it and runs the exact and statistical checks
+on every change.
 
 ## Tutorials
 
@@ -103,4 +105,5 @@ results.
 
 QTLSim.jl is free software under the GNU General Public License, version 3 or (at your
 option) any later version. It reimplements the algorithm of QTSim (copyright 2023 Andrew
-Meade, University of Reading), which is distributed under the same licence.
+Meade, University of Reading), which is distributed under the same licence, and includes
+QTSim's source, unmodified, for testing and verification.

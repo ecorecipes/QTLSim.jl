@@ -2406,7 +2406,7 @@ window.Quarto = {
 <li><strong>Exact</strong>: a replica that draws its random numbers from the same library routines as QTSim, in the same order, reproduces QTSim’s output generation by generation.</li>
 <li><strong>Published</strong>: on the paper’s own inputs, the Julia model reproduces the paper’s published per-run results.</li>
 </ol>
-<p>The first two need the QTSim program, and the replica needs the GSL library QTSim is built on. They look for QTSim in a <code>Repository/</code> folder next to the package’s folder, which is where the paper’s code sits in the project this package comes from, and are skipped if it is not there. The third uses results stored with the package.</p>
+<p>The first two need the QTSim program, and the replica needs the GSL library QTSim is built on. QTSim’s source comes with the package, in <code>reference/QTSim</code>, and <code>make -C reference/QTSim</code> builds it; the vignette also finds the binary in the paper’s code, unpacked in a <code>Repository/</code> folder next to the package’s folder, and skips these sections if there is neither. The third uses results stored with the package.</p>
 </section>
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
@@ -2416,16 +2416,9 @@ window.Quarto = {
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>CairoMakie.<span class="fu">activate!</span>(<span class="kw">type</span> <span class="op">=</span> <span class="st">&quot;png&quot;</span>)</span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> PKG <span class="op">=</span> <span class="fu">normpath</span>(<span class="fu">joinpath</span>(<span class="pp">@__DIR__</span>, <span class="st">&quot;..&quot;</span>, <span class="st">&quot;..&quot;</span>))</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> QTSIM_BIN <span class="op">=</span> <span class="fu">normpath</span>(<span class="fu">joinpath</span>(PKG, <span class="st">&quot;..&quot;</span>, <span class="st">&quot;Repository&quot;</span>, <span class="st">&quot;Code&quot;</span>, <span class="st">&quot;QTSim&quot;</span>, <span class="st">&quot;src&quot;</span>, <span class="st">&quot;QTSim&quot;</span>))</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>have_qtsim <span class="op">=</span> <span class="fu">isfile</span>(QTSIM_BIN)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-stdout">
-<div class="ansi-escaped-output">
-<pre><span class="ansi-green-fg ansi-bold">Precompiling</span> packages...
-   1601.2 ms<span class="ansi-green-fg">  ✓ </span>HypothesisTests
-  1 dependency successfully precompiled in 2 seconds. 57 already precompiled.
-</pre>
-</div>
-</div>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">include</span>(<span class="fu">joinpath</span>(PKG, <span class="st">&quot;validate&quot;</span>, <span class="st">&quot;qtsim.jl&quot;</span>))     <span class="co"># find_qtsim(): see reference/QTSim/README.md</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> QTSIM_BIN <span class="op">=</span> <span class="fu">something</span>(<span class="fu">find_qtsim</span>(), <span class="st">&quot;&quot;</span>)</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>have_qtsim <span class="op">=</span> <span class="fu">isfile</span>(QTSIM_BIN)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>true</code></pre>
 </div>
@@ -2517,7 +2510,7 @@ window.Quarto = {
 <span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>            <span class="fu">count</span>(o <span class="op">-&gt;</span> o.prog <span class="op">===</span> <span class="op">:</span>julia <span class="op">&amp;&amp;</span> o.scen <span class="op">===</span> <span class="op">:</span>B <span class="op">&amp;&amp;</span> o.extinct, out), R,</span>
 <span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>            <span class="fu">count</span>(o <span class="op">-&gt;</span> o.prog <span class="op">===</span> <span class="op">:</span>qtsim <span class="op">&amp;&amp;</span> o.scen <span class="op">===</span> <span class="op">:</span>B <span class="op">&amp;&amp;</span> o.extinct, out), R)</span>
 <span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">&quot;QTSim was not found at `</span><span class="sc">$</span>QTSIM_BIN<span class="st">`, so this section was skipped.&quot;</span>)</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">&quot;QTSim was not found (see `reference/QTSim/README.md`), so this section was skipped.&quot;</span>)</span>
 <span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <table class="caption-top table">
 <thead>
@@ -2600,20 +2593,22 @@ Figure 1: Empirical distribution functions of the summary statistics, Julia (te
 </section>
 <section id="exact-parity" class="level2">
 <h2 class="anchored" data-anchor-id="exact-parity">Exact parity</h2>
-<p>Statistical agreement leaves room for small systematic differences hidden by noise. To rule them out, <code>validate/gsl_locked.jl</code> contains a replica of the model that draws every random number from the GNU Scientific Library routines QTSim uses, in QTSim’s order, and sums genotypes in QTSim’s order. Given QTSim’s seed it should reproduce QTSim’s printed output exactly: the mean phenotype and genetic variance to all six printed decimals and the number of survivors, every generation. <code>compare</code> runs both and reports any generation that differs. The checks cover the single-locus protocol and one of the paper’s own 100-locus input files, which runs until the population dies; a negative control applies every crossover point, which QTSim does not, and must diverge.</p>
+<p>Statistical agreement leaves room for small systematic differences hidden by noise. To rule them out, <code>validate/gsl_locked.jl</code> contains a replica of the model that draws every random number from the GNU Scientific Library routines QTSim uses, in QTSim’s order, and sums genotypes in QTSim’s order. Given QTSim’s seed it should reproduce QTSim’s printed output exactly: the mean phenotype and genetic variance to all six printed decimals and the number of survivors, every generation. <code>compare</code> runs both and reports any generation that differs. The checks cover the single-locus protocol and one of the paper’s own 100-locus input files, which runs until the population dies (without the paper’s data, a 100-locus input of the same design); a negative control applies every crossover point, which QTSim does not, and must diverge.</p>
 <div id="12" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">include</span>(<span class="fu">joinpath</span>(PKG, <span class="st">&quot;validate&quot;</span>, <span class="st">&quot;gsl_locked.jl&quot;</span>))   <span class="co"># defines the replica; runs nothing</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div id="14" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> have_qtsim <span class="op">&amp;&amp;</span> <span class="fu">isfile</span>(LIBGSL)</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">compare</span>(B, <span class="fl">12345</span>, <span class="st">&quot;single-locus protocol, seed 12345&quot;</span>)</span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    q, seed <span class="op">=</span> <span class="fu">read_qtsim_opts</span>(<span class="fu">joinpath</span>(SIMDIR, <span class="st">&quot;QT0100-Possion3.0&quot;</span>, <span class="st">&quot;Input-00001.txt&quot;</span>))</span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">compare</span>(<span class="fu">Params</span>(q; NoGenerations <span class="op">=</span> <span class="fl">10_600</span>), seed, <span class="st">&quot;QT0100-Possion3.0/Input-00001.txt&quot;</span>)</span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">compare</span>(<span class="fu">Params</span>(q; NoGenerations <span class="op">=</span> <span class="fl">2_000</span>), seed, <span class="st">&quot;same input, every crossover point&quot;</span>;</span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>            allpoints <span class="op">=</span> <span class="cn">true</span>)</span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">&quot;QTSim or the GSL library was not found, so this section was skipped.&quot;</span>)</span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    file <span class="op">=</span> <span class="fu">joinpath</span>(SIMDIR, <span class="st">&quot;QT0100-Possion3.0&quot;</span>, <span class="st">&quot;Input-00001.txt&quot;</span>)</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    label, q, seed <span class="op">=</span> <span class="fu">isfile</span>(file) ? (<span class="st">&quot;QT0100-Possion3.0/Input-00001.txt&quot;</span>, <span class="fu">read_qtsim_opts</span>(file)<span class="op">...</span>) <span class="op">:</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>                                    <span class="fu">first</span>(<span class="fu">multilocus_cases</span>(published <span class="op">=</span> <span class="cn">false</span>))   <span class="co"># without the paper&#39;s data</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">compare</span>(<span class="fu">Params</span>(q; NoGenerations <span class="op">=</span> <span class="fl">10_600</span>), seed, label)</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">compare</span>(<span class="fu">Params</span>(q; NoGenerations <span class="op">=</span> <span class="fl">2_000</span>), seed, <span class="st">&quot;same input, every crossover point&quot;</span>;</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>            allpoints <span class="op">=</span> <span class="cn">true</span>)</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">&quot;QTSim or the GSL library was not found, so this section was skipped.&quot;</span>)</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>single-locus protocol, seed 12345            gens compared=6500   mismatches=0    survived (replica extinct=false)
   ⇒ BIT-IDENTICAL (6 dp + survivor counts, every generation)

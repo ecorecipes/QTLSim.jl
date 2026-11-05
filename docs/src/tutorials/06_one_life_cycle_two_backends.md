@@ -33,11 +33,11 @@ backends, yields two simulators of a model QTSim does not have, which
 can be checked against each other.
 
 The vignette needs SLiM (version 4 or later), the hand-written port and
-the QTSim binary built from the paper’s code. It looks for them in
-`slim/build/slim`, `slim_port/qtsim.slim` and
-`Repository/Code/QTSim/src/QTSim` in the folder that holds the package’s
-folder; the `SLIM` environment variable, or a `slim` on the path, can
-stand in for the first.
+QTSim. It looks for the first two in `slim/build/slim` and
+`slim_port/qtsim.slim` in the folder that holds the package’s folder
+(the `SLIM` environment variable, or a `slim` on the path, can stand in
+for the first), and for QTSim built from the source that comes with the
+package (`make -C reference/QTSim`) or in the paper’s code.
 
 ## Setup
 
@@ -53,7 +53,8 @@ const SLIM = let built = joinpath(ROOT, "slim", "build", "slim")
     haskey(ENV, "SLIM") ? ENV["SLIM"] : isfile(built) ? built : something(Sys.which("slim"), built)
 end
 const PORT = joinpath(ROOT, "slim_port", "qtsim.slim")
-const QTSIM = joinpath(ROOT, "Repository", "Code", "QTSim", "src", "QTSim")
+include(joinpath(@__DIR__, "..", "..", "validate", "qtsim.jl"))   # find_qtsim(): see reference/QTSim/README.md
+const QTSIM = something(find_qtsim(), "")
 all(isfile, (SLIM, PORT, QTSIM)) || error("this vignette needs SLiM, the SLiM port and QTSim")
 Threads.nthreads()
 ```

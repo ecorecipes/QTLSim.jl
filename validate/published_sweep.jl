@@ -89,7 +89,7 @@ function julia_run(q::Params, model::Symbol, seed::Int)
 end
 
 function sweep_main()
-    isfile(QTSIM) || error("QTSim binary not found at $QTSIM")
+    isfile(QTSIM) || error(qtsim_missing())
     t0 = time()
     tab = load_master()
     @printf("published table: %d runs loaded (%.0f s); CAP=%d generations after the move; SCALE=%.2f; %d threads\n",

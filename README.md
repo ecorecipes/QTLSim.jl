@@ -86,17 +86,21 @@ From the package root:
 
 ```sh
 julia --project=. -e 'using Pkg; Pkg.test()'                    # tests
-julia --project=. validate/compare_to_qtsim.jl                   # statistical parity with QTSim
+make -C reference/QTSim                                          # build QTSim (needs a C compiler and GSL)
 julia --project=. validate/gsl_locked.jl                         # exact parity with QTSim
+julia --project=. validate/compare_to_qtsim.jl                   # statistical parity with QTSim
 julia -t 10 --project=vignettes validate/published_sweep.jl      # against the published results
 ```
 
-The validation scripts and vignettes 06, 08 and 09 need the code and data published with
-the paper, which are not part of this repository. They look for them in a `Repository/`
-folder next to this package's folder: QTSim built at
-`Repository/Code/QTSim/src/QTSim`, the input files under `Repository/Simulations/`, and
-the results tables under `Repository/Results/`. Vignette 06 also needs SLiM (version 4
-or later) and the project's hand-written SLiM port of QTSim (`slim_port/qtsim.slim`).
+QTSim's C source comes with the package, unmodified, in
+[`reference/QTSim`](reference/QTSim) (its README gives its provenance and how to build
+it), and CI builds it and runs both parity checks on every push. The published-results
+check and vignette 09 also need the paper's data, which is not part of this repository:
+they look for it in a `Repository/` folder next to this package's folder, the paper's code
+and data unpacked, with the input files under `Repository/Simulations/` and the results
+tables under `Repository/Results/`. Vignettes 06 and 08 use QTSim, and 06 also SLiM
+(version 4 or later) and the project's hand-written SLiM port of QTSim
+(`slim_port/qtsim.slim`).
 
 ## Documentation and vignettes
 
@@ -114,4 +118,5 @@ version 3 of the License, or (at your option) any later version (GPL-3.0-or-late
 [`LICENSE`](LICENSE).
 
 It reimplements the algorithm of QTSim (copyright 2023 Andrew Meade, University of
-Reading), which is distributed under the same licence.
+Reading), which is distributed under the same licence, and includes QTSim's source,
+unmodified, in `reference/QTSim` for testing and verification.
