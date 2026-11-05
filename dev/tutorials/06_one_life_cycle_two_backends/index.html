@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>One life cycle, two backends · QTLSim.jl</title><meta name="title" content="One life cycle, two backends · QTLSim.jl"/><meta property="og:title" content="One life cycle, two backends · QTLSim.jl"/><meta property="twitter:title" content="One life cycle, two backends · QTLSim.jl"/><meta name="description" content="Documentation for QTLSim.jl."/><meta property="og:description" content="Documentation for QTLSim.jl."/><meta property="twitter:description" content="Documentation for QTLSim.jl."/><meta property="og:url" content="https://ecorecipes.github.io/QTLSim.jl/tutorials/06_one_life_cycle_two_backends/"/><meta property="twitter:url" content="https://ecorecipes.github.io/QTLSim.jl/tutorials/06_one_life_cycle_two_backends/"/><link rel="canonical" href="https://ecorecipes.github.io/QTLSim.jl/tutorials/06_one_life_cycle_two_backends/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">QTLSim.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../01_getting_started/">Getting started</a></li><li><a class="tocitem" href="../02_mutation_selection_balance/">Mutation–selection balance</a></li><li><a class="tocitem" href="../03_moving_optimum/">Adaptation to a moving optimum</a></li><li><a class="tocitem" href="../04_categorical_layer/">The categorical layer</a></li><li><a class="tocitem" href="../05_recomposing_the_model/">Recomposing the model</a></li><li class="is-active"><a class="tocitem" href>One life cycle, two backends</a><ul class="internal"><li><a class="tocitem" href="#Overview"><span>Overview</span></a></li><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#The-life-cycle-as-a-morphism"><span>The life cycle as a morphism</span></a></li><li><a class="tocitem" href="#Two-functors"><span>Two functors</span></a></li><li><a class="tocitem" href="#A-SLiM-model-from-the-life-cycle"><span>A SLiM model from the life cycle</span></a></li><li><a class="tocitem" href="#The-generated-model-is-the-hand-written-port"><span>The generated model is the hand-written port</span></a></li><li><a class="tocitem" href="#The-generated-model-agrees-with-QTSim"><span>The generated model agrees with QTSim</span></a></li><li><a class="tocitem" href="#A-new-step,-lowered-twice"><span>A new step, lowered twice</span></a></li><li><a class="tocitem" href="#Summary"><span>Summary</span></a></li></ul></li><li><a class="tocitem" href="../07_loci_and_recombination/">Loci and recombination</a></li><li><a class="tocitem" href="../08_validation_against_qtsim/">Validation against QTSim</a></li><li><a class="tocitem" href="../09_replicating_pagel_2025/">Replicating Pagel, Gardner and Meade (2025)</a></li></ul></li><li><a class="tocitem" href="../../api/">API reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>One life cycle, two backends</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>One life cycle, two backends</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/ecorecipes/QTLSim.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/ecorecipes/QTLSim.jl/blob/main/docs/src/tutorials/06_one_life_cycle_two_backends.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="One-life-cycle,-two-backends"><a class="docs-heading-anchor" href="#One-life-cycle,-two-backends">One life cycle, two backends</a><a id="One-life-cycle,-two-backends-1"></a><a class="docs-heading-anchor-permalink" href="#One-life-cycle,-two-backends" title="Permalink"></a></h1><p>Simon Frost</p><ul><li><a href="#overview">Overview</a></li><li><a href="#setup">Setup</a></li><li><a href="#the-life-cycle-as-a-morphism">The life cycle as a morphism</a></li><li><a href="#two-functors">Two functors</a></li><li><a href="#a-slim-model-from-the-life-cycle">A SLiM model from the life cycle</a></li><li><a href="#the-generated-model-is-the-hand-written-port">The generated model is the hand-written port</a></li><li><a href="#the-generated-model-agrees-with-qtsim">The generated model agrees with QTSim</a></li><li><a href="#a-new-step-lowered-twice">A new step, lowered twice</a></li><li><a href="#summary">Summary</a></li></ul><h2 id="Overview"><a class="docs-heading-anchor" href="#Overview">Overview</a><a id="Overview-1"></a><a class="docs-heading-anchor-permalink" href="#Overview" title="Permalink"></a></h2><p>The previous vignettes build a generation by composing the kernel’s operators directly. Here the life cycle is written once, as syntax: a morphism of a free category whose objects are the stages of a generation and whose generating morphisms are the steps between them. A functor out of a free category is fixed by where it sends the generators, so giving each step a meaning in a backend gives every life cycle built from those steps a meaning there. Two such functors lower the life cycle: one to the simulation kernel and one to Eidos, the scripting language of the population-genetics simulator SLiM (<a href="#ref-Haller2023">Haller and Messer 2023</a>).</p><p>The SLiM model lowered from QTSim’s life cycle is, run for run, the SLiM port of QTSim that was written by hand for this project, and it agrees with QTSim in distribution. A new step, given a meaning in both backends, yields two simulators of a model QTSim does not have, which can be checked against each other.</p><p>The vignette needs SLiM (version 4 or later), the hand-written port and the QTSim binary built from the paper’s code. It looks for them in <code>slim/build/slim</code>, <code>slim_port/qtsim.slim</code> and <code>Repository/Code/QTSim/src/QTSim</code> in the folder that holds the package’s folder; the <code>SLIM</code> environment variable, or a <code>slim</code> on the path, can stand in for the first.</p><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><pre><code class="language-julia hljs">using QTLSim
+import Catlab                       # loads QTLSim&#39;s categorical layer
+using Catlab: ⋅, dom, codom, Hom
+using CairoMakie, HypothesisTests, Printf, Random, Statistics
+CairoMakie.activate!(type = &quot;png&quot;)
+
+const ROOT = normpath(joinpath(@__DIR__, &quot;..&quot;, &quot;..&quot;, &quot;..&quot;))
+const SLIM = let built = joinpath(ROOT, &quot;slim&quot;, &quot;build&quot;, &quot;slim&quot;)
+    haskey(ENV, &quot;SLIM&quot;) ? ENV[&quot;SLIM&quot;] : isfile(built) ? built : something(Sys.which(&quot;slim&quot;), built)
+end
+const PORT = joinpath(ROOT, &quot;slim_port&quot;, &quot;qtsim.slim&quot;)
+const QTSIM = joinpath(ROOT, &quot;Repository&quot;, &quot;Code&quot;, &quot;QTSim&quot;, &quot;src&quot;, &quot;QTSim&quot;)
+all(isfile, (SLIM, PORT, QTSIM)) || error(&quot;this vignette needs SLiM, the SLiM port and QTSim&quot;)
+Threads.nthreads()</code></pre><pre><code class="nohighlight hljs">6</code></pre><h2 id="The-life-cycle-as-a-morphism"><a class="docs-heading-anchor" href="#The-life-cycle-as-a-morphism">The life cycle as a morphism</a><a id="The-life-cycle-as-a-morphism-1"></a><a class="docs-heading-anchor-permalink" href="#The-life-cycle-as-a-morphism" title="Permalink"></a></h2><p><code>lifecycle()</code> returns the syntax: the Catlab presentation of a free category with four objects, the stages of a generation, and seven generating morphisms, the steps of QTSim’s generation loop.</p><pre><code class="language-julia hljs">L = lifecycle()
+const STEP_NAMES = (:develop, :select, :reproduce, :record, :rescale, :mutate, :swap)
+println(&quot;| step | from | to |\n|:--|:--|:--|&quot;)
+for s in STEP_NAMES
+    f = getfield(L, s)
+    println(&quot;| `&quot;, s, &quot;` | &quot;, dom(f), &quot; | &quot;, codom(f), &quot; |&quot;)
+end</code></pre><table><tr><th style="text-align: left">step</th><th style="text-align: left">from</th><th style="text-align: left">to</th></tr><tr><td style="text-align: left"><code>develop</code></td><td style="text-align: left">Zygotes</td><td style="text-align: left">Adults</td></tr><tr><td style="text-align: left"><code>select</code></td><td style="text-align: left">Adults</td><td style="text-align: left">Survivors</td></tr><tr><td style="text-align: left"><code>reproduce</code></td><td style="text-align: left">Survivors</td><td style="text-align: left">Offspring</td></tr><tr><td style="text-align: left"><code>record</code></td><td style="text-align: left">Offspring</td><td style="text-align: left">Offspring</td></tr><tr><td style="text-align: left"><code>rescale</code></td><td style="text-align: left">Offspring</td><td style="text-align: left">Offspring</td></tr><tr><td style="text-align: left"><code>mutate</code></td><td style="text-align: left">Offspring</td><td style="text-align: left">Offspring</td></tr><tr><td style="text-align: left"><code>swap</code></td><td style="text-align: left">Offspring</td><td style="text-align: left">Zygotes</td></tr></table><p>Steps compose with Catlab’s <code>⋅</code> when the stage one step ends in is the stage the next begins with. QTSim’s generation is the composite of all seven, in the order of its loop, and is a morphism from zygotes to zygotes:</p><pre><code class="language-julia hljs">(; develop, select, reproduce, record, rescale, mutate, swap) = L
+qtsim = develop ⋅ select ⋅ reproduce ⋅ record ⋅ rescale ⋅ mutate ⋅ swap</code></pre><pre><code class="nohighlight hljs">develop⋅select⋅reproduce⋅record⋅rescale⋅mutate⋅swap: Zygotes → Zygotes</code></pre><p>Steps whose stages do not match do not compose. Selecting before developing is not a life cycle, and Catlab says so:</p><pre><code class="language-julia hljs">try
+    select ⋅ develop
+catch e
+    println(first(sprint(showerror, e), 120), &quot;…&quot;)
+end</code></pre><pre><code class="nohighlight hljs">Domain error in term constructor compose(select,develop)…</code></pre><h2 id="Two-functors"><a class="docs-heading-anchor" href="#Two-functors">Two functors</a><a id="Two-functors-1"></a><a class="docs-heading-anchor-permalink" href="#Two-functors" title="Permalink"></a></h2><p><code>lower(f, :kernel)</code> sends each step to the kernel function it wraps (<code>develop!</code>, <code>select!</code>, <code>reproduce!</code>, recording, the scheduled change of the fitness width, <code>mutate!</code>, and the swap of the parent and offspring buffers), and composition to <code>⋅</code>. The image of the generation is an operator on a <code>World</code>:</p><pre><code class="language-julia hljs">lower(qtsim, :kernel)</code></pre><pre><code class="nohighlight hljs">Operator(:develop⋅select⋅reproduce⋅record⋅rescale⋅mutate⋅swap)</code></pre><p>Run once per generation by <code>run_composed</code>, it is <code>run!</code>, bit for bit, here for one locus, with the optimum moving from generation 5000 and the fitness function narrowing:</p><pre><code class="language-julia hljs">p = Params(PopSize = 1000, NoQTL = 1, Ploidy = 2, NoGenerations = 6500, PhenotypeVar = 0.02,
+           Heritability = 0.5, MutationScalar = 0.001, MutationRatePerGamete = 0.0002,
+           MoveFitnessSDGen = 5000, MoveFitnessSD = 1.0, MoveType = :phenotype,
+           ChangeFitnessGen = 5000, ChangeFitnessSD = 0.3)
+a = run!(World(p), Xoshiro(1))
+b = run_composed(World(p), Xoshiro(1); cycle = qtsim)
+all(getfield(a, k) == getfield(b, k) for k in keys(a))</code></pre><pre><code class="nohighlight hljs">true</code></pre><p><code>lower(f, :eidos)</code> sends each step to a fragment of Eidos. Each individual carries its two allele values, as in QTSim’s continuum-of-alleles model, and SLiM supplies only the life cycle of a non-Wright–Fisher model. Selection, for example:</p><pre><code class="language-julia hljs">lower(select, :eidos)</code></pre><pre><code class="nohighlight hljs">    // select: move the optimum, Gaussian fitness with QTSim&#39;s 0.4, viability   [Adults → Survivors]
+    if (moveGen &gt;= 0 &amp; gen &gt;= moveGen) {
+        if (moveType == &quot;phenotype&quot;) defineGlobal(&quot;THETA&quot;, mean(pheno) + sqrt(VP) * moveSD);
+        else if (moveType == &quot;fitness&quot;) defineGlobal(&quot;THETA&quot;, mean(pheno) + OMEGA * moveSD);
+        else defineGlobal(&quot;THETA&quot;, THETA + moveSD);
+    }
+    x = standardise ? (pheno - THETA) / sd(pheno) else pheno - THETA;
+    W = drift ? rep(1.0, size(adults)) else dnorm(x, 0.0, OMEGA) / (0.4 / OMEGA);
+    survived = runif(size(adults)) &lt; W;
+    sidx = which(survived);
+    ns = size(sidx);
+    if (ns &lt; 2) { catn(&quot;Pop all died.&quot;); sim.simulationFinished(); self.active = 0; return; }</code></pre><p>Composition goes to concatenation, so the image of the generation is the seven fragments in order:</p><pre><code class="language-julia hljs">lower(qtsim, :eidos).code == join(lower(getfield(L, s), :eidos).code for s in STEP_NAMES)</code></pre><pre><code class="nohighlight hljs">true</code></pre><h2 id="A-SLiM-model-from-the-life-cycle"><a class="docs-heading-anchor" href="#A-SLiM-model-from-the-life-cycle">A SLiM model from the life cycle</a><a id="A-SLiM-model-from-the-life-cycle-1"></a><a class="docs-heading-anchor-permalink" href="#A-SLiM-model-from-the-life-cycle" title="Permalink"></a></h2><p><code>slim_script</code> puts the image of a life cycle inside a complete SLiM model, in a <code>reproduction()</code> callback that runs once per tick, with the parameters of a <code>Params</code> as defaults that <code>slim -d</code> can override:</p><pre><code class="language-julia hljs">script = slim_script(qtsim, p)
+print(script)</code></pre><pre><code class="nohighlight hljs">// QTSim as a nonWF SLiM model, generated by QTLSim.jl from the life cycle
+//
+//     develop⋅select⋅reproduce⋅record⋅rescale⋅mutate⋅swap: Zygotes → Zygotes
+//
+// by the lowering to Eidos: each step of the life cycle is a fragment of the
+// reproduction() callback below, in the order of the composite. Regenerate it with
+// QTLSim&#39;s `slim_script` rather than editing it.
+//
+// Parameters can be overridden with  slim -d &quot;NAME=value&quot;  and the seed set with -s.
+
+initialize() {
+    initializeSLiMModelType(&quot;nonWF&quot;);
+
+    if (!exists(&quot;N&quot;))           defineConstant(&quot;N&quot;, 1000);
+    if (!exists(&quot;VP&quot;))          defineConstant(&quot;VP&quot;, 0.02);
+    if (!exists(&quot;h2&quot;))          defineConstant(&quot;h2&quot;, 0.5);
+    if (!exists(&quot;m&quot;))           defineConstant(&quot;m&quot;, 0.001);
+    if (!exists(&quot;rate&quot;))        defineConstant(&quot;rate&quot;, 0.0002);
+    if (!exists(&quot;NGEN&quot;))        defineConstant(&quot;NGEN&quot;, 6500);
+    if (!exists(&quot;sampleEvery&quot;)) defineConstant(&quot;sampleEvery&quot;, 1);
+    if (!exists(&quot;moveGen&quot;))     defineConstant(&quot;moveGen&quot;, 5000);
+    if (!exists(&quot;moveSD&quot;))      defineConstant(&quot;moveSD&quot;, 1.0);
+    if (!exists(&quot;moveType&quot;))    defineConstant(&quot;moveType&quot;, &quot;phenotype&quot;);
+    if (!exists(&quot;changeGen&quot;))   defineConstant(&quot;changeGen&quot;, 5000);
+    if (!exists(&quot;changeSD&quot;))    defineConstant(&quot;changeSD&quot;, 0.3);
+    if (!exists(&quot;initOmega&quot;))   defineConstant(&quot;initOmega&quot;, -1.0);
+    if (!exists(&quot;drift&quot;))       defineConstant(&quot;drift&quot;, F);
+    if (!exists(&quot;standardise&quot;)) defineConstant(&quot;standardise&quot;, F);
+
+    defineConstant(&quot;VG&quot;, h2 * VP);
+    defineConstant(&quot;VE&quot;, VP - VG);
+    defineConstant(&quot;ESD&quot;, sqrt(VE));
+    defineConstant(&quot;MUTVAR&quot;, (m / (2 * rate)) * VE);           // m/(Ploidy·NoQTL·rate)·V_E
+    defineConstant(&quot;OMEGA0&quot;, initOmega &lt; 0 ? VG / sqrt(m * VE) else initOmega);
+
+    // vestigial genetics: SLiM supplies only the life cycle
+    initializeMutationRate(0.0);
+    initializeMutationType(&quot;m1&quot;, 0.5, &quot;f&quot;, 0.0);
+    initializeGenomicElementType(&quot;g1&quot;, m1, 1.0);
+    initializeGenomicElement(g1, 0, 0);
+    initializeRecombinationRate(0.0);
+}
+
+1 first() {
+    sim.addSubpop(&quot;p1&quot;, N);
+    p1.individuals.setValue(&quot;a0&quot;, 0.0);      // founders: allele values 0
+    p1.individuals.setValue(&quot;a1&quot;, 0.0);
+    defineGlobal(&quot;THETA&quot;, 0.0);
+    defineGlobal(&quot;OMEGA&quot;, OMEGA0);
+}
+
+// one generation per tick, done in the first call of the callback
+reproduction() {
+    gen = sim.cycle - 1;                       // QTSim&#39;s generation index
+    // develop: genotype a0 + a1, phenotype genotype + e with e ~ N(0, V_E)   [Zygotes → Adults]
+    adults = p1.individuals;
+    a0 = adults.getValue(&quot;a0&quot;);
+    a1 = adults.getValue(&quot;a1&quot;);
+    genotype = a0 + a1;
+    env = rnorm(size(adults), 0.0, ESD);
+    pheno = genotype + env;
+    // select: move the optimum, Gaussian fitness with QTSim&#39;s 0.4, viability   [Adults → Survivors]
+    if (moveGen &gt;= 0 &amp; gen &gt;= moveGen) {
+        if (moveType == &quot;phenotype&quot;) defineGlobal(&quot;THETA&quot;, mean(pheno) + sqrt(VP) * moveSD);
+        else if (moveType == &quot;fitness&quot;) defineGlobal(&quot;THETA&quot;, mean(pheno) + OMEGA * moveSD);
+        else defineGlobal(&quot;THETA&quot;, THETA + moveSD);
+    }
+    x = standardise ? (pheno - THETA) / sd(pheno) else pheno - THETA;
+    W = drift ? rep(1.0, size(adults)) else dnorm(x, 0.0, OMEGA) / (0.4 / OMEGA);
+    survived = runif(size(adults)) &lt; W;
+    sidx = which(survived);
+    ns = size(sidx);
+    if (ns &lt; 2) { catn(&quot;Pop all died.&quot;); sim.simulationFinished(); self.active = 0; return; }
+    // reproduce: N offspring of two distinct survivors, a random allele from each   [Survivors → Offspring]
+    sa0 = a0[sidx]; sa1 = a1[sidx];
+    i1 = rdunif(N, 0, ns - 1);
+    i2 = rdunif(N, 0, ns - 1);
+    dup = which(i1 == i2);
+    while (size(dup) &gt; 0) { i2[dup] = rdunif(size(dup), 0, ns - 1); dup = which(i1 == i2); }
+    c0 = ifelse(runif(N) &lt; 0.5, sa1[i1], sa0[i1]);
+    c1 = ifelse(runif(N) &lt; 0.5, sa1[i2], sa0[i2]);
+    // record: the parent generation&#39;s statistics, every `sampleEvery` generations   [Offspring → Offspring]
+    if (gen == 0) catn(&quot;gen\tphenoMean\tgenoVar\tnSurv\ttheta\tomega&quot;);
+    if (gen % sampleEvery == 0)
+        catn(gen + &quot;\t&quot; + mean(pheno) + &quot;\t&quot; + var(genotype) + &quot;\t&quot; + ns + &quot;\t&quot; + THETA + &quot;\t&quot; + OMEGA);
+    // rescale: the scheduled change of the fitness width, from the next generation   [Offspring → Offspring]
+    if (gen == changeGen) defineGlobal(&quot;OMEGA&quot;, changeSD);
+    // mutate: Poisson(rate) increments of N(0, MUTVAR) per offspring chromosome   [Offspring → Offspring]
+    k0 = rpois(N, rate);
+    k1 = rpois(N, rate);
+    c0 = c0 + rnorm(N, 0.0, sqrt(k0 * MUTVAR));
+    c1 = c1 + rnorm(N, 0.0, sqrt(k1 * MUTVAR));
+    // swap: the offspring replace their parents   [Offspring → Zygotes]
+    for (k in seqLen(N)) {
+        child = p1.addEmpty();
+        child.setValue(&quot;a0&quot;, c0[k]);
+        child.setValue(&quot;a1&quot;, c1[k]);
+    }
+    adults.fitnessScaling = 0.0;
+    if (gen &gt;= NGEN - 1) sim.simulationFinished();
+    self.active = 0;
+}
+
+1000000 late() { sim.simulationFinished(); }   // backstop</code></pre><p><code>run_slim</code> runs a SLiM model and reads the table it prints, which has the columns QTSim’s output has.</p><pre><code class="language-julia hljs">function run_slim(model, seed; defines = Dict{String,Any}())
+    args = [&quot;-s&quot;, string(seed)]
+    for (k, v) in defines
+        push!(args, &quot;-d&quot;, v isa AbstractString ? &quot;$k=\&quot;$v\&quot;&quot; : &quot;$k=$v&quot;)
+    end
+    path = tempname() * &quot;.slim&quot;; write(path, model)
+    text = try read(`$SLIM $args $path`, String) finally rm(path; force = true) end
+    rows = [split(l, &#39;\t&#39;) for l in split(text, &#39;\n&#39;) if occursin(r&quot;^\d+\t&quot;, l)]
+    (; gen = [parse(Int, r[1]) for r in rows], pheno_mean = [parse(Float64, r[2]) for r in rows],
+       geno_var = [parse(Float64, r[3]) for r in rows], nsurv = [parse(Int, r[4]) for r in rows],
+       theta = [parse(Float64, r[5]) for r in rows], extinct = occursin(&quot;Pop all died.&quot;, text),
+       lines = [join(r, &#39;\t&#39;) for r in rows])
+end
+nothing</code></pre><h2 id="The-generated-model-is-the-hand-written-port"><a class="docs-heading-anchor" href="#The-generated-model-is-the-hand-written-port">The generated model is the hand-written port</a><a id="The-generated-model-is-the-hand-written-port-1"></a><a class="docs-heading-anchor-permalink" href="#The-generated-model-is-the-hand-written-port" title="Permalink"></a></h2><p>The project also has a SLiM port of QTSim written by hand, <code>slim_port/qtsim.slim</code>, validated against QTSim before the life cycle existed. Run with the same seed and parameters, the generated model and the port print the same table, number for number, because their steps are the same Eidos statements in the same order and so draw the same random numbers. The one difference is intended: when a population dies, the port also prints the generation in which it died, and QTSim does not.</p><pre><code class="language-julia hljs">port = read(PORT, String)
+checks = (
+    (&quot;stabilising selection&quot;, Dict{String,Any}(&quot;N&quot; =&gt; 1000, &quot;VP&quot; =&gt; 0.02, &quot;h2&quot; =&gt; 0.5, &quot;m&quot; =&gt; 0.02,
+        &quot;rate&quot; =&gt; 0.5, &quot;NGEN&quot; =&gt; 600, &quot;moveGen&quot; =&gt; -1, &quot;changeGen&quot; =&gt; -1, &quot;changeSD&quot; =&gt; -1.0, &quot;initOmega&quot; =&gt; 0.3)),
+    (&quot;moving optimum&quot;, Dict{String,Any}(&quot;N&quot; =&gt; 1000, &quot;VP&quot; =&gt; 0.02, &quot;h2&quot; =&gt; 0.5, &quot;m&quot; =&gt; 0.001,
+        &quot;rate&quot; =&gt; 0.0002, &quot;NGEN&quot; =&gt; 600, &quot;moveGen&quot; =&gt; 300, &quot;moveSD&quot; =&gt; 1.0, &quot;changeGen&quot; =&gt; 300,
+        &quot;changeSD&quot; =&gt; 0.3, &quot;initOmega&quot; =&gt; -1.0)),
+    (&quot;extinction&quot;, Dict{String,Any}(&quot;N&quot; =&gt; 300, &quot;VP&quot; =&gt; 0.02, &quot;h2&quot; =&gt; 0.5, &quot;m&quot; =&gt; 0.001,
+        &quot;rate&quot; =&gt; 0.0002, &quot;NGEN&quot; =&gt; 600, &quot;moveGen&quot; =&gt; 50, &quot;moveSD&quot; =&gt; 6.0, &quot;changeGen&quot; =&gt; 50,
+        &quot;changeSD&quot; =&gt; 0.05, &quot;initOmega&quot; =&gt; -1.0)))
+println(&quot;| scenario | seeds | identical tables | extinct |\n|:--|--:|--:|--:|&quot;)
+for (name, d) in checks
+    same = Threads.Atomic{Int}(0); died = Threads.Atomic{Int}(0)
+    Threads.@threads for seed in 1:10
+        a = run_slim(port, seed; defines = d); b = run_slim(script, seed; defines = d)
+        ref = a.extinct ? a.lines[1:end-1] : a.lines      # the port&#39;s extra line at extinction
+        Threads.atomic_add!(same, Int(a.extinct == b.extinct &amp;&amp; ref == b.lines))
+        Threads.atomic_add!(died, Int(b.extinct))
+    end
+    println(&quot;| &quot;, name, &quot; | 10 | &quot;, same[], &quot; | &quot;, died[], &quot; |&quot;)
+end</code></pre><table><tr><th style="text-align: left">scenario</th><th style="text-align: right">seeds</th><th style="text-align: right">identical tables</th><th style="text-align: right">extinct</th></tr><tr><td style="text-align: left">stabilising selection</td><td style="text-align: right">10</td><td style="text-align: right">10</td><td style="text-align: right">0</td></tr><tr><td style="text-align: left">moving optimum</td><td style="text-align: right">10</td><td style="text-align: right">10</td><td style="text-align: right">0</td></tr><tr><td style="text-align: left">extinction</td><td style="text-align: right">10</td><td style="text-align: right">10</td><td style="text-align: right">10</td></tr></table><h2 id="The-generated-model-agrees-with-QTSim"><a class="docs-heading-anchor" href="#The-generated-model-agrees-with-QTSim">The generated model agrees with QTSim</a><a id="The-generated-model-agrees-with-QTSim-1"></a><a class="docs-heading-anchor-permalink" href="#The-generated-model-agrees-with-QTSim" title="Permalink"></a></h2><p>SLiM and QTSim draw different random numbers, so they can agree only in distribution. Each of three scenarios is run 50 times by QTSim, by the SLiM model generated from the life cycle, and by the kernel’s image of the same life cycle. Scenarios A and B are those of <a href="../08_validation_against_qtsim/">Validation against QTSim</a>: a sharp mutation–selection balance, and an optimum that keeps a fixed lead over the mean phenotype from generation 5000 while the fitness function narrows. In scenario C the optimum moves by a fixed amount each generation from generation 5000, as in the paper’s simulations. The hand-written port has no continuous move; the generated model has it because the selection step does.</p><pre><code class="language-julia hljs">scen = (
+    A = Params(PopSize = 1000, NoQTL = 1, Ploidy = 2, NoGenerations = 4000, PhenotypeVar = 0.02,
+               Heritability = 0.5, MutationScalar = 0.02, MutationRatePerGamete = 0.5, InitFitnessSD = 0.3),
+    B = p,
+    C = Params(p; MoveType = :continuous, MoveFitnessSD = 0.002, ChangeFitnessGen = -1))
+
+function write_qtsim_options(path, q::Params, seed)
+    open(path, &quot;w&quot;) do io
+        println(io, &quot;Sample $(q.Sample)\nPopSize $(q.PopSize)\nNoQTL $(q.NoQTL)&quot;)
+        println(io, &quot;Generations $(q.NoGenerations)\nPloidy $(q.Ploidy)&quot;)
+        q.MoveFitnessSDGen != -1 &amp;&amp; println(io, &quot;MoveFitnessSD $(q.MoveFitnessSDGen) $(q.MoveFitnessSD)&quot;)
+        q.ChangeFitnessGen != -1 &amp;&amp; println(io, &quot;ChangeFitnessSD $(q.ChangeFitnessGen) $(q.ChangeFitnessSD)&quot;)
+        println(io, &quot;OptimumMoveType $(q.MoveType)\nPhenotypeVar $(q.PhenotypeVar)&quot;)
+        println(io, &quot;MutationScalar $(q.MutationScalar)\nHeritability $(q.Heritability)&quot;)
+        println(io, &quot;MutationRatePerGamete $(q.MutationRatePerGamete)&quot;)
+        q.InitFitnessSD &gt;= 0 &amp;&amp; println(io, &quot;InitFitnessSD $(q.InitFitnessSD)&quot;)
+        println(io, &quot;Seed $seed&quot;)
+    end
+end
+
+function run_qtsim(q::Params, seed)
+    opts = tempname() * &quot;.txt&quot;; write_qtsim_options(opts, q, seed)
+    text = try read(`$QTSIM $opts`, String) finally rm(opts; force = true) end
+    gen = Int[]; zbar = Float64[]; vg = Float64[]; ns = Int[]; θ = Float64[]; inbody = false
+    for line in split(text, &#39;\n&#39;)
+        startswith(line, &quot;Pop all died&quot;) &amp;&amp;
+            return (; gen, pheno_mean = zbar, geno_var = vg, nsurv = ns, theta = θ, extinct = true)
+        startswith(line, &quot;Generation\t&quot;) &amp;&amp; (inbody = true; continue)
+        (inbody &amp;&amp; !isempty(strip(line))) || continue
+        f = split(line, &#39;\t&#39;)
+        push!(gen, parse(Int, f[1])); push!(zbar, parse(Float64, f[2])); push!(vg, parse(Float64, f[4]))
+        push!(ns, parse(Int, f[5])); push!(θ, parse(Float64, f[6]))
+    end
+    (; gen, pheno_mean = zbar, geno_var = vg, nsurv = ns, theta = θ, extinct = false)
+end
+
+const R = 50
+programs = (:QTSim, :SLiM, :kernel)
+models = map(q -&gt; slim_script(qtsim, q), scen)
+jobs = [(prog, s, k) for prog in programs for s in keys(scen) for k in 1:R]
+runs = Vector{Any}(undef, length(jobs))
+Threads.@threads :greedy for j in eachindex(jobs)
+    prog, s, k = jobs[j]
+    q = scen[s]
+    runs[j] = prog === :QTSim ? run_qtsim(q, 1000k) :
+              prog === :SLiM ? run_slim(models[s], 1000k + 1) :
+              run_composed(World(q), Xoshiro(1000k + 2); cycle = qtsim)
+end
+result(prog, s) = [runs[j] for j in eachindex(jobs) if jobs[j][1] === prog &amp;&amp; jobs[j][2] === s]
+nothing</code></pre><p>The summary statistics are those of the validation vignette: the genetic variance at equilibrium or at the end, the fraction of each generation that survives selection after the move, and how far the mean phenotype advances. The table gives their medians over the runs, and the p-values of two-sample Kolmogorov–Smirnov tests against QTSim.</p><pre><code class="language-julia hljs">window(r, lo, hi) = findall(g -&gt; lo &lt;= g &lt;= hi, r.gen)
+statistics = (
+    (:A, &quot;equilibrium genetic variance&quot;, r -&gt; mean(r.geno_var[window(r, 3000, 3999)])),
+    (:B, &quot;genetic variance at the end&quot;, r -&gt; mean(r.geno_var[window(r, 6400, 6499)])),
+    (:B, &quot;survival after the move&quot;, r -&gt; mean(r.nsurv[window(r, 5000, 6499)]) / 1000),
+    (:B, &quot;advance of the mean phenotype&quot;, r -&gt; mean(r.pheno_mean[window(r, 6400, 6499)]) - mean(r.pheno_mean[window(r, 5000, 5010)])),
+    (:C, &quot;genetic variance at the end&quot;, r -&gt; mean(r.geno_var[window(r, 6400, 6499)])),
+    (:C, &quot;survival after the move&quot;, r -&gt; mean(r.nsurv[window(r, 5000, 6499)]) / 1000),
+    (:C, &quot;advance of the mean phenotype&quot;, r -&gt; mean(r.pheno_mean[window(r, 6400, 6499)]) - mean(r.pheno_mean[window(r, 5000, 5010)])))
+ksp(a, b) = pvalue(ApproximateTwoSampleKSTest(a, b))
+println(&quot;| scenario | statistic | QTSim | SLiM (generated) | kernel | KS p, SLiM | KS p, kernel |&quot;)
+println(&quot;|:--|:--|--:|--:|--:|--:|--:|&quot;)
+for (s, name, f) in statistics
+    v = Dict(prog =&gt; [f(r) for r in result(prog, s) if !r.extinct] for prog in programs)
+    @printf(&quot;| %s | %s | %.4g | %.4g | %.4g | %.2f | %.2f |\n&quot;, s, name,
+            median(v[:QTSim]), median(v[:SLiM]), median(v[:kernel]), ksp(v[:SLiM], v[:QTSim]), ksp(v[:kernel], v[:QTSim]))
+end
+@printf(&quot;\nExtinctions: %s.\n&quot;, join((&quot;$prog $(sum(r.extinct for s in keys(scen) for r in result(prog, s)))&quot; for prog in programs), &quot;, &quot;))</code></pre><table><tr><th style="text-align: left">scenario</th><th style="text-align: left">statistic</th><th style="text-align: right">QTSim</th><th style="text-align: right">SLiM (generated)</th><th style="text-align: right">kernel</th><th style="text-align: right">KS p, SLiM</th><th style="text-align: right">KS p, kernel</th></tr><tr><td style="text-align: left">A</td><td style="text-align: left">equilibrium genetic variance</td><td style="text-align: right">0.006416</td><td style="text-align: right">0.006426</td><td style="text-align: right">0.006412</td><td style="text-align: right">0.86</td><td style="text-align: right">0.96</td></tr><tr><td style="text-align: left">B</td><td style="text-align: left">genetic variance at the end</td><td style="text-align: right">0.00301</td><td style="text-align: right">0.002083</td><td style="text-align: right">0.002459</td><td style="text-align: right">0.04</td><td style="text-align: right">0.27</td></tr><tr><td style="text-align: left">B</td><td style="text-align: left">survival after the move</td><td style="text-align: right">0.8469</td><td style="text-align: right">0.8475</td><td style="text-align: right">0.8475</td><td style="text-align: right">0.39</td><td style="text-align: right">0.27</td></tr><tr><td style="text-align: left">B</td><td style="text-align: left">advance of the mean phenotype</td><td style="text-align: right">4.533</td><td style="text-align: right">4.343</td><td style="text-align: right">4.198</td><td style="text-align: right">0.02</td><td style="text-align: right">0.18</td></tr><tr><td style="text-align: left">C</td><td style="text-align: left">genetic variance at the end</td><td style="text-align: right">0.008948</td><td style="text-align: right">0.007413</td><td style="text-align: right">0.007797</td><td style="text-align: right">0.39</td><td style="text-align: right">0.27</td></tr><tr><td style="text-align: left">C</td><td style="text-align: left">survival after the move</td><td style="text-align: right">0.9428</td><td style="text-align: right">0.9382</td><td style="text-align: right">0.9382</td><td style="text-align: right">0.86</td><td style="text-align: right">0.71</td></tr><tr><td style="text-align: left">C</td><td style="text-align: left">advance of the mean phenotype</td><td style="text-align: right">1.347</td><td style="text-align: right">1.315</td><td style="text-align: right">1.425</td><td style="text-align: right">0.96</td><td style="text-align: right">0.71</td></tr></table><p>Extinctions: QTSim 0, SLiM 0, kernel 0.</p><p>Twelve of the fourteen comparisons are comfortably consistent. The two below 0.05 are both for the SLiM model in scenario B: the genetic variance at the end of the run and the advance of the mean phenotype, which depends on it. With fourteen tests one or two such p-values are not unusual, and these are the noisiest statistics here: in scenario B about 0.4 new mutations enter the population each generation, each with a standard deviation of 0.16, more than the phenotypic standard deviation of 0.14, so the genetic variance late in a run rests on a handful of them. Ten times as many runs of scenario B, with new seeds, settle it:</p><pre><code class="language-julia hljs">const RB = 500
+jobs_b = [(prog, k) for prog in programs for k in 1:RB]
+runs_b = Vector{Any}(undef, length(jobs_b))
+Threads.@threads :greedy for j in eachindex(jobs_b)
+    prog, k = jobs_b[j]
+    runs_b[j] = prog === :QTSim ? run_qtsim(scen.B, 170_000 + k) :
+                prog === :SLiM ? run_slim(models.B, 180_000 + k) :
+                run_composed(World(scen.B), Xoshiro(190_000 + k); cycle = qtsim)
+end
+println(&quot;| scenario B, $RB runs each | QTSim | SLiM (generated) | kernel | KS p, SLiM | KS p, kernel |&quot;)
+println(&quot;|:--|--:|--:|--:|--:|--:|&quot;)
+for (s, name, f) in statistics
+    s === :B || continue
+    v = Dict(prog =&gt; [f(runs_b[j]) for j in eachindex(jobs_b) if jobs_b[j][1] === prog &amp;&amp; !runs_b[j].extinct]
+             for prog in programs)
+    @printf(&quot;| %s | %.4g | %.4g | %.4g | %.2f | %.2f |\n&quot;, name, median(v[:QTSim]), median(v[:SLiM]),
+            median(v[:kernel]), ksp(v[:SLiM], v[:QTSim]), ksp(v[:kernel], v[:QTSim]))
+end</code></pre><table><tr><th style="text-align: left">scenario B, 500 runs each</th><th style="text-align: right">QTSim</th><th style="text-align: right">SLiM (generated)</th><th style="text-align: right">kernel</th><th style="text-align: right">KS p, SLiM</th><th style="text-align: right">KS p, kernel</th></tr><tr><td style="text-align: left">genetic variance at the end</td><td style="text-align: right">0.002494</td><td style="text-align: right">0.002438</td><td style="text-align: right">0.002465</td><td style="text-align: right">0.86</td><td style="text-align: right">0.67</td></tr><tr><td style="text-align: left">survival after the move</td><td style="text-align: right">0.8473</td><td style="text-align: right">0.8476</td><td style="text-align: right">0.8474</td><td style="text-align: right">0.08</td><td style="text-align: right">0.56</td></tr><tr><td style="text-align: left">advance of the mean phenotype</td><td style="text-align: right">4.345</td><td style="text-align: right">4.242</td><td style="text-align: right">4.339</td><td style="text-align: right">0.11</td><td style="text-align: right">0.99</td></tr></table><p>With ten times the runs nothing separates the three programs: the two low p-values were chance.</p><pre><code class="language-julia hljs">fig = Figure(size = (720, 380))
+ax = Axis(fig[1, 1], xlabel = &quot;generation&quot;, ylabel = &quot;lag of the mean phenotype, θ − z̄&quot;)
+for (prog, c) in zip(programs, (:gray30, :crimson, :navy))
+    rs = filter(r -&gt; !r.extinct, result(prog, :C))
+    @assert all(r -&gt; r.gen == 0:6499, rs)                # one row per generation
+    gens = 4900:6499
+    lag = [mean(r.theta[g + 1] - r.pheno_mean[g + 1] for r in rs) for g in gens]
+    lines!(ax, gens, lag, color = c, label = string(prog))
+end
+axislegend(ax, position = :lt)
+fig</code></pre><div id="fig-lag"><p><img src="../06_one_life_cycle_two_backends_files/figure-commonmark/fig-lag-output-1.png" alt/></p><p>Figure 1: Scenario C: how far the mean phenotype lags behind the optimum after the optimum starts to move at generation 5000, averaged over the 50 runs of each program.</p></div><p>In scenario C the three programs’ lag curves lie on top of one another: the mean phenotype falls further and further behind the moving optimum, ever more slowly as selection against the lag strengthens.</p><h2 id="A-new-step,-lowered-twice"><a class="docs-heading-anchor" href="#A-new-step,-lowered-twice">A new step, lowered twice</a><a id="A-new-step,-lowered-twice-1"></a><a class="docs-heading-anchor-permalink" href="#A-new-step,-lowered-twice" title="Permalink"></a></h2><p>A step that QTSim does not have, an optimum that fluctuates from generation to generation, is a new generator: Catlab’s <code>Hom</code> gives it a name and the stages it connects, here adults to adults, between development and selection. A life cycle that uses it type-checks like any other:</p><pre><code class="language-julia hljs">Adults = codom(develop)
+fluctuate = Hom(:fluctuate, Adults, Adults)
+noisy = develop ⋅ fluctuate ⋅ select ⋅ reproduce ⋅ record ⋅ rescale ⋅ mutate ⋅ swap</code></pre><pre><code class="nohighlight hljs">develop⋅fluctuate⋅select⋅reproduce⋅record⋅rescale⋅mutate⋅swap: Zygotes → Zygotes</code></pre><p>The lowering functors know nothing of <code>fluctuate</code>, so each needs its image: in the kernel, a function that draws a new optimum; in Eidos, the statement that does the same.</p><pre><code class="language-julia hljs">σθ = 0.15
+images = (kernel = Dict(:fluctuate =&gt; (w, rng) -&gt; (w.θ = σθ * randn(rng); w)),
+          eidos = Dict(:fluctuate =&gt; &quot;&quot;&quot;
+              // fluctuate: a new optimum each generation   [Adults → Adults]
+              defineGlobal(&quot;THETA&quot;, rnorm(1, 0.0, $σθ));
+          &quot;&quot;&quot;))
+noisy_model = slim_script(noisy, scen.A; images = images.eidos)
+print(noisy_model[findfirst(&quot;// develop&quot;, noisy_model).start:findfirst(&quot;// reproduce&quot;, noisy_model).start-1])</code></pre><pre><code class="nohighlight hljs">// develop: genotype a0 + a1, phenotype genotype + e with e ~ N(0, V_E)   [Zygotes → Adults]
+    adults = p1.individuals;
+    a0 = adults.getValue(&quot;a0&quot;);
+    a1 = adults.getValue(&quot;a1&quot;);
+    genotype = a0 + a1;
+    env = rnorm(size(adults), 0.0, ESD);
+    pheno = genotype + env;
+    // fluctuate: a new optimum each generation   [Adults → Adults]
+    defineGlobal(&quot;THETA&quot;, rnorm(1, 0.0, 0.15));
+    // select: move the optimum, Gaussian fitness with QTSim&#39;s 0.4, viability   [Adults → Survivors]
+    if (moveGen &gt;= 0 &amp; gen &gt;= moveGen) {
+        if (moveType == &quot;phenotype&quot;) defineGlobal(&quot;THETA&quot;, mean(pheno) + sqrt(VP) * moveSD);
+        else if (moveType == &quot;fitness&quot;) defineGlobal(&quot;THETA&quot;, mean(pheno) + OMEGA * moveSD);
+        else defineGlobal(&quot;THETA&quot;, THETA + moveSD);
+    }
+    x = standardise ? (pheno - THETA) / sd(pheno) else pheno - THETA;
+    W = drift ? rep(1.0, size(adults)) else dnorm(x, 0.0, OMEGA) / (0.4 / OMEGA);
+    survived = runif(size(adults)) &lt; W;
+    sidx = which(survived);
+    ns = size(sidx);
+    if (ns &lt; 2) { catn(&quot;Pop all died.&quot;); sim.simulationFinished(); self.active = 0; return; }</code></pre><p>With the optimum’s standard deviation at 0.15, about one phenotypic standard deviation, the two backends are two independent simulators of the new model. Each is run 50 times under scenario A, with the constant optimum’s runs from above for comparison (medians, and the p-value of a Kolmogorov–Smirnov test between the backends):</p><pre><code class="language-julia hljs">noisy_runs = Vector{Any}(undef, 2R)
+Threads.@threads :greedy for j in 1:2R
+    noisy_runs[j] = j &lt;= R ? run_slim(noisy_model, 5000 + j) :
+                    run_composed(World(scen.A), Xoshiro(5000 + j); cycle = noisy, images = images.kernel)
+end
+vg(r) = mean(r.geno_var[window(r, 3000, 3999)])
+sv(r) = mean(r.nsurv[window(r, 3000, 3999)]) / 1000
+println(&quot;| life cycle | statistic | SLiM | kernel | KS p |\n|:--|:--|--:|--:|--:|&quot;)
+for (name, f) in ((&quot;equilibrium genetic variance&quot;, vg), (&quot;survival&quot;, sv))
+    for (cycle, sl, ke) in ((&quot;constant optimum&quot;, result(:SLiM, :A), result(:kernel, :A)),
+                            (&quot;fluctuating optimum&quot;, noisy_runs[1:R], noisy_runs[R+1:end]))
+        xs = f.(sl); ys = f.(ke)
+        @printf(&quot;| %s | %s | %.4g | %.4g | %.2f |\n&quot;, cycle, name, median(xs), median(ys), ksp(xs, ys))
+    end
+end
+# Gaussian selection: E[W] = c ω / √(ω² + V_P + σθ²), with QTSim&#39;s c = 1/(0.4√(2π))
+predicted(vgeq, σ2) = scen.A.InitFitnessSD / sqrt(scen.A.InitFitnessSD^2 + vgeq + envVar(scen.A) + σ2) /
+                      (0.4 * sqrt(2π))
+@printf(&quot;\nGaussian selection predicts survival %.3f with the constant optimum and %.3f with the fluctuating one, at the genetic variance the kernel&#39;s runs reach.\n&quot;,
+        predicted(median(vg.(result(:kernel, :A))), 0.0), predicted(median(vg.(noisy_runs[R+1:end])), σθ^2))</code></pre><table><tr><th style="text-align: left">life cycle</th><th style="text-align: left">statistic</th><th style="text-align: right">SLiM</th><th style="text-align: right">kernel</th><th style="text-align: right">KS p</th></tr><tr><td style="text-align: left">constant optimum</td><td style="text-align: left">equilibrium genetic variance</td><td style="text-align: right">0.006426</td><td style="text-align: right">0.006412</td><td style="text-align: right">0.39</td></tr><tr><td style="text-align: left">fluctuating optimum</td><td style="text-align: left">equilibrium genetic variance</td><td style="text-align: right">0.006429</td><td style="text-align: right">0.006386</td><td style="text-align: right">0.27</td></tr><tr><td style="text-align: left">constant optimum</td><td style="text-align: left">survival</td><td style="text-align: right">0.9169</td><td style="text-align: right">0.9169</td><td style="text-align: right">0.86</td></tr><tr><td style="text-align: left">fluctuating optimum</td><td style="text-align: left">survival</td><td style="text-align: right">0.8306</td><td style="text-align: right">0.8299</td><td style="text-align: right">0.18</td></tr></table><p>Gaussian selection predicts survival 0.917 with the constant optimum and 0.833 with the fluctuating one, at the genetic variance the kernel’s runs reach.</p><p>The two backends agree with each other, and both match what Gaussian selection predicts: a fluctuating optimum adds its variance to the spread of phenotypes about the optimum, and so lowers survival.</p><h2 id="Summary"><a class="docs-heading-anchor" href="#Summary">Summary</a><a id="Summary-1"></a><a class="docs-heading-anchor-permalink" href="#Summary" title="Permalink"></a></h2><p>QTSim’s life cycle is written once, as the morphism <code>develop ⋅ select ⋅ reproduce ⋅ record ⋅ rescale ⋅ mutate ⋅ swap</code> of a free category, and two functors lower it: to the simulation kernel, where it is <code>run!</code> bit for bit, and to Eidos, where it is the hand-written SLiM port run for run, in agreement with QTSim in distribution, including the continuous move of the optimum that the port never had. A new step needs one image per backend and nothing else. That a lowering is fixed by its images on the steps, and that for Markov kernels two lowerings whose steps agree in distribution give the whole generation the same distribution, is proved in Lean in <code>lean/CategoricalQuantGen/Lowering.lean</code>.</p><div id="refs" class="references csl-bib-body hanging-indent"><div id="ref-Haller2023" class="csl-entry"><p>Haller, Benjamin C., and Philipp W. Messer. 2023. “SLiM 4: Multispecies Eco-Evolutionary Modeling.” <em>The American Naturalist</em> 201 (5): E127–39. <a href="https://doi.org/10.1086/723601">https://doi.org/10.1086/723601</a>.</p></div></div></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../05_recomposing_the_model/">« Recomposing the model</a><a class="docs-footer-nextpage" href="../07_loci_and_recombination/">Loci and recombination »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Thursday 5 November 2026 15:36">Thursday 5 November 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
