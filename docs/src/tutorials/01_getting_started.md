@@ -54,9 +54,11 @@ CairoMakie.activate!(type = "png")
 
 ## Parameters
 
-A simulation is described by a `Params` value. Its field names and
-defaults follow the options of QTSim’s input files, so a published input
-file translates field by field. The phenotypic variance $V_P$ and
+A simulation is described by a `Params` value. Its defaults are QTSim’s, and its fields follow
+QTSim’s options with a few differences in name: `Generations` is `NoGenerations`,
+`RecombinationPoissonMean` is `RecombPoissonMean` and `OptimumMoveType` is `MoveType`,
+and the two-value options `MoveFitnessSD` and `ChangeFitnessSD` are each split into a
+generation and a value. The phenotypic variance $V_P$ and
 heritability $h^2$ fix the genetic and environmental variances the model
 aims for, $V_G = h^2 V_P$ and $V_E = (1-h^2) V_P$; the mutation scalar
 $m$ sets the new variance mutation adds each generation, $V_m = m V_E$.
@@ -216,9 +218,10 @@ survival collapses and the population dies out.
 </div>
 ```
 
-This population can keep up with surprisingly fast change: it holds a
-lot of genetic variance, and its narrow fitness function turns a small
-lag into strong selection. Across the range of populations the paper
+The slow rate, about 1% of a phenotypic standard deviation per generation, is well within
+what this population can track: it holds a lot of genetic variance, and its narrow
+fitness function turns a small lag into strong selection. At a quarter of a standard
+deviation per generation it dies within two hundred generations. Across the range of populations the paper
 simulated, sustainable change is limited to a few per cent of a standard
 deviation per generation; [Adaptation to a moving
 optimum](03_moving_optimum.md) measures this the
@@ -241,6 +244,9 @@ reproduces the paper’s results.
   model](05_recomposing_the_model.md): the
   population as an ACSet, and a generation as a composite of operators
   that can be rearranged.
+- [One life cycle, two backends](06_one_life_cycle_two_backends.md):
+  the life cycle lowered both to the kernel and to a SLiM model, and
+  checked against QTSim.
 - [Loci and
   recombination](07_loci_and_recombination.md):
   many loci, and the way QTSim recombines them.

@@ -78,10 +78,13 @@ function metrics(r, p::Params, eqlo, eqhi)
     if p.MoveFitnessSDGen != -1
         dr = pick(r.gen, p.MoveFitnessSDGen, p.NoGenerations)
         en = pick(r.gen, p.NoGenerations - 100, p.NoGenerations)
-        return (eqVG=vg, lag=mean(r.theta[en] .- r.pheno_mean[en]),
+        st = pick(r.gen, p.MoveFitnessSDGen, p.MoveFitnessSDGen + 10)
+        # advance of the mean phenotype after the move (the lag θ − z̄ is no test: under the
+        # phenotype move θ is re-anchored to z̄ + √V_P·d every generation, so it is constant)
+        return (eqVG=vg, adv=mean(r.pheno_mean[en]) - mean(r.pheno_mean[st]),
                 surv=mean(r.nsurv[dr]) / p.PopSize)
     end
-    (eqVG=vg, lag=NaN, surv=NaN)
+    (eqVG=vg, adv=NaN, surv=NaN)
 end
 
 function welch(a, b)
@@ -116,7 +119,7 @@ function compare(p::Params, label; eqlo, eqhi, R=24)
     println()
     t = report("equilibrium V_G", [x.eqVG for x in jl], [x.eqVG for x in cl])
     if p.MoveFitnessSDGen != -1
-        t = max(t, report("adaptation lag", [x.lag for x in jl], [x.lag for x in cl]),
+        t = max(t, report("phenotypic advance", [x.adv for x in jl], [x.adv for x in cl]),
                 report("survival fraction", [x.surv for x in jl], [x.surv for x in cl]))
         @printf("  %-20s  Julia %d/%d              C %d/%d\n",
                 "extinctions", jext, R, cext, R)

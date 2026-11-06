@@ -36,7 +36,7 @@ does not have, which can be checked against each other: a fluctuating
 optimum, and demes coupled by migration, which the monoidal product `⊗`
 places side by side.
 
-The vignette needs SLiM (version 4 or later), the hand-written port and
+The vignette needs SLiM (5.2, the version tested), the hand-written port and
 QTSim. It looks for SLiM in `slim/build/slim` in the folder that holds
 the package’s folder (the `SLIM` environment variable, or a `slim` on
 the path, can stand in for it), takes the port from the package’s
@@ -339,8 +339,8 @@ print(script)
 
     1000000 late() { sim.simulationFinished(); }   // backstop
 
-`run_slim` runs a SLiM model and reads the table it prints, which has
-the columns QTSim’s output has.
+`run_slim` runs a SLiM model and reads the table it prints: the columns `gen`, `phenoMean`, `genoVar`, `nSurv`, `theta`
+and `omega` (QTSim’s output also has the phenotype ratio and the selection slopes).
 
 ``` julia
 function run_slim(model, seed; defines = Dict{String,Any}())

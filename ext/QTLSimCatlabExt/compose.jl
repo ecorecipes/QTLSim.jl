@@ -51,35 +51,9 @@ isextinct(w::World) = w.extinct
 # --- the kernel image of each step of the life cycle ---------------------
 
 """
-Empty columns for the statistics `record` collects, as `run!` returns them; with
-`demes`, also the deme of each row, looked up in `demeof`.
-"""
-records(; demes = nothing) = demes === nothing ?
-    (gen = Int[], pheno_mean = Float64[], pheno_var = Float64[], geno_var = Float64[],
-     nsurv = Int[], theta = Float64[], omega = Float64[]) :
-    (gen = Int[], deme = Int[], pheno_mean = Float64[], pheno_var = Float64[],
-     geno_var = Float64[], nsurv = Int[], theta = Float64[], omega = Float64[],
-     demeof = IdDict{World,Int}(w => i for (i, w) in enumerate(demes)))
-
-"Append the parent generation's statistics to `rec` every `Sample` generations (QTSim `Output`)."
-function record!(rec, w::World)
-    (rec === nothing || w.gen % w.p.Sample != 0) && return w
-    push!(rec.gen, w.gen); haskey(rec, :deme) && push!(rec.deme, rec.demeof[w])
-    push!(rec.pheno_mean, mean(w.phenotype))
-    push!(rec.pheno_var, var(w.phenotype)); push!(rec.geno_var, var(w.genotype))
-    push!(rec.nsurv, w.nsurv); push!(rec.theta, w.θ); push!(rec.omega, w.ω)
-    w
-end
-
-"Change the fitness width at `ChangeFitnessGen`, effective from the next generation."
-function rescale!(w::World)
-    w.gen == w.p.ChangeFitnessGen && (w.ω = w.p.ChangeFitnessSD)
-    w
-end
-
-"""
-The kernel image of each step of the life cycle, by name. `record` appends to `rec`, or
-discards its observations when `rec` is `nothing`.
+The kernel image of each step of the life cycle, by name: the kernel's operators, with
+`record` appending to `rec` (see `QTLSim.records`), or discarding its observations when
+`rec` is `nothing`.
 """
 kernel_images(rec = nothing) = Dict{Symbol,Any}(
     :develop => Operator(:develop, (w, rng) -> QTLSim.develop!(w)),
@@ -100,10 +74,7 @@ function run_composed(w::World, rng; record::Bool=true, cycle = lifecycle().gene
     rec = records()
     step = lower(cycle, :kernel; images, record = record ? rec : nothing)
     p = w.p
-    esd = envsd(p)
-    @inbounds for i in 1:p.PopSize
-        w.env[i] = esd * randn(rng)
-    end
+    init_env!(w, rng)
     for it in 0:p.NoGenerations-1
         w.gen = it
         step(w, rng)
@@ -224,12 +195,7 @@ function run_composed(s::Stratified, rng; cycle, record::Bool=true, images = Dic
                             "got $(dom(cycle)) → $(codom(cycle))"))
     rec = records(demes = s.demes)
     step = demeop(lower(cycle, :kernel; images, record = record ? rec : nothing, migration_rate))
-    for w in s.demes
-        esd = envsd(w.p)
-        @inbounds for i in 1:w.p.PopSize
-            w.env[i] = esd * randn(rng)
-        end
-    end
+    foreach(w -> init_env!(w, rng), s.demes)
     p = first(s.demes).p
     d = collect(1:k)
     extinct_gen = fill(-1, k)

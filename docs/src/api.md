@@ -12,10 +12,15 @@ QTLSim
 
 ```@docs
 Params
+checkparams
 World
 simulate
 run!
 generation!
+init_env!
+records
+record!
+rescale!
 develop!
 select!
 moveoptimum!

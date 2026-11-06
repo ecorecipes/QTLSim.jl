@@ -2,14 +2,16 @@
 #
 # Each biological process is an operator (a Kleisli morphism of the RNG monad):
 # it maps the world state to a new world state, using the RNG. One generation is
-# their composite
+# their composite, in QTSim's `RunSim` order (diagrammatic, first step first)
 #
-#     generation = mutate ∘ reproduce ∘ select ∘ develop
+#     develop ⋅ select ⋅ reproduce ⋅ record ⋅ rescale ⋅ mutate ⋅ swap
 #
 # and a run is the iterate of one generation — exactly the structure proved in
 # lean/CategoricalQuantGen/Composition.lean (`generation`, `loop_eq_iterate`). The
-# numerics replicate QTSim (Repository/Code/QTSim/src/QTSim.c) so that results
-# are statistically consistent with the C reference.
+# categorical layer (ext/QTLSimCatlabExt) writes the same composite as a morphism of a
+# free category and lowers it to these operators. The numerics replicate QTSim
+# (reference/QTSim/src/QTSim.c) so that results are statistically consistent with the
+# C reference.
 
 """
     World
@@ -40,8 +42,7 @@ mutable struct World
 end
 
 function World(p::Params)
-    p.CrossoverModel in (:qtsim, :all) ||
-        throw(ArgumentError("CrossoverModel must be :qtsim or :all, got :$(p.CrossoverModel)"))
+    checkparams(p)
     N, L, P = p.PopSize, p.NoQTL, p.Ploidy
     World(p, 0,
           zeros(L, P, N), zeros(N),
@@ -53,6 +54,22 @@ end
 # --- environment ---------------------------------------------------------
 
 @inline envsd(p::Params) = sqrt(max(envVar(p), 0.0))
+
+"""
+    init_env!(w, rng)
+
+Draw the founders' environmental deviations, `N(0, V_E)` each (QTSim `CreatePop`, via
+`SetIndividualEnv`). `run!` and `run_composed` do this first; a `World` made with
+`World(p)` starts with all deviations zero, so call it before driving a fresh `World`
+with [`generation!`](@ref) or the operators directly.
+"""
+function init_env!(w::World, rng)
+    esd = envsd(w.p)
+    @inbounds for i in 1:w.p.PopSize
+        w.env[i] = esd * randn(rng)
+    end
+    w
+end
 
 # --- operators (morphisms K → K) ----------------------------------------
 
@@ -120,7 +137,7 @@ function select!(w::World, rng)
 end
 
 """
-    gamete!(dest, chrA, chrB, rng, recombMean, L, allpoints=false)
+    gamete!(dest, chrA, chrB, rng, recombMean, L, allpoints=false, pts=Int[])
 
 Build one gamete from a parent's two chromosomes (QTSim `CreateCombMap` +
 `RecombinationPoissonChr`). Draw `Poisson(recombMean)` distinct crossover points
@@ -131,30 +148,34 @@ crossover. That is the default; `allpoints=true` switches at every point
 (Params `CrossoverModel = :all`). With `L == 1` both reduce to picking one
 parental chromosome at random (Mendelian segregation).
 """
-function gamete!(dest, chrA, chrB, rng, recombMean, L, allpoints::Bool=false)
+function gamete!(dest, chrA, chrB, rng, recombMean, L, allpoints::Bool=false, pts::Vector{Int}=Int[])
     npts = rand(rng, Poisson(recombMean))
     if npts == 0 || npts >= L
-        src = rand(rng, Bool) ? chrA : chrB
-        dest .= src
+        copyto!(dest, rand(rng, Bool) ? chrA : chrB)
         return dest
     end
-    pts = Int[]
+    empty!(pts)                        # scratch for the crossover points, reused by reproduce!
     while length(pts) < npts
         c = rand(rng, 0:L-2)
         c in pts || push!(pts, c)
     end
-    sort!(pts)
-    allpoints || resize!(pts, 1)       # QTSim: only the lowest point switches
-    cp = rand(rng, Bool) ? chrA : chrB
-    other = cp === chrA ? chrB : chrA
-    pi = 1
-    @inbounds for idx in 0:L-1
-        dest[idx+1] = cp[idx+1]
-        if pi <= length(pts) && idx == pts[pi]
-            cp, other = other, cp
-            pi += 1
-        end
+    cp, other = rand(rng, Bool) ? (chrA, chrB) : (chrB, chrA)
+    # Copy whole blocks between crossovers: loci 0:c (1-based 1:c+1) come from the current
+    # strand, which switches after locus c. The draws are those of a locus-by-locus copy.
+    if !allpoints                      # QTSim: only the lowest point switches
+        c = minimum(pts)
+        copyto!(dest, 1, cp, 1, c + 1)
+        copyto!(dest, c + 2, other, c + 2, L - c - 1)
+        return dest
     end
+    sort!(pts)
+    lo = 1
+    for c in pts
+        copyto!(dest, lo, cp, lo, c + 2 - lo)
+        lo = c + 2
+        cp, other = other, cp
+    end
+    copyto!(dest, lo, cp, lo, L - lo + 1)
     dest
 end
 
@@ -171,6 +192,7 @@ function reproduce!(w::World, rng)
     L = p.NoQTL
     esd = envsd(p)
     allpts = p.CrossoverModel === :all
+    pts = Int[]                      # crossover-point scratch, shared by every gamete
     if p.Ploidy == 1
         @inbounds for j in 1:p.PopSize
             par = w.survivors[rand(rng, 1:w.nsurv)]
@@ -185,9 +207,9 @@ function reproduce!(w::World, rng)
                 p2 = w.survivors[rand(rng, 1:w.nsurv)]
             end
             gamete!(@view(w.sgenome[:, 1, j]), @view(w.genome[:, 1, p1]),
-                    @view(w.genome[:, 2, p1]), rng, p.RecombPoissonMean, L, allpts)
+                    @view(w.genome[:, 2, p1]), rng, p.RecombPoissonMean, L, allpts, pts)
             gamete!(@view(w.sgenome[:, 2, j]), @view(w.genome[:, 1, p2]),
-                    @view(w.genome[:, 2, p2]), rng, p.RecombPoissonMean, L, allpts)
+                    @view(w.genome[:, 2, p2]), rng, p.RecombPoissonMean, L, allpts, pts)
             w.senv[j] = esd * randn(rng)
         end
     end
@@ -228,19 +250,62 @@ function swapbuffers!(w::World)
 end
 
 """
-    generation!(w, rng)
+    rescale!(w)
 
-One composed generation `mutate ∘ reproduce ∘ select ∘ develop`, advancing the
-offspring into the current buffer. Provided as the standalone categorical
-composite (used in tests); `run!` inlines the same sequence plus recording and
-the fitness-width schedule. No-op past extinction.
+Change the fitness width to `ChangeFitnessSD` at the end of generation
+`ChangeFitnessGen`, so that it takes effect from the next generation (QTSim `RunSim`).
 """
-function generation!(w::World, rng)
+function rescale!(w::World)
+    w.gen == w.p.ChangeFitnessGen && (w.ω = w.p.ChangeFitnessSD)
+    w
+end
+
+"""
+    records(; demes = nothing)
+
+Empty columns for the statistics [`record!`](@ref) collects, as `run!` returns them;
+with `demes`, a vector of `World`s, also the deme of each row.
+"""
+records(; demes = nothing) = demes === nothing ?
+    (gen = Int[], pheno_mean = Float64[], pheno_var = Float64[], geno_var = Float64[],
+     nsurv = Int[], theta = Float64[], omega = Float64[]) :
+    (gen = Int[], deme = Int[], pheno_mean = Float64[], pheno_var = Float64[],
+     geno_var = Float64[], nsurv = Int[], theta = Float64[], omega = Float64[],
+     demeof = IdDict{World,Int}(w => i for (i, w) in enumerate(demes)))
+
+"""
+    record!(rec, w)
+
+Append the parent generation's statistics to the columns `rec` (see [`records`](@ref))
+every `Sample` generations (QTSim `Output`); a no-op when `rec` is `nothing`. Variances
+are sample variances (n − 1), as GSL's.
+"""
+function record!(rec, w::World)
+    (rec === nothing || w.gen % w.p.Sample != 0) && return w
+    push!(rec.gen, w.gen); haskey(rec, :deme) && push!(rec.deme, rec.demeof[w])
+    push!(rec.pheno_mean, mean(w.phenotype))
+    push!(rec.pheno_var, var(w.phenotype)); push!(rec.geno_var, var(w.genotype))
+    push!(rec.nsurv, w.nsurv); push!(rec.theta, w.θ); push!(rec.omega, w.ω)
+    w
+end
+
+"""
+    generation!(w, rng; rec = nothing)
+
+One generation of QTSim's life cycle, `develop ⋅ select ⋅ reproduce ⋅ record ⋅ rescale ⋅
+mutate ⋅ swap`, advancing the offspring into the current buffer and `w.gen` by one;
+`record` appends to `rec` (see [`records`](@ref)) when one is given. A no-op past
+extinction. On a fresh `World`, call [`init_env!`](@ref) first: `run!` is `init_env!`
+followed by `NoGenerations` of these.
+"""
+function generation!(w::World, rng; rec = nothing)
     w.extinct && return w
     develop!(w)
     select!(w, rng)
     w.extinct && return w
     reproduce!(w, rng)
+    record!(rec, w)
+    rescale!(w)
     mutate!(w, rng)
     swapbuffers!(w)
     w.gen += 1
@@ -260,36 +325,14 @@ mutate → swap. Returns a NamedTuple of per-sampled-generation statistics
 """
 function run!(w::World, rng; record::Bool=true)
     p = w.p
-    esd = envsd(p)
-    @inbounds for i in 1:p.PopSize
-        w.env[i] = esd * randn(rng)
-    end
-    gen = Int[]; pmean = Float64[]; pvar = Float64[]
-    gvar = Float64[]; nsurv = Int[]; θs = Float64[]; ωs = Float64[]
+    init_env!(w, rng)
+    rec = records()
     for it in 0:p.NoGenerations-1
         w.gen = it
-        develop!(w)
-        select!(w, rng)
-        if w.extinct
-            return (extinct=true, extinct_gen=it, gen=gen, pheno_mean=pmean,
-                    pheno_var=pvar, geno_var=gvar, nsurv=nsurv, theta=θs, omega=ωs)
-        end
-        reproduce!(w, rng)
-        if record && (it % p.Sample == 0)
-            push!(gen, it)
-            push!(pmean, mean(w.phenotype))
-            push!(pvar, var(w.phenotype))
-            push!(gvar, var(w.genotype))
-            push!(nsurv, w.nsurv)
-            push!(θs, w.θ)
-            push!(ωs, w.ω)
-        end
-        it == p.ChangeFitnessGen && (w.ω = p.ChangeFitnessSD)
-        mutate!(w, rng)
-        swapbuffers!(w)
+        generation!(w, rng; rec = record ? rec : nothing)
+        w.extinct && return (extinct=true, extinct_gen=it, rec...)
     end
-    (extinct=false, extinct_gen=-1, gen=gen, pheno_mean=pmean,
-     pheno_var=pvar, geno_var=gvar, nsurv=nsurv, theta=θs, omega=ωs)
+    (extinct=false, extinct_gen=-1, rec...)
 end
 
 """

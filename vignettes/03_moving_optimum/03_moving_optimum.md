@@ -249,8 +249,7 @@ the others died.
 
 Populations that survive keep pace: their lag per generation is close to
 zero. Once the environment moves faster than they can respond, the lag
-grows every generation and the population dies within a few hundred
-generations, sooner the faster the change. For this parameter set every
+grows every generation and the population dies, sooner the faster the change. For this parameter set every
 population survived 2000 generations at rates up to about 6% of a
 phenotypic standard deviation per generation, and every one died at
 about 7% and above. Surviving 2000 generations is not surviving

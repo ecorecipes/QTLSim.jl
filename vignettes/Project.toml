@@ -14,4 +14,4 @@ XLSX = "fdbf4ff8-1666-58a4-91e7-1b58723a45e0"
 QTLSim = {path = ".."}
 
 [compat]
-julia = "1.10"
+julia = "1.11"

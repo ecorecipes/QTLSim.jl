@@ -2288,7 +2288,7 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 <h2 class="anchored" data-anchor-id="overview">Overview</h2>
 <p>The previous vignettes build a generation by composing the kernel’s operators directly. Here the life cycle is written once, as syntax: a morphism of a free symmetric monoidal category whose objects are the stages of a generation and whose generating morphisms are the steps between them. A functor out of a free category is fixed by where it sends the generators, so giving each step a meaning in a backend gives every life cycle built from those steps a meaning there. Two such functors lower the life cycle: one to the simulation kernel and one to Eidos, the scripting language of the population-genetics simulator SLiM <span class="citation" data-cites="Haller2023">(<a href="#ref-Haller2023" role="doc-biblioref">Haller and Messer 2023</a>)</span>.</p>
 <p>The SLiM model lowered from QTSim’s life cycle is, run for run, the SLiM port of QTSim that was written by hand for this project, and it agrees with QTSim in distribution, with one locus or a hundred. A new step, given a meaning in both backends, yields two simulators of a model QTSim does not have, which can be checked against each other: a fluctuating optimum, and demes coupled by migration, which the monoidal product <code>⊗</code> places side by side.</p>
-<p>The vignette needs SLiM (version 4 or later), the hand-written port and QTSim. It looks for SLiM in <code>slim/build/slim</code> in the folder that holds the package’s folder (the <code>SLIM</code> environment variable, or a <code>slim</code> on the path, can stand in for it), takes the port from the package’s <code>validate/slim/qtsim.slim</code>, and looks for QTSim built from the source that comes with the package (<code>make -C reference/QTSim</code>) or in the paper’s code.</p>
+<p>The vignette needs SLiM (5.2, the version tested), the hand-written port and QTSim. It looks for SLiM in <code>slim/build/slim</code> in the folder that holds the package’s folder (the <code>SLIM</code> environment variable, or a <code>slim</code> on the path, can stand in for it), takes the port from the package’s <code>validate/slim/qtsim.slim</code>, and looks for QTSim built from the source that comes with the package (<code>make -C reference/QTSim</code>) or in the paper’s code.</p>
 </section>
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
@@ -2594,7 +2594,8 @@ reproduction() {
 1000000 late() { sim.simulationFinished(); }   // backstop</code></pre>
 </div>
 </div>
-<p><code>run_slim</code> runs a SLiM model and reads the table it prints, which has the columns QTSim’s output has.</p>
+<p><code>run_slim</code> runs a SLiM model and reads the table it prints: the columns <code>gen</code>, <code>phenoMean</code>, <code>genoVar</code>, <code>nSurv</code>, <code>theta</code>
+and <code>omega</code> (QTSim’s output also has the phenotype ratio and the selection slopes).</p>
 <div id="20" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">run_slim</span>(model, seed; defines <span class="op">=</span> <span class="fu">Dict</span><span class="dt">{String,Any}</span>())</span>
 <span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>    args <span class="op">=</span> [<span class="st">&quot;-s&quot;</span>, <span class="fu">string</span>(seed)]</span>

@@ -279,8 +279,7 @@ and the Gaussian prediction, which does not depend on the number of loci
 
 The equilibrium variance grows with the number of loci, as the house of
 cards predicts, while the Gaussian approximation misses the trend
-entirely. In these single runs the house of cards overestimates the
-level by about a quarter at 100 loci and above. The [replication
+entirely. In these single runs the house of cards overestimates the level by about 30% at 100 loci and above. The [replication
 vignette](../09_replicating_pagel_2025/09_replicating_pagel_2025.qmd)
 makes the same comparison for the paper’s own parameter sets.
 

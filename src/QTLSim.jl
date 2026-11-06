@@ -22,7 +22,7 @@ include("model.jl")
 include("categorical.jl")
 
 # the simulation kernel
-export Params, World, simulate, run!, generation!,
+export Params, World, simulate, run!, generation!, init_env!, checkparams,
        develop!, select!, moveoptimum!, reproduce!, mutate!, gamete!, swapbuffers!,
        geneticVar, envVar, analyticalFitSD, initFitSD, muteVar
 # the categorical layer (implemented by QTLSimCatlabExt; load Catlab to use it)

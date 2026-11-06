@@ -58,10 +58,44 @@ end
     p = Params(PopSize=100, NoQTL=1, Ploidy=2, PhenotypeVar=0.02,
                Heritability=0.5, MutationScalar=0.001)
     w = World(p); rng = MersenneTwister(3)
-    for i in 1:p.PopSize; w.env[i] = QTLSim.envsd(p) * randn(rng); end
+    init_env!(w, rng)
+    @test var(w.env) > 0
     generation!(w, rng)
     @test w.gen == 1
     @test w.extinct == false
+end
+
+@testset "run! is init_env! then NoGenerations of generation!" begin
+    p = Params(PopSize=150, NoQTL=5, Ploidy=2, NoGenerations=60, PhenotypeVar=0.02,
+               Heritability=0.5, MutationScalar=0.004, MoveFitnessSDGen=20, MoveFitnessSD=1.0,
+               ChangeFitnessGen=30, ChangeFitnessSD=0.5, Sample=4)
+    a = run!(World(p), MersenneTwister(11))
+    w = World(p); rng = MersenneTwister(11); rec = QTLSim.records()
+    init_env!(w, rng)
+    for it in 0:p.NoGenerations-1
+        w.gen = it
+        generation!(w, rng; rec)
+    end
+    @test a.gen == rec.gen == 0:4:56
+    @test a.geno_var == rec.geno_var && a.theta == rec.theta && a.omega == rec.omega
+    @test a.omega[end] == 0.5 && a.omega[1] == initFitSD(p)     # the width change is part of generation!
+end
+
+@testset "checkparams rejects what QTSim would not run" begin
+    ok = Params(PopSize=10, Ploidy=2, PhenotypeVar=0.02)
+    @test checkparams(ok) === ok
+    for kw in ((Ploidy = 3,), (Ploidy = 0,), (PopSize = 1,), (NoQTL = 0,), (Sample = 0,),
+               (NoGenerations = -1,), (PhenotypeVar = 0.0,), (Heritability = 1.5,),
+               (Heritability = -0.1,), (MutationScalar = -1.0,), (MutationRatePerGamete = 0.0,),
+               (RecombPoissonMean = -1.0,), (CrossoverModel = :some,), (MoveType = :Phenotype,),
+               (MoveFitnessSDGen = -2,), (ChangeFitnessGen = -5,), (ChangeFitnessGen = 10,),
+               (InitFitnessSD = -2.0,), (InitFitnessSD = 0.0,), (Heritability = 1.0,),
+               (MutationScalar = 0.0,))
+        @test_throws ArgumentError World(Params(ok; kw...))
+    end
+    @test World(Params(ok; Ploidy = 1, PopSize = 1)) isa World
+    @test World(Params(ok; Heritability = 1.0, InitFitnessSD = 2.0)) isa World   # no V_E needs a width
+    @test World(Params(ok; ChangeFitnessGen = 10, ChangeFitnessSD = 0.3)) isa World
 end
 
 # ─── the categorical layer (package extension) ───────────────────────────

@@ -738,13 +738,13 @@ In the 40 populations that survived in both, the rerun’s rate of
 phenotypic change is 0.994 times the published one and its k_c 1.017
 times (medians of the ratios).
 
-The reruns survive in the same populations as the published runs, and
-their survivors change at the same rates and have the same critical
-rates, population by population. The survivors of the sample have higher
-medians than all the paper’s survivors, in the published runs as much as
-in the reruns: with about forty survivors that difference is sampling
-error in the choice of populations, not a difference between QTSim and
-QTLSim.
+Of the 41 populations whose published runs survived, 40 survive in their reruns too, and
+no population survives only in its rerun; in those 40 the survivors change at the same
+rates and have the same critical rates, population by population. The survivors of the
+sample differ from all the paper’s survivors, in the published runs as much as in the
+reruns: their medians are higher for the rate of change and the critical rate and lower
+for the rate adjusted for the mutation scalar. With about forty survivors that difference
+is sampling error in the choice of populations, not a difference between QTSim and QTLSim.
 
 ## Summary
 
@@ -807,8 +807,8 @@ reproduces the published runs: survival, rates of change, lag, mortality
 and genetic variance agree with the published runs of the same
 populations to within the scatter between two realisations of each
 population, and with the paper’s figures. Run on to the paper’s horizon
-of 240,000 generations, the reruns survive in the same populations as
-the published runs, and their survivors’ rates of change and critical
+of 240,000 generations, the reruns survive in 40 of
+the 41 populations whose published runs survived, and in no other, and their survivors’ rates of change and critical
 rates agree with the published ones to within a few per cent.
 
 <div id="refs" class="references csl-bib-body hanging-indent">

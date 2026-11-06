@@ -108,9 +108,15 @@ function run_composed end
 """
     migrate!(s, rng; rate = 0.01)
 
-Move individuals between the demes of a metapopulation `s`: each individual swaps
-places with a random individual of a random other deme with probability `rate`, so the
-deme sizes are unchanged. Returns `(; count)`, the number of exchanges. Requires Catlab.
+Move individuals between the demes of a metapopulation `s`: each individual starts a
+swap with probability `rate`, exchanging places with a random individual of a random
+other deme, so the deme sizes are unchanged. Returns `(; count)`, the number of
+exchanges. Requires Catlab.
+
+`rate` is not the island model's migration rate m: an individual also moves when another
+deme's swap picks it, so with equal deme sizes about `2·rate` of each deme is replaced
+per generation (each exchange moves two individuals). Use `m/2` for an island-model
+rate m. The SLiM lowering (`migRate`) does the same.
 """
 function migrate! end
 

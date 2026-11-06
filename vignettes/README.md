@@ -44,8 +44,8 @@ Vignettes 06 and 08 run QTSim, which they find as the validation scripts do
 data if they are unpacked in a `Repository/` folder next to the package's folder.
 Vignette 08 skips the sections that need QTSim when there is none, and uses one of the
 paper's input files (`Repository/Simulations/`) when they are there. Vignette 09 needs
-the paper's results tables, `Repository/Results/`. Vignette 06 also needs SLiM, version 4
-or later (`slim/build/slim` next to the package's folder, `ENV["SLIM"]`, or `slim` on the
+the paper's results tables, `Repository/Results/`. Vignette 06 also needs SLiM, version 5.2
+(the version tested) (`slim/build/slim` next to the package's folder, `ENV["SLIM"]`, or `slim` on the
 path); the hand-written SLiM port of QTSim it compares with comes with the package,
 in `validate/slim/qtsim.slim`.
 

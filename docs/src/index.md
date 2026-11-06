@@ -36,7 +36,8 @@ out = simulate(p; seed = 1)
 out.extinct, out.extinct_gen
 ```
 
-`Params` takes QTSim's options under the same names, and `simulate` returns the mean
+`Params` has QTSim's defaults and follows its options, with a few renamings (see the
+README), and `simulate` returns the mean
 and variance of the phenotype, the genetic variance, the number of survivors and the
 optimum for every sampled generation.
 

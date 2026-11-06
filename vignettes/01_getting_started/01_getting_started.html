@@ -2494,7 +2494,11 @@ window.Quarto = {
 </section>
 <section id="parameters" class="level2">
 <h2 class="anchored" data-anchor-id="parameters">Parameters</h2>
-<p>A simulation is described by a <code>Params</code> value. Its field names and defaults follow the options of QTSim’s input files, so a published input file translates field by field. The phenotypic variance <span class="math inline">\(V_P\)</span> and heritability <span class="math inline">\(h^2\)</span> fix the genetic and environmental variances the model aims for, <span class="math inline">\(V_G = h^2 V_P\)</span> and <span class="math inline">\(V_E = (1-h^2) V_P\)</span>; the mutation scalar <span class="math inline">\(m\)</span> sets the new variance mutation adds each generation, <span class="math inline">\(V_m = m V_E\)</span>.</p>
+<p>A simulation is described by a <code>Params</code> value. Its defaults are QTSim’s, and its fields follow
+QTSim’s options with a few differences in name: <code>Generations</code> is <code>NoGenerations</code>,
+<code>RecombinationPoissonMean</code> is <code>RecombPoissonMean</code> and <code>OptimumMoveType</code> is <code>MoveType</code>,
+and the two-value options <code>MoveFitnessSD</code> and <code>ChangeFitnessSD</code> are each split into a
+generation and a value. The phenotypic variance <span class="math inline">\(V_P\)</span> and heritability <span class="math inline">\(h^2\)</span> fix the genetic and environmental variances the model aims for, <span class="math inline">\(V_G = h^2 V_P\)</span> and <span class="math inline">\(V_E = (1-h^2) V_P\)</span>; the mutation scalar <span class="math inline">\(m\)</span> sets the new variance mutation adds each generation, <span class="math inline">\(V_m = m V_E\)</span>.</p>
 <div id="4" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>p <span class="op">=</span> <span class="fu">Params</span>(PopSize <span class="op">=</span> <span class="fl">1000</span>, Ploidy <span class="op">=</span> <span class="fl">2</span>, NoQTL <span class="op">=</span> <span class="fl">100</span>, NoGenerations <span class="op">=</span> <span class="fl">3000</span>,</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>           PhenotypeVar <span class="op">=</span> <span class="fl">0.02</span>, Heritability <span class="op">=</span> <span class="fl">0.4</span>, MutationScalar <span class="op">=</span> <span class="fl">0.004</span>,</span>
@@ -2613,7 +2617,10 @@ Figure 2: The optimum (dashed) starts moving at generation 2000. At the slow ra
 </figure>
 </div>
 </div>
-<p>This population can keep up with surprisingly fast change: it holds a lot of genetic variance, and its narrow fitness function turns a small lag into strong selection. Across the range of populations the paper simulated, sustainable change is limited to a few per cent of a standard deviation per generation; <a href="../03_moving_optimum/03_moving_optimum.qmd">Adaptation to a moving optimum</a> measures this the way the paper does, and <a href="../09_replicating_pagel_2025/09_replicating_pagel_2025.qmd">Replicating Pagel, Gardner and Meade (2025)</a> reproduces the paper’s results.</p>
+<p>The slow rate, about 1% of a phenotypic standard deviation per generation, is well within
+what this population can track: it holds a lot of genetic variance, and its narrow
+fitness function turns a small lag into strong selection. At a quarter of a standard
+deviation per generation it dies within two hundred generations. Across the range of populations the paper simulated, sustainable change is limited to a few per cent of a standard deviation per generation; <a href="../03_moving_optimum/03_moving_optimum.qmd">Adaptation to a moving optimum</a> measures this the way the paper does, and <a href="../09_replicating_pagel_2025/09_replicating_pagel_2025.qmd">Replicating Pagel, Gardner and Meade (2025)</a> reproduces the paper’s results.</p>
 </section>
 <section id="where-next" class="level2">
 <h2 class="anchored" data-anchor-id="where-next">Where next</h2>
@@ -2621,6 +2628,7 @@ Figure 2: The optimum (dashed) starts moving at generation 2000. At the slow ra
 <li><a href="../02_mutation_selection_balance/02_mutation_selection_balance.qmd">Mutation–selection balance</a>: how much genetic variance the population maintains, compared with theory.</li>
 <li><a href="../03_moving_optimum/03_moving_optimum.qmd">Adaptation to a moving optimum</a>: the ways the optimum can move, and the paper’s measures of lag and extinction.</li>
 <li><a href="../04_categorical_layer/04_categorical_layer.qmd">The categorical layer</a> and <a href="../05_recomposing_the_model/05_recomposing_the_model.qmd">Recomposing the model</a>: the population as an ACSet, and a generation as a composite of operators that can be rearranged.</li>
+<li><a href="../06_one_life_cycle_two_backends/06_one_life_cycle_two_backends.qmd">One life cycle, two backends</a>: the life cycle lowered both to the kernel and to a SLiM model, and checked against QTSim.</li>
 <li><a href="../07_loci_and_recombination/07_loci_and_recombination.qmd">Loci and recombination</a>: many loci, and the way QTSim recombines them.</li>
 <li><a href="../08_validation_against_qtsim/08_validation_against_qtsim.qmd">Validation against QTSim</a> and <a href="../09_replicating_pagel_2025/09_replicating_pagel_2025.qmd">Replicating Pagel, Gardner and Meade (2025)</a>.</li>
 </ul>

@@ -194,7 +194,7 @@ if have_qtsim && isfile(LIBGSL)
             allpoints = true)
 else
     println("QTSim or the GSL library was not found, so this section was skipped.")
-end
+end;
 ```
 
 The replica is bit-identical to QTSim, and the negative control diverges at once. The

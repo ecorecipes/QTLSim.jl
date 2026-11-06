@@ -34,7 +34,10 @@ p = Params(PopSize = 1000, Ploidy = 2, NoQTL = 100, NoGenerations = 12_000,
 out = simulate(p; seed = 1)        # per-generation statistics
 ```
 
-`Params` takes QTSim's options under the same names. With more than one locus, gametes
+`Params` has QTSim's defaults, and its fields follow QTSim's options with a few renamings
+(`Generations` is `NoGenerations`, `RecombinationPoissonMean` is `RecombPoissonMean`,
+`OptimumMoveType` is `MoveType`; the two-value `MoveFitnessSD` and `ChangeFitnessSD`
+options are each split into a generation and a value). With more than one locus, gametes
 recombine as QTSim recombines them by default (`CrossoverModel = :qtsim`): QTSim draws
 a Poisson number of crossover points but its copying loop never advances past the first,
 so every gamete has at most one crossover. The published simulations were run that way.
@@ -113,7 +116,7 @@ check and vignette 09 also need the paper's data, which is not part of this repo
 they look for it in a `Repository/` folder next to this package's folder, the paper's code
 and data unpacked, with the input files under `Repository/Simulations/` and the results
 tables under `Repository/Results/`. Vignettes 06 and 08 use QTSim, and 06 also SLiM
-(version 4 or later).
+(5.2, the version tested).
 
 ## Documentation and vignettes
 

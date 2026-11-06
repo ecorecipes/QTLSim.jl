@@ -227,8 +227,6 @@ end
     same input, every crossover point            gens compared=2000   mismatches=1998 survived (replica extinct=false)
       ⇒ DIVERGES at gen 2
 
-    false
-
 The replica is bit-identical to QTSim, and the negative control diverges
 at once. The replica’s random numbers come from the same routines as
 QTSim’s, while the package’s kernel uses Julia’s own generators, so the
