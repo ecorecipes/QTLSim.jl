@@ -46,7 +46,8 @@ Vignette 08 skips the sections that need QTSim when there is none, and uses one 
 paper's input files (`Repository/Simulations/`) when they are there. Vignette 09 needs
 the paper's results tables, `Repository/Results/`. Vignette 06 also needs SLiM, version 4
 or later (`slim/build/slim` next to the package's folder, `ENV["SLIM"]`, or `slim` on the
-path), and the project's hand-written SLiM port of QTSim, `slim_port/qtsim.slim`.
+path); the hand-written SLiM port of QTSim it compares with comes with the package,
+in `validate/slim/qtsim.slim`.
 
 Vignette 09's simulations are stored next to it and read back on later renders:
 `replication_runs.csv` holds the 710 reruns of 2000 generations after the move (about an

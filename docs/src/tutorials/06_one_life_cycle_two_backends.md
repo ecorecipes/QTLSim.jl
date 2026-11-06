@@ -37,11 +37,12 @@ optimum, and demes coupled by migration, which the monoidal product `⊗`
 places side by side.
 
 The vignette needs SLiM (version 4 or later), the hand-written port and
-QTSim. It looks for the first two in `slim/build/slim` and
-`slim_port/qtsim.slim` in the folder that holds the package’s folder
-(the `SLIM` environment variable, or a `slim` on the path, can stand in
-for the first), and for QTSim built from the source that comes with the
-package (`make -C reference/QTSim`) or in the paper’s code.
+QTSim. It looks for SLiM in `slim/build/slim` in the folder that holds
+the package’s folder (the `SLIM` environment variable, or a `slim` on
+the path, can stand in for it), takes the port from the package’s
+`validate/slim/qtsim.slim`, and looks for QTSim built from the source
+that comes with the package (`make -C reference/QTSim`) or in the
+paper’s code.
 
 ## Setup
 
@@ -56,7 +57,7 @@ const ROOT = normpath(joinpath(@__DIR__, "..", "..", ".."))
 const SLIM = let built = joinpath(ROOT, "slim", "build", "slim")
     haskey(ENV, "SLIM") ? ENV["SLIM"] : isfile(built) ? built : something(Sys.which("slim"), built)
 end
-const PORT = joinpath(ROOT, "slim_port", "qtsim.slim")
+const PORT = joinpath(@__DIR__, "..", "..", "validate", "slim", "qtsim.slim")
 include(joinpath(@__DIR__, "..", "..", "validate", "qtsim.jl"))   # find_qtsim(): see reference/QTSim/README.md
 const QTSIM = something(find_qtsim(), "")
 all(isfile, (SLIM, PORT, QTSIM)) || error("this vignette needs SLiM, the SLiM port and QTSim")
@@ -360,8 +361,8 @@ nothing
 
 ## The generated model is the hand-written port
 
-The project also has a SLiM port of QTSim written by hand,
-`slim_port/qtsim.slim`, validated against QTSim before the life cycle
+The package also has a SLiM port of QTSim written by hand,
+`validate/slim/qtsim.slim`, validated against QTSim before the life cycle
 existed. Run with the same seed and parameters, the generated model and
 the port print the same table, number for number, because their steps
 are the same Eidos statements in the same order and so draw the same

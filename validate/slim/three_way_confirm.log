@@ -1,0 +1,8 @@
+# Run 2026-11-05 (pre-release version of three_way_confirm.jl, identical design and seeds)
+40000 runs per program (148 min); genetic variance at generation 499
+  QTSim   mean 0.0024218 ± 0.0000172   median 0.0011455   q90 0.006338   q99 0.016129
+  SLiM    mean 0.0024083 ± 0.0000170   median 0.0011341   q90 0.006402   q99 0.016185
+  kernel  mean 0.0024282 ± 0.0000171   median 0.0011694   q90 0.006388   q99 0.016195
+  SLiM   − QTSim  -0.56%  (z = -0.56, Welch p = 0.574)  KS p = 0.61  AD p = 0.355
+  kernel − QTSim  +0.26%  (z = +0.26, Welch p = 0.793)  KS p = 0.426  AD p = 0.4
+  SLiM   − kernel -0.82%  (z = -0.83, Welch p = 0.408)  KS p = 0.0629  AD p = 0.0667

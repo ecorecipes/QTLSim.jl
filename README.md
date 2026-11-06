@@ -88,6 +88,12 @@ the paper's inputs, genetic variance before the move and time to extinction with
 1% of the published values, `validate/published_sweep.jl`). Applying every crossover point
 instead raises both measurably, so the published results depend on QTSim's recombination.
 
+The SLiM model generated from the life cycle (`slim_script`) is validated in
+[`validate/slim`](validate/slim): run for run against a SLiM port of QTSim written by hand,
+and in distribution against QTSim, including a test of 40,000 runs per program that found
+no difference in genetic variance between QTSim, SLiM and the kernel (95% intervals about
+±2%). CI builds SLiM 5.2 and runs the first two on every push.
+
 From the package root:
 
 ```sh
@@ -96,6 +102,8 @@ make -C reference/QTSim                                          # build QTSim (
 julia --project=. validate/gsl_locked.jl                         # exact parity with QTSim
 julia --project=. validate/compare_to_qtsim.jl                   # statistical parity with QTSim
 julia -t 10 --project=vignettes validate/published_sweep.jl      # against the published results
+julia --project=validate/slim validate/slim/check_generated.jl  # generated SLiM model vs the port (needs SLiM)
+julia -t auto --project=validate/slim validate/slim/compare_to_qtsim.jl   # SLiM model vs QTSim
 ```
 
 QTSim's C source comes with the package, unmodified, in
@@ -105,8 +113,7 @@ check and vignette 09 also need the paper's data, which is not part of this repo
 they look for it in a `Repository/` folder next to this package's folder, the paper's code
 and data unpacked, with the input files under `Repository/Simulations/` and the results
 tables under `Repository/Results/`. Vignettes 06 and 08 use QTSim, and 06 also SLiM
-(version 4 or later) and the project's hand-written SLiM port of QTSim
-(`slim_port/qtsim.slim`).
+(version 4 or later).
 
 ## Documentation and vignettes
 

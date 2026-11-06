@@ -55,6 +55,41 @@ jobs:
         run: julia --project=. validate/gsl_locked.jl
       - name: In distribution (Julia kernel vs QTSim)
         run: julia --project=. validate/compare_to_qtsim.jl
+  slim:
+    name: SLiM backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache SLiM 5.2
+        id: cache-slim
+        uses: actions/cache@v4
+        with:
+          path: ~/slim-bin
+          key: slim-v5.2-${{ runner.os }}
+      - name: Build SLiM 5.2
+        if: steps.cache-slim.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch v5.2 https://github.com/MesserLab/SLiM.git "$HOME/SLiM-src"
+          cmake -S "$HOME/SLiM-src" -B "$HOME/SLiM-src/build" -DCMAKE_BUILD_TYPE=Release
+          cmake --build "$HOME/SLiM-src/build" --target slim -j4
+          mkdir -p "$HOME/slim-bin" && cp "$HOME/SLiM-src/build/slim" "$HOME/slim-bin/"
+      - run: |
+          echo "SLIM=$HOME/slim-bin/slim" >> "$GITHUB_ENV"
+          "$HOME/slim-bin/slim" -v
+      - name: Install GSL
+        run: sudo apt-get update && sudo apt-get install -y libgsl-dev
+      - name: Build the bundled QTSim source
+        run: make -C reference/QTSim check && make -C reference/QTSim
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1'
+      - uses: julia-actions/cache@v2
+      - name: Install the validation environment
+        run: julia --project=validate/slim -e 'using Pkg; Pkg.instantiate()'
+      - name: Generated SLiM model vs the hand-written port, run for run
+        run: julia --project=validate/slim validate/slim/check_generated.jl
+      - name: Generated SLiM model vs QTSim, in distribution
+        run: julia -t auto --project=validate/slim validate/slim/compare_to_qtsim.jl
   docs:
     name: Documentation
     runs-on: ubuntu-latest

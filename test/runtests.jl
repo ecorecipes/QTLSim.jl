@@ -250,6 +250,19 @@ end
     @test_throws ArgumentError slim_script(L.develop ⋅ L.select, p)
 end
 
+@testset "slim_script still writes the committed SLiM model (validate/slim)" begin
+    # validate/slim/check_generated.jl runs this model against the hand-written port
+    # qtsim.slim, run for run, with SLiM; this golden-file test catches any change to the
+    # Eidos images without SLiM. After an intended change, regenerate the file with
+    # `check_generated.jl --write` and rerun the check.
+    p = Params(PopSize = 1000, NoQTL = 1, Ploidy = 2, NoGenerations = 6500, PhenotypeVar = 0.02,
+               Heritability = 0.5, MutationScalar = 0.001, MutationRatePerGamete = 0.0002,
+               MoveFitnessSDGen = 5000, MoveFitnessSD = 1.0, MoveType = :phenotype,
+               ChangeFitnessGen = 5000, ChangeFitnessSD = 0.30)
+    golden = read(joinpath(@__DIR__, "..", "validate", "slim", "qtsim_generated.slim"), String)
+    @test slim_script(lifecycle().generation, p) == golden
+end
+
 @testset "a new step lowers through its images" begin
     L = lifecycle()
     A = codom(L.develop)

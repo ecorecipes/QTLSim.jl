@@ -9,3 +9,5 @@ docs/.quarto/
 *.jl.*.cov
 docs/build/
 reference/QTSim/build/
+validate/slim/Manifest.toml
+validate/slim/Manifest-v*.toml

@@ -1,0 +1,14 @@
+SLiM nonWF port vs QTSim — R=20 replicates each
+
+── Scenario A: stabilizing equilibrium ──
+....................
+....................
+  equilibrium V_G        SLiM  0.006376 ± 0.0001    QTSim  0.006395 ± 0.00011   D=0.200 p=0.819  [consistent]
+
+── Scenario B: directional adaptation ──
+....................
+....................
+  end V_G                SLiM  0.002269 ± 0.0016    QTSim  0.001815 ± 0.0012    D=0.200 p=0.819  [consistent]
+  survival fraction      SLiM    0.8478 ± 0.0017    QTSim    0.8475 ± 0.0013    D=0.150 p=0.978  [consistent]
+  phenotypic advance     SLiM     4.161 ± 0.78      QTSim     4.295 ± 0.64      D=0.200 p=0.819  [consistent]
+  extinctions            SLiM 0/20               QTSim 0/20

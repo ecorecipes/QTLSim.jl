@@ -6,7 +6,7 @@
 # continuum-of-alleles genetics: each individual carries its two chromosomes as vectors
 # of allele values (`a0`, `a1`, one value per locus) and SLiM supplies only the nonWF life
 # cycle. With one locus the fragments are, statement for statement, the hand-written port
-# slim_port/qtsim.slim; with more they recombine as QTSim does, switching strands at most
+# validate/slim/qtsim.slim; with more they recombine as QTSim does, switching strands at most
 # once per gamete. Composition is concatenation within a deme. A morphism on several
 # demes runs each deme's code in its own block, which a step that ends the deme
 # (`select`, when fewer than two survive) leaves with `break`, skipping the rest of that

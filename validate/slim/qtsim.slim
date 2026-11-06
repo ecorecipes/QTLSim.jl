@@ -1,0 +1,115 @@
+// Faithful nonWF SLiM/Eidos port of QTSim, single-locus case (NoQTL = 1, Ploidy = 2).
+//
+// QTSim models a single quantitative trait as a *continuum of alleles*: each
+// individual carries two real-valued alleles (a0, a1) at one locus, mutation
+// ADDS Gaussian increments to an allele, and genotype = a0 + a1. SLiM's discrete
+// mutation machinery is a poor fit for that, so we carry the two alleles per
+// individual explicitly (setValue / getValue) and let SLiM provide only the
+// nonWF life cycle. Genetics initialization is vestigial (mutationRate 0).
+//
+// Life cycle per generation (matches QTSim's RunSim exactly):
+//   develop  z = a0 + a1 + env,  env ~ N(0, V_E) fresh each generation
+//   select   optimum moves (if scheduled), Gaussian fitness, Bernoulli viability
+//   record   one TSV line for the current adults (== QTSim Output(CPop))
+//   reproduce N offspring by uniform random mating of two DISTINCT survivors;
+//            each child allele is a random one of a parent's two alleles
+//   mutate   each offspring chromosome gets Poisson(rate) N(0,MUTVAR) increments
+// All of this is done manually inside one reproduction() call per cycle; the
+// parents are then killed (fitnessScaling = 0) so the offspring become the next
+// generation (discrete, non-overlapping).
+//
+// SLiM's RNG stream differs from QTSim's GSL stream, so this is a STATISTICAL
+// (not bit-level) reproduction — validated by KS tests in compare_to_qtsim.jl.
+//
+// Params (override with  slim -d "NAME=value" ...):
+//   N VP h2 m rate NGEN moveGen moveSD changeSD initOmega
+// Seed with  slim -s <seed>.
+
+initialize() {
+    initializeSLiMModelType("nonWF");
+
+    if (!exists("N"))         defineConstant("N", 1000);
+    if (!exists("VP"))        defineConstant("VP", 0.02);    // phenotypic variance V_P
+    if (!exists("h2"))        defineConstant("h2", 0.5);     // heritability
+    if (!exists("m"))         defineConstant("m", 0.001);    // mutation scalar
+    if (!exists("rate"))      defineConstant("rate", 0.0002);// mutations per gamete
+    if (!exists("NGEN"))      defineConstant("NGEN", 6500);
+    if (!exists("moveGen"))   defineConstant("moveGen", -1); // gen optimum starts moving (-1 = never)
+    if (!exists("moveSD"))    defineConstant("moveSD", 1.0);
+    if (!exists("changeSD"))  defineConstant("changeSD", -1.0); // new width at moveGen (-1 = keep)
+    if (!exists("initOmega")) defineConstant("initOmega", -1.0);// <0 => analytical
+
+    defineConstant("VG", h2 * VP);
+    defineConstant("VE", VP - VG);
+    defineConstant("ESD", sqrt(VE));
+    defineConstant("MUTVAR", (m / (2 * rate)) * VE);           // m/(Ploidy*NoQTL*rate) * V_E
+    defineConstant("OMEGA0", initOmega < 0 ? VG / sqrt(m * VE) else initOmega);
+
+    // vestigial genetics — SLiM supplies only the life cycle
+    initializeMutationRate(0.0);
+    initializeMutationType("m1", 0.5, "f", 0.0);
+    initializeGenomicElementType("g1", m1, 1.0);
+    initializeGenomicElement(g1, 0, 0);
+    initializeRecombinationRate(0.0);
+}
+
+1 first() {
+    sim.addSubpop("p1", N);
+    p1.individuals.setValue("a0", 0.0);   // founders: allele values 0
+    p1.individuals.setValue("a1", 0.0);
+    defineGlobal("THETA", 0.0);
+    defineGlobal("OMEGA", OMEGA0);
+}
+
+reproduction() {
+    gen = sim.cycle - 1;                   // QTSim generation index (cycle 1 -> gen 0)
+    adults = p1.individuals;
+    a0 = adults.getValue("a0");
+    a1 = adults.getValue("a1");
+    genotype = a0 + a1;
+    env = rnorm(size(adults), 0.0, ESD);
+    pheno = genotype + env;
+
+    if (moveGen >= 0 & gen >= moveGen)      // optimum tracks the current mean (:phenotype move)
+        defineGlobal("THETA", mean(pheno) + sqrt(VP) * moveSD);
+
+    W = dnorm(pheno - THETA, 0.0, OMEGA) / (0.4 / OMEGA);   // QTSim fitness (incl. 0.4)
+    survived = runif(size(adults)) < W;
+    sidx = which(survived);
+    ns = size(sidx);
+
+    if (gen == 0)
+        catn("gen\tphenoMean\tgenoVar\tnSurv\ttheta\tomega");
+    catn(gen + "\t" + mean(pheno) + "\t" + var(genotype) + "\t" + ns + "\t" + THETA + "\t" + OMEGA);
+
+    if (ns < 2) { catn("Pop all died."); sim.simulationFinished(); self.active = 0; return; }
+    if (gen >= NGEN - 1) { sim.simulationFinished(); self.active = 0; return; }
+
+    if (gen == moveGen & changeSD >= 0)     // narrow width AFTER recording (as in QTSim)
+        defineGlobal("OMEGA", changeSD);
+
+    // random mating among survivors: two DISTINCT parents, one random allele each
+    sa0 = a0[sidx]; sa1 = a1[sidx];
+    i1 = rdunif(N, 0, ns - 1);
+    i2 = rdunif(N, 0, ns - 1);
+    dup = which(i1 == i2);
+    while (size(dup) > 0) { i2[dup] = rdunif(size(dup), 0, ns - 1); dup = which(i1 == i2); }
+    c0 = ifelse(runif(N) < 0.5, sa1[i1], sa0[i1]);
+    c1 = ifelse(runif(N) < 0.5, sa1[i2], sa0[i2]);
+
+    // mutation: k ~ Poisson(rate) increments of N(0,MUTVAR); their sum ~ N(0, k*MUTVAR)
+    k0 = rpois(N, rate);
+    k1 = rpois(N, rate);
+    c0 = c0 + rnorm(N, 0.0, sqrt(k0 * MUTVAR));
+    c1 = c1 + rnorm(N, 0.0, sqrt(k1 * MUTVAR));
+
+    for (k in seqLen(N)) {
+        child = p1.addEmpty();
+        child.setValue("a0", c0[k]);
+        child.setValue("a1", c1[k]);
+    }
+    adults.fitnessScaling = 0.0;            // all parents die; offspring are next gen
+    self.active = 0;
+}
+
+1000000 late() { sim.simulationFinished(); }   // backstop
