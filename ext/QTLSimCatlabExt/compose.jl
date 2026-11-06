@@ -119,6 +119,9 @@ end
 function migrate!(s::Stratified, rng; rate=0.01, demes=eachindex(s.demes))
     k = length(demes)
     k < 2 && return (count=0,)
+    shape = size(s.demes[first(demes)].genome)
+    all(d -> size(s.demes[d].genome) == shape, demes) ||
+        throw(ArgumentError("migration needs demes of one shape (loci, ploidy, size); got $([size(s.demes[d].genome) for d in demes])"))
     count = 0
     for (di, d) in enumerate(demes)
         w = s.demes[d]

@@ -70,7 +70,8 @@ function genome_from_acset(pop::Population, L::Int, P::Int)
     genome = zeros(Float64, L, P, N)
     @inbounds for i in 1:N
         as = incident(pop, i, :owner)
-        length(as) == L * P || error("individual $i has $(length(as)) alleles, expected $(L*P)")
+        length(as) == L * P ||
+            throw(ArgumentError("individual $i has $(length(as)) alleles, expected $(L*P)"))
         for (k, a) in enumerate(as)
             genome[(k - 1) % L + 1, (k - 1) ÷ L + 1, i] = eff[a]
         end
@@ -80,7 +81,9 @@ end
 
 function lower!(pop::Population, w::World)
     p = w.p
+    n = nparts(pop, :Individual)
+    n == p.PopSize || throw(ArgumentError("the population has $n individuals; the World holds PopSize = $(p.PopSize)"))
     w.genome = genome_from_acset(pop, p.NoQTL, p.Ploidy)
     w.env = copy(pop[:, :env])
-    w
+    QTLSim.develop!(w)                 # keep genotype and phenotype in step with the new genomes
 end

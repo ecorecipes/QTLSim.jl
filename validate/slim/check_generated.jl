@@ -16,26 +16,32 @@
 using QTLSim, Printf
 import Catlab
 include(joinpath(@__DIR__, "slim.jl"))
+include(joinpath(@__DIR__, "golden.jl"))
 
 const SLIM = find_slim()
 SLIM === nothing && error(slim_missing())
 const PORT = joinpath(@__DIR__, "qtsim.slim")
 const GENERATED = joinpath(@__DIR__, "qtsim_generated.slim")
 
-# defaults of the generated model: scenario B of compare_to_qtsim.jl
-p = Params(PopSize = 1000, NoQTL = 1, Ploidy = 2, NoGenerations = 6500, PhenotypeVar = 0.02,
-           Heritability = 0.5, MutationScalar = 0.001, MutationRatePerGamete = 0.0002,
-           MoveFitnessSDGen = 5000, MoveFitnessSD = 1.0, MoveType = :phenotype,
-           ChangeFitnessGen = 5000, ChangeFitnessSD = 0.30)
-script = slim_script(lifecycle().generation, p)
-if "--write" in ARGS
-    write(GENERATED, script)
-    println("wrote ", GENERATED)
-elseif script != read(GENERATED, String)
-    println("slim_script no longer writes qtsim_generated.slim; rerun with --write if the change is intended")
-    exit(1)
-else
-    println("slim_script writes qtsim_generated.slim unchanged")
+for (name, script) in golden_models()
+    path = joinpath(@__DIR__, name)
+    if "--write" in ARGS
+        write(path, script)
+        println("wrote ", name)
+    elseif !isfile(path) || script != read(path, String)
+        println("slim_script no longer writes $name; rerun with --write if the change is intended")
+        exit(1)
+    else
+        println("slim_script writes $name unchanged")
+    end
+end
+
+# the models with many loci and with demes run in SLiM and print their tables
+for (name, rows) in (("qtsim_generated_loci.slim", 50), ("qtsim_generated_demes.slim", 150))
+    out = read(`$SLIM -s 1 -d NGEN=50 $(joinpath(@__DIR__, name))`, String)
+    n = count(l -> occursin(r"^\d+\t", l), split(out, '\n'))
+    n == rows || (println("$name printed $n table rows, expected $rows"); exit(1))
+    println("$name runs in SLiM ($n rows)")
 end
 
 function run_table(script, seed, d)

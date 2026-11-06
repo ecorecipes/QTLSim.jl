@@ -7,6 +7,15 @@ using Catlab: ⋅, ⊗, dom, codom, Hom
 const Ext = Base.get_extension(QTLSim, :QTLSimCatlabExt)
 (; develop, select, reproduce, mutate, swap, generation) = operators()
 
+# Package hygiene (ambiguities, piracy, stale dependencies, compat bounds), when Aqua is
+# available, as it is under Pkg.test.
+if Base.find_package("Aqua") !== nothing
+    @eval using Aqua
+    @testset "Aqua" begin
+        Aqua.test_all(QTLSim; persistent_tasks = false)
+    end
+end
+
 @testset "derived quantities (mirror Lean Heritability.lean)" begin
     p = Params(PhenotypeVar=0.02, Heritability=0.5, MutationScalar=0.001)
     @test geneticVar(p) ≈ 0.5 * 0.02
@@ -24,10 +33,15 @@ end
                Heritability=0.5, MutationScalar=0.05, MutationRatePerGamete=0.01)
     w = World(p)
     rng = MersenneTwister(1)
-    mutate!(w, rng)
-    # genotype change per individual = Σ mutations added to its two chromosomes
-    Δ = [sum(@view w.sgenome[:, :, j]) for j in 1:p.PopSize]
-    @test isapprox(var(Δ), muteVar(p); rtol=0.15)
+    # the change per individual is a compound Poisson sum, very heavy-tailed (kurtosis ~150
+    # here): one round's variance has a relative SE of about 9%, so average 25 rounds
+    # (SE ≈ 2%) and allow 4 SE
+    v = map(1:25) do _
+        fill!(w.sgenome, 0.0)
+        mutate!(w, rng)
+        var(sum(@view w.sgenome[:, :, j]) for j in 1:p.PopSize)
+    end
+    @test isapprox(mean(v), muteVar(p); rtol=0.08)
 end
 
 @testset "run smoke + extinction handling" begin
@@ -81,6 +95,58 @@ end
     @test a.omega[end] == 0.5 && a.omega[1] == initFitSD(p)     # the width change is part of generation!
 end
 
+@testset "haploid runs, and extinction when no one survives" begin
+    p = Params(PopSize=200, NoQTL=3, Ploidy=1, NoGenerations=50, PhenotypeVar=0.02, MutationScalar=0.004)
+    o = simulate(p; seed=3)
+    @test !o.extinct && length(o.gen) == 50 && o.geno_var[end] > 0
+    # one survivor is enough for a haploid, not for a diploid
+    w1 = World(Params(p; PopSize=1, Drift=true)); select!(w1, MersenneTwister(1))
+    @test w1.nsurv == 1 && !w1.extinct
+    w0 = World(Params(p; PopSize=5, InitFitnessSD=1e-6)); w0.θ = 100.0
+    develop!(w0); select!(w0, MersenneTwister(1))
+    @test w0.nsurv == 0 && w0.extinct
+    @test simulate(Params(p; InitFitnessSD=1e-6, MoveFitnessSDGen=0, MoveFitnessSD=50.0); seed=1).extinct_gen == 0
+end
+
+@testset "the optimum moves as QTSim moves it (SetFitnessMean)" begin
+    base = Params(PopSize=50, Ploidy=2, PhenotypeVar=0.02, MoveFitnessSDGen=0, MoveFitnessSD=0.5,
+                  InitFitnessSD=2.0)
+    for (type, expected) in ((:phenotype, (z, w) -> z + sqrt(0.02) * 0.5),
+                             (:fitness, (z, w) -> z + w.ω * 0.5),
+                             (:continuous, (z, w) -> 0.3 + 0.5))
+        w = World(Params(base; MoveType = type)); init_env!(w, MersenneTwister(2)); develop!(w)
+        w.θ = 0.3; moveoptimum!(w)
+        @test w.θ ≈ expected(mean(w.phenotype), w)
+    end
+    w = World(Params(base; MoveFitnessSDGen = 5)); develop!(w); w.θ = 0.3; moveoptimum!(w)
+    @test w.θ == 0.3                                           # not before its generation
+end
+
+@testset "Drift and StandardisePhenotype in selection" begin
+    base = Params(PopSize=200, Ploidy=2, PhenotypeVar=0.02, InitFitnessSD=0.1)
+    rng = MersenneTwister(4)
+    w = World(Params(base; Drift = true)); init_env!(w, rng); develop!(w); select!(w, rng)
+    @test all(==(1.0), w.fitness) && w.nsurv == 200
+    # QTSim's Gaussian with its 0.4: pdf(Normal(0, ω), x) / (0.4/ω) = exp(-x²/2ω²) / (0.4·√(2π))
+    W(x, ω) = exp(-x^2 / (2ω^2)) / (0.4 * sqrt(2π))
+    for std_ in (false, true)
+        w = World(Params(base; StandardisePhenotype = std_)); init_env!(w, rng); develop!(w); w.θ = 0.05
+        select!(w, rng)
+        sd = std_ ? std(w.phenotype) : 1.0
+        @test w.fitness ≈ [W((z - 0.05) / sd, w.ω) for z in w.phenotype]
+    end
+end
+
+@testset "Sample and record = false" begin
+    p = Params(PopSize=100, Ploidy=2, NoGenerations=35, PhenotypeVar=0.02, Sample=10)
+    o = simulate(p; seed=1)
+    @test o.gen == [0, 10, 20, 30]
+    @test isempty(run!(World(p), MersenneTwister(1); record=false).gen)
+    oc = run_composed(World(p), MersenneTwister(1))
+    @test oc.gen == o.gen && oc.geno_var == o.geno_var
+    @test isempty(run_composed(World(p), MersenneTwister(1); record=false).gen)
+end
+
 @testset "checkparams rejects what QTSim would not run" begin
     ok = Params(PopSize=10, Ploidy=2, PhenotypeVar=0.02)
     @test checkparams(ok) === ok
@@ -126,6 +192,13 @@ end
     w2 = World(p); lower!(pop, w2)
     @test w2.genome == w.genome
     @test w2.env == w.env
+    @test w2.genotype == w.genotype && w2.phenotype == w.phenotype   # recomputed by lower!
+    @test_throws ArgumentError lower!(pop, World(Params(p; PopSize = 9)))
+    @test_throws ArgumentError genome_from_acset(pop, p.NoQTL + 1, p.Ploidy)
+    # haploid
+    ph = Params(p; Ploidy = 1); wh = World(ph); wh.genome .= randn(rng, size(wh.genome)); develop!(wh)
+    wh2 = World(ph); lower!(lift(wh), wh2)
+    @test wh2.genome == wh.genome
 end
 
 @testset "⋅ composition: run_composed == run! bitwise" begin
@@ -289,12 +362,12 @@ end
     # qtsim.slim, run for run, with SLiM; this golden-file test catches any change to the
     # Eidos images without SLiM. After an intended change, regenerate the file with
     # `check_generated.jl --write` and rerun the check.
-    p = Params(PopSize = 1000, NoQTL = 1, Ploidy = 2, NoGenerations = 6500, PhenotypeVar = 0.02,
-               Heritability = 0.5, MutationScalar = 0.001, MutationRatePerGamete = 0.0002,
-               MoveFitnessSDGen = 5000, MoveFitnessSD = 1.0, MoveType = :phenotype,
-               ChangeFitnessGen = 5000, ChangeFitnessSD = 0.30)
-    golden = read(joinpath(@__DIR__, "..", "validate", "slim", "qtsim_generated.slim"), String)
-    @test slim_script(lifecycle().generation, p) == golden
+    # The committed models: one locus (scenario B), 100 loci, and three demes with migration.
+    dir = joinpath(@__DIR__, "..", "validate", "slim")
+    include(joinpath(dir, "golden.jl"))
+    for (name, script) in golden_models()
+        @test script == read(joinpath(dir, name), String)
+    end
 end
 
 @testset "a new step lowers through its images" begin
@@ -340,6 +413,43 @@ end
     @test_throws ArgumentError run_composed(p ⊗ demes(2), MersenneTwister(5); cycle = meta)
     o2 = run_composed(p ⊗ demes(2), MersenneTwister(6); cycle = (g ⊗ g) ⋅ Catlab.braid(Z, Z))
     @test length(o2.gen) == 2 * p.NoGenerations
+end
+
+@testset "metapopulations in which a deme dies, and error paths" begin
+    L = lifecycle(); g = L.generation; Z = dom(g)
+    p = Params(PopSize=100, NoQTL=1, Ploidy=2, NoGenerations=40, PhenotypeVar=0.02, Heritability=0.5,
+               MutationScalar=0.02, MutationRatePerGamete=0.5, InitFitnessSD=0.3)
+    doomed = Params(p; InitFitnessSD=1e-3, MoveFitnessSDGen=0, MoveFitnessSD=20.0)
+    for cycle in (g ⊗ g, g ⊗ g ⋅ L.migrate(2))
+        s = Ext.Stratified([World(p), World(doomed)])
+        o = run_composed(s, MersenneTwister(2); cycle, migration_rate = 0.1)
+        @test !o.extinct && o.extinct_gen[1] == -1 && 0 <= o.extinct_gen[2] < p.NoGenerations
+        @test count(==(1), o.deme) == p.NoGenerations && count(==(2), o.deme) == o.extinct_gen[2]
+        @test totalpop(s) == 200
+    end
+    # a World ⊗ demes copies the World into independent demes
+    w = World(p); s = w ⊗ demes(2)
+    @test ndemes(s) == 2 && s.demes[1] !== s.demes[2] && s.demes[1].genome == w.genome
+    # migration needs demes of one shape, and checks before moving anyone
+    s = Ext.Stratified([World(p), World(Params(p; PopSize = 50))])
+    g1 = copy(s.demes[1].genome)
+    @test_throws ArgumentError migrate!(s, MersenneTwister(1); rate = 0.5)
+    @test s.demes[1].genome == g1
+    @test_throws ArgumentError lower(g, :bogus)
+    @test_throws ArgumentError Catlab.compose(lower(g ⊗ g, :kernel), lower(g ⊗ g ⊗ g, :kernel))
+    @test_throws ArgumentError Catlab.compose(lower(g ⊗ g, :eidos), lower(g ⊗ g ⊗ g, :eidos))
+    @test_throws ArgumentError run_composed(World(p), MersenneTwister(1); cycle = L.develop)
+    # a user operator on the whole metapopulation
+    seen = Ref(0)
+    op = operator(:census, (s, rng) -> (seen[] += totalpop(s); s); scope = :meta)
+    op(p ⊗ demes(3), MersenneTwister(1))
+    @test seen[] == 300
+end
+
+@testset "without Catlab, the categorical functions say how to get it" begin
+    code = "using QTLSim; try lifecycle() catch e; print(sprint(showerror, e)) end"
+    out = read(`$(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) -e $code`, String)
+    @test occursin("Catlab", out)
 end
 
 @testset "Eidos for several demes and many loci" begin

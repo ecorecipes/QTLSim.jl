@@ -164,7 +164,10 @@ function lift end
     lower!(pop, w::World)
 
 Write the genomes and environmental deviations of the ACSet `pop` into `w`, inverting
-[`lift`](@ref). Returns `w`. Requires Catlab.
+[`lift`](@ref), and recompute genotypes and phenotypes. `pop` must have `PopSize`
+individuals with `NoQTL × Ploidy` alleles each, taken in the order of their parts (locus
+fastest, then chromosome), as `lift` adds them; otherwise an `ArgumentError`. Returns
+`w`. Requires Catlab.
 """
 function lower! end
 

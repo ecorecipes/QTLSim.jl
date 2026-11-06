@@ -15,13 +15,18 @@ Catlab = "134e5e36-593f-5add-ad60-77f754baafbe"
 QTLSimCatlabExt = "Catlab"
 
 [compat]
+Aqua = "0.8"
 Catlab = "0.17.6"
 Distributions = "0.25"
+Random = "1"
+Statistics = "1"
+Test = "1"
 julia = "1.10"
 
 [extras]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 Catlab = "134e5e36-593f-5add-ad60-77f754baafbe"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "Catlab"]
+test = ["Aqua", "Test", "Catlab"]
