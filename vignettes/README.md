@@ -16,6 +16,7 @@ Each vignette lives in its own directory `NN_name/NN_name.qmd` and is rendered w
 | `07_loci_and_recombination` | how gametes are made, QTSim's single-crossover recombination, and the cost of more loci |
 | `08_validation_against_qtsim` | statistical, exact and published-results checks against QTSim |
 | `09_replicating_pagel_2025` | the paper's results, recomputed from its table and replicated by rerunning 710 of its populations, the survivors to the full 240,000 generations |
+| `10_demography_and_rescue` | a density-regulated population instead of QTSim's fixed size: how much faster populations die, and how the sustainable rate falls, with the moments lowering's predictions |
 
 ## Rendering
 

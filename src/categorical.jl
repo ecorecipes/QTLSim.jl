@@ -123,6 +123,9 @@ step's image updates the means and variances:
   drift);
 - `mutate`: adds `m·V_E`.
 
+The expected population size is `PopSize`, or under `Demography = :beverton_holt` the
+mean of [`noffspring`](@ref) for the expected survivors, `R n/(1 + (R − 1) n/K)`.
+
 Returns the columns of [`run!`](@ref), predicted (`nsurv` rounded). The genetic variance
 converges to [`gaussian_vg_exact`](@ref); under a continuous move the lag `θ − z̄`
 converges to [`steady_lag`](@ref). The population is extinct when fewer than two
@@ -190,7 +193,8 @@ function lift end
 
 Write the genomes and environmental deviations of the ACSet `pop` into `w`, inverting
 [`lift`](@ref), and recompute genotypes and phenotypes. `pop` must have `PopSize`
-individuals with `NoQTL × Ploidy` alleles each, taken in the order of their parts (locus
+individuals (at most `PopSize`, which becomes the population size `N`, when the population
+is density-regulated) with `NoQTL × Ploidy` alleles each, taken in the order of their parts (locus
 fastest, then chromosome), as `lift` adds them; otherwise an `ArgumentError`. Returns
 `w`. Requires Catlab.
 """

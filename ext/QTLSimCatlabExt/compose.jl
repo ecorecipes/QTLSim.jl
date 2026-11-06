@@ -101,7 +101,7 @@ end
 ⊗(w::World, d::Demes) = Stratified([deepcopy(w) for _ in 1:d.k])
 
 isextinct(s::Stratified) = all(w -> w.extinct, s.demes)
-totalpop(s::Stratified) = sum(w -> w.p.PopSize, s.demes; init=0)
+totalpop(s::Stratified) = sum(w -> w.N, s.demes; init=0)
 ndemes(s::Stratified) = length(s.demes)
 
 # a :meta operator acts on the whole metapopulation, a :deme operator on each deme
@@ -126,11 +126,11 @@ function migrate!(s::Stratified, rng; rate=0.01, demes=eachindex(s.demes))
     for (di, d) in enumerate(demes)
         w = s.demes[d]
         w.extinct && continue
-        for i in 1:w.p.PopSize
+        for i in 1:w.N
             rand(rng) < rate || continue
             dj = rand(rng, 1:k-1); dj >= di && (dj += 1)   # a different deme
             v = s.demes[demes[dj]]; v.extinct && continue
-            j = rand(rng, 1:v.p.PopSize)
+            j = rand(rng, 1:v.N)
             for c in axes(w.genome, 2), l in axes(w.genome, 1)
                 w.genome[l, c, i], v.genome[l, c, j] = v.genome[l, c, j], w.genome[l, c, i]
             end
@@ -213,5 +213,5 @@ function run_composed(s::Stratified, rng; cycle, record::Bool=true, images = Dic
     end
     (extinct = isextinct(s), extinct_gen, gen = rec.gen, deme = rec.deme, pheno_mean = rec.pheno_mean,
      pheno_var = rec.pheno_var, geno_var = rec.geno_var, nsurv = rec.nsurv, theta = rec.theta, omega = rec.omega,
-     mean_fitness = rec.mean_fitness, sel_diff = rec.sel_diff)
+     mean_fitness = rec.mean_fitness, sel_diff = rec.sel_diff, popsize = rec.popsize)
 end

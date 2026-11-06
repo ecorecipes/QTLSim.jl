@@ -207,6 +207,8 @@ function slim_script(f, p::Params; images = Dict{Symbol,Any}(), migration_rate::
     dom(f) == zk && codom(f) == zk ||
         throw(ArgumentError("a SLiM model iterates a life cycle on zygotes, Zygotes → Zygotes or " *
                             "Zygotes⊗…⊗Zygotes → Zygotes⊗…⊗Zygotes; got $(dom(f)) → $(codom(f))"))
+    p.Demography === :fixed ||
+        throw(ArgumentError("the lowering to Eidos covers QTSim's fixed population size (Demography = :fixed)"))
     p.Ploidy == 2 || throw(ArgumentError("the lowering to Eidos covers diploids (Ploidy = 2); got Ploidy = $(p.Ploidy)"))
     p.NoQTL == 1 || p.CrossoverModel === :qtsim ||
         throw(ArgumentError("with more than one locus the lowering to Eidos recombines as QTSim does " *

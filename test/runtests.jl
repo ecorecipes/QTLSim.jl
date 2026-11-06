@@ -392,6 +392,40 @@ end
     @test_throws ArgumentError run_moments(p; cycle = L.develop)
 end
 
+@testset "density-regulated demography (Beverton-Holt)" begin
+    p = Params(PopSize=500, NoQTL=10, Ploidy=2, NoGenerations=300, PhenotypeVar=0.02, Heritability=0.4,
+               MutationScalar=0.004, MutationRatePerGamete=1e-3, RecombPoissonMean=2.0)
+    o = simulate(p; seed = 1)
+    @test all(==(500), o.popsize)                                   # QTSim: refilled to PopSize
+    b = Params(p; Demography = :beverton_holt, GrowthRate = 2.0)
+    ob = simulate(b; seed = 1)
+    @test !ob.extinct && all(<=(500), ob.popsize) && 300 < mean(ob.popsize) < 500
+    # the population settles near K (R W̄ − 1)/((R − 1) W̄)
+    W = mean(ob.mean_fitness[100:end])
+    @test mean(ob.popsize[100:end]) ≈ 500 * (2W - 1) / W rtol = 0.05
+    # an optimum moving faster than it can follow: the population shrinks to extinction
+    fast = Params(b; GrowthRate = 1.5, MoveFitnessSDGen = 50, MoveFitnessSD = 0.05, MoveType = :continuous)
+    of = simulate(fast; seed = 2)
+    @test of.extinct && of.popsize[end] < of.popsize[50] / 2          # it shrinks before it dies
+    # the kernel and run_composed still agree, bit for bit
+    oc = run_composed(World(b), QTLSim.Random.MersenneTwister(1))
+    @test oc.popsize == ob.popsize && oc.geno_var == ob.geno_var
+    # the ACSet holds the current population
+    w = World(b); r = QTLSim.Random.MersenneTwister(3); init_env!(w, r)
+    for _ in 1:5; generation!(w, r); end
+    pop = lift(w)
+    @test Catlab.nparts(pop, :Individual) == w.N
+    w2 = World(b); lower!(pop, w2)
+    @test w2.N == w.N && w2.genome[:, :, 1:w.N] == w.genome[:, :, 1:w.N]
+    # the moments lowering predicts the equilibrium size, and extinction for a fast move
+    m = run_moments(Params(b; NoGenerations = 2000))
+    @test m.popsize[end] ≈ 500 * (2 * m.mean_fitness[end] - 1) / m.mean_fitness[end] atol = 1
+    @test run_moments(Params(fast; NoGenerations = 2000)).extinct
+    @test_throws ArgumentError slim_script(lifecycle().generation, b)
+    @test_throws ArgumentError World(Params(p; Demography = :logistic))
+    @test_throws ArgumentError World(Params(p; GrowthRate = 0.0))
+end
+
 @testset "Params(p; kw...) copies with overrides" begin
     p = Params(NoQTL = 10, Seed = 3, MoveType = :continuous)
     q = Params(p; NoGenerations = 5, MoveFitnessSD = 0.2)

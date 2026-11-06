@@ -107,6 +107,7 @@ on every change.
 7. [Loci and recombination](tutorials/07_loci_and_recombination.md)
 8. [Validation against QTSim](tutorials/08_validation_against_qtsim.md)
 9. [Replicating Pagel, Gardner and Meade (2025)](tutorials/09_replicating_pagel_2025.md)
+10. [Demography and evolutionary rescue](tutorials/10_demography_and_rescue.md)
 
 ## Licence
 

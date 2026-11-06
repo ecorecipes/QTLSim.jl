@@ -120,7 +120,7 @@ tables under `Repository/Results/`. Vignettes 06 and 08 use QTSim, and 06 also S
 
 ## Documentation and vignettes
 
-The [documentation](https://ecorecipes.github.io/QTLSim.jl/dev/) includes nine
+The [documentation](https://ecorecipes.github.io/QTLSim.jl/dev/) includes ten
 tutorials, rendered from the Quarto vignettes in [`vignettes/`](vignettes/), which go
 from a first simulation to a replication of the paper's results.
 It also has reference pages on the parameters (every field, with its QTSim option),

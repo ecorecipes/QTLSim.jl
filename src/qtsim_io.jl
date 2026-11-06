@@ -98,6 +98,7 @@ write_qtsim_options(path::AbstractString, p::Params; kw...) =
 function write_qtsim_options(io::IO, p::Params; seed = p.Seed)
     p.CrossoverModel === :qtsim || @warn "QTSim has only its own crossover model; CrossoverModel = :$(p.CrossoverModel) is not written"
     p.Drift && @warn "QTSim switches drift off; Drift = true is not written"
+    p.Demography === :fixed || @warn "QTSim has a fixed population size; Demography = :$(p.Demography) is not written"
     println(io, "Sample ", p.Sample)
     println(io, "PopSize ", p.PopSize)
     println(io, "NoQTL ", p.NoQTL)

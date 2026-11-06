@@ -13,7 +13,7 @@ narrow-sense heritability h² (a single scalar); `MutationScalar` is the mutatio
 m. The documentation's Parameters page lists every field with its meaning and its
 QTSim option. Values are checked when a `World` is made (see [`checkparams`](@ref)).
 
-Two fields have no QTSim counterpart, or behave differently:
+Some fields have no QTSim counterpart, or behave differently:
 
 - `CrossoverModel`: QTSim draws `Poisson(RecombPoissonMean)` crossover points per
   gamete but only the lowest one switches strands (its point index never advances), so
@@ -23,6 +23,12 @@ Two fields have no QTSim counterpart, or behave differently:
 - `Drift`: QTSim has the option but switches it off at the start of every run, so it
   never has an effect there. Here `Drift = true` makes every fitness 1: a neutral run,
   for comparison.
+- `Demography` and `GrowthRate`: QTSim always refills the population to `PopSize`, so it
+  dies only when fewer than two survive one generation (`:fixed`, the default). With
+  `:beverton_holt` the population is density-regulated, with carrying capacity
+  `PopSize` and `GrowthRate` offspring per survivor at low density (see
+  [`noffspring`](@ref)), so that it shrinks when mean fitness is low and can be rescued
+  by adaptation.
 """
 Base.@kwdef struct Params
     NoGenerations::Int          = 20000
@@ -44,6 +50,8 @@ Base.@kwdef struct Params
     MoveType::Symbol            = :phenotype  # :phenotype | :fitness | :continuous
     Drift::Bool                 = false
     StandardisePhenotype::Bool  = false
+    Demography::Symbol          = :fixed   # :fixed (QTSim: refill to PopSize) | :beverton_holt — Julia-only
+    GrowthRate::Float64         = 2.0      # R, offspring per survivor at low density (:beverton_holt)
     Seed::Union{Nothing,Int}    = nothing
 end
 
@@ -115,6 +123,8 @@ function checkparams(p::Params)
     p.MutationRatePerGamete > 0 || bad("MutationRatePerGamete must be positive, got $(p.MutationRatePerGamete)")
     p.RecombPoissonMean >= 0 || bad("RecombPoissonMean must be non-negative, got $(p.RecombPoissonMean)")
     p.CrossoverModel in (:qtsim, :all) || bad("CrossoverModel must be :qtsim or :all, got :$(p.CrossoverModel)")
+    p.Demography in (:fixed, :beverton_holt) || bad("Demography must be :fixed or :beverton_holt, got :$(p.Demography)")
+    p.GrowthRate > 0 || bad("GrowthRate must be positive, got $(p.GrowthRate)")
     p.MoveType in (:phenotype, :fitness, :continuous) ||
         bad("MoveType must be :phenotype, :fitness or :continuous, got :$(p.MoveType)")
     (p.MoveFitnessSDGen == -1 || p.MoveFitnessSDGen >= 0) ||

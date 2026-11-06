@@ -28,11 +28,13 @@ mutable struct Moments
     zoff::Float64
     VGoff::Float64
     extinct::Bool
+    N::Float64           # expected population size
+    Noff::Float64
 end
 
 Moments(p::Params; zbar = 0.0, VG = 0.0) =
     Moments(p, 0, zbar, VG, VG + QTLSim.envVar(p), 0.0, QTLSim.initFitSD(p), p.PopSize, 1.0, 0.0,
-            zbar, VG, zbar, VG, false)
+            zbar, VG, zbar, VG, false, p.PopSize, p.PopSize)
 
 isextinct(m::Moments) = m.extinct
 
@@ -58,7 +60,7 @@ function moments_select!(m::Moments)
         m.zs = m.zbar + m.VG * λ / s
         m.VGs = m.VG - m.VG^2 / s
     end
-    m.nsurv = p.PopSize * m.Wbar
+    m.nsurv = m.N * m.Wbar
     m.extinct = m.nsurv < (p.Ploidy == 2 ? 2 : 1)
     m
 end
@@ -66,13 +68,22 @@ end
 # Offspring inherit the survivors' mean and genetic variance: the Gaussian (continuum of
 # alleles) approximation, in which selection's reduction of the variance is genic and
 # lasting, and drift is ignored.
-moments_reproduce!(m::Moments) = (m.zoff = m.zs; m.VGoff = m.VGs; m)
+function moments_reproduce!(m::Moments)
+    p = m.p
+    m.zoff, m.VGoff = m.zs, m.VGs
+    R, K, n = p.GrowthRate, p.PopSize, m.nsurv
+    # the expected number of offspring (the mean of QTLSim.noffspring), at most K
+    m.Noff = p.Demography === :fixed ? K : min(K, R * n / (1 + (R - 1) * n / K))
+    m.Noff < 1 && (m.extinct = true)
+    m
+end
 
 function moments_record!(rec, m::Moments)
     (rec === nothing || m.gen % m.p.Sample != 0) && return m
     push!(rec.gen, m.gen); push!(rec.pheno_mean, m.zbar); push!(rec.pheno_var, m.VP)
     push!(rec.geno_var, m.VG); push!(rec.nsurv, round(Int, m.nsurv)); push!(rec.theta, m.θ)
     push!(rec.omega, m.ω); push!(rec.mean_fitness, m.Wbar); push!(rec.sel_diff, m.S)
+    push!(rec.popsize, round(Int, m.N))
     m
 end
 
@@ -84,7 +95,7 @@ moment_images(rec = nothing) = Dict{Symbol,Any}(
     :record => Operator(:record, (m, rng) -> moments_record!(rec, m)),
     :rescale => Operator(:rescale, (m, rng) -> (m.gen == m.p.ChangeFitnessGen && (m.ω = m.p.ChangeFitnessSD); m)),
     :mutate => Operator(:mutate, (m, rng) -> (m.VGoff += QTLSim.muteVar(m.p); m)),
-    :swap => Operator(:swap, (m, rng) -> (m.zbar = m.zoff; m.VG = m.VGoff; m.gen += 1; m)))
+    :swap => Operator(:swap, (m, rng) -> (m.zbar = m.zoff; m.VG = m.VGoff; m.N = m.Noff; m.gen += 1; m)))
 
 id(s::Stage{:moments}) = nfactors(s) == 1 ? Operator(:id, (m, rng) -> m) :
     throw(ArgumentError("the moments lowering covers one deme"))

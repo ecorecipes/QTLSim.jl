@@ -22,7 +22,10 @@ fitness), the survivor index set, the current selection optimum `θ` and width
 `ω`, and a double buffer (`sgenome`/`senv`) for the offspring generation.
 
 Genomes are stored as `(NoQTL, Ploidy, PopSize)`; the genotype of individual `i`
-is the sum over all its loci and chromosomes (QTSim `CaclGenotype`).
+is the sum over all its loci and chromosomes (QTSim `CaclGenotype`). The current
+population is individuals `1:N`, with `N == PopSize` always under QTSim's `Demography =
+:fixed`; under density regulation `N` varies, `PopSize` is the carrying capacity, and
+`Noff` is the number of offspring in the buffer.
 """
 mutable struct World
     p::Params
@@ -39,6 +42,8 @@ mutable struct World
     sgenome::Array{Float64,3}
     senv::Vector{Float64}
     extinct::Bool
+    N::Int
+    Noff::Int
 end
 
 function World(p::Params)
@@ -48,7 +53,7 @@ function World(p::Params)
           zeros(L, P, N), zeros(N),
           zeros(N), zeros(N), zeros(N),
           Int[], 0, 0.0, initFitSD(p),
-          zeros(L, P, N), zeros(N), false)
+          zeros(L, P, N), zeros(N), false, N, N)
 end
 
 # --- environment ---------------------------------------------------------
@@ -65,7 +70,7 @@ with [`generation!`](@ref) or the operators directly.
 """
 function init_env!(w::World, rng)
     esd = envsd(w.p)
-    @inbounds for i in 1:w.p.PopSize
+    @inbounds for i in 1:w.N
         w.env[i] = esd * randn(rng)
     end
     w
@@ -80,7 +85,7 @@ Genotype = Σ allele effects; phenotype = genotype + environment (QTSim
 `CaclPopPhenotype`). Deterministic given the environments drawn at birth.
 """
 function develop!(w::World)
-    @inbounds for i in 1:w.p.PopSize
+    @inbounds for i in 1:w.N
         w.genotype[i] = sum(@view w.genome[:, :, i])
         w.phenotype[i] = w.genotype[i] + w.env[i]
     end
@@ -91,7 +96,7 @@ end
 function moveoptimum!(w::World)
     p = w.p
     (p.MoveFitnessSDGen != -1 && w.gen >= p.MoveFitnessSDGen) || return w
-    m = mean(w.phenotype)
+    m = mean(view(w.phenotype, 1:w.N))
     if p.MoveType == :phenotype
         w.θ = m + sqrt(p.PhenotypeVar) * p.MoveFitnessSD
     elseif p.MoveType == :fitness
@@ -116,8 +121,8 @@ form `exp(−(z−θ)²/2ω²)` is what Lean `StabilizingSelection.lean` proves 
 function select!(w::World, rng)
     p = w.p
     moveoptimum!(w)
-    sd = p.StandardisePhenotype ? std(w.phenotype) : 1.0
-    @inbounds for i in 1:p.PopSize
+    sd = p.StandardisePhenotype ? std(view(w.phenotype, 1:w.N)) : 1.0
+    @inbounds for i in 1:w.N
         if p.Drift
             w.fitness[i] = 1.0
         else
@@ -126,7 +131,7 @@ function select!(w::World, rng)
         end
     end
     empty!(w.survivors)
-    @inbounds for i in 1:p.PopSize
+    @inbounds for i in 1:w.N
         rand(rng) < w.fitness[i] && push!(w.survivors, i)
     end
     w.nsurv = length(w.survivors)
@@ -180,27 +185,46 @@ function gamete!(dest, chrA, chrB, rng, recombMean, L, allpoints::Bool=false, pt
 end
 
 """
+    noffspring(w, rng)
+
+The number of offspring the survivors produce. Under QTSim's `Demography = :fixed` it is
+`PopSize`, whatever the number of survivors, and draws nothing. Under `:beverton_holt`,
+with `n` survivors, carrying capacity `K = PopSize` and `R = GrowthRate` offspring per
+survivor at low density, it is `Poisson(R n / (1 + (R − 1) n / K))`, at most `K`: the
+population stays near `K` while survivors are plentiful, and declines when `R·W̄ < 1`.
+"""
+function noffspring(w::World, rng)
+    p = w.p
+    p.Demography === :fixed && return p.PopSize
+    R, K, n = p.GrowthRate, p.PopSize, w.nsurv
+    min(K, rand(rng, Poisson(R * n / (1 + (R - 1) * n / K))))
+end
+
+"""
     reproduce!(w, rng)
 
 Fill the offspring buffer `sgenome`/`senv` by fitness-independent random mating
 among survivors (QTSim `NewIn`). Haploid: clone a random survivor. Diploid: two
 distinct survivors each contribute a (recombined) gamete. Offspring get a fresh
-environment.
+environment. How many offspring is [`noffspring`](@ref)'s: `PopSize`, as in QTSim, or
+under density regulation a number that depends on the survivors.
 """
 function reproduce!(w::World, rng)
     p = w.p
     L = p.NoQTL
     esd = envsd(p)
     allpts = p.CrossoverModel === :all
+    n = w.Noff = noffspring(w, rng)
+    n == 0 && (w.extinct = true; return w)
     pts = Int[]                      # crossover-point scratch, shared by every gamete
     if p.Ploidy == 1
-        @inbounds for j in 1:p.PopSize
+        @inbounds for j in 1:n
             par = w.survivors[rand(rng, 1:w.nsurv)]
             @views w.sgenome[:, 1, j] .= w.genome[:, 1, par]
             w.senv[j] = esd * randn(rng)
         end
     else
-        @inbounds for j in 1:p.PopSize
+        @inbounds for j in 1:n
             p1 = w.survivors[rand(rng, 1:w.nsurv)]
             p2 = w.survivors[rand(rng, 1:w.nsurv)]
             while p2 == p1
@@ -230,7 +254,7 @@ function mutate!(w::World, rng)
     rate = p.MutationRatePerGamete
     mutsd = sqrt(max((p.MutationScalar / (p.Ploidy * L * rate)) * envVar(p), 0.0))
     λ = L * rate
-    @inbounds for j in 1:p.PopSize
+    @inbounds for j in 1:w.Noff
         for c in 1:p.Ploidy
             no = rand(rng, Poisson(λ))
             for _ in 1:no
@@ -246,6 +270,7 @@ end
 function swapbuffers!(w::World)
     w.genome, w.sgenome = w.sgenome, w.genome
     w.env, w.senv = w.senv, w.env
+    w.N = w.Noff
     w
 end
 
@@ -269,10 +294,10 @@ with `demes`, a vector of `World`s, also the deme of each row.
 records(; demes = nothing) = demes === nothing ?
     (gen = Int[], pheno_mean = Float64[], pheno_var = Float64[], geno_var = Float64[],
      nsurv = Int[], theta = Float64[], omega = Float64[], mean_fitness = Float64[],
-     sel_diff = Float64[]) :
+     sel_diff = Float64[], popsize = Int[]) :
     (gen = Int[], deme = Int[], pheno_mean = Float64[], pheno_var = Float64[],
      geno_var = Float64[], nsurv = Int[], theta = Float64[], omega = Float64[],
-     mean_fitness = Float64[], sel_diff = Float64[],
+     mean_fitness = Float64[], sel_diff = Float64[], popsize = Int[],
      demeof = IdDict{World,Int}(w => i for (i, w) in enumerate(demes)))
 
 """
@@ -282,16 +307,19 @@ Append the parent generation's statistics to the columns `rec` (see [`records`](
 every `Sample` generations (QTSim `Output`); a no-op when `rec` is `nothing`. Variances
 are sample variances (n − 1), as GSL's. Besides QTSim's columns it records the mean
 fitness `W̄` (one minus the load) and the selection differential, the survivors' mean
-phenotype minus the mean phenotype.
+phenotype minus the mean phenotype, and the population size `N` (`PopSize`, unless the
+population is density-regulated).
 """
 function record!(rec, w::World)
     (rec === nothing || w.gen % w.p.Sample != 0) && return w
     push!(rec.gen, w.gen); haskey(rec, :deme) && push!(rec.deme, rec.demeof[w])
-    push!(rec.pheno_mean, mean(w.phenotype))
-    push!(rec.pheno_var, var(w.phenotype)); push!(rec.geno_var, var(w.genotype))
+    z = view(w.phenotype, 1:w.N)
+    push!(rec.pheno_mean, mean(z))
+    push!(rec.pheno_var, var(z)); push!(rec.geno_var, var(view(w.genotype, 1:w.N)))
     push!(rec.nsurv, w.nsurv); push!(rec.theta, w.θ); push!(rec.omega, w.ω)
-    push!(rec.mean_fitness, mean(w.fitness))
-    push!(rec.sel_diff, mean(w.phenotype[i] for i in w.survivors) - mean(w.phenotype))
+    push!(rec.mean_fitness, mean(view(w.fitness, 1:w.N)))
+    push!(rec.sel_diff, mean(w.phenotype[i] for i in w.survivors) - mean(z))
+    push!(rec.popsize, w.N)
     w
 end
 

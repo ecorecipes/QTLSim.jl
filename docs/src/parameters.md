@@ -29,6 +29,8 @@ files.
 | `MoveType` | `:phenotype`, `:fitness` or `:continuous` | `:phenotype` | `OptimumMoveType` | `MoveType` |
 | `Drift` | every fitness 1: a neutral run (QTSim has the option but switches it off) | `false` | (`Drift`, ignored) | `Drift` |
 | `StandardisePhenotype` | fitness of (z − θ)/sd(z) instead of z − θ | `false` | `StandardisePhenotype` | `StandardisePhenotype` |
+| `Demography` | `:fixed`: the survivors always produce `PopSize` offspring, as in QTSim; `:beverton_holt`: density-regulated (see below) | `:fixed` | — | — |
+| `GrowthRate` | R, offspring per survivor at low density, for `:beverton_holt` | 2.0 | — | — |
 | `Seed` | seed for [`simulate`](@ref); `nothing` draws one | `nothing` | `Seed` | `Seed` |
 
 ## What the parameters set, and what they don't
@@ -51,3 +53,16 @@ Fitness is QTSim's Gaussian `pdf(Normal(0, ω), z − θ) / (0.4/ω)`, which kee
 0.4 in place of 1/√(2π), so the fitness at the optimum is 0.997 rather than 1. Selection
 is viability selection: an individual survives if a uniform draw falls below its
 fitness. The population dies when fewer than two survive (one, if haploid).
+
+## Population size
+
+QTSim keeps the population at `PopSize`: however few survive selection, they produce
+`PopSize` offspring. A population there dies only when fewer than two survive a single
+generation, and it pays nothing for a low mean fitness until then.
+
+With `Demography = :beverton_holt` the survivors' offspring are density-regulated. With
+`n` survivors, carrying capacity `K = PopSize` and `R = GrowthRate`, the next generation
+has `Poisson(R n/(1 + (R − 1) n/K))` individuals, at most `K` ([`noffspring`](@ref)). A
+population with mean fitness `W̄` settles near `K (R W̄ − 1)/((R − 1) W̄)` and shrinks when
+`R W̄ < 1`, so it can decline and be rescued by adaptation, or die. The lowering to SLiM
+covers QTSim's fixed size only.

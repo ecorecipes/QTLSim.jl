@@ -25,6 +25,7 @@ develop!
 select!
 moveoptimum!
 reproduce!
+noffspring
 mutate!
 gamete!
 swapbuffers!

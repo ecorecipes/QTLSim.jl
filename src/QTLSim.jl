@@ -25,7 +25,7 @@ include("categorical.jl")
 
 # the simulation kernel
 export Params, World, simulate, run!, generation!, init_env!, checkparams,
-       develop!, select!, moveoptimum!, reproduce!, mutate!, gamete!, swapbuffers!,
+       develop!, select!, moveoptimum!, reproduce!, noffspring, mutate!, gamete!, swapbuffers!,
        geneticVar, envVar, analyticalFitSD, initFitSD, muteVar,
        read_qtsim_options, write_qtsim_options
 # analytical predictions

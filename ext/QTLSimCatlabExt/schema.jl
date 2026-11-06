@@ -32,7 +32,7 @@ population_schema() = SchPopulation
 function lift(w::World)
     p = w.p
     pop = Population()
-    N, L, P = p.PopSize, p.NoQTL, p.Ploidy
+    N, L, P = w.N, p.NoQTL, p.Ploidy
     add_parts!(pop, :Individual, N)
     @inbounds for i in 1:N
         set_subpart!(pop, i, :env, w.env[i])
@@ -82,8 +82,11 @@ end
 function lower!(pop::Population, w::World)
     p = w.p
     n = nparts(pop, :Individual)
-    n == p.PopSize || throw(ArgumentError("the population has $n individuals; the World holds PopSize = $(p.PopSize)"))
-    w.genome = genome_from_acset(pop, p.NoQTL, p.Ploidy)
-    w.env = copy(pop[:, :env])
+    (p.Demography === :fixed ? n == p.PopSize : 1 <= n <= p.PopSize) ||
+        throw(ArgumentError("the population has $n individuals; the World holds PopSize = $(p.PopSize)" *
+                            (p.Demography === :fixed ? "" : " at most")))
+    w.genome[:, :, 1:n] .= genome_from_acset(pop, p.NoQTL, p.Ploidy)
+    w.env[1:n] .= pop[:, :env]
+    w.N = n
     QTLSim.develop!(w)                 # keep genotype and phenotype in step with the new genomes
 end
