@@ -18,26 +18,7 @@ const QTSIM = something(find_qtsim(), "")
 
 # --- QTSim reference -----------------------------------------------------
 
-function write_opts(path, p::Params, seed::Int)
-    open(path, "w") do io
-        println(io, "Sample $(p.Sample)")
-        println(io, "PopSize $(p.PopSize)")
-        println(io, "NoQTL $(p.NoQTL)")
-        println(io, "Generations $(p.NoGenerations)")
-        println(io, "Ploidy $(p.Ploidy)")
-        p.MoveFitnessSDGen != -1 &&
-            println(io, "MoveFitnessSD $(p.MoveFitnessSDGen) $(p.MoveFitnessSD)")
-        p.ChangeFitnessGen != -1 &&
-            println(io, "ChangeFitnessSD $(p.ChangeFitnessGen) $(p.ChangeFitnessSD)")
-        println(io, "OptimumMoveType $(p.MoveType)")
-        println(io, "PhenotypeVar $(p.PhenotypeVar)")
-        println(io, "MutationScalar $(p.MutationScalar)")
-        println(io, "Heritability $(p.Heritability)")
-        println(io, "MutationRatePerGamete $(p.MutationRatePerGamete)")
-        p.InitFitnessSD >= 0 && println(io, "InitFitnessSD $(p.InitFitnessSD)")
-        println(io, "Seed $seed")
-    end
-end
+write_opts(path, p::Params, seed::Int) = write_qtsim_options(path, p; seed)
 
 # Parse QTSim stdout into the same shape as `simulate`'s output.
 function run_qtsim(p::Params, seed::Int)

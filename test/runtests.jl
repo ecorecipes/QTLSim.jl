@@ -96,7 +96,10 @@ end
 end
 
 @testset "haploid runs, and extinction when no one survives" begin
-    p = Params(PopSize=200, NoQTL=3, Ploidy=1, NoGenerations=50, PhenotypeVar=0.02, MutationScalar=0.004)
+    # a wide fitness function (all but certain survival) and frequent mutation, so the
+    # outcome does not depend on the random stream, which differs between Julia versions
+    p = Params(PopSize=200, NoQTL=3, Ploidy=1, NoGenerations=50, PhenotypeVar=0.02, MutationScalar=0.004,
+               MutationRatePerGamete=0.05, InitFitnessSD=1.0)
     o = simulate(p; seed=3)
     @test !o.extinct && length(o.gen) == 50 && o.geno_var[end] > 0
     # one survivor is enough for a haploid, not for a diploid
@@ -294,6 +297,99 @@ end
         m = mean(sum(gamete!(dest, a, b, rng, 3.0, L, allpoints)) for _ in 1:40000)
         @test isapprox(m, (sum(a) + sum(b)) / 2; atol=0.1)    # ≈5 SE over 40000 gametes
     end
+end
+
+@testset "QTSim options files: read_qtsim_options and write_qtsim_options" begin
+    text = """
+    # a comment line, as QTSim allows
+    Sample 2
+    popsize 300
+    NoQTL 10
+    Generations 1500
+    Ploidy 2
+    MoveFitnessSD 1000 0.05
+    ChangeFitnessSD 500 0.4
+    OptimumMoveType Continuous
+    PhenotypeVar 0.03
+    Heritability 0.4
+    MutationScalar 0.005
+    MutationRatePerGamete 0.0001
+    RecombinationPoissonMean 3
+    InitFitnessSD 2.5
+    StandardisePhenotype
+    Seed 1620324082
+    """
+    p = read_qtsim_options(IOBuffer(text))
+    @test (p.Sample, p.PopSize, p.NoQTL, p.NoGenerations, p.Ploidy) == (2, 300, 10, 1500, 2)
+    @test (p.MoveFitnessSDGen, p.MoveFitnessSD, p.ChangeFitnessGen, p.ChangeFitnessSD) == (1000, 0.05, 500, 0.4)
+    @test p.MoveType == :continuous && p.RecombPoissonMean == 3.0 && p.InitFitnessSD == 2.5
+    @test p.StandardisePhenotype && p.Seed == 1620324082
+    io = IOBuffer(); write_qtsim_options(io, p)
+    @test read_qtsim_options(IOBuffer(String(take!(io)))) == p          # a round trip
+    @test read_qtsim_options(IOBuffer("StandardisePhenotype\nStandardisePhenotype\n")).StandardisePhenotype == false
+    @test_throws ArgumentError read_qtsim_options(IOBuffer("NoSuchOption 3\n"))
+    @test_throws ArgumentError read_qtsim_options(IOBuffer("OptimumMoveType sideways\n"))
+    @test_throws ArgumentError read_qtsim_options(IOBuffer("MoveFitnessSD 1000\n"))
+    @test (@test_logs (:warn,) read_qtsim_options(IOBuffer("Drift\n"))).Drift == false
+    @test simulate(Params(p; NoGenerations = 5)).seed == p.Seed
+    # the input files of the paper, when they are next to the package
+    sims = joinpath(@__DIR__, "..", "..", "Repository", "Simulations")
+    if isdir(sims)
+        for d in filter(isdir, readdir(sims; join = true))
+            q = read_qtsim_options(first(readdir(d; join = true)))
+            @test checkparams(q) === q && q.NoGenerations == 250_000 && q.MoveType == :continuous
+        end
+    end
+end
+
+@testset "theory: equilibrium variance, lag, critical rate" begin
+    p = Params(PopSize=1000, NoQTL=100, Ploidy=2, PhenotypeVar=0.02, Heritability=0.4,
+               MutationScalar=0.004, MutationRatePerGamete=1e-4, InitFitnessSD=2.0)
+    @test selection_variance(p) ≈ 2.0^2 + 0.012
+    @test round(gaussian_vg(p), digits = 4) == 0.0139           # vignette 02's Gaussian prediction
+    V = gaussian_vg_exact(p)                                    # the fixed point of the Gaussian recursion
+    @test V^2 ≈ muteVar(p) * (selection_variance(p) + V) && V > gaussian_vg(p)
+    @test effective_size(1000, 1000) ≈ 4000 / (2 * 999 / 1000 + 2) && effective_size(1000, 100) < 1000
+    @test house_of_cards_vg(p) < house_of_cards_vg(Params(p; NoQTL = 1000)) < 4 * 1000 * 1e-4 * selection_variance(p)
+    @test steady_lag(0.01; VG = 0.5, Vs = 1.5) ≈ 0.04
+    @test steady_lag(Params(p; MoveFitnessSD = 0.01); VG = 0.5) ≈ 0.01 * (0.5 + selection_variance(p)) / 0.5
+    kc(VG) = critical_rate(; n = 500, VG, ω = 5.0, VE = 0.01, sd50 = 0.1, N = 1000)
+    @test 0 < kc(0.01) < kc(0.02) && isnan(critical_rate(; n = 2, VG = 0.01, ω = 5.0, VE = 0.01, sd50 = 0.1, N = 1000))
+    Γ = QTLSim.Distributions.Gamma(1.201, 0.004635)
+    m = [0.001, 0.004, 0.01]; r = [0.02, 0.03, 0.04]
+    a = mutation_adjusted(r, m, Γ)
+    @test mean(a ./ r) ≈ 1                                      # weights relative to their mean
+    @test a ./ r ≈ QTLSim.Distributions.pdf.(Γ, m) ./ mean(QTLSim.Distributions.pdf.(Γ, m))
+end
+
+@testset "the moments lowering: the theory as a third functor" begin
+    L = lifecycle(); g = L.generation
+    p = Params(PopSize=1000, NoQTL=1, Ploidy=2, NoGenerations=3000, PhenotypeVar=0.02, Heritability=0.5,
+               MutationScalar=0.02, MutationRatePerGamete=0.5, InitFitnessSD=0.3)
+    o = run_moments(p)
+    @test o.geno_var[end] ≈ gaussian_vg_exact(p) rtol = 1e-6         # converges to the fixed point
+    @test o.pheno_var[end] ≈ o.geno_var[end] + envVar(p)
+    @test all(0 .< o.mean_fitness .<= 1) && o.nsurv[1] == round(Int, 1000 * o.mean_fitness[1])
+    # a continuous move: the lag converges to Lande's steady lag
+    pc = Params(p; MoveFitnessSDGen = 1000, MoveFitnessSD = 0.001, MoveType = :continuous)
+    oc = run_moments(pc)
+    @test oc.theta[end] - oc.pheno_mean[end] ≈ steady_lag(pc; VG = oc.geno_var[end]) rtol = 1e-6
+    @test !oc.extinct
+    # faster than the population can follow: deterministic extinction after the move
+    ox = run_moments(Params(pc; MoveFitnessSD = 0.1))
+    @test ox.extinct && ox.extinct_gen > 1000
+    # drift: no selection, the variance grows by m·V_E per generation
+    od = run_moments(Params(p; Drift = true, NoGenerations = 10))
+    @test od.geno_var ≈ muteVar(p) .* (0:9)
+    # the lowering is a functor: the generation's image is the composite of the steps' images
+    steps = (:develop, :select, :reproduce, :record, :rescale, :mutate, :swap)
+    Ext_ = Ext
+    m1 = Ext_.Moments(p; VG = 0.003); m2 = deepcopy(m1)
+    lower(g, :moments)(m1, nothing)
+    foldl(Catlab.compose, (lower(getfield(L, s), :moments) for s in steps))(m2, nothing)
+    @test (m1.zbar, m1.VG, m1.θ, m1.gen) == (m2.zbar, m2.VG, m2.θ, m2.gen)
+    @test_throws ArgumentError lower(g ⊗ g ⋅ L.migrate(2), :moments)
+    @test_throws ArgumentError run_moments(p; cycle = L.develop)
 end
 
 @testset "Params(p; kw...) copies with overrides" begin

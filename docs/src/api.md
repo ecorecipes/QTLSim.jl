@@ -30,6 +30,13 @@ gamete!
 swapbuffers!
 ```
 
+## QTSim options files
+
+```@docs
+read_qtsim_options
+write_qtsim_options
+```
+
 ## Derived quantities
 
 ```@docs
@@ -38,6 +45,22 @@ envVar
 analyticalFitSD
 initFitSD
 muteVar
+```
+
+## Theory
+
+The predictions the simulations are compared with; `run_moments` iterates them for any
+life cycle.
+
+```@docs
+selection_variance
+gaussian_vg
+gaussian_vg_exact
+effective_size
+house_of_cards_vg
+steady_lag
+critical_rate
+mutation_adjusted
 ```
 
 ## The categorical layer
@@ -60,6 +83,7 @@ lifecycle
 lower
 slim_script
 run_composed
+run_moments
 ```
 
 ### Operators
@@ -101,4 +125,5 @@ QTLSimCatlabExt.Operator
 QTLSimCatlabExt.Demes
 QTLSimCatlabExt.Stratified
 QTLSimCatlabExt.Population
+QTLSimCatlabExt.Moments
 ```

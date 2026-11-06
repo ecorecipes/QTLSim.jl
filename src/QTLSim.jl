@@ -18,16 +18,22 @@ module QTLSim
 using Random, Statistics, Distributions
 
 include("params.jl")
+include("qtsim_io.jl")
 include("model.jl")
+include("theory.jl")
 include("categorical.jl")
 
 # the simulation kernel
 export Params, World, simulate, run!, generation!, init_env!, checkparams,
        develop!, select!, moveoptimum!, reproduce!, mutate!, gamete!, swapbuffers!,
-       geneticVar, envVar, analyticalFitSD, initFitSD, muteVar
+       geneticVar, envVar, analyticalFitSD, initFitSD, muteVar,
+       read_qtsim_options, write_qtsim_options
+# analytical predictions
+export selection_variance, gaussian_vg, gaussian_vg_exact, effective_size, house_of_cards_vg,
+       steady_lag, critical_rate, mutation_adjusted
 # the categorical layer (implemented by QTLSimCatlabExt; load Catlab to use it)
 export lifecycle, lower, slim_script, operators, operator, demes, run_composed, migrate!,
        migration, totalpop, ndemes, population_schema, lift, lower!, genotypes, phenotypes,
-       genome_from_acset
+       genome_from_acset, run_moments
 
 end # module

@@ -179,56 +179,13 @@ function run_gsl_locked(p::Params, seed::Integer; allpoints::Bool=false)
 end
 
 # --- QTSim option files ---------------------------------------------------
-"""
-    read_qtsim_opts(path) -> (Params, seed)
+# QTLSim reads and writes them (`read_qtsim_options`, `write_qtsim_options`); the
+# replica takes the seed separately.
 
-Parse a QTSim options file (one `Key value…` per line; `#` comments) into
-`Params` plus the seed.
-"""
-function read_qtsim_opts(path)
-    kw = Dict{Symbol,Any}(); seed = 0
-    for ln in eachline(path)
-        s = strip(first(split(ln, '#'))); isempty(s) && continue
-        f = split(s); k = lowercase(f[1])
-        if     k == "sample";                   kw[:Sample] = parse(Int, f[2])
-        elseif k == "popsize";                  kw[:PopSize] = parse(Int, f[2])
-        elseif k == "noqtl";                    kw[:NoQTL] = parse(Int, f[2])
-        elseif k == "generations";              kw[:NoGenerations] = parse(Int, f[2])
-        elseif k == "ploidy";                   kw[:Ploidy] = parse(Int, f[2])
-        elseif k == "movefitnesssd";            kw[:MoveFitnessSDGen] = parse(Int, f[2]); kw[:MoveFitnessSD] = parse(Float64, f[3])
-        elseif k == "changefitnesssd";          kw[:ChangeFitnessGen] = parse(Int, f[2]); kw[:ChangeFitnessSD] = parse(Float64, f[3])
-        elseif k == "phenotypevar";             kw[:PhenotypeVar] = parse(Float64, f[2])
-        elseif k == "mutationscalar";           kw[:MutationScalar] = parse(Float64, f[2])
-        elseif k == "heritability";             kw[:Heritability] = parse(Float64, f[2])
-        elseif k == "initfitnesssd";            kw[:InitFitnessSD] = parse(Float64, f[2])
-        elseif k == "optimummovetype";          kw[:MoveType] = Symbol(lowercase(f[2]))
-        elseif k == "mutationratepergamete";    kw[:MutationRatePerGamete] = parse(Float64, f[2])
-        elseif k == "recombinationpoissonmean"; kw[:RecombPoissonMean] = parse(Float64, f[2])
-        elseif k == "seed";                     seed = parse(Int, f[2])
-        else error("read_qtsim_opts: unsupported option '$(f[1])' in $path")
-        end
-    end
-    Params(; kw...), seed
-end
+"Parse a QTSim options file into `Params` (without its seed) and the seed."
+read_qtsim_opts(path) = (q = read_qtsim_options(path); (Params(q; Seed = nothing), something(q.Seed, 0)))
 
-function write_opts(path, q::Params, seed::Integer)
-    open(path, "w") do io
-        for (k, v) in (("Sample", q.Sample), ("PopSize", q.PopSize), ("NoQTL", q.NoQTL),
-                       ("Generations", q.NoGenerations), ("Ploidy", q.Ploidy))
-            println(io, "$k $v")
-        end
-        q.MoveFitnessSDGen != -1 && println(io, "MoveFitnessSD $(q.MoveFitnessSDGen) $(q.MoveFitnessSD)")
-        q.ChangeFitnessGen  != -1 && println(io, "ChangeFitnessSD $(q.ChangeFitnessGen) $(q.ChangeFitnessSD)")
-        println(io, "OptimumMoveType $(q.MoveType)")
-        println(io, "PhenotypeVar $(q.PhenotypeVar)")
-        println(io, "MutationScalar $(q.MutationScalar)")
-        println(io, "Heritability $(q.Heritability)")
-        println(io, "MutationRatePerGamete $(q.MutationRatePerGamete)")
-        println(io, "RecombinationPoissonMean $(q.RecombPoissonMean)")
-        q.InitFitnessSD >= 0 && println(io, "InitFitnessSD $(q.InitFitnessSD)")
-        println(io, "Seed $seed")
-    end
-end
+write_opts(path, q::Params, seed::Integer) = write_qtsim_options(path, q; seed)
 
 "Run the QTSim binary; parse generation, phenotype mean, genotype variance, survivors, θ."
 function run_qtsim_full(q::Params, seed::Integer)

@@ -268,9 +268,11 @@ with `demes`, a vector of `World`s, also the deme of each row.
 """
 records(; demes = nothing) = demes === nothing ?
     (gen = Int[], pheno_mean = Float64[], pheno_var = Float64[], geno_var = Float64[],
-     nsurv = Int[], theta = Float64[], omega = Float64[]) :
+     nsurv = Int[], theta = Float64[], omega = Float64[], mean_fitness = Float64[],
+     sel_diff = Float64[]) :
     (gen = Int[], deme = Int[], pheno_mean = Float64[], pheno_var = Float64[],
      geno_var = Float64[], nsurv = Int[], theta = Float64[], omega = Float64[],
+     mean_fitness = Float64[], sel_diff = Float64[],
      demeof = IdDict{World,Int}(w => i for (i, w) in enumerate(demes)))
 
 """
@@ -278,7 +280,9 @@ records(; demes = nothing) = demes === nothing ?
 
 Append the parent generation's statistics to the columns `rec` (see [`records`](@ref))
 every `Sample` generations (QTSim `Output`); a no-op when `rec` is `nothing`. Variances
-are sample variances (n − 1), as GSL's.
+are sample variances (n − 1), as GSL's. Besides QTSim's columns it records the mean
+fitness `W̄` (one minus the load) and the selection differential, the survivors' mean
+phenotype minus the mean phenotype.
 """
 function record!(rec, w::World)
     (rec === nothing || w.gen % w.p.Sample != 0) && return w
@@ -286,6 +290,8 @@ function record!(rec, w::World)
     push!(rec.pheno_mean, mean(w.phenotype))
     push!(rec.pheno_var, var(w.phenotype)); push!(rec.geno_var, var(w.genotype))
     push!(rec.nsurv, w.nsurv); push!(rec.theta, w.θ); push!(rec.omega, w.ω)
+    push!(rec.mean_fitness, mean(w.fitness))
+    push!(rec.sel_diff, mean(w.phenotype[i] for i in w.survivors) - mean(w.phenotype))
     w
 end
 
@@ -338,9 +344,15 @@ end
 """
     simulate(p::Params; seed=p.Seed)
 
-Run one simulation from `Params`, returning the recorded statistics (see `run!`).
+Run one simulation from `Params` with a `MersenneTwister(seed)`, returning the recorded
+statistics (see `run!`) and the `seed`. Without a seed one is drawn at random, and the
+returned `seed` reproduces the run.
+
+The same seed gives the same run with the same versions of Julia and Distributions.jl:
+the streams of `rand(rng, 1:n)` and of the Poisson sampler are not guaranteed across
+their releases.
 """
 function simulate(p::Params; seed=p.Seed)
-    rng = seed === nothing ? MersenneTwister() : MersenneTwister(seed)
-    run!(World(p), rng)
+    seed === nothing && (seed = Int(rand(RandomDevice(), UInt32)))
+    merge(run!(World(p), MersenneTwister(seed)), (; seed))
 end

@@ -22,8 +22,10 @@ function lifecycle end
     lower(f, target; images = Dict(), record = nothing, migration_rate = 0.0)
 
 The image of the life-cycle morphism `f` under the lowering functor to `target`:
-`:kernel` gives an operator on a [`World`](@ref), and `:eidos` a fragment of Eidos code
-for SLiM, in which `@POP@` stands for the deme's subpopulation. A morphism between
+`:kernel` gives an operator on a [`World`](@ref), `:eidos` a fragment of Eidos code for
+SLiM, in which `@POP@` stands for the deme's subpopulation, and `:moments` an update of
+the moments of a Gaussian population, the predictions of theory (see
+[`run_moments`](@ref); one deme). A morphism between
 products of stages, one per deme, has an image on several demes: an operator on demes of
 a metapopulation (`DemeOp`), or Eidos for several subpopulations (`EidosMeta`). A functor
 out of a free category is fixed by the images of the generators, so the image of a
@@ -104,6 +106,29 @@ seed, it is the same run as `run!`, bit for bit. For a metapopulation `s = p ⊗
 `extinct_gen` per deme. Requires Catlab.
 """
 function run_composed end
+
+"""
+    run_moments(p::Params; cycle = lifecycle().generation, images = Dict(), zbar = 0.0, VG = 0.0)
+
+The life cycle `cycle` lowered to the moments of a Gaussian population (`lower(cycle, :moments)`)
+and iterated for `NoGenerations`: the deterministic, infinite-population predictions of
+quantitative-genetic theory for the same morphism the kernel and SLiM simulate. Each
+step's image updates the means and variances:
+- `develop`: `V_P = V_G + V_E`;
+- `select`: moves the optimum as `MoveType` says, then applies Gaussian selection of
+  width ω to `z ~ N(z̄, V_P)`. This gives the mean fitness, the expected survivors
+  `N·W̄`, the selection differential, and the survivors' genotypic mean and variance
+  `z̄ + V_G λ/s` and `V_G − V_G²/s`, with `λ = θ − z̄` and `s = ω² + V_P`;
+- `reproduce`: passes those to the offspring (the continuum-of-alleles approximation, no
+  drift);
+- `mutate`: adds `m·V_E`.
+
+Returns the columns of [`run!`](@ref), predicted (`nsurv` rounded). The genetic variance
+converges to [`gaussian_vg_exact`](@ref); under a continuous move the lag `θ − z̄`
+converges to [`steady_lag`](@ref). The population is extinct when fewer than two
+individuals (one, if haploid) are expected to survive. One deme only. Requires Catlab.
+"""
+function run_moments end
 
 """
     migrate!(s, rng; rate = 0.01)
@@ -197,7 +222,7 @@ function genome_from_acset end
 
 const CATEGORICAL = (lifecycle, lower, slim_script, operators, operator, demes,
                      run_composed, migrate!, migration, totalpop, ndemes, population_schema,
-                     lift, lower!, genotypes, phenotypes, genome_from_acset)
+                     lift, lower!, genotypes, phenotypes, genome_from_acset, run_moments)
 
 function __init__()
     Base.Experimental.register_error_hint(MethodError) do io, exc, argtypes, kwargs

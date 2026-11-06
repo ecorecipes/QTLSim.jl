@@ -212,5 +212,6 @@ function run_composed(s::Stratified, rng; cycle, record::Bool=true, images = Dic
         d = d[step.perm]
     end
     (extinct = isextinct(s), extinct_gen, gen = rec.gen, deme = rec.deme, pheno_mean = rec.pheno_mean,
-     pheno_var = rec.pheno_var, geno_var = rec.geno_var, nsurv = rec.nsurv, theta = rec.theta, omega = rec.omega)
+     pheno_var = rec.pheno_var, geno_var = rec.geno_var, nsurv = rec.nsurv, theta = rec.theta, omega = rec.omega,
+     mean_fitness = rec.mean_fitness, sel_diff = rec.sel_diff)
 end
