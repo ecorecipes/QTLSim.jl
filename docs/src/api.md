@@ -95,6 +95,9 @@ operator
 demes
 migrate!
 migration
+island_migration
+stepping_stone
+QTLSim.check_migration
 totalpop
 ndemes
 ```

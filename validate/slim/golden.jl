@@ -16,11 +16,13 @@ function golden_models()
     D = Params(PopSize = 1000, NoQTL = 100, Ploidy = 2, NoGenerations = 2000, PhenotypeVar = 0.03,
                Heritability = 0.4, MutationScalar = 0.005, MutationRatePerGamete = 0.0001,
                RecombPoissonMean = 3.0, InitFitnessSD = 4.0)
-    # three demes coupled by migration
+    # three demes coupled by migration: the island model, and a line of stepping stones
     M = Params(PopSize = 500, NoQTL = 1, Ploidy = 2, NoGenerations = 1000, PhenotypeVar = 0.02,
                Heritability = 0.5, MutationScalar = 0.02, MutationRatePerGamete = 0.5, InitFitnessSD = 0.3)
     ["qtsim_generated.slim" => slim_script(g, B),
      "qtsim_generated_loci.slim" => slim_script(g, D),
      "qtsim_generated_demes.slim" => slim_script(Catlab.compose(Catlab.otimes(g, g, g), L.migrate(3)), M;
-                                                 migration_rate = 0.01)]
+                                                 migration_rate = 0.01),
+     "qtsim_generated_stepping.slim" => slim_script(Catlab.compose(Catlab.otimes(g, g, g), L.migrate(3)), M;
+                                                    migration_rate = stepping_stone(3, 0.02; circular = false))]
 end

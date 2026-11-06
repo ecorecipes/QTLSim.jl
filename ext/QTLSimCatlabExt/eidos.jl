@@ -196,12 +196,38 @@ end
 
 eidos_migrate(k) = EidosMeta(k, collect(1:k), migration_code, :migrate)
 
+function migration_graph_code(pops)
+    k = length(pops)
+    """
+    // migrate: each offspring of deme d swaps places, with probability MIG[d, e], with a
+    // random offspring of deme e (MIG row by row)   [Zygotes^$k → Zygotes^$k]
+    kids = c($(join(("kids_" * p for p in pops), ", ")));
+    sizes = c($(join(("size(kids_" * p * ")" for p in pops), ", ")));
+    starts = c(0, cumSum(sizes))[0:$(k - 1)];
+    for (d in 0:$(k - 1)) {
+        cum = cumSum(MIG[(d * $k):(d * $k + $(k - 1))]);
+        u = runif(sizes[d]);
+        for (i in which(u < cum[$(k - 1)])) {
+            e = min(which(cum > u[i]));
+            if (sizes[e] == 0) next;
+            a = kids[starts[d] + i]; b = kids[starts[e] + rdunif(1, 0, sizes[e] - 1)];
+            t0 = a.getValue("a0"); t1 = a.getValue("a1");
+            a.setValue("a0", b.getValue("a0")); a.setValue("a1", b.getValue("a1"));
+            b.setValue("a0", t0); b.setValue("a1", t1);
+        }
+    }
+"""
+end
+
+eidos_migrate(k, graph::Bool) = graph ? EidosMeta(k, collect(1:k), migration_graph_code, :migrate) : eidos_migrate(k)
+
 eidos_literal(x::Bool) = x ? "T" : "F"
 eidos_literal(x::Integer) = string(x)
 eidos_literal(x::AbstractFloat) = repr(Float64(x))
 eidos_literal(x::Symbol) = string('"', x, '"')
+eidos_literal(x::AbstractVector) = "c(" * join(eidos_literal.(x), ", ") * ")"
 
-function slim_script(f, p::Params; images = Dict{Symbol,Any}(), migration_rate::Real = 0.0)
+function slim_script(f, p::Params; images = Dict{Symbol,Any}(), migration_rate::Union{Real,AbstractMatrix} = 0.0)
     k = nfactors(dom(f))
     zk = zygotes_word(max(k, 1))
     dom(f) == zk && codom(f) == zk ||
@@ -213,7 +239,8 @@ function slim_script(f, p::Params; images = Dict{Symbol,Any}(), migration_rate::
     p.NoQTL == 1 || p.CrossoverModel === :qtsim ||
         throw(ArgumentError("with more than one locus the lowering to Eidos recombines as QTSim does " *
                             "(CrossoverModel = :qtsim); got :$(p.CrossoverModel)"))
-    img = lower(f, :eidos; images)
+    migration_rate isa AbstractMatrix && QTLSim.check_migration(migration_rate, k)
+    img = lower(f, :eidos; images, migration_rate)
     pops = ["p$i" for i in 1:k]
     if img isa EidosCode
         body = deme_block(img.code, "p1")
@@ -230,7 +257,8 @@ function slim_script(f, p::Params; images = Dict{Symbol,Any}(), migration_rate::
                 "moveGen" => p.MoveFitnessSDGen, "moveSD" => p.MoveFitnessSD, "moveType" => p.MoveType,
                 "changeGen" => p.ChangeFitnessGen, "changeSD" => p.ChangeFitnessSD,
                 "initOmega" => p.InitFitnessSD, "drift" => p.Drift, "standardise" => p.StandardisePhenotype,
-                "migRate" => Float64(migration_rate))
+                (migration_rate isa AbstractMatrix ? "MIG" => vec(permutedims(Float64.(migration_rate))) :
+                 "migRate" => Float64(migration_rate)))
     w = maximum(length ∘ first, defaults)
     io = IOBuffer()
     print(io, """

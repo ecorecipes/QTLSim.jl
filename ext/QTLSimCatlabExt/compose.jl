@@ -99,6 +99,12 @@ end
 
 ⊗(p::Params, d::Demes) = Stratified([World(p) for _ in 1:d.k])
 ⊗(w::World, d::Demes) = Stratified([deepcopy(w) for _ in 1:d.k])
+function ⊗(ps::AbstractVector{Params}, d::Demes)
+    length(ps) == d.k || throw(ArgumentError("$(length(ps)) parameter sets for $(d.k) demes"))
+    all(q -> q.NoGenerations == ps[1].NoGenerations, ps) ||
+        throw(ArgumentError("the demes of a metapopulation run for the same number of generations"))
+    Stratified([World(q) for q in ps])
+end
 
 isextinct(s::Stratified) = all(w -> w.extinct, s.demes)
 totalpop(s::Stratified) = sum(w -> w.N, s.demes; init=0)
@@ -119,9 +125,10 @@ end
 function migrate!(s::Stratified, rng; rate=0.01, demes=eachindex(s.demes))
     k = length(demes)
     k < 2 && return (count=0,)
-    shape = size(s.demes[first(demes)].genome)
-    all(d -> size(s.demes[d].genome) == shape, demes) ||
-        throw(ArgumentError("migration needs demes of one shape (loci, ploidy, size); got $([size(s.demes[d].genome) for d in demes])"))
+    shape = size(s.demes[first(demes)].genome)[1:2]
+    all(d -> size(s.demes[d].genome)[1:2] == shape, demes) ||
+        throw(ArgumentError("migration needs demes with the same loci and ploidy; got $([size(s.demes[d].genome)[1:2] for d in demes])"))
+    rate isa AbstractMatrix && return migrate_graph!(s, rng, QTLSim.check_migration(rate, k), demes)
     count = 0
     for (di, d) in enumerate(demes)
         w = s.demes[d]
@@ -130,12 +137,36 @@ function migrate!(s::Stratified, rng; rate=0.01, demes=eachindex(s.demes))
             rand(rng) < rate || continue
             dj = rand(rng, 1:k-1); dj >= di && (dj += 1)   # a different deme
             v = s.demes[demes[dj]]; v.extinct && continue
-            j = rand(rng, 1:v.N)
-            for c in axes(w.genome, 2), l in axes(w.genome, 1)
-                w.genome[l, c, i], v.genome[l, c, j] = v.genome[l, c, j], w.genome[l, c, i]
-            end
-            w.env[i], v.env[j] = v.env[j], w.env[i]
-            count += 1
+            count += swap_individuals!(w, i, v, rand(rng, 1:v.N))
+        end
+    end
+    (count=count,)
+end
+
+function swap_individuals!(w::World, i, v::World, j)
+    for c in axes(w.genome, 2), l in axes(w.genome, 1)
+        w.genome[l, c, i], v.genome[l, c, j] = v.genome[l, c, j], w.genome[l, c, i]
+    end
+    w.env[i], v.env[j] = v.env[j], w.env[i]
+    1
+end
+
+# Migration along a graph: an individual of the deme in position `a` starts a swap with
+# probability `M[a, b]` with a random individual of the deme in position `b`. One uniform
+# draw decides both whether and where: `u < Σ_b M[a, b]`, and `b` is where the cumulative
+# row first exceeds `u`.
+function migrate_graph!(s::Stratified, rng, M::AbstractMatrix, demes)
+    count = 0
+    for (a, d) in enumerate(demes)
+        w = s.demes[d]
+        w.extinct && continue
+        cum = cumsum(M[a, :])
+        for i in 1:w.N
+            u = rand(rng)
+            u < cum[end] || continue
+            b = findfirst(>(u), cum)
+            v = s.demes[demes[b]]; v.extinct && continue
+            count += swap_individuals!(w, i, v, rand(rng, 1:v.N))
         end
     end
     (count=count,)
@@ -190,7 +221,7 @@ otimes(a::AnyOp, b::AnyOp, c::AnyOp, rest::AnyOp...) = foldl(otimes, (a, b, c, r
 migrate_op(k, rate) = DemeOp(k, collect(1:k), (s, d, rng) -> (migrate!(s, rng; rate, demes = d); s))
 
 function run_composed(s::Stratified, rng; cycle, record::Bool=true, images = Dict{Symbol,Any}(),
-                      migration_rate::Real = 0.0)
+                      migration_rate::Union{Real,AbstractMatrix} = 0.0)
     k = ndemes(s)
     zk = zygotes_word(k)
     dom(cycle) == zk && codom(cycle) == zk ||

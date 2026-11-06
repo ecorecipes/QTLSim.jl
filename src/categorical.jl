@@ -32,7 +32,9 @@ out of a free category is fixed by the images of the generators, so the image of
 composite or a product is the composite or product of the images. `record` steps in the
 kernel append the parent generation's statistics to `record`, a named tuple of vectors
 like the one [`run!`](@ref) returns, or discard them when it is `nothing`; `migrate` steps
-exchange individuals among demes at `migration_rate` (in Eidos, the constant `migRate`).
+exchange individuals among demes at `migration_rate` (in Eidos, the constant `migRate`), or
+along a migration graph when it is a matrix ([`island_migration`](@ref),
+[`stepping_stone`](@ref); in Eidos, the constant `MIG`).
 Steps that are not in [`lifecycle`](@ref), made with Catlab's `Hom(name, dom, codom)`,
 need an image in `images`, keyed by name: an operator or a function `(state, rng) -> state`
 for `:kernel`, a string of Eidos for `:eidos`. Eidos steps keep a deme's state on its
@@ -87,8 +89,9 @@ function operator end
     demes(k)
 
 Stratification into `k` demes: `p ⊗ demes(k)` with `p::Params` gives `k` independent
-populations, and `w ⊗ demes(k)` with `w::World` gives `k` copies of `w`. Requires
-Catlab.
+populations, `[p1, …, pk] ⊗ demes(k)` gives demes with their own parameters (for example
+the width of selection, or the size; the same `NoGenerations`), and `w ⊗ demes(k)` with
+`w::World` gives `k` copies of `w`. Requires Catlab.
 """
 function demes end
 
@@ -145,6 +148,13 @@ exchanges. Requires Catlab.
 deme's swap picks it, so with equal deme sizes about `2·rate` of each deme is replaced
 per generation (each exchange moves two individuals). Use `m/2` for an island-model
 rate m. The SLiM lowering (`migRate`) does the same.
+
+When `rate` is a matrix `M` ([`island_migration`](@ref), [`stepping_stone`](@ref)), an
+individual of the deme in position `a` starts an exchange with probability `M[a, b]` with
+a random individual of the deme in position `b`: migration along a graph. One uniform
+draw decides whether and where, so a matrix draws differently from a number, even
+`island_migration(k, r)`, which is the same model as `rate = r`. Demes must have the same
+loci and ploidy, and may differ in size.
 """
 function migrate! end
 

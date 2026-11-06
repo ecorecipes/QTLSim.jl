@@ -37,7 +37,8 @@ for (name, script) in golden_models()
 end
 
 # the models with many loci and with demes run in SLiM and print their tables
-for (name, rows) in (("qtsim_generated_loci.slim", 50), ("qtsim_generated_demes.slim", 150))
+for (name, rows) in (("qtsim_generated_loci.slim", 50), ("qtsim_generated_demes.slim", 150),
+                     ("qtsim_generated_stepping.slim", 150))
     out = read(`$SLIM -s 1 -d NGEN=50 $(joinpath(@__DIR__, name))`, String)
     n = count(l -> occursin(r"^\d+\t", l), split(out, '\n'))
     n == rows || (println("$name printed $n table rows, expected $rows"); exit(1))

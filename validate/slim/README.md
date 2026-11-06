@@ -15,7 +15,11 @@ port of QTSim written by hand, run for run, and against QTSim itself, in distrib
 
 - `qtsim_generated.slim` — the SLiM model generated from QTSim's life cycle by
   `slim_script`. Do not edit it: regenerate it with `check_generated.jl --write`. The package
-  tests check that `slim_script` still writes it unchanged.
+  tests check that `slim_script` still writes it unchanged, and the same for three more
+  generated models (`golden.jl`): `qtsim_generated_loci.slim` (100 loci),
+  `qtsim_generated_demes.slim` (three demes, island migration) and
+  `qtsim_generated_stepping.slim` (three demes on a line of stepping stones, a migration
+  matrix), which `check_generated.jl` also runs in SLiM.
 - `qtsim.slim` — a nonWF SLiM port of QTSim written by hand (single locus, one deme). It is a
   **frozen reference**: an independent statement of QTSim in Eidos, written without the
   life-cycle machinery, that the generated model must reproduce. New features go through
@@ -107,6 +111,12 @@ generation that died, which QTSim does not.
 
 Vignette 06 repeats D and E with 50 runs per program, adding the kernel; there the SLiM
 model's p-values against QTSim are 0.18 to 0.71, survival in D included.
+
+**Migration graphs (2026-11-06):** the kernel and the generated SLiM model on three neutral
+demes in a line (`stepping_stone(3, 0.05; circular = false)`, 200 individuals each, 300
+generations, 300 runs each): the squared difference of the two end demes' means is 1.82
+(kernel) and 1.73 (SLiM) times that of neighbours, against about 1 for the island model in
+both; every KS p between the backends is 0.29 or more.
 
 **Is the agreement real? (2026-11-05)** Low p-values like the 0.035 prompted a fuller
 investigation:

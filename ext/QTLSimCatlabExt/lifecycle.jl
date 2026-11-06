@@ -89,7 +89,8 @@ asimage(::Val{:eidos}, name, x::AbstractString) = EidosCode(name, x)
 asimage(::Val{:moments}, name, x::Operator) = x
 asimage(::Val{:moments}, name, x) = Operator(name, x)               # a function (moments, rng) -> moments
 
-function lower(f, target::Symbol; images = Dict{Symbol,Any}(), record = nothing, migration_rate::Real = 0.0)
+function lower(f, target::Symbol; images = Dict{Symbol,Any}(), record = nothing,
+               migration_rate::Union{Real,AbstractMatrix} = 0.0)
     table = target === :kernel ? kernel_images(record) :
             target === :eidos ? eidos_images() :
             target === :moments ? moment_images(record) :
@@ -105,7 +106,7 @@ function lower(f, target::Symbol; images = Dict{Symbol,Any}(), record = nothing,
         elseif name === :migrate
             k = nfactors(dom(g))
             gens[g] = target === :kernel ? migrate_op(k, migration_rate) :
-                      target === :eidos ? eidos_migrate(k) :
+                      target === :eidos ? eidos_migrate(k, migration_rate isa AbstractMatrix) :
                       throw(ArgumentError("the moments lowering covers one deme, so it has no image of migrate"))
         else
             throw(ArgumentError("no $target image for the step $name; give one with `images = Dict(:$name => …)`"))

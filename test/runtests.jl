@@ -426,6 +426,41 @@ end
     @test_throws ArgumentError World(Params(p; GrowthRate = 0.0))
 end
 
+@testset "migration graphs and per-deme parameters" begin
+    @test island_migration(3, 0.1) == [0 0.05 0.05; 0.05 0 0.05; 0.05 0.05 0]
+    @test stepping_stone(4, 0.2; circular = false) == [0 0.1 0 0; 0.1 0 0.1 0; 0 0.1 0 0.1; 0 0 0.1 0]
+    @test stepping_stone(4, 0.2) == [0 0.1 0 0.1; 0.1 0 0.1 0; 0 0.1 0 0.1; 0.1 0 0.1 0]
+    @test_throws ArgumentError QTLSim.check_migration([0.0 1.5; 0.0 0.0], 2)
+    @test_throws ArgumentError QTLSim.check_migration(ones(2, 2), 2)
+    @test_throws ArgumentError QTLSim.check_migration(zeros(3, 3), 2)
+    # exchanges only along the edges of the graph: here deme 1 with deme 2, and nothing else
+    p = Params(PopSize=200, NoQTL=1, Ploidy=2, NoGenerations=30, PhenotypeVar=0.02, Heritability=0.5,
+               MutationScalar=0.02, MutationRatePerGamete=0.5, InitFitnessSD=0.3)
+    s = p ⊗ demes(3)
+    for (d, w) in enumerate(s.demes); w.genome .= d; end
+    M = zeros(3, 3); M[1, 2] = 0.5
+    c = migrate!(s, MersenneTwister(1); rate = M)
+    @test c.count > 0 && totalpop(s) == 600
+    @test all(==(3.0), s.demes[3].genome) && 2.0 in s.demes[1].genome && 3.0 ∉ s.demes[1].genome
+    @test count(==(2.0), s.demes[1].genome) == count(==(1.0), s.demes[2].genome) > 0   # exchanges, not moves
+    # a run along a graph, and demes with their own parameters
+    L = lifecycle(); g = L.generation
+    cycle = g ⊗ g ⊗ g ⋅ L.migrate(3)
+    o = run_composed(p ⊗ demes(3), MersenneTwister(2); cycle, migration_rate = stepping_stone(3, 0.1))
+    @test length(o.gen) == 90 && !o.extinct
+    s2 = [p, Params(p; InitFitnessSD = 0.2), Params(p; PopSize = 100)] ⊗ demes(3)
+    @test [w.ω for w in s2.demes] == [0.3, 0.2, 0.3] && totalpop(s2) == 500
+    o2 = run_composed(s2, MersenneTwister(3); cycle, migration_rate = island_migration(3, 0.05))
+    @test count(==(3), o2.deme) == 30 && totalpop(s2) == 500
+    @test_throws ArgumentError [p, p] ⊗ demes(3)
+    @test_throws ArgumentError [p, Params(p; NoGenerations = 10)] ⊗ demes(2)
+    # Eidos: the matrix is a constant, read row by row
+    sc = slim_script(cycle, p; migration_rate = stepping_stone(3, 0.02; circular = false))
+    @test occursin("defineConstant(\"MIG\", c(0.0, 0.01, 0.0, 0.01, 0.0, 0.01, 0.0, 0.01, 0.0))", sc)
+    @test !occursin("migRate", sc)
+    @test_throws ArgumentError slim_script(cycle, p; migration_rate = ones(3, 3))
+end
+
 @testset "Params(p; kw...) copies with overrides" begin
     p = Params(NoQTL = 10, Seed = 3, MoveType = :continuous)
     q = Params(p; NoGenerations = 5, MoveFitnessSD = 0.2)
@@ -560,8 +595,8 @@ end
     # a World ⊗ demes copies the World into independent demes
     w = World(p); s = w ⊗ demes(2)
     @test ndemes(s) == 2 && s.demes[1] !== s.demes[2] && s.demes[1].genome == w.genome
-    # migration needs demes of one shape, and checks before moving anyone
-    s = Ext.Stratified([World(p), World(Params(p; PopSize = 50))])
+    # migration needs demes with the same loci and ploidy, and checks before moving anyone
+    s = Ext.Stratified([World(p), World(Params(p; NoQTL = 2))])
     g1 = copy(s.demes[1].genome)
     @test_throws ArgumentError migrate!(s, MersenneTwister(1); rate = 0.5)
     @test s.demes[1].genome == g1

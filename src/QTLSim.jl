@@ -21,6 +21,7 @@ include("params.jl")
 include("qtsim_io.jl")
 include("model.jl")
 include("theory.jl")
+include("migration.jl")
 include("categorical.jl")
 
 # the simulation kernel
@@ -31,6 +32,8 @@ export Params, World, simulate, run!, generation!, init_env!, checkparams,
 # analytical predictions
 export selection_variance, gaussian_vg, gaussian_vg_exact, effective_size, house_of_cards_vg,
        steady_lag, critical_rate, mutation_adjusted
+# migration graphs among demes
+export island_migration, stepping_stone
 # the categorical layer (implemented by QTLSimCatlabExt; load Catlab to use it)
 export lifecycle, lower, slim_script, operators, operator, demes, run_composed, migrate!,
        migration, totalpop, ndemes, population_schema, lift, lower!, genotypes, phenotypes,
