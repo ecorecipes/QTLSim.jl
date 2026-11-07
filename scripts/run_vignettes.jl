@@ -11,12 +11,12 @@
 # `#| eval: false` are skipped.
 #
 # The default set is the vignettes that need neither the paper's data nor QTSim nor SLiM.
-# 06 needs SLiM and QTSim, 08 QTSim (it skips those sections without it, but its last
+# 07 needs SLiM and QTSim, 08 QTSim (it skips those sections without it, but its last
 # section reads the paper's data), and 09 and 11 the paper's results tables.
 
 const ROOT = normpath(joinpath(@__DIR__, ".."))
 const VIG = joinpath(ROOT, "vignettes")
-const DEFAULT = ["01", "02", "03", "04", "05", "07", "10"]
+const DEFAULT = ["01", "02", "03", "04", "05", "06", "10"]
 
 """
     chunks(qmd) -> Vector{(line, options, code)}

@@ -81,10 +81,8 @@ develop!(w)                    # genotype = sum of effects; phenotype = genotype
 pop = lift(w)
 ```
 
-```@raw html
 <div class="c-set">
-```
-QTLSimCatlabExt.PopulationACSet{Float64, Float64} {Individual:3, Allele:12, Effect:0, Trait:0}
+<span class="c-set-summary">QTLSimCatlabExt.PopulationACSet{Float64, Float64} {Individual:3, Allele:12, Effect:0, Trait:0}</span>
 
 | Individual |    env | genotype | phenotype | fitness |
 |-----------:|-------:|---------:|----------:|--------:|
@@ -107,9 +105,7 @@ QTLSimCatlabExt.PopulationACSet{Float64, Float64} {Individual:3, Allele:12, Effe
 |     11 |     3 | -0.058 |
 |     12 |     3 |  0.047 |
 
-```@raw html
 </div>
-```
 
 Each individual owns `Ploidy × NoQTL` = 4 alleles. Its genotype is the
 sum of the effects of the alleles in the preimage of `owner`, which
@@ -233,29 +229,21 @@ step(meta, rng)
     (demes = 4, total = 12, generation_of_each_deme = [1, 1, 1, 1])
 
 [Recomposing the
-model](05_recomposing_the_model.md) uses
+model](../06_recomposing_the_model/06_recomposing_the_model.qmd) uses
 these pieces to change the model’s biology without touching the kernel.
 The operators are themselves the kernel’s image of a life cycle written
 once as syntax: [One life cycle, two
-backends](06_one_life_cycle_two_backends.md)
+backends](../07_one_life_cycle_two_backends/07_one_life_cycle_two_backends.qmd)
 derives them, and a SLiM model, from it.
 
-```@raw html
 <div id="refs" class="references csl-bib-body hanging-indent">
-```
 
-```@raw html
 <div id="ref-Patterson2022" class="csl-entry">
-```
 
 Patterson, Evan, Owen Lynch, and James Fairbanks. 2022. “Categorical
 Data Structures for Technical Computing.” *Compositionality* 4: 5.
 <https://doi.org/10.32408/compositionality-4-5>.
 
-```@raw html
 </div>
-```
 
-```@raw html
 </div>
-```

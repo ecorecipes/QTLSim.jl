@@ -16,7 +16,7 @@ Simon Frost
 
 A generation is the composite
 `develop ⋅ select ⋅ reproduce ⋅ record ⋅ rescale ⋅ mutate ⋅ swap` ([The
-categorical layer](../04_categorical_layer/04_categorical_layer.qmd));
+categorical layer](05_categorical_layer.md));
 the variants below leave out `record` and `rescale`, which would do
 nothing in them. Because each step is a value, the model can be changed
 by changing the composite: replacing a step, dropping one, repeating
@@ -38,7 +38,7 @@ nothing
 
 `run!` runs the standard generation, and `run_composed` runs a life
 cycle written as syntax ([One life cycle, two
-backends](../06_one_life_cycle_two_backends/06_one_life_cycle_two_backends.qmd)).
+backends](07_one_life_cycle_two_backends.md)).
 For operators composed directly, as here, we write a small driver that
 runs any composite and records the mean phenotype and genetic variance
 of the parents each generation. Recording calls `develop!`, which uses
@@ -109,11 +109,11 @@ axislegend(ax1, position = :lt)
 fig
 ```
 
+```@raw html
 <div id="fig-selection">
+```
 
-<img
-src="05_recomposing_the_model_files/figure-commonmark/fig-selection-output-1.png"
-width="900" height="360" />
+![](06_recomposing_the_model_files/figure-commonmark/fig-selection-output-1.png)
 
 Figure 1: Replacing only the selection operator. Left: stabilising
 selection holds the mean at the optimum, drift lets it wander, and
@@ -121,7 +121,9 @@ truncation selection drives it steadily upward. Right: genetic variance
 reaches a mutation–selection balance under stabilising selection, builds
 up under drift and is depleted by truncation.
 
+```@raw html
 </div>
+```
 
 ## Dropping or repeating mutation
 
@@ -155,17 +157,19 @@ axislegend(ax, position = :rt)
 fig
 ```
 
+```@raw html
 <div id="fig-mutation">
+```
 
-<img
-src="05_recomposing_the_model_files/figure-commonmark/fig-mutation-output-1.png"
-width="640" height="360" />
+![](06_recomposing_the_model_files/figure-commonmark/fig-mutation-output-1.png)
 
 Figure 2: Changing the mutation input by recomposition. Without mutation
 the genetic variance decays; with mutation applied twice per generation
 the balance is higher than with the standard generation.
 
+```@raw html
 </div>
+```
 
 ## Inserting a new operator: a fluctuating optimum
 
@@ -204,17 +208,19 @@ end
 fig
 ```
 
+```@raw html
 <div id="fig-fluctuating">
+```
 
-<img
-src="05_recomposing_the_model_files/figure-commonmark/fig-fluctuating-output-1.png"
-width="900" height="300" />
+![](06_recomposing_the_model_files/figure-commonmark/fig-fluctuating-output-1.png)
 
 Figure 3: A population under an optimum oscillating with amplitude 0.1
 (dashed) and three periods. It tracks slow oscillations closely, lags
 behind intermediate ones and responds only weakly to fast ones.
 
+```@raw html
 </div>
+```
 
 ## Stratifying with ⊗ and coupling with migration
 
@@ -261,17 +267,19 @@ linkyaxes!(ax1, ax2)
 fig
 ```
 
+```@raw html
 <div id="fig-demes">
+```
 
-<img
-src="05_recomposing_the_model_files/figure-commonmark/fig-demes-output-1.png"
-width="900" height="360" />
+![](06_recomposing_the_model_files/figure-commonmark/fig-demes-output-1.png)
 
 Figure 4: Four neutral demes. Left: isolated, their means drift apart.
 Right: with 5% migration per generation composed into the generation,
 they stay together.
 
+```@raw html
 </div>
+```
 
 ## Steps with parameters: demes under different selection
 
@@ -338,11 +346,11 @@ axislegend(ax1, position = :rc)
 fig
 ```
 
+```@raw html
 <div id="fig-step-parameters">
+```
 
-<img
-src="05_recomposing_the_model_files/figure-commonmark/fig-step-parameters-output-1.png"
-width="900" height="360" />
+![](06_recomposing_the_model_files/figure-commonmark/fig-step-parameters-output-1.png)
 
 Figure 5: Two demes selected toward different optima (dashed), deme 2
 more narrowly, at three migration rates. Kernel means over 20 runs
@@ -350,7 +358,9 @@ more narrowly, at three migration rates. Kernel means over 20 runs
 means together, and more strongly the deme under weaker selection.
 Right: genetic variance, which migration raises in both demes.
 
+```@raw html
 </div>
+```
 
 The moments get the means right and the direction of every effect. They
 predict a little less divergence under migration than the kernel shows,

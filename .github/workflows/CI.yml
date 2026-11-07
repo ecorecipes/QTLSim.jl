@@ -55,7 +55,7 @@ jobs:
       - name: Install the vignettes' environment
         run: julia --project=vignettes -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
       - name: Run vignettes 01-05 and 10
-        run: julia -t auto --project=vignettes scripts/run_vignettes.jl 01 02 03 04 05 10
+        run: julia -t auto --project=vignettes scripts/run_vignettes.jl 01 02 03 05 06 10
   vignettes-slow:
     name: Vignettes (code, slow)
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -68,8 +68,8 @@ jobs:
       - uses: julia-actions/cache@v2
       - name: Install the vignettes' environment
         run: julia --project=vignettes -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
-      - name: Run vignette 07
-        run: julia -t auto --project=vignettes scripts/run_vignettes.jl 07
+      - name: Run vignette 04
+        run: julia -t auto --project=vignettes scripts/run_vignettes.jl 04
   qtsim:
     name: QTSim parity
     runs-on: ubuntu-latest

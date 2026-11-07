@@ -8,7 +8,7 @@ develop ⋅ select ⋅ reproduce ⋅ record ⋅ rescale ⋅ mutate ⋅ swap : Zy
 
 and lowers it by functors to its simulation kernel and to Eidos, the scripting language of
 [SLiM](https://messerlab.org/slim/) (`lower`, `slim_script`; see vignette
-`06_one_life_cycle_two_backends`). This folder validates the Eidos lowering: against a SLiM
+`07_one_life_cycle_two_backends`). This folder validates the Eidos lowering: against a SLiM
 port of QTSim written by hand, run for run, and against QTSim itself, in distribution.
 
 ## Files
@@ -133,7 +133,7 @@ generation that died, which QTSim does not.
   programs): p = 0.56 for the genetic variance before the move and p = 0.17 for the time to
   extinction.
 
-Vignette 06 repeats D and E with 50 runs per program, adding the kernel; there the SLiM
+Vignette 07 repeats D and E with 50 runs per program, adding the kernel; there the SLiM
 model's p-values against QTSim are 0.18 to 0.71, survival in D included.
 
 **Migration (2026-11-07, `compare_migration.jl`, `valid_migration.log`, 300 runs each),

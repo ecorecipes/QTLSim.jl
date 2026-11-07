@@ -20,7 +20,7 @@ kernel that reproduces QTSim’s output (see [Validation against
 QTSim](08_validation_against_qtsim.md)).
 An optional categorical layer, loaded with Catlab, describes the
 population and its life cycle as a composition of operators ([The
-categorical layer](04_categorical_layer.md)).
+categorical layer](05_categorical_layer.md)).
 
 The model follows a population of $N$ diploid individuals with one
 quantitative trait.
@@ -241,18 +241,15 @@ reproduces the paper’s results.
   optimum](03_moving_optimum.md): the ways the
   optimum can move, and the paper’s measures of lag and extinction.
 - [The categorical
-  layer](04_categorical_layer.md) and
+  layer](05_categorical_layer.md) and
   [Recomposing the
-  model](05_recomposing_the_model.md): the
+  model](06_recomposing_the_model.md): the
   population as an ACSet, and a generation as a composite of operators
   that can be rearranged.
 - [One life cycle, two
-  backends](06_one_life_cycle_two_backends.md):
+  backends](07_one_life_cycle_two_backends.md):
   the life cycle lowered both to the kernel and to a SLiM model, and
   checked against QTSim.
-- [Loci and
-  recombination](07_loci_and_recombination.md):
-  many loci, and the way QTSim recombines them.
 - [Validation against
   QTSim](08_validation_against_qtsim.md)
   and [Replicating Pagel, Gardner and Meade

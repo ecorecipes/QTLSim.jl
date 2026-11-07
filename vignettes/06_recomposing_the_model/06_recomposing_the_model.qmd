@@ -14,7 +14,7 @@ engine: julia
 
 A generation is the composite
 `develop ⋅ select ⋅ reproduce ⋅ record ⋅ rescale ⋅ mutate ⋅ swap`
-([The categorical layer](../04_categorical_layer/04_categorical_layer.qmd)); the variants
+([The categorical layer](../05_categorical_layer/05_categorical_layer.qmd)); the variants
 below leave out `record` and `rescale`, which would do nothing in them. Because each
 step is a value, the model can be changed by changing the composite: replacing a step,
 dropping one, repeating one, inserting a new one, or stratifying the population into
@@ -34,7 +34,7 @@ nothing
 ```
 
 `run!` runs the standard generation, and `run_composed` runs a life cycle written as
-syntax ([One life cycle, two backends](../06_one_life_cycle_two_backends/06_one_life_cycle_two_backends.qmd)).
+syntax ([One life cycle, two backends](../07_one_life_cycle_two_backends/07_one_life_cycle_two_backends.qmd)).
 For operators composed directly, as here, we write a small driver that runs any
 composite and records the mean phenotype and genetic variance of the parents each
 generation. Recording calls `develop!`, which uses no random numbers, so it does not

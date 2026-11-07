@@ -415,7 +415,7 @@ SLiM and QTSim draw different random numbers, so they can agree only in
 distribution. Each of three scenarios is run 50 times by QTSim, by the
 SLiM model generated from the life cycle, and by the kernel’s image of
 the same life cycle. Scenarios A and B are those of [Validation against
-QTSim](08_validation_against_qtsim.md):
+QTSim](../08_validation_against_qtsim/08_validation_against_qtsim.qmd):
 a sharp mutation–selection balance, and an optimum that keeps a fixed
 lead over the mean phenotype from generation 5000 while the fitness
 function narrows. In scenario C the optimum moves by a fixed amount each
@@ -571,19 +571,17 @@ axislegend(ax, position = :lt)
 fig
 ```
 
-```@raw html
 <div id="fig-lag">
-```
 
-![](06_one_life_cycle_two_backends_files/figure-commonmark/fig-lag-output-1.png)
+<img
+src="07_one_life_cycle_two_backends_files/figure-commonmark/fig-lag-output-1.png"
+width="720" height="380" />
 
 Figure 1: Scenario C: how far the mean phenotype lags behind the optimum
 after the optimum starts to move at generation 5000, averaged over the
 50 runs of each program.
 
-```@raw html
 </div>
-```
 
 In scenario C the three programs’ lag curves lie on top of one another:
 the mean phenotype falls further and further behind the moving optimum,
@@ -748,7 +746,7 @@ With 100 loci the generated SLiM model agrees with QTSim: no statistic
 separates them. One comparison of the kernel falls just below 0.05, its
 genetic variance in scenario D; among eight tests that is not unusual,
 and the kernel’s algorithm is QTSim’s, as [Validation against
-QTSim](08_validation_against_qtsim.md)
+QTSim](../08_validation_against_qtsim/08_validation_against_qtsim.qmd)
 checks bit for bit with QTSim’s own random numbers.
 
 ## Demes and migration
@@ -875,22 +873,14 @@ the same distribution, is proved in Lean in
 `lean/CategoricalQuantGen/Lowering.lean`, and the laws of demes and
 migration in `Demes.lean`.
 
-```@raw html
 <div id="refs" class="references csl-bib-body hanging-indent">
-```
 
-```@raw html
 <div id="ref-Haller2023" class="csl-entry">
-```
 
 Haller, Benjamin C., and Philipp W. Messer. 2023. “SLiM 4: Multispecies
 Eco-Evolutionary Modeling.” *The American Naturalist* 201 (5): E127–39.
 <https://doi.org/10.1086/723601>.
 
-```@raw html
 </div>
-```
 
-```@raw html
 </div>
-```

@@ -292,4 +292,4 @@ Applying every crossover point instead gives populations that hold about
 6% more genetic variance and survive about 12% longer than the published
 ones, so the published results depend on QTSim’s single-crossover
 recombination ([Loci and
-recombination](../07_loci_and_recombination/07_loci_and_recombination.qmd)).
+recombination](../04_loci_and_recombination/04_loci_and_recombination.qmd)).

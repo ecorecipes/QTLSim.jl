@@ -127,7 +127,7 @@ it), and CI builds it and runs both parity checks on every push. The published-r
 check and vignettes 09 and 11 also need the paper's data, which is not part of this repository:
 they look for it in a `Repository/` folder next to this package's folder, the paper's code
 and data unpacked, with the input files under `Repository/Simulations/` and the results
-tables under `Repository/Results/`. Vignettes 06 and 08 use QTSim, and 06 also SLiM
+tables under `Repository/Results/`. Vignettes 07 and 08 use QTSim, and 07 also SLiM
 (5.2, the version tested).
 
 ## Documentation and vignettes

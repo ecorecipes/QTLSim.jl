@@ -10,10 +10,10 @@ Each vignette lives in its own directory `NN_name/NN_name.qmd` and is rendered w
 | `01_getting_started` | parameters, a first run, reproducibility, a moving optimum |
 | `02_mutation_selection_balance` | the mutational input, and equilibrium genetic variance against the Gaussian and house-of-cards approximations |
 | `03_moving_optimum` | the three ways the optimum can move, an extinction, the paper's measures, survival against the rate of change |
-| `04_categorical_layer` | the population as an ACSet, and a generation as a composite of operators |
-| `05_recomposing_the_model` | changing the model by changing the composite: selection, mutation, a fluctuating optimum, demes and migration |
-| `06_one_life_cycle_two_backends` | the life cycle written once as a morphism of a free symmetric monoidal category and lowered by functors to the kernel and to a SLiM model, which is the hand-written SLiM port run for run and agrees with QTSim with one locus or a hundred; demes coupled by migration in both backends |
-| `07_loci_and_recombination` | how gametes are made, QTSim's single-crossover recombination, and the cost of more loci |
+| `04_loci_and_recombination` | how gametes are made, QTSim's single-crossover recombination, and the cost of more loci |
+| `05_categorical_layer` | the population as an ACSet, and a generation as a composite of operators |
+| `06_recomposing_the_model` | changing the model by changing the composite: selection, mutation, a fluctuating optimum, demes and migration |
+| `07_one_life_cycle_two_backends` | the life cycle written once as a morphism of a free symmetric monoidal category and lowered by functors to the kernel and to a SLiM model, which is the hand-written SLiM port run for run and agrees with QTSim with one locus or a hundred; demes coupled by migration in both backends |
 | `08_validation_against_qtsim` | statistical, exact and published-results checks against QTSim |
 | `09_replicating_pagel_2025` | the paper's results, recomputed from its table and replicated by rerunning 710 of its populations, the survivors to the full 240,000 generations |
 | `10_demography_and_rescue` | a density-regulated population instead of QTSim's fixed size: how much faster populations die, and how the sustainable rate falls, with the moments lowering's predictions |
@@ -31,7 +31,7 @@ julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
 The script renders each vignette twice, HTML first: in a single render of both formats,
 the self-contained HTML step can delete the figure files that the Markdown needs. Make
 sure the package is precompiled before rendering, otherwise Julia's precompilation output
-is captured into the first cell of the rendered file. Vignettes 02, 03, 06, 07, 08, 09, 10
+is captured into the first cell of the rendered file. Vignettes 02, 03, 04, 07, 08, 09, 10
 and 11 run their simulations on all threads (`julia: exeflags: ["--threads=auto"]`).
 
 `scripts/run_vignettes.jl` runs the vignettes' code without Quarto, each vignette in its
@@ -53,13 +53,13 @@ takes about 6 minutes on its own, on a weekly schedule and on manual runs.
 
 ## QTSim, the paper's data, and SLiM
 
-Vignettes 06 and 08 run QTSim, which they find as the validation scripts do
+Vignettes 07 and 08 run QTSim, which they find as the validation scripts do
 (`validate/qtsim.jl`): built from the source that comes with the package
 (`make -C reference/QTSim`, which needs a C compiler and GSL), or in the paper's code and
 data if they are unpacked in a `Repository/` folder next to the package's folder.
 Vignette 08 skips the sections that need QTSim when there is none, and uses one of the
 paper's input files (`Repository/Simulations/`) when they are there. Vignettes 09 and 11 need
-the paper's results tables, `Repository/Results/`. Vignette 06 also needs SLiM, version 5.2
+the paper's results tables, `Repository/Results/`. Vignette 07 also needs SLiM, version 5.2
 (the version tested) (`slim/build/slim` next to the package's folder, `ENV["SLIM"]`, or `slim` on the
 path); the hand-written SLiM port of QTSim it compares with comes with the package,
 in `validate/slim/qtsim.slim`.

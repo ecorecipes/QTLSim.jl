@@ -177,8 +177,8 @@ step(meta, rng)
 (demes = ndemes(meta), total = totalpop(meta), generation_of_each_deme = [d.gen for d in meta.demes])
 ```
 
-[Recomposing the model](../05_recomposing_the_model/05_recomposing_the_model.qmd) uses
+[Recomposing the model](../06_recomposing_the_model/06_recomposing_the_model.qmd) uses
 these pieces to change the model's biology without touching the kernel. The operators are
 themselves the kernel's image of a life cycle written once as syntax:
-[One life cycle, two backends](../06_one_life_cycle_two_backends/06_one_life_cycle_two_backends.qmd)
+[One life cycle, two backends](../07_one_life_cycle_two_backends/07_one_life_cycle_two_backends.qmd)
 derives them, and a SLiM model, from it.
