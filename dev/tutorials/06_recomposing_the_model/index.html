@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="referrer" content="no-referrer"/><title>Recomposing the model · QTLSim.jl</title><meta name="title" content="Recomposing the model · QTLSim.jl"/><meta property="og:title" content="Recomposing the model · QTLSim.jl"/><meta property="twitter:title" content="Recomposing the model · QTLSim.jl"/><meta name="description" content="Documentation for QTLSim.jl."/><meta property="og:description" content="Documentation for QTLSim.jl."/><meta property="twitter:description" content="Documentation for QTLSim.jl."/><meta property="og:url" content="https://ecorecipes.github.io/QTLSim.jl/tutorials/06_recomposing_the_model/"/><meta property="twitter:url" content="https://ecorecipes.github.io/QTLSim.jl/tutorials/06_recomposing_the_model/"/><link rel="canonical" href="https://ecorecipes.github.io/QTLSim.jl/tutorials/06_recomposing_the_model/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">QTLSim.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../parameters/">Parameters</a></li><li><a class="tocitem" href="../../output/">Output</a></li><li><a class="tocitem" href="../../reproducing/">Running QTSim input files</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../01_getting_started/">Getting started</a></li><li><a class="tocitem" href="../02_mutation_selection_balance/">Mutation–selection balance</a></li><li><a class="tocitem" href="../03_moving_optimum/">Adaptation to a moving optimum</a></li><li><a class="tocitem" href="../04_loci_and_recombination/">Loci and recombination</a></li><li><a class="tocitem" href="../05_categorical_layer/">The categorical layer</a></li><li class="is-active"><a class="tocitem" href>Recomposing the model</a><ul class="internal"><li><a class="tocitem" href="#Overview"><span>Overview</span></a></li><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#Replacing-the-selection-operator"><span>Replacing the selection operator</span></a></li><li><a class="tocitem" href="#Dropping-or-repeating-mutation"><span>Dropping or repeating mutation</span></a></li><li><a class="tocitem" href="#Inserting-a-new-operator:-a-fluctuating-optimum"><span>Inserting a new operator: a fluctuating optimum</span></a></li><li><a class="tocitem" href="#Stratifying-with-and-coupling-with-migration"><span>Stratifying with ⊗ and coupling with migration</span></a></li><li><a class="tocitem" href="#Steps-with-parameters:-demes-under-different-selection"><span>Steps with parameters: demes under different selection</span></a></li></ul></li><li><a class="tocitem" href="../07_one_life_cycle_two_backends/">One life cycle, two backends</a></li><li><a class="tocitem" href="../08_validation_against_qtsim/">Validation against QTSim</a></li><li><a class="tocitem" href="../09_replicating_pagel_2025/">Replicating Pagel, Gardner and Meade (2025)</a></li><li><a class="tocitem" href="../10_demography_and_rescue/">Demography and evolutionary rescue</a></li><li><a class="tocitem" href="../11_demography_in_the_papers_populations/">Density regulation in the paper’s populations</a></li></ul></li><li><a class="tocitem" href="../../api/">API reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Recomposing the model</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Recomposing the model</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/ecorecipes/QTLSim.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/ecorecipes/QTLSim.jl/blob/main/docs/src/tutorials/06_recomposing_the_model.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Recomposing-the-model"><a class="docs-heading-anchor" href="#Recomposing-the-model">Recomposing the model</a><a id="Recomposing-the-model-1"></a><a class="docs-heading-anchor-permalink" href="#Recomposing-the-model" title="Permalink"></a></h1><p>Simon Frost</p><ul><li><a href="#overview">Overview</a></li><li><a href="#setup">Setup</a></li><li><a href="#replacing-the-selection-operator">Replacing the selection operator</a></li><li><a href="#dropping-or-repeating-mutation">Dropping or repeating mutation</a></li><li><a href="#inserting-a-new-operator-a-fluctuating-optimum">Inserting a new operator: a fluctuating optimum</a></li><li><a href="#stratifying-with--and-coupling-with-migration">Stratifying with ⊗ and coupling with migration</a></li><li><a href="#steps-with-parameters-demes-under-different-selection">Steps with parameters: demes under different selection</a></li></ul><h2 id="Overview"><a class="docs-heading-anchor" href="#Overview">Overview</a><a id="Overview-1"></a><a class="docs-heading-anchor-permalink" href="#Overview" title="Permalink"></a></h2><p>A generation is the composite <code>develop ⋅ select ⋅ reproduce ⋅ record ⋅ rescale ⋅ mutate ⋅ swap</code> (<a href="../05_categorical_layer/">The categorical layer</a>); the variants below leave out <code>record</code> and <code>rescale</code>, which would do nothing in them. Because each step is a value, the model can be changed by changing the composite: replacing a step, dropping one, repeating one, inserting a new one, or stratifying the population into demes. The validated kernel functions are reused unchanged in every variant below; only the wiring differs.</p><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><pre><code class="language-julia hljs">using QTLSim
+import Catlab                       # loads QTLSim&#39;s categorical layer
+using Catlab: ⋅, ⊗
+using CairoMakie, Printf, Random, Statistics
+CairoMakie.activate!(type = &quot;png&quot;)
+(; develop, select, reproduce, mutate, swap, generation) = operators()
+nothing</code></pre><p><code>run!</code> runs the standard generation, and <code>run_composed</code> runs a life cycle written as syntax (<a href="../07_one_life_cycle_two_backends/">One life cycle, two backends</a>). For operators composed directly, as here, we write a small driver that runs any composite and records the mean phenotype and genetic variance of the parents each generation. Recording calls <code>develop!</code>, which uses no random numbers, so it does not disturb the run.</p><pre><code class="language-julia hljs">function run_variant(genop, p::Params; seed)
+    rng = Xoshiro(seed); w = World(p)
+    w.env .= sqrt(envVar(p)) .* randn(rng, p.PopSize)
+    gens = Int[]; zbar = Float64[]; vg = Float64[]; θ = Float64[]
+    for g in 0:p.NoGenerations-1
+        w.gen = g
+        develop!(w)
+        push!(gens, g); push!(zbar, mean(w.phenotype)); push!(vg, var(w.genotype)); push!(θ, w.θ)
+        genop(w, rng)
+        w.extinct &amp;&amp; break
+    end
+    (gen = gens, pheno_mean = zbar, geno_var = vg, theta = θ, extinct = w.extinct)
+end
+
+base = Params(PopSize = 1000, Ploidy = 2, NoQTL = 1, NoGenerations = 2000,
+              PhenotypeVar = 0.02, Heritability = 0.5, MutationScalar = 0.02,
+              MutationRatePerGamete = 0.5, InitFitnessSD = 0.3)
+colours = [:navy, :teal, :crimson]
+nothing</code></pre><h2 id="Replacing-the-selection-operator"><a class="docs-heading-anchor" href="#Replacing-the-selection-operator">Replacing the selection operator</a><a id="Replacing-the-selection-operator-1"></a><a class="docs-heading-anchor-permalink" href="#Replacing-the-selection-operator" title="Permalink"></a></h2><p><code>select</code> is one link of the chain. Replacing it changes the selection regime while reproduction and mutation stay the same. Two alternatives: neutral drift, in which everyone survives, and truncation selection, in which only the top fifth of the population by phenotype breeds.</p><pre><code class="language-julia hljs">drift = operator(:drift, function (w, rng)
+    fill!(w.fitness, 1.0)
+    resize!(w.survivors, w.p.PopSize); w.survivors .= 1:w.p.PopSize
+    w.nsurv = w.p.PopSize
+    w
+end)
+
+truncation(frac) = operator(:truncation, function (w, rng)
+    k = max(2, round(Int, frac * w.p.PopSize))
+    top = partialsortperm(w.phenotype, 1:k; rev = true)
+    resize!(w.survivors, k); w.survivors .= top; w.nsurv = k
+    w
+end)
+
+selection_variants = [
+    (&quot;stabilising&quot;, develop ⋅ select ⋅ reproduce ⋅ mutate ⋅ swap),
+    (&quot;drift&quot;, develop ⋅ drift ⋅ reproduce ⋅ mutate ⋅ swap),
+    (&quot;truncation (top 20%)&quot;, develop ⋅ truncation(0.2) ⋅ reproduce ⋅ mutate ⋅ swap),
+]
+runs1 = [(name, run_variant(g, base; seed = 1)) for (name, g) in selection_variants]
+nothing</code></pre><pre><code class="language-julia hljs">fig = Figure(size = (900, 360))
+ax1 = Axis(fig[1, 1], xlabel = &quot;generation&quot;, ylabel = &quot;mean phenotype&quot;)
+ax2 = Axis(fig[1, 2], xlabel = &quot;generation&quot;, ylabel = &quot;genetic variance&quot;)
+for ((name, r), c) in zip(runs1, colours)
+    lines!(ax1, r.gen, r.pheno_mean, color = c, label = name)
+    lines!(ax2, r.gen, r.geno_var, color = c, label = name)
+end
+axislegend(ax1, position = :lt)
+fig</code></pre><div id="fig-selection"><p><img src="../06_recomposing_the_model_files/figure-commonmark/fig-selection-output-1.png" alt/></p><p>Figure 1: Replacing only the selection operator. Left: stabilising selection holds the mean at the optimum, drift lets it wander, and truncation selection drives it steadily upward. Right: genetic variance reaches a mutation–selection balance under stabilising selection, builds up under drift and is depleted by truncation.</p></div><h2 id="Dropping-or-repeating-mutation"><a class="docs-heading-anchor" href="#Dropping-or-repeating-mutation">Dropping or repeating mutation</a><a id="Dropping-or-repeating-mutation-1"></a><a class="docs-heading-anchor-permalink" href="#Dropping-or-repeating-mutation" title="Permalink"></a></h2><p>Leaving <code>mutate</code> out lets selection and drift use up the variance; composing it twice doubles the mutational input, and the balance rises.</p><pre><code class="language-julia hljs">mutation_variants = [
+    (&quot;no mutation&quot;, develop ⋅ select ⋅ reproduce ⋅ swap),
+    (&quot;mutation&quot;, develop ⋅ select ⋅ reproduce ⋅ mutate ⋅ swap),
+    (&quot;mutation twice&quot;, develop ⋅ select ⋅ reproduce ⋅ mutate ⋅ mutate ⋅ swap),
+]
+runs2 = [(name, run_variant(g, base; seed = 2)) for (name, g) in mutation_variants]
+for (name, r) in runs2
+    @printf(&quot;%-15s mean genetic variance over the last 500 generations: %.5f\n&quot;,
+            name, mean(r.geno_var[end-499:end]))
+end</code></pre><pre><code class="nohighlight hljs">no mutation     mean genetic variance over the last 500 generations: 0.00000
+mutation        mean genetic variance over the last 500 generations: 0.00623
+mutation twice  mean genetic variance over the last 500 generations: 0.00912</code></pre><pre><code class="language-julia hljs">fig = Figure(size = (640, 360))
+ax = Axis(fig[1, 1], xlabel = &quot;generation&quot;, ylabel = &quot;genetic variance&quot;)
+for ((name, r), c) in zip(runs2, colours)
+    lines!(ax, r.gen, r.geno_var, color = c, label = name)
+end
+axislegend(ax, position = :rt)
+fig</code></pre><div id="fig-mutation"><p><img src="../06_recomposing_the_model_files/figure-commonmark/fig-mutation-output-1.png" alt/></p><p>Figure 2: Changing the mutation input by recomposition. Without mutation the genetic variance decays; with mutation applied twice per generation the balance is higher than with the standard generation.</p></div><h2 id="Inserting-a-new-operator:-a-fluctuating-optimum"><a class="docs-heading-anchor" href="#Inserting-a-new-operator:-a-fluctuating-optimum">Inserting a new operator: a fluctuating optimum</a><a id="Inserting-a-new-operator:-a-fluctuating-optimum-1"></a><a class="docs-heading-anchor-permalink" href="#Inserting-a-new-operator:-a-fluctuating-optimum" title="Permalink"></a></h2><p>New biology can be added as a new operator, built with <code>operator(name, act)</code>. In QTSim the optimum either stands still or moves at a constant rate; here an operator sets it to oscillate, <span>$\theta_t = A \sin(2\pi t / P)$</span>, and is inserted before selection. (<code>select</code> only moves the optimum itself when <code>MoveFitnessSDGen</code> is set, so it leaves this one alone.)</p><pre><code class="language-julia hljs">fluctuating(A, P) = operator(:fluctuate, (w, rng) -&gt; (w.θ = A * sin(2π * w.gen / P); w))
+
+periods = [20, 100, 500]
+runs3 = [(P, run_variant(develop ⋅ fluctuating(0.1, P) ⋅ select ⋅ reproduce ⋅ mutate ⋅ swap,
+                         base; seed = 3)) for P in periods]
+for (P, r) in runs3
+    late = length(r.gen)-999:length(r.gen)
+    @printf(&quot;period %3d: the mean phenotype follows the optimum with correlation %.2f\n&quot;,
+            P, cor(r.pheno_mean[late], r.theta[late]))
+end</code></pre><pre><code class="nohighlight hljs">period  20: the mean phenotype follows the optimum with correlation 0.30
+period 100: the mean phenotype follows the optimum with correlation 0.72
+period 500: the mean phenotype follows the optimum with correlation 0.97</code></pre><pre><code class="language-julia hljs">fig = Figure(size = (900, 300))
+for (k, (P, r)) in enumerate(runs3)
+    ax = Axis(fig[1, k], title = &quot;period $P&quot;, xlabel = &quot;generation&quot;,
+              ylabel = k == 1 ? &quot;phenotype / optimum&quot; : &quot;&quot;, limits = ((1000, 2000), (-0.15, 0.15)))
+    lines!(ax, r.gen, r.theta, color = :gray, linestyle = :dash)
+    lines!(ax, r.gen, r.pheno_mean, color = colours[k])
+end
+fig</code></pre><div id="fig-fluctuating"><p><img src="../06_recomposing_the_model_files/figure-commonmark/fig-fluctuating-output-1.png" alt/></p><p>Figure 3: A population under an optimum oscillating with amplitude 0.1 (dashed) and three periods. It tracks slow oscillations closely, lags behind intermediate ones and responds only weakly to fast ones.</p></div><h2 id="Stratifying-with-and-coupling-with-migration"><a class="docs-heading-anchor" href="#Stratifying-with-and-coupling-with-migration">Stratifying with ⊗ and coupling with migration</a><a id="Stratifying-with-and-coupling-with-migration-1"></a><a class="docs-heading-anchor-permalink" href="#Stratifying-with-and-coupling-with-migration" title="Permalink"></a></h2><p><code>⊗</code> turns one population into a metapopulation of demes, and the composed generation acts on each deme. A <code>migration</code> operator composed in with <code>⋅</code> couples them. Under neutral drift, isolated demes drift apart; a little migration keeps them together.</p><pre><code class="language-julia hljs">function run_demes(genop, s, ngen; seed)
+    rng = Xoshiro(seed)
+    for d in s.demes; d.env .= sqrt(envVar(d.p)) .* randn(rng, d.p.PopSize); end
+    means = [Float64[] for _ in s.demes]
+    for g in 0:ngen-1
+        for (k, d) in enumerate(s.demes)
+            d.gen = g; develop!(d); push!(means[k], mean(d.phenotype))
+        end
+        genop(s, rng)
+    end
+    means
+end
+
+small = Params(PopSize = 200, Ploidy = 2, NoQTL = 1, PhenotypeVar = 0.02, Heritability = 0.5,
+               MutationScalar = 0.05, MutationRatePerGamete = 0.5)
+neutral = develop ⋅ drift ⋅ reproduce ⋅ mutate ⋅ swap
+isolated = run_demes(neutral, small ⊗ demes(4), 2500; seed = 4)
+coupled = run_demes(neutral ⋅ migration(0.05), small ⊗ demes(4), 2500; seed = 4)
+spread(ms) = std([m[end] for m in ms])
+@printf(&quot;spread of the deme means after 2500 generations: isolated %.3f, with migration %.3f\n&quot;,
+        spread(isolated), spread(coupled))</code></pre><pre><code class="nohighlight hljs">spread of the deme means after 2500 generations: isolated 0.778, with migration 0.115</code></pre><pre><code class="language-julia hljs">fig = Figure(size = (900, 360))
+ax1 = Axis(fig[1, 1], xlabel = &quot;generation&quot;, ylabel = &quot;deme mean phenotype&quot;, title = &quot;isolated&quot;)
+ax2 = Axis(fig[1, 2], xlabel = &quot;generation&quot;, title = &quot;with migration&quot;)
+for k in 1:4
+    lines!(ax1, 0:length(isolated[k])-1, isolated[k], color = (:teal, 0.8))
+    lines!(ax2, 0:length(coupled[k])-1, coupled[k], color = (:crimson, 0.8))
+end
+linkyaxes!(ax1, ax2)
+fig</code></pre><div id="fig-demes"><p><img src="../06_recomposing_the_model_files/figure-commonmark/fig-demes-output-1.png" alt/></p><p>Figure 4: Four neutral demes. Left: isolated, their means drift apart. Right: with 5% migration per generation composed into the generation, they stay together.</p></div><h2 id="Steps-with-parameters:-demes-under-different-selection"><a class="docs-heading-anchor" href="#Steps-with-parameters:-demes-under-different-selection">Steps with parameters: demes under different selection</a><a id="Steps-with-parameters:-demes-under-different-selection-1"></a><a class="docs-heading-anchor-permalink" href="#Steps-with-parameters:-demes-under-different-selection" title="Permalink"></a></h2><p>The operators above take their parameters from <code>Params</code>. A step of the life cycle can carry its own instead, as part of the syntax: <code>withparams</code> gives a step parameters, and the result is a new generator, named by the step and its parameters, with the same type. Here deme 1 selects toward an optimum of 0.1 with width 0.3, and deme 2 toward −0.1 with width 0.15. <code>migrate(2; rate)</code> carries its rate.</p><pre><code class="language-julia hljs">L = lifecycle(); g = L.generation
+narrow = withparams(L.select; θ = -0.1, ω = 0.15)
+println(narrow, &quot;: &quot;, Catlab.dom(narrow), &quot; → &quot;, Catlab.codom(narrow))
+two_demes(rate) = withparams(g; θ = 0.1, ω = 0.3) ⊗ withparams(g; θ = -0.1, ω = 0.15) ⋅ L.migrate(2; rate)
+two_demes(0.01)</code></pre><pre><code class="nohighlight hljs">select(θ = -0.1, ω = 0.15): Adults → Survivors
+
+((develop⋅select(θ = 0.1, ω = 0.3)⋅reproduce⋅record⋅rescale⋅mutate⋅swap)⊗(develop⋅select(θ = -0.1, ω = 0.15)⋅reproduce⋅record⋅rescale⋅mutate⋅swap))⋅migrate(rate = 0.01): Zygotes⊗Zygotes → Zygotes⊗Zygotes</code></pre><p>The same life cycle lowers to the kernel and to the moments of a Gaussian population, and each step’s parameters go with it. In the moments lowering, <code>migrate</code> mixes the demes as the kernel’s migration does: a deme’s mean becomes the weighted mean of the demes its individuals came from, and its genetic variance the variance within them plus the variance between their means. Below, 20 kernel runs per migration rate are averaged and set against the moments.</p><pre><code class="language-julia hljs">pd = Params(base; PopSize = 500, NoGenerations = 1000)
+rates = [0.0, 0.005, 0.02]
+deme(o, d) = (i = findall(==(d), o.deme); (o.gen[i], o.pheno_mean[i], o.geno_var[i]))
+moments = [run_moments(pd; cycle = two_demes(r)) for r in rates]
+kernel = map(rates) do r
+    runs = [run_composed(pd ⊗ demes(2), Xoshiro(s); cycle = two_demes(r)) for s in 1:20]
+    [mean(deme(o, d)[k] for o in runs) for d in 1:2, k in 2:3]   # mean trajectories
+end
+for (r, mo, k) in zip(rates, moments, kernel)
+    late(x) = mean(x[601:end])
+    @printf(&quot;rate %.3f: deme means differ by %.3f in the kernel, %.3f in the moments\n&quot;,
+            r, late(k[1, 1]) - late(k[2, 1]), late(deme(mo, 1)[2]) - late(deme(mo, 2)[2]))
+end</code></pre><pre><code class="nohighlight hljs">rate 0.000: deme means differ by 0.199 in the kernel, 0.200 in the moments
+rate 0.005: deme means differ by 0.175 in the kernel, 0.161 in the moments
+rate 0.020: deme means differ by 0.122 in the kernel, 0.108 in the moments</code></pre><pre><code class="language-julia hljs">fig = Figure(size = (900, 360))
+ax1 = Axis(fig[1, 1], xlabel = &quot;generation&quot;, ylabel = &quot;deme mean phenotype&quot;)
+ax2 = Axis(fig[1, 2], xlabel = &quot;generation&quot;, ylabel = &quot;genetic variance&quot;)
+hlines!(ax1, [0.1, -0.1], color = :gray, linestyle = :dash)
+for (r, mo, k, c) in zip(rates, moments, kernel, colours), d in 1:2
+    gens = deme(mo, d)[1]
+    lines!(ax1, gens, k[d, 1], color = c, label = d == 1 ? &quot;rate $r&quot; : nothing)
+    lines!(ax1, gens, deme(mo, d)[2], color = c, linestyle = :dot)
+    lines!(ax2, gens, k[d, 2], color = c, linestyle = d == 1 ? :solid : :dashdot)
+    lines!(ax2, gens, deme(mo, d)[3], color = c, linestyle = :dot)
+end
+axislegend(ax1, position = :rc)
+fig</code></pre><div id="fig-step-parameters"><p><img src="../06_recomposing_the_model_files/figure-commonmark/fig-step-parameters-output-1.png" alt/></p><p>Figure 5: Two demes selected toward different optima (dashed), deme 2 more narrowly, at three migration rates. Kernel means over 20 runs (solid) and the moments lowering (dotted). Migration pulls the deme means together, and more strongly the deme under weaker selection. Right: genetic variance, which migration raises in both demes.</p></div><p>The moments get the means right and the direction of every effect. They predict a little less divergence under migration than the kernel shows, because this one-locus kernel holds more genetic variance than the Gaussian approximation, as it does without migration. With the moments lowering covering several demes, any metapopulation built from these steps has a deterministic prediction, and each deme can have its own parameters there, in the kernel (<code>[p1, p2] ⊗ demes(2)</code>) and in SLiM (<code>slim_script(cycle, [p1, p2])</code>).</p><p>Every variant here is a line of composition rather than a change to the simulator. That rearranging the operators is well defined, that composition is associative and a run is the iterate of one composed generation, is what <code>lean/CategoricalQuantGen/Composition.lean</code> proves.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../05_categorical_layer/">« The categorical layer</a><a class="docs-footer-nextpage" href="../07_one_life_cycle_two_backends/">One life cycle, two backends »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Saturday 7 November 2026 19:48">Saturday 7 November 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
