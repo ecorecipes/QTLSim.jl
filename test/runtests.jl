@@ -425,6 +425,100 @@ end
     @test_throws ArgumentError World(Params(p; GrowthRate = 0.0))
 end
 
+@testset "demographic stochasticity along the moments trajectory" begin
+    Dist = QTLSim.Distributions
+    # a Galton–Watson process with Poisson(λ) offspring: no selection (W̄ = 1) and a capacity
+    # so large that the per-capita rate is R = λ
+    gw(λ; ploidy = 1) = Params(PopSize = 10^15, Ploidy = ploidy, Demography = :beverton_holt, GrowthRate = λ)
+    for λ in (0.8, 1.0)                                     # λ ≤ 1: extinct surely in the limit
+        d = extinction_distribution(gw(λ), ones(10_000); N0 = 1, method = :branching)
+        @test issorted(d.pext)
+        @test d.pext[end] ≈ 1 atol = (λ < 1 ? 1e-12 : 3e-4)
+        @test d.pext[1] ≈ exp(-λ)                           # extinct in the first generation
+    end
+    λ = 1.5                                                 # λ > 1: q = exp(λ(q − 1))
+    q = 0.0; for _ in 1:10_000; q = exp(λ * (q - 1)); end
+    for N0 in (1, 3)
+        d = extinction_distribution(gw(λ), ones(60); N0, method = :branching)
+        @test d.pext[end] ≈ q^N0 rtol = 1e-10
+        @test d.psurvive ≈ 1 - q^N0 rtol = 1e-9
+        @test d.median === missing
+    end
+    # survival thins the offspring: q = 1 − w + w exp(R(q − 1))
+    w, R = 0.6, 3.0
+    qt = 0.0; for _ in 1:10_000; qt = 1 - w + w * exp(R * (qt - 1)); end
+    @test extinction_distribution(gw(R), fill(w, 200); N0 = 1, method = :branching).pext[end] ≈ qt rtol = 1e-10
+    @test_throws ArgumentError extinction_distribution(gw(R), fill(w, 10); N0 = 1)
+    # the exact chain on sizes agrees with the branching process far below the capacity
+    # (haploid, so that one survivor can mate)
+    small = Params(gw(R); PopSize = 10^5)
+    Wt = range(0.4, 0.2, length = 60)
+    br = extinction_distribution(small, Wt; N0 = 5, method = :branching)
+    ch = extinction_distribution(small, Wt; N0 = 5, method = :chain)
+    @test maximum(abs.(br.pext .- ch.pext)) < 2e-3
+    # the cap at K: the chain's sizes never exceed K, and it agrees with a Monte Carlo of
+    # the kernel's demography, min(K, Poisson(R n/(1 + (R − 1) n/K))) from Binomial(N, W̄) survivors
+    b = Params(PopSize = 20, Ploidy = 2, Demography = :beverton_holt, GrowthRate = 4.0)
+    Wb = vcat(fill(0.9, 10), fill(0.3, 40))
+    @test QTLSim.expected_offspring(b, 20) == 20 && QTLSim.expected_offspring(b, 5) ≈ 4 * 5 / (1 + 3 * 5 / 20)
+    ch = extinction_distribution(b, Wb; method = :chain)
+    rng = MersenneTwister(1); nrep = 40_000; died = zeros(Int, length(Wb))
+    for _ in 1:nrep
+        N = 20
+        for t in eachindex(Wb)
+            n = rand(rng, Dist.Binomial(N, Wb[t]))
+            N = n < 2 ? 0 : min(20, rand(rng, Dist.Poisson(4n / (1 + 3n / 20))))
+            N == 0 && (died[t] += 1; break)
+        end
+    end
+    @test maximum(abs.(ch.pext .- cumsum(died) ./ nrep)) < 0.01
+    # the fixed size: an independent binomial trial each generation
+    f = Params(PopSize = 50, Ploidy = 2)
+    Wf = [0.5, 0.1, 0.05, 0.02]
+    hz = [Dist.cdf(Dist.Binomial(50, x), 1) for x in Wf]
+    @test extinction_distribution(f, Wf).pext ≈ 1 .- cumprod(1 .- hz)
+    @test extinction_distribution(f, Wf; from = 2).pext ≈ 1 .- cumprod(1 .- hz[3:4])
+    @test_throws ArgumentError extinction_distribution(f, Wf; from = 4)
+    @test_throws ArgumentError extinction_distribution(b, Wb; method = :exact)
+    # over a run_moments trajectory: deterministic extinction is certain extinction
+    pm = Params(PopSize = 500, NoQTL = 10, Ploidy = 2, NoGenerations = 600, PhenotypeVar = 0.02,
+                Heritability = 0.4, MutationScalar = 0.004, MutationRatePerGamete = 1e-3,
+                Demography = :beverton_holt, GrowthRate = 1.5, MoveFitnessSDGen = 300,
+                MoveFitnessSD = 0.05, MoveType = :continuous)
+    m = run_moments(pm)
+    d = extinction_distribution(pm, m; from = 300, method = :chain)
+    @test m.extinct && d.gen == 300:m.extinct_gen && d.pext[end] == 1 && d.median <= m.extinct_gen
+    @test_throws ArgumentError extinction_distribution(Params(pm; Sample = 10), run_moments(Params(pm; Sample = 10)))
+    # drift in the moments recursion is off by default, and erodes V_G when on
+    @test run_moments(pm) == run_moments(pm; erosion = false)
+    pf = Params(pm; Demography = :fixed, MoveFitnessSDGen = -1, NoGenerations = 20_000)
+    me, m0 = run_moments(pf; erosion = true), run_moments(pf)
+    @test me.geno_var[end] < m0.geno_var[end]
+    # its fixed point: V = (V − V²/s)(1 − 1/(2 N W̄)) + V_m, with s = V_s + V
+    V, s = me.geno_var[end], selection_variance(pf) + me.geno_var[end]
+    @test (V - V^2 / s) * (1 - 1 / (2 * 500 * me.mean_fitness[end])) + muteVar(pf) ≈ V rtol = 1e-6
+end
+
+@testset "evolutionary rescue (Gomulkiewicz and Holt 1995)" begin
+    # no lag: a supercritical branching process from the start, q = 1 − W + W exp(R(q − 1))
+    W, R = 0.9, 2.0
+    q = 0.0; for _ in 1:10_000; q = 1 - W + W * exp(R * (q - 1)); end
+    r = rescue_probability(; N0 = 1, R, d0 = 0.0, VG = 0.0, VE = 0.0, ω = 1.0, Wmax = W)
+    @test r.rescue ≈ 1 - q rtol = 1e-10
+    # rescue grows with the founding size and the genetic variance, falls with the shift
+    kw = (R = 1.5, VE = 0.5, ω = 2.0)
+    @test rescue_probability(; N0 = 100, d0 = 3.0, VG = 0.5, kw...).rescue <
+          rescue_probability(; N0 = 1000, d0 = 3.0, VG = 0.5, kw...).rescue
+    @test rescue_probability(; N0 = 100, d0 = 3.0, VG = 0.2, kw...).rescue <
+          rescue_probability(; N0 = 100, d0 = 3.0, VG = 0.5, kw...).rescue
+    @test rescue_probability(; N0 = 100, d0 = 4.0, VG = 0.5, kw...).rescue <
+          rescue_probability(; N0 = 100, d0 = 3.0, VG = 0.5, kw...).rescue
+    r = rescue_probability(; N0 = 100, d0 = 3.0, VG = 0.5, kw...)
+    @test 0 < r.Nmin < 100 && r.tmin > 0
+    # no growth at the optimum: no rescue
+    @test rescue_probability(N0 = 100, R = 1.0, d0 = 1.0, VG = 0.5, VE = 0.5, ω = 2.0).rescue == 0
+end
+
 @testset "migration graphs and per-deme parameters" begin
     @test island_migration(3, 0.1) == [0 0.05 0.05; 0.05 0 0.05; 0.05 0.05 0]
     @test stepping_stone(4, 0.2; circular = false) == [0 0.1 0 0; 0.1 0 0.1 0; 0 0.1 0 0.1; 0 0 0.1 0]

@@ -62,6 +62,8 @@ house_of_cards_vg
 steady_lag
 critical_rate
 mutation_adjusted
+extinction_distribution
+rescue_probability
 ```
 
 ## The categorical layer

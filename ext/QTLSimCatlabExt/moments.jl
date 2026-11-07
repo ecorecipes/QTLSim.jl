@@ -30,11 +30,12 @@ mutable struct Moments
     extinct::Bool
     N::Float64           # expected population size
     Noff::Float64
+    erosion::Bool        # drift erodes V_G by V_G/(2N_e) per generation, N_e = expected survivors
 end
 
-Moments(p::Params; zbar = 0.0, VG = 0.0) =
+Moments(p::Params; zbar = 0.0, VG = 0.0, erosion = false) =
     Moments(p, 0, zbar, VG, VG + QTLSim.envVar(p), 0.0, QTLSim.initFitSD(p), p.PopSize, 1.0, 0.0,
-            zbar, VG, zbar, VG, false, p.PopSize, p.PopSize)
+            zbar, VG, zbar, VG, false, p.PopSize, p.PopSize, erosion)
 
 isextinct(m::Moments) = m.extinct
 
@@ -71,6 +72,10 @@ end
 function moments_reproduce!(m::Moments)
     p = m.p
     m.zoff, m.VGoff = m.zs, m.VGs
+    # optional drift: offspring are 2N gametes from the expected nsurv survivors, mated at
+    # random, so two gametes share a parent with probability 1/nsurv and a locus is
+    # identical by descent with probability 1/(2 nsurv)
+    m.erosion && (m.VGoff *= 1 - 1 / (2 * max(m.nsurv, 1.0)))
     R, K, n = p.GrowthRate, p.PopSize, m.nsurv
     # the expected number of offspring (the mean of QTLSim.noffspring), at most K
     m.Noff = p.Demography === :fixed ? K : min(K, R * n / (1 + (R - 1) * n / K))
@@ -101,14 +106,14 @@ id(s::Stage{:moments}) = nfactors(s) == 1 ? Operator(:id, (m, rng) -> m) :
     throw(ArgumentError("the moments lowering covers one deme"))
 
 function run_moments(p::Params; cycle = lifecycle().generation, images = Dict{Symbol,Any}(),
-                     zbar = 0.0, VG = 0.0)
+                     zbar = 0.0, VG = 0.0, erosion = false)
     QTLSim.checkparams(p)
     zygotes = LifeCycle[:Zygotes]
     dom(cycle) == zygotes && codom(cycle) == zygotes ||
         throw(ArgumentError("the moments lowering iterates a life cycle Zygotes → Zygotes; got $(dom(cycle)) → $(codom(cycle))"))
     rec = records()
     step = lower(cycle, :moments; images, record = rec)
-    m = Moments(p; zbar, VG)
+    m = Moments(p; zbar, VG, erosion)
     for it in 0:p.NoGenerations-1
         m.gen = it
         step(m, nothing)

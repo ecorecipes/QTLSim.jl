@@ -31,7 +31,7 @@ export Params, World, simulate, run!, generation!, init_env!, checkparams,
        read_qtsim_options, write_qtsim_options
 # analytical predictions
 export selection_variance, gaussian_vg, gaussian_vg_exact, effective_size, house_of_cards_vg,
-       steady_lag, critical_rate, mutation_adjusted
+       steady_lag, critical_rate, mutation_adjusted, extinction_distribution, rescue_probability
 # migration graphs among demes
 export island_migration, stepping_stone
 # the categorical layer (implemented by QTLSimCatlabExt; load Catlab to use it)
