@@ -15,7 +15,7 @@ and Lowering.lean.
 module QTLSimCatlabExt
 
 using QTLSim
-using QTLSim: World, Params, envsd, records, record!, rescale!, init_env!
+using QTLSim: World, Params, envsd, records, record!, rescale!, init_env!, migration_mixing
 import QTLSim: operators, operator, demes, run_composed, migrate!, migration, totalpop,
                ndemes, population_schema, lift, lower!, genotypes, phenotypes,
                genome_from_acset, lifecycle, withparams, lower, slim_script, run_moments

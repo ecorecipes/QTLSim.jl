@@ -725,6 +725,93 @@ end
     end
 end
 
+@testset "neutral differentiation among demes: F_ST, Q_ST and variance components" begin
+    N, Vm = 50, 0.001
+    # the finite-island closed form: limits
+    @test qst_island(N, 0.0; k = 4) == 1.0                              # no migration: complete differentiation
+    @test qst_island(N, 3 / 4; k = 4) ≈ 0 atol = 1e-15                  # m = (k−1)/k is panmixia
+    @test qst_island(N, 3 / 4; k = 4, among = :demes) ≈ 0 atol = 1e-15
+    wright(N, m) = (1 - m)^2 / (2N - (2N - 1) * (1 - m)^2)              # discrete infinite island
+    @test qst_island(N, 0.02) ≈ wright(N, 0.02)
+    @test qst_island(N, 0.02; k = 10^7) ≈ wright(N, 0.02) rtol = 1e-5   # k → ∞
+    @test qst_island(N, 0.02; k = 10^7, among = :demes) ≈ wright(N, 0.02) rtol = 1e-5
+    for k in (2, 4, 10), m in (1e-4, 1e-3)                              # small m: Takahata 1983, Slatkin 1991 eq 14
+        @test qst_island(N, m; k) ≈ 1 / (1 + 4N * m * (k / (k - 1))^2) rtol = 20m
+        @test qst_island(N, m; k, among = :demes) ≈ 1 / (1 + 4N * m * k / (k - 1)) rtol = 20m
+    end
+    @test issorted([qst_island(N, m; k = 4) for m in 0:0.05:0.75]; rev = true)
+    @test_throws ArgumentError qst_island(N, 0.1; k = 1)
+    @test_throws ArgumentError qst_island(N, 0.1; among = :all)
+
+    # the backward matrix of the kernel's migration: island model from one visiting order
+    P = backward_migration(4, 0.05, N)
+    @test P ≈ QTLSim.migration_mixing(island_migration(4, 0.05), fill(50.0, 4), trues(4)) rtol = 1e-12
+    @test all(sum(P; dims = 2) .≈ 1) && P[1, 2] ≈ (1 - P[1, 1]) / 3
+    @test 1 - backward_migration(4, 0.001, N)[1, 1] ≈ 0.002 rtol = 0.01  # m ≈ 2·rate: exchanges
+    m = 1 - P[1, 1]
+
+    # the exact recursion reproduces the closed forms (pool law)
+    v = neutral_deme_variances(P, N, Vm)
+    iv = island_variances(Vm, N, m, 4)
+    @test v.qst ≈ qst_island(N, m; k = 4) rtol = 1e-9
+    @test v.qst_demes ≈ qst_island(N, m; k = 4, among = :demes) rtol = 1e-9
+    @test all(v.within .≈ iv.within) && iv.within ≈ 2N * 4 * Vm       # Lande 1992: V_W = 2NkV_m whatever m
+    @test v.between ≈ iv.between rtol = 1e-9
+    @test v.among ≈ iv.between + iv.within / N rtol = 1e-9
+    @test iv.total_among ≈ 4N * 4 * iv.qst * Vm / (1 - iv.qst) rtol = 1e-9   # Whitlock 1999: 4NdF V_m/(1 − F)
+    c = deme_coalescence(P, N)
+    @test all(c.W .≈ 1 .+ [c.S[i, i] for i in 1:4])                                  # two distinct parents, no selfing
+    # one deme: Lynch & Hill's 2N V_m
+    @test neutral_deme_variances(ones(1, 1), N, Vm).within[1] ≈ 2N * Vm
+    # transient: zero at t = 0 (genomes start equal), equilibrium as t → ∞, one pass for many t
+    @test all(iszero, neutral_deme_variances(P, N, Vm; t = 0).within)
+    @test neutral_deme_variances(P, N, Vm; t = 20_000).among ≈ v.among rtol = 1e-6
+    vs = neutral_deme_variances(P, N, Vm; t = [10, 100, 1000])
+    @test vs[2].among == neutral_deme_variances(P, N, Vm; t = 100).among && vs[1].among < vs[2].among < vs[3].among
+    # panmixia (P = 1/k everywhere): no between-deme variance
+    @test neutral_deme_variances(fill(0.25, 4, 4), N, Vm).between ≈ 0 atol = 1e-9
+
+    # exchanges keep deme sizes, so two distinct adults share a deme with probability
+    # (N − 1)/(kN − 1); the first-order exchange law gets V_W = 2NV_m(kN − 1)/(N − 1) nearly
+    J = exchange_origins(P, N)
+    @test J * ones(16) ≈ ones(16) && all(>=(0), J)
+    @test neutral_deme_variances(P, N, Vm; origins = :exchange).within[1] ≈ 2N * Vm * (4N - 1) / (N - 1) rtol = 0.005
+    @test_throws ArgumentError deme_coalescence(P, N; origins = :other)
+
+    # the ring: differentiation grows with distance; Slatkin's approximation at small m
+    Pr = backward_migration(stepping_stone(8, 0.005), N)
+    vr = neutral_deme_variances(Pr, N, Vm)
+    @test issorted([vr.pairs[1, 1 + i] for i in 1:4])
+    @test vr.pairs[1, 2] ≈ vr.pairs[3, 4] rtol = 1e-9
+    @test vr.within[1] ≈ 2N * 8 * Vm rtol = 1e-6
+    mr = 1 - Pr[1, 1]
+    for i in 1:4
+        σ2 = (vr.pairs[1, 1 + i] - vr.within[1] / N) / 2
+        @test σ2 / (σ2 + 2vr.within[1]) ≈ fst_stepping_stone(N, mr, 8, i) rtol = 0.1
+    end
+    @test fst_stepping_stone(N, 0.01, 8, 0) == 0
+
+    # a fast simulation: island, k = 4, N = 20, against the exact transient expectation
+    p = Params(PopSize = 20, NoQTL = 10, Ploidy = 2, NoGenerations = 400, MutationScalar = 0.002,
+               MutationRatePerGamete = 0.1, Drift = true)
+    L = lifecycle(); g = L.generation
+    cycle = g ⊗ g ⊗ g ⊗ g ⋅ L.migrate(4)
+    M = island_migration(4, 0.02)
+    census = 200:10:399
+    stats = map(1:40) do seed
+        o = run_composed(p ⊗ demes(4), MersenneTwister(seed); cycle, migration_rate = M)
+        # phenotypic records: subtract the environmental part, V_E per individual, V_E/N per deme mean
+        within = mean(o.pheno_var[o.gen .∈ Ref(census)]) - envVar(p)
+        among = mean(var(o.pheno_mean[o.gen .== t]) for t in census) - envVar(p) / 20
+        (within, among)
+    end
+    th = neutral_deme_variances(backward_migration(M, 20), 20, muteVar(p); t = collect(census), origins = :exchange)
+    for (j, pred) in ((1, mean(mean(x.within) for x in th)), (2, mean(x.among for x in th)))
+        x = getindex.(stats, j)
+        @test abs(mean(x) - pred) < 5 * std(x) / sqrt(length(x))
+    end
+end
+
 @testset "fluctuating optima: red noise and periodic moves" begin
     p = Params(PopSize=1000, NoQTL=1, Ploidy=2, NoGenerations=4000, PhenotypeVar=0.02, Heritability=0.5,
                MutationScalar=0.02, MutationRatePerGamete=0.5, InitFitnessSD=0.3)

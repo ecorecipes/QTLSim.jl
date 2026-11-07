@@ -85,6 +85,19 @@ expected_lag2
 lag_load
 ```
 
+Neutral differentiation among demes (F_ST and Q_ST, `validate/fst.jl`):
+
+```@docs
+qst_island
+island_variances
+backward_migration
+deme_coalescence
+exchange_origins
+neutral_deme_variances
+fst_stepping_stone
+QTLSim.migration_mixing
+```
+
 ## The categorical layer
 
 These functions are implemented by the package extension `QTLSimCatlabExt`, which Julia
@@ -155,5 +168,4 @@ QTLSimCatlabExt.Stratified
 QTLSimCatlabExt.Population
 QTLSimCatlabExt.Moments
 QTLSimCatlabExt.DemeMoments
-QTLSimCatlabExt.migration_mixing
 ```

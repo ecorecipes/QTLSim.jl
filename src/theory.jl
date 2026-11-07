@@ -417,3 +417,280 @@ function rescue_probability(; N0::Real, R::Real, d0::Real, VG::Real, VE::Real, �
     end
     (rescue = 1 - q^N0, Nmin, tmin)
 end
+
+# --- neutral differentiation among demes -------------------------------------
+#
+# A neutral additive trait in a metapopulation: k demes of N diploids, each running
+# QTSim's generation with every fitness 1 (`Drift = true`), then `migrate(k)`. Genes are
+# continuum-of-alleles: every copy of a locus gains, per generation, an independent
+# increment of variance s = V_m/(2L) (the Poisson–Gaussian mutation of `mutate!`, V_m =
+# `muteVar`). Two copies of a locus whose lineages have been apart for T generations
+# differ by 2sT in expected square, whatever the mutation rate, so every expected
+# quadratic form of the genotypes is linear in pairwise coalescence times (Slatkin 1991;
+# Whitlock 1999, eqs 2–6), and copies at different loci are uncorrelated. The census is
+# QTSim's record: the adults of a generation, after the previous generation's migration.
+
+"""
+    backward_migration(M, N)
+    backward_migration(k, rate, N)
+
+The backward migration matrix of the kernel's migration (`migrate!`) at a census of
+equal-or-not deme sizes `N` (a number or a vector): `P[a, c]` is the probability that a
+random individual of deme `a` after migration was in deme `c` before it. `M` is a
+forward matrix as `migrate!` takes it ([`island_migration`](@ref),
+[`stepping_stone`](@ref)); `(k, rate)` is the island model at a scalar `rate`.
+
+It is [`QTLSim.migration_mixing`](@ref), the expected composition after migration
+averaged over the random order in which `migrate!` visits the demes, exactly. For the
+island model with equal deme sizes one visiting order is enough: relabelling the demes
+leaves `M` unchanged, so the mean of the diagonal is the same for every order, and the
+average over orders is `1 − m` on the diagonal and `m/(k − 1)` off it, with `m` that mean
+emigrant fraction. Since a migrant exchanges places with an individual of another deme,
+`m ≈ 2·rate` for small rates.
+"""
+function backward_migration(M::AbstractMatrix, N)
+    k = size(M, 1)
+    check_migration(M, k)
+    Nv = N isa Real ? fill(float(N), k) : float.(collect(N))
+    length(Nv) == k || throw(ArgumentError("$(length(Nv)) deme sizes for $k demes"))
+    alive = trues(k)
+    offdiag = [M[a, b] for a in 1:k for b in 1:k if a != b]
+    if k >= 2 && allequal(offdiag) && allequal(Nv)          # the island model: one order
+        P1 = migration_mixing(M, Nv, alive, collect(1:k))
+        m = 1 - sum(P1[a, a] for a in 1:k) / k
+        return [a == c ? 1 - m : m / (k - 1) for a in 1:k, c in 1:k]
+    end
+    migration_mixing(M, Nv, alive)
+end
+backward_migration(k::Integer, rate::Real, N) = backward_migration(island_migration(k, rate), N)
+
+# One generation of the pairwise coalescence recursion, census to census, as an affine
+# map on x = [W; vec(S)]: W[a] for the two genes of one adult of deme a, S[a, b] for
+# genes of two distinct adults of demes a and b. Backwards from the census: migration
+# (one adult came from deme c with probability P[a, c]; two distinct adults of demes a
+# and b came from distinct offspring of demes c and d with probability
+# J[a + (b−1)k, c + (d−1)k]), then reproduction in deme c (the genes of one offspring
+# come from two distinct parents; genes of two offspring from one parent with
+# probability 1/N_c, and then from the same copy with probability 1/2). Each step back
+# adds one generation.
+function _coalescence_step(x::AbstractVector, P::AbstractMatrix, J::AbstractMatrix, Nv::AbstractVector)
+    k = length(Nv)
+    W = view(x, 1:k)
+    S = reshape(view(x, k+1:k+k^2), k, k)
+    Ow = [1 + S[c, c] for c in 1:k]
+    O = [c == d ? 1 + W[c] / (2Nv[c]) + (1 - 1 / Nv[c]) * S[c, c] : 1 + S[c, d] for c in 1:k, d in 1:k]
+    vcat(P * Ow, J * vec(O))
+end
+
+"""
+    exchange_origins(P, N)
+
+The law of the deme origins of two distinct adults after the kernel's migration
+(`migrate!`), to first order in the migration rates, as a `k² × k²` matrix for
+[`deme_coalescence`](@ref)'s `origins`. `migrate!` exchanges two individuals of demes
+`a` and `b`; with `V = (N_a P[a,b] + N_b P[b,a])/2` exchanges between them, each puts an
+adult of `b` into `a` and one of `a` into `b`, so for two adults of demes `a ≠ b` the
+origins `(b, a)` and `(a, b)` are each `V/(N_a N_b)` more likely, and `(a, a)` and
+`(b, b)` as much less likely, than under independent origins `kron(P, P)`. The marginals
+stay `P`. Chains of exchanges (an immigrant exchanged again) are of second order.
+"""
+function exchange_origins(P::AbstractMatrix, N)
+    k = size(P, 1)
+    Nv = N isa Real ? fill(float(N), k) : float.(collect(N))
+    J = kron(P, P)
+    ix(a, b) = a + (b - 1) * k
+    for a in 1:k, b in 1:k
+        a == b && continue
+        δ = (Nv[a] * P[a, b] + Nv[b] * P[b, a]) / 2 / (Nv[a] * Nv[b])
+        J[ix(a, b), ix(a, a)] -= δ
+        J[ix(a, b), ix(b, b)] -= δ
+        J[ix(a, b), ix(a, b)] += δ
+        J[ix(a, b), ix(b, a)] += δ
+    end
+    J
+end
+
+"""
+    deme_coalescence(P, N; t = nothing, origins = :pool) -> (; W, S)
+
+Expected pairwise coalescence times, in generations, of genes in a metapopulation of
+diploid demes of sizes `N` (a number or a vector) running QTSim's neutral generation and
+then migration with backward matrix `P` ([`backward_migration`](@ref)), at the census
+(the adults, after the previous migration). `W[a]`: the two genes of one adult of deme
+`a`; `S[a, b]`: genes of two distinct adults of demes `a` and `b` (also for `a == b`).
+
+With `t = nothing` the equilibrium, the solution of the linear fixed-point equations;
+with an integer `t`, `E[min(T, t)]` at generation `t` of a run whose genomes all start
+equal (as `World`s do, at zero): the recursion `x_t = A x_{t−1} + b` from `x_0 = 0`,
+iterated exactly; with a sorted vector of generations, a vector of results, from one
+pass.
+
+`origins` is the law of the deme origins of two distinct adults, before migration: a
+`k² × k²` matrix, `origins[a + (b−1)k, c + (d−1)k]` the probability that two distinct
+adults of demes `a` and `b` after migration were in demes `c` and `d` before it; or
+`:pool` (the default), `kron(P, P)`, the two origins independent, as when migrants are
+drawn from a pool (the textbook island model); or `:exchange`, the first-order law of
+the kernel's `migrate!` ([`exchange_origins`](@ref)). `migrate!` *exchanges*
+individuals, which correlates origins: when an adult of deme `b` came from deme `a`, its
+partner went from `b` to `a`. Two adults of different demes then share a deme of origin
+less often than under `:pool`, by a relative `1/N`, as the exchange keeps every deme's
+size: two distinct adults of the whole metapopulation are in one deme with probability
+exactly `(N − 1)/(kN − 1)` (equal demes), not `1/k`. That raises the within-deme
+variance from `2NkV_m` to `2NV_m (kN − 1)/(N − 1)` and Q_ST by a fraction of a percent,
+at N = 50. `validate/fst.jl` estimates the law from `migrate!` itself and passes it here.
+"""
+function deme_coalescence(P::AbstractMatrix, N; t::Union{Nothing,Integer,AbstractVector{<:Integer}} = nothing,
+                          origins::Union{Symbol,AbstractMatrix} = :pool)
+    k = size(P, 1)
+    size(P) == (k, k) || throw(ArgumentError("P must be square; got $(size(P))"))
+    all(r -> isapprox(sum(r), 1; atol = 1e-9), eachrow(P)) || throw(ArgumentError("rows of a backward migration matrix sum to one"))
+    Nv = N isa Real ? fill(float(N), k) : float.(collect(N))
+    length(Nv) == k || throw(ArgumentError("$(length(Nv)) deme sizes for $k demes"))
+    all(>=(2), Nv) || throw(ArgumentError("diploid demes need at least two individuals"))
+    origins = origins === :pool ? kron(P, P) : origins === :exchange ? exchange_origins(P, Nv) :
+              origins isa Symbol ? throw(ArgumentError("origins is :pool, :exchange or a matrix; got :$origins")) : origins
+    size(origins) == (k^2, k^2) || throw(ArgumentError("origins must be $(k^2) × $(k^2); got $(size(origins))"))
+    all(r -> isapprox(sum(r), 1; atol = 1e-6), eachrow(origins)) || throw(ArgumentError("rows of `origins` sum to one"))
+    n = k + k^2
+    unpack(x) = (W = x[1:k], S = reshape(x[k+1:end], k, k))
+    if t === nothing
+        b = _coalescence_step(zeros(n), P, origins, Nv)
+        A = Matrix{Float64}(undef, n, n)
+        e = zeros(n)
+        for j in 1:n
+            e[j] = 1.0
+            A[:, j] = _coalescence_step(e, P, origins, Nv) .- b
+            e[j] = 0.0
+        end
+        return unpack((I(n) - A) \ b)
+    end
+    ts = t isa Integer ? [t] : collect(t)
+    all(>=(0), ts) && issorted(ts) || throw(ArgumentError("t must be non-negative (and sorted, for several); got $t"))
+    out = Vector{NamedTuple}(undef, length(ts))
+    x, now = zeros(n), 0
+    for (j, tj) in enumerate(ts)
+        while now < tj
+            x = _coalescence_step(x, P, origins, Nv)
+            now += 1
+        end
+        out[j] = unpack(x)
+    end
+    t isa Integer ? out[1] : out
+end
+
+"""
+    neutral_deme_variances(P, N, Vm; t = nothing, origins = :pool)
+
+Expected genetic variances of a neutral additive trait in a metapopulation of diploid
+demes (sizes `N`, backward migration `P`, mutational variance `Vm` per individual per
+generation, [`muteVar`](@ref)), at the census, from [`deme_coalescence`](@ref) (with the
+same `origins` and
+same `t`; for a vector of generations, a vector of these):
+
+- `within[a]`: the expected within-deme sample variance (n − 1) of genotypes,
+  `Vm (2S[a,a] − W[a])`;
+- `pairs[a, b]`: half the expected squared difference of the mean genotypes of demes `a`
+  and `b`, `Vm (2S[a,b] − (1 − 1/N_a) S[a,a] − W[a]/(2N_a) − (same for b))`;
+- `among`: the expected sample variance (k − 1) of the k deme means, the mean of
+  `pairs` over `a ≠ b`;
+- `between`: the parametric between-deme variance σ²_B, `among` less the sampling
+  variance of a deme mean, mean(`within ./ N`); it is `2Vm (S_ab − S_aa)` averaged over
+  pairs of demes;
+- `qst`: `σ²/(σ² + 2 V_W)` with `V_W` = mean(`within`) and σ² the among-deme variance
+  relative to the whole metapopulation, `(k − 1)/k · between` (Wright's F_ST, as in
+  Takahata 1983, Slatkin 1991 eq 8, Whitlock 1999 eqs 7–10, where Q_ST = F_ST for a
+  neutral additive trait);
+- `qst_demes`: the same with σ² = `between`, the variance among demes as a random sample
+  of demes (an ANOVA's variance component);
+- `W`, `S`: the coalescence times.
+"""
+function neutral_deme_variances(P::AbstractMatrix, N, Vm::Real; t::Union{Nothing,Integer,AbstractVector{<:Integer}} = nothing,
+                                origins::Union{Symbol,AbstractMatrix} = :pool)
+    k = size(P, 1)
+    Nv = N isa Real ? fill(float(N), k) : float.(collect(N))
+    c = deme_coalescence(P, Nv; t, origins)
+    c isa AbstractVector ? [_deme_variances(x.W, x.S, Nv, Vm) for x in c] : _deme_variances(c.W, c.S, Nv, Vm)
+end
+
+function _deme_variances(W, S, Nv, Vm)
+    k = length(W)
+    within = [Vm * (2S[a, a] - W[a]) for a in 1:k]
+    half(a) = (1 - 1 / Nv[a]) * S[a, a] + W[a] / (2Nv[a])
+    pairs = [a == b ? 0.0 : Vm * (2S[a, b] - half(a) - half(b)) for a in 1:k, b in 1:k]
+    among = k >= 2 ? sum(pairs) / (k * (k - 1)) : 0.0
+    between = among - sum(within ./ Nv) / k
+    VW = sum(within) / k
+    σ2 = (k - 1) / k * between
+    (; within, pairs, among, between, qst = σ2 / (σ2 + 2VW), qst_demes = between / (between + 2VW), W, S)
+end
+
+"""
+    qst_island(N, m; k = Inf, among = :total)
+
+The equilibrium Q_ST (= F_ST, Whitlock 1999) of a neutral additive trait in the island
+model of `k` demes of `N` diploids with backward migration rate `m` (the fraction of a
+deme's adults that were born elsewhere; [`backward_migration`](@ref) gives it for the
+kernel's `migration_rate`), for QTSim's generation followed by migration and censused
+after migration:
+
+    Q_ST = λ / (λ + 2N (1 − λ)) · c,   λ = (1 − m k/(k − 1))²,
+
+exactly, from the coalescence recursion of [`deme_coalescence`](@ref), where `c`
+accounts for the convention: with `among = :total` (Wright's F_ST relative to the whole
+metapopulation; Takahata 1983, Slatkin 1991 eq 14) the ratio `R = λ/(2N(1 − λ))` of
+between- to twice the within-deme variance is scaled by `(k − 1)/k`, so that
+`Q_ST = (k−1)/k·R / ((k−1)/k·R + 1)`; with `among = :demes` (variance among demes as a
+sample, an ANOVA component) `Q_ST = R/(R + 1) = λ/(λ + 2N(1 − λ))`. For small `m` both
+are close to Takahata's `1/(1 + 4Nm (k/(k − 1))²)` (`:total`) and to `1/(1 + 4Nm k/(k−1))`
+(`:demes`); with `k = Inf` both are Wright's discrete-generation
+`(1 − m)² / (2N − (2N − 1)(1 − m)²) ≈ 1/(1 + 4Nm)`. `Q_ST = 0` at panmixia,
+`m = (k − 1)/k`, and → 1 as `m → 0`. Selfing is excluded (two distinct parents), which
+changes the within-individual coalescence time but not Q_ST.
+"""
+function qst_island(N::Real, m::Real; k::Real = Inf, among::Symbol = :total)
+    among in (:total, :demes) || throw(ArgumentError("among is :total or :demes; got :$among"))
+    k > 1 || throw(ArgumentError("the island model needs k > 1 demes; got $k"))
+    0 <= m <= 1 || throw(ArgumentError("m must be in [0, 1]; got $m"))
+    λ = isinf(k) ? (1 - m)^2 : (1 - m * k / (k - 1))^2
+    λ == 1 && return 1.0
+    R = λ / (2N * (1 - λ))
+    among === :total && !isinf(k) && (R *= (k - 1) / k)
+    R / (R + 1)
+end
+
+"""
+    island_variances(Vm, N, m, k)
+
+The equilibrium within- and between-deme genetic variances of a neutral additive trait in
+the island model ([`qst_island`](@ref)): `within = 2NkVm`, the variance of an undivided
+population of the same total size whatever the migration rate (Lande 1992; Whitlock
+1999 eq 15; Strobeck 1987 for coalescence times), `between = 2kVm λ/(1 − λ)`, the
+parametric variance among deme means as a sample of demes (σ²_B of
+[`neutral_deme_variances`](@ref)), and `total_among = (k−1)/k·between`, which is
+Whitlock's `4NkF_ST Vm/(1 − F_ST)` (eq 15ff.); with `qst = qst_island(N, m; k)`. The
+expected sample variance among the k deme means is `between + within/N`.
+"""
+function island_variances(Vm::Real, N::Real, m::Real, k::Integer)
+    k >= 2 || throw(ArgumentError("the island model needs at least two demes; got $k"))
+    λ = (1 - m * k / (k - 1))^2
+    within = 2N * k * Vm
+    between = λ == 1 ? Inf : 2k * Vm * λ / (1 - λ)
+    (; within, between, total_among = (k - 1) / k * between, qst = qst_island(N, m; k))
+end
+
+"""
+    fst_stepping_stone(N, m, k, i)
+
+Slatkin's (1991, eq 17) approximation to the pairwise F_ST between two demes `i` steps
+apart on a ring of `k` demes of `N` diploids, emigration rate `m` (half to each
+neighbour): `1/(1 + 8Nmk/((k − i) i))`, from the mean coalescence times
+`t_0 = 2Nk` and `t_i = 2Nk + (k − i) i/(2m)` (eq 16), for small `m`. The exact value for
+the kernel's ring is [`neutral_deme_variances`](@ref) with the two demes' `pairs` entry,
+as `σ² = pairs[a,b] − (within[a]/N_a + within[b]/N_b)/2` halved (k = 2 total
+convention) over `σ² + 2V_W`.
+"""
+function fst_stepping_stone(N::Real, m::Real, k::Integer, i::Integer)
+    0 <= i <= k || throw(ArgumentError("distance i must be in 0:$k; got $i"))
+    (i == 0 || i == k) && return 0.0
+    1 / (1 + 8N * m * k / ((k - i) * i))
+end
