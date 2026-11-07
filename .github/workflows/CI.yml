@@ -5,6 +5,8 @@ on:
     tags: ['*']
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: '0 5 * * 1'   # Mondays: everything, and the slow vignettes
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
@@ -37,6 +39,37 @@ jobs:
         with:
           version: '1'
       - run: julia scripts/sync_vignettes.jl --check
+  vignettes:
+    # Runs the vignettes' code (not Quarto) in the vignettes' environment, whose
+    # Manifest is committed (Julia 1.12). These need neither QTSim, SLiM nor the
+    # paper's data; 07, the slowest (about 6 minutes on three threads locally), runs
+    # in vignettes-slow.
+    name: Vignettes (code)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.12'
+      - uses: julia-actions/cache@v2
+      - name: Install the vignettes' environment
+        run: julia --project=vignettes -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+      - name: Run vignettes 01-05 and 10
+        run: julia -t auto --project=vignettes scripts/run_vignettes.jl 01 02 03 04 05 10
+  vignettes-slow:
+    name: Vignettes (code, slow)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.12'
+      - uses: julia-actions/cache@v2
+      - name: Install the vignettes' environment
+        run: julia --project=vignettes -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+      - name: Run vignette 07
+        run: julia -t auto --project=vignettes scripts/run_vignettes.jl 07
   qtsim:
     name: QTSim parity
     runs-on: ubuntu-latest
@@ -90,6 +123,15 @@ jobs:
         run: julia --project=validate/slim validate/slim/check_generated.jl
       - name: Generated SLiM model vs QTSim, in distribution
         run: julia -t auto --project=validate/slim validate/slim/compare_to_qtsim.jl
+      # 10 runs per backend and scenario (about 2300 CPU-seconds): with so few runs a KS
+      # p below 0.001 needs almost complete separation, so this catches gross breakage;
+      # the weekly run uses the script's default, 40.
+      - name: Density regulation, generated SLiM model vs the kernel, in distribution (10 runs)
+        if: github.event_name != 'schedule'
+        run: julia -t auto --project=validate/slim validate/slim/compare_demography.jl 10
+      - name: Density regulation, generated SLiM model vs the kernel, in distribution (40 runs)
+        if: github.event_name == 'schedule'
+        run: julia -t auto --project=validate/slim validate/slim/compare_demography.jl 40
   docs:
     name: Documentation
     runs-on: ubuntu-latest
