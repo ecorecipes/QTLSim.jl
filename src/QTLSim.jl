@@ -23,6 +23,7 @@ include("model.jl")
 include("theory.jl")
 include("migration.jl")
 include("categorical.jl")
+include("sweep.jl")
 
 # the simulation kernel
 export Params, World, simulate, run!, generation!, init_env!, checkparams,
@@ -38,5 +39,7 @@ export island_migration, stepping_stone
 export lifecycle, lower, slim_script, operators, operator, demes, run_composed, migrate!,
        migration, totalpop, ndemes, population_schema, lift, lower!, genotypes, phenotypes,
        genome_from_acset, run_moments
+# sweeps and replicates on all threads, with a resumable CSV cache
+export sweep, replicate
 
 end # module

@@ -31,6 +31,13 @@ gamete!
 swapbuffers!
 ```
 
+## Sweeps and replicates
+
+```@docs
+sweep
+replicate
+```
+
 ## QTSim options files
 
 ```@docs
