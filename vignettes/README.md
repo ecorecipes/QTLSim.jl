@@ -34,6 +34,19 @@ sure the package is precompiled before rendering, otherwise Julia's precompilati
 is captured into the first cell of the rendered file. Vignettes 02, 03, 06, 07, 08, 09, 10
 and 11 run their simulations on all threads (`julia: exeflags: ["--threads=auto"]`).
 
+`scripts/run_vignettes.jl` runs the vignettes' code without Quarto, each vignette in its
+own Julia process, and fails if any chunk throws; it does not write the rendered files.
+From the package root:
+
+```sh
+julia -t 3 --project=vignettes scripts/run_vignettes.jl          # 01-05, 07 and 10
+julia -t 3 --project=vignettes scripts/run_vignettes.jl 03 10    # by number or name
+```
+
+Its default set is the vignettes that need neither QTSim, SLiM nor the paper's data. CI
+runs 01–05 and 10 on every push (about 5 minutes on three threads locally) and 07, which
+takes about 6 minutes on its own, on a weekly schedule and on manual runs.
+
 `julia ../scripts/sync_vignettes.jl` copies the rendered Markdown and figures into
 `docs/src/tutorials/` for the documentation site, and CI runs
 `sync_vignettes.jl --check`, which fails if the copies are stale.

@@ -54,11 +54,12 @@ CairoMakie.activate!(type = "png")
 
 ## Parameters
 
-A simulation is described by a `Params` value. Its defaults are QTSim’s, and its fields follow
-QTSim’s options with a few differences in name: `Generations` is `NoGenerations`,
-`RecombinationPoissonMean` is `RecombPoissonMean` and `OptimumMoveType` is `MoveType`,
-and the two-value options `MoveFitnessSD` and `ChangeFitnessSD` are each split into a
-generation and a value. The phenotypic variance $V_P$ and
+A simulation is described by a `Params` value. Its defaults are QTSim’s,
+and its fields follow QTSim’s options with a few differences in name:
+`Generations` is `NoGenerations`, `RecombinationPoissonMean` is
+`RecombPoissonMean` and `OptimumMoveType` is `MoveType`, and the
+two-value options `MoveFitnessSD` and `ChangeFitnessSD` are each split
+into a generation and a value. The phenotypic variance $V_P$ and
 heritability $h^2$ fix the genetic and environmental variances the model
 aims for, $V_G = h^2 V_P$ and $V_E = (1-h^2) V_P$; the mutation scalar
 $m$ sets the new variance mutation adds each generation, $V_m = m V_E$.
@@ -99,7 +100,7 @@ out = simulate(p; seed = 1)
 keys(out)
 ```
 
-    (:extinct, :extinct_gen, :gen, :pheno_mean, :pheno_var, :geno_var, :nsurv, :theta, :omega)
+    (:extinct, :extinct_gen, :gen, :pheno_mean, :pheno_var, :geno_var, :nsurv, :theta, :omega, :mean_fitness, :sel_diff, :popsize, :seed)
 
 ``` julia
 fig = Figure(size = (900, 300))
@@ -218,12 +219,13 @@ survival collapses and the population dies out.
 </div>
 ```
 
-The slow rate, about 1% of a phenotypic standard deviation per generation, is well within
-what this population can track: it holds a lot of genetic variance, and its narrow
-fitness function turns a small lag into strong selection. At a quarter of a standard
-deviation per generation it dies within two hundred generations. Across the range of populations the paper
-simulated, sustainable change is limited to a few per cent of a standard
-deviation per generation; [Adaptation to a moving
+The slow rate, about 1% of a phenotypic standard deviation per
+generation, is well within what this population can track: it holds a
+lot of genetic variance, and its narrow fitness function turns a small
+lag into strong selection. At a quarter of a standard deviation per
+generation it dies within two hundred generations. Across the range of
+populations the paper simulated, sustainable change is limited to a few
+per cent of a standard deviation per generation; [Adaptation to a moving
 optimum](03_moving_optimum.md) measures this the
 way the paper does, and [Replicating Pagel, Gardner and Meade
 (2025)](09_replicating_pagel_2025.md)
@@ -244,7 +246,8 @@ reproduces the paper’s results.
   model](05_recomposing_the_model.md): the
   population as an ACSet, and a generation as a composite of operators
   that can be rearranged.
-- [One life cycle, two backends](06_one_life_cycle_two_backends.md):
+- [One life cycle, two
+  backends](06_one_life_cycle_two_backends.md):
   the life cycle lowered both to the kernel and to a SLiM model, and
   checked against QTSim.
 - [Loci and
@@ -254,6 +257,12 @@ reproduces the paper’s results.
   QTSim](08_validation_against_qtsim.md)
   and [Replicating Pagel, Gardner and Meade
   (2025)](09_replicating_pagel_2025.md).
+- [Demography and evolutionary
+  rescue](10_demography_and_rescue.md) and
+  [Density regulation in the paper’s
+  populations](11_demography_in_the_papers_populations.md):
+  a population whose size follows its fitness, instead of QTSim’s fixed
+  size.
 
 ```@raw html
 <div id="refs" class="references csl-bib-body hanging-indent">

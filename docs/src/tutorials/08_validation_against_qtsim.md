@@ -38,10 +38,8 @@ CairoMakie.activate!(type = "png")
 const PKG = normpath(joinpath(@__DIR__, "..", ".."))
 include(joinpath(PKG, "validate", "qtsim.jl"))     # find_qtsim(): see reference/QTSim/README.md
 const QTSIM_BIN = something(find_qtsim(), "")
-have_qtsim = isfile(QTSIM_BIN)
+have_qtsim = isfile(QTSIM_BIN);
 ```
-
-    true
 
 ## Statistical parity
 
@@ -53,27 +51,13 @@ narrows. Each is run 100 times by each program, and the distributions of
 five summary statistics are compared with two-sample Kolmogorov–Smirnov
 tests.
 
-QTSim is driven through its options file, and its output is parsed into
-the same shape as `simulate`’s.
+QTSim is driven through an options file written by
+`write_qtsim_options`, and its output is parsed into the same shape as
+`simulate`’s.
 
 ``` julia
-function write_qtsim_options(path, q::Params, seed)
-    open(path, "w") do io
-        println(io, "Sample $(q.Sample)\nPopSize $(q.PopSize)\nNoQTL $(q.NoQTL)")
-        println(io, "Generations $(q.NoGenerations)\nPloidy $(q.Ploidy)")
-        q.MoveFitnessSDGen != -1 && println(io, "MoveFitnessSD $(q.MoveFitnessSDGen) $(q.MoveFitnessSD)")
-        q.ChangeFitnessGen != -1 && println(io, "ChangeFitnessSD $(q.ChangeFitnessGen) $(q.ChangeFitnessSD)")
-        println(io, "OptimumMoveType $(q.MoveType)\nPhenotypeVar $(q.PhenotypeVar)")
-        println(io, "MutationScalar $(q.MutationScalar)\nHeritability $(q.Heritability)")
-        println(io, "MutationRatePerGamete $(q.MutationRatePerGamete)")
-        println(io, "RecombinationPoissonMean $(q.RecombPoissonMean)")
-        q.InitFitnessSD >= 0 && println(io, "InitFitnessSD $(q.InitFitnessSD)")
-        println(io, "Seed $seed")
-    end
-end
-
 function run_qtsim(q::Params, seed)
-    opts = tempname() * ".txt"; write_qtsim_options(opts, q, seed)
+    opts = tempname() * ".txt"; write_qtsim_options(opts, q; seed)
     text = try read(`$QTSIM_BIN $opts`, String) finally rm(opts; force = true) end
     gen = Int[]; zbar = Float64[]; vg = Float64[]; ns = Int[]; inbody = false
     for line in split(text, '\n')
@@ -219,7 +203,7 @@ if have_qtsim && isfile(LIBGSL)
             allpoints = true)
 else
     println("QTSim or the GSL library was not found, so this section was skipped.")
-end
+end;
 ```
 
     single-locus protocol, seed 12345            gens compared=6500   mismatches=0    survived (replica extinct=false)

@@ -46,8 +46,10 @@ port of QTSim written by hand, run for run, and against QTSim itself, in distrib
 - `Project.toml` — the environment for these scripts: QTLSim from this repository, Catlab
   and HypothesisTests.
 
-CI's `SLiM backend` job builds SLiM 5.2 and QTSim and runs `check_generated.jl` and
-`compare_to_qtsim.jl`.
+CI's `SLiM backend` job builds SLiM 5.2 and QTSim and runs `check_generated.jl`,
+`compare_to_qtsim.jl` and `compare_demography.jl`, the last with 10 runs per backend on
+every push (a smoke test: so few runs flag only gross differences) and with its default
+of 40 on the weekly scheduled run.
 
 ## Run
 
