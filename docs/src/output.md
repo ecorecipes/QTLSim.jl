@@ -47,6 +47,10 @@ and recorded generation, plus a `deme` column (1 to k). For metapopulations:
 [`run_moments`](@ref) returns the same columns, predicted by the moments lowering: the
 means and variances of a Gaussian population, `nsurv` the expected survivors rounded.
 
+[`extinction_distribution`](@ref) takes a `run_moments` result with `Sample = 1` and
+returns `gen`, `pext` (the probability of extinction by the end of each generation, from
+demographic stochasticity along the trajectory), `median` and `psurvive`.
+
 ## The SLiM models
 
 A SLiM model written by [`slim_script`](@ref) prints a tab-separated table to standard
