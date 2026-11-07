@@ -67,12 +67,14 @@ Base.show(io::IO, s::Step) =
 
 """
 The parameters each step of the life cycle can carry: fields of `Params` that its
-kernel image reads, and for `select` a fixed width `ω` and a fixed optimum `θ`.
+kernel image reads, and for `select` a fixed width `ω` and a fixed optimum `θ`. `Selection`
+belongs to `select`: under `:fecundity` the stage `Survivors` carries every individual
+with its fitness as a mating weight, which the plain `reproduce` samples parents by.
 """
 const STEP_PARAMS = Dict{Symbol,Tuple}(
     :develop => (),
     :select => (:ω, :θ, :MoveType, :MoveFitnessSD, :MoveFitnessSDGen, :MoveNoiseSD, :MoveAutocorr,
-                :MoveAmplitude, :MovePeriod, :StandardisePhenotype, :Drift),
+                :MoveAmplitude, :MovePeriod, :StandardisePhenotype, :Drift, :Selection),
     :reproduce => (:RecombPoissonMean, :CrossoverModel, :Demography, :GrowthRate),
     :record => (:Sample,),
     :rescale => (:ChangeFitnessGen, :ChangeFitnessSD),
@@ -224,6 +226,12 @@ function lower(f, target::Symbol; images = Dict{Symbol,Any}(), record = nothing,
             target === :eidos ? eidos_images() :
             target === :moments ? moment_images(record) :
             throw(ArgumentError("unknown target :$target; the targets are :kernel, :eidos and :moments"))
+    # a select step with its own Selection: Eidos needs the images of select and reproduce
+    # that know fecundity selection (eidos.jl); the kernel and moments images always do
+    if target === :eidos && any(g -> !(g isa ObExpr) && haskey(stepparams(g), :Selection), stepsof(f))
+        table[:select] = eidos_fecundity_select(table[:select].code)
+        table[:reproduce] = eidos_fecundity_reproduce(table[:reproduce].code)
+    end
     table = merge!(Dict{Any,Any}(table), Dict{Any,Any}(images))
     gens = Dict{Any,Any}()
     for g in stepsof(f)

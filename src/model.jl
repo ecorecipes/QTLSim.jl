@@ -19,7 +19,9 @@
 Mutable population state carried through the operators. Holds the current parents'
 genomes and environments, per-individual scratch (genotype, phenotype, fitness), the
 survivor index set, the current selection optimum `θ` and width `ω`, and a double buffer
-(`schr`/`senv`) for the offspring generation.
+(`schr`/`senv`) for the offspring generation. Under `Selection = :fecundity`, [`select!`](@ref)
+sets `weighted` and leaves the survivors' mating weights, their fitnesses, as cumulative
+sums in `cumw` with total `wsum`, for [`reproduce!`](@ref) and [`noffspring`](@ref).
 
 The current population is individuals `1:N`, with `N == PopSize` always under QTSim's
 `Demography = :fixed`; under density regulation `N` varies, `PopSize` is the carrying
@@ -78,6 +80,9 @@ mutable struct World
     θ0::Float64          # the optimum when a fluctuating move starts
     ε::Float64           # the optimum's AR(1) noise, MoveType = :red_noise
     pts::Vector{Int}     # scratch for the crossover points of a gamete
+    weighted::Bool       # the survivors mate in proportion to their fitness (Selection = :fecundity)
+    wsum::Float64        # then: the sum of their fitnesses, ΣW
+    cumw::Vector{Float64}   # and the cumulative sums of the fitnesses of 1:N
 end
 
 function World(p::Params; blocksize::Integer = default_blocksize(p.NoQTL),
@@ -102,7 +107,7 @@ function World(p::Params; blocksize::Integer = default_blocksize(p.NoQTL),
     World(p, 0, pool, chr, zeros(N),
           zeros(N), zeros(N), zeros(N),
           sizehint!(Int[], N), 0, 0.0, initFitSD(p),
-          copy(chr), zeros(N), false, N, N, 0.0, 0.0, sizehint!(Int[], 16))
+          copy(chr), zeros(N), false, N, N, 0.0, 0.0, sizehint!(Int[], 16), false, 0.0, zeros(N))
 end
 
 """
@@ -349,6 +354,12 @@ Move the optimum, assign each individual a stabilizing-selection fitness, and
 draw the survivor set (survive iff `rand() < fitness`). Mirrors QTSim `Fitness`
 + `SetSurviving`. Sets `w.extinct` if too few survive to reproduce.
 
+Under `Selection = :fecundity` (Julia-only) everyone survives and draws nothing here:
+the survivors are all `N` individuals, and their fitnesses become mating weights
+(`w.weighted`, `w.cumw`, `w.wsum`), which [`reproduce!`](@ref) samples parents by. The
+population dies if fewer than `Ploidy` individuals have positive fitness (no two distinct
+parents can be drawn), which at a fixed size happens only when fitness underflows to 0.
+
 Fitness is the normalized Gaussian `pdf(Normal(0,ω), (z−θ)/sd) / (0.4/ω)`,
 replicating QTSim exactly (the `0.4 ≈ 1/√(2π)` constant included); the idealized
 form `exp(−(z−θ)²/2ω²)` is what Lean `StabilizingSelection.lean` proves about.
@@ -366,6 +377,10 @@ function select!(w::World, rng)
         end
     end
     empty!(w.survivors)
+    if p.Selection === :fecundity
+        return weigh!(w)
+    end
+    w.weighted = false
     @inbounds for i in 1:w.N
         rand(rng) < w.fitness[i] && push!(w.survivors, i)
     end
@@ -374,6 +389,30 @@ function select!(w::World, rng)
         w.extinct = true
     end
     w
+end
+
+# Fecundity selection: all of 1:N survive, with their fitnesses as mating weights.
+function weigh!(w::World)
+    N = w.N
+    append!(w.survivors, 1:N)
+    w.nsurv = N
+    length(w.cumw) < N && resize!(w.cumw, N)
+    s, npos = 0.0, 0
+    @inbounds for i in 1:N
+        s += w.fitness[i]
+        w.cumw[i] = s
+        npos += w.fitness[i] > 0
+    end
+    w.wsum, w.weighted = s, true
+    npos < w.p.Ploidy && (w.extinct = true)
+    w
+end
+
+# A parent drawn with probability W_i/ΣW: the first i with cumw[i] > u, u ~ U(0, ΣW), so
+# that an individual of fitness 0 is never drawn.
+@inline function weighted_parent(w::World, rng)
+    u = rand(rng) * w.wsum
+    min(searchsortedlast(view(w.cumw, 1:w.N), u) + 1, w.N)
 end
 
 """
@@ -503,11 +542,20 @@ The number of offspring the survivors produce. Under QTSim's `Demography = :fixe
 with `n` survivors, carrying capacity `K = PopSize` and `R = GrowthRate` offspring per
 survivor at low density, it is `Poisson(R n / (1 + (R − 1) n / K))`, at most `K`: the
 population stays near `K` while survivors are plentiful, and declines when `R·W̄ < 1`.
+
+Under `Selection = :fecundity` nobody dies at selection, and `n` is the sum of the
+fitnesses, `ΣW = N·W̄`, a real number: the expected number of survivors under viability
+selection with the same phenotypes. So the expected offspring number is the viability
+one's with `n` replaced by its expectation. As `n ↦ R n/(1 + (R − 1) n/K)` is concave,
+viability's expectation is lower, by at most `R (R − 1) Var(n)/K ≤ R (R − 1) N/(4K)`
+offspring (Var(n) = Σ W(1 − W) ≤ N/4), about 0.5 for `R = 2` and `N = K`: negligible
+beside the Poisson noise.
 """
 function noffspring(w::World, rng)
     p = w.p
     p.Demography === :fixed && return p.PopSize
-    R, K, n = p.GrowthRate, p.PopSize, w.nsurv
+    R, K = p.GrowthRate, p.PopSize
+    n = w.weighted ? w.wsum : w.nsurv
     min(K, rand(rng, Poisson(R * n / (1 + (R - 1) * n / K))))
 end
 
@@ -516,9 +564,12 @@ end
 
 Fill the offspring buffer by fitness-independent random mating among survivors (QTSim
 `NewIn`). Haploid: clone a random survivor. Diploid: two distinct survivors each
-contribute a (recombined) gamete, drawn as by [`gamete!`](@ref). Offspring get a fresh
-environment. How many offspring is [`noffspring`](@ref)'s: `PopSize`, as in QTSim, or
-under density regulation a number that depends on the survivors.
+contribute a (recombined) gamete, drawn as by [`gamete!`](@ref). After fecundity
+selection (`w.weighted`, see [`select!`](@ref)) each parent is drawn with probability
+proportional to its fitness instead, and a second parent equal to the first is redrawn
+in the same way. Offspring get a fresh environment. How many offspring is
+[`noffspring`](@ref)'s: `PopSize`, as in QTSim, or under density regulation a number that
+depends on the survivors.
 
 Offspring share their parents' blocks (see [`World`](@ref)); each slot it fills releases
 the block it named before, from the generation before the parents.
@@ -530,6 +581,7 @@ function reproduce!(w::World, rng)
     n = w.Noff = noffspring(w, rng)
     n == 0 && (w.extinct = true; return w)
     pool, chr, schr = w.pool, w.chr, w.schr
+    w.weighted && return reproduce_weighted!(w, rng, n, esd, allpts)
     if p.Ploidy == 1
         @inbounds for j in 1:n
             par = w.survivors[rand(rng, 1:w.nsurv)]
@@ -550,6 +602,30 @@ function reproduce!(w::World, rng)
             gamete_blocks!(w, 2, j, p2, rng, p.RecombPoissonMean, allpts)
             w.senv[j] = esd * randn(rng)
         end
+    end
+    w
+end
+
+# reproduce! after fecundity selection: parents drawn in proportion to their fitness
+function reproduce_weighted!(w::World, rng, n, esd, allpts)
+    p, pool, chr, schr = w.p, w.pool, w.chr, w.schr
+    nb = size(chr, 1)
+    @inbounds for j in 1:n
+        if p.Ploidy == 1
+            par = weighted_parent(w, rng)
+            for k in 1:nb
+                share!(pool, schr, nb * (j - 1) + k, chr[nb * (par - 1) + k])
+            end
+        else
+            p1 = weighted_parent(w, rng)
+            p2 = weighted_parent(w, rng)
+            while p2 == p1
+                p2 = weighted_parent(w, rng)
+            end
+            gamete_blocks!(w, 1, j, p1, rng, p.RecombPoissonMean, allpts)
+            gamete_blocks!(w, 2, j, p2, rng, p.RecombPoissonMean, allpts)
+        end
+        w.senv[j] = esd * randn(rng)
     end
     w
 end
@@ -643,7 +719,8 @@ every `Sample` generations (QTSim `Output`); a no-op when `rec` is `nothing`. Va
 are sample variances (n − 1), as GSL's. Besides QTSim's columns it records the mean
 fitness `W̄` (one minus the load) and the selection differential, the survivors' mean
 phenotype minus the mean phenotype, and the population size `N` (`PopSize`, unless the
-population is density-regulated).
+population is density-regulated). After fecundity selection, when all survive, the
+selection differential is that of the mating weights, `Σ W z/ΣW − z̄`.
 """
 function record!(rec, w::World)
     (rec === nothing || w.gen % w.p.Sample != 0) && return w
@@ -653,7 +730,8 @@ function record!(rec, w::World)
     push!(rec.pheno_var, var(z)); push!(rec.geno_var, var(view(w.genotype, 1:w.N)))
     push!(rec.nsurv, w.nsurv); push!(rec.theta, w.θ); push!(rec.omega, w.ω)
     push!(rec.mean_fitness, mean(view(w.fitness, 1:w.N)))
-    push!(rec.sel_diff, mean(w.phenotype[i] for i in w.survivors) - mean(z))
+    push!(rec.sel_diff, (w.weighted ? sum(w.fitness[i] * z[i] for i in 1:w.N) / w.wsum :
+                         mean(w.phenotype[i] for i in w.survivors)) - mean(z))
     push!(rec.popsize, w.N)
     w
 end

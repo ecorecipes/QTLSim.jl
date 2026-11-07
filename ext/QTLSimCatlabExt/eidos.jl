@@ -81,7 +81,7 @@ otimes(a::AnyEidos, b::AnyEidos, c::AnyEidos, rest::AnyEidos...) = foldl(otimes,
 const EIDOS_SCOPE = Dict(
     :Zygotes => "the individuals of @POP@ carry allele vectors a0 and a1; @POP@ holds THETA, OMEGA and extinct",
     :Adults => "adults, a0, a1 (concatenated, L values per individual), genotype, env, pheno",
-    :Survivors => "W, survived, sidx and ns ≥ 2",
+    :Survivors => "W, survived, sidx and ns ≥ 2 (and, when a model has fecundity selection, weighted, sw and nw)",
     :Offspring => "c0 and c1, the offspring's chromosomes (concatenated, L values per offspring)")
 
 "The Eidos image of each step of the life cycle, by name."
@@ -227,6 +227,76 @@ function eidos_fluctuating_select(code::AbstractString = eidos_images()[:select]
     EidosCode(:select, replace(code, EIDOS_CONTINUOUS_MOVE => EIDOS_FLUCTUATING_MOVE * EIDOS_CONTINUOUS_MOVE))
 end
 
+# Fecundity selection (QTLSim `Selection = :fecundity`), which QTSim lacks. `slim_script`
+# splices it into the images of `select` and `reproduce` only when a deme or a step uses
+# it, so that the models of viability selection are unchanged. In such a model `select`
+# leaves at the stage Survivors whether parents are weighted (`weighted`), their mating
+# weights `sw` (one per survivor) and their sum `nw`, the count that density regulation
+# uses; under viability `weighted` is F, `sw` all 1 and `nw` = ns, and `reproduce` draws
+# the parents as before. The selection mode is the constant `selection`, so that a step
+# (`withparams(L.select; Selection = :fecundity)`) or a deme can set its own.
+const EIDOS_VIABILITY = """
+    survived = runif(size(adults)) < W;
+    sidx = which(survived);
+    ns = size(sidx);
+    if (ns < 2) { @POP@.setValue("extinct", T); adults.fitnessScaling = 0.0; break; }
+"""
+const EIDOS_SELECTION = """
+    weighted = (selection == "fecundity");
+    if (weighted) {
+        // fecundity: everyone survives, and parents are drawn in proportion to W
+        survived = rep(T, size(adults));
+        sidx = seqLen(size(adults));
+        ns = size(sidx);
+        sw = W;
+        if (sum(W > 0) < 2) { @POP@.setValue("extinct", T); adults.fitnessScaling = 0.0; break; }
+    } else {
+        survived = runif(size(adults)) < W;
+        sidx = which(survived);
+        ns = size(sidx);
+        sw = rep(1.0, ns);
+        if (ns < 2) { @POP@.setValue("extinct", T); adults.fitnessScaling = 0.0; break; }
+    }
+    nw = sum(sw);
+"""
+const EIDOS_UNIFORM_COUNT = "growthRate * ns / (1 + (growthRate - 1) * ns / N)"
+const EIDOS_WEIGHTED_COUNT = "growthRate * nw / (1 + (growthRate - 1) * nw / N)"
+const EIDOS_UNIFORM_PARENTS = """
+    i1 = rdunif(NOFF, 0, ns - 1);
+    i2 = rdunif(NOFF, 0, ns - 1);
+    dup = which(i1 == i2);
+    while (size(dup) > 0) { i2[dup] = rdunif(size(dup), 0, ns - 1); dup = which(i1 == i2); }
+"""
+const EIDOS_WEIGHTED_PARENTS = """
+    if (weighted) {
+        // two distinct parents, each drawn with probability proportional to its weight
+        i1 = sample(0:(ns - 1), NOFF, T, sw);
+        i2 = sample(0:(ns - 1), NOFF, T, sw);
+        dup = which(i1 == i2);
+        while (size(dup) > 0) { i2[dup] = sample(0:(ns - 1), size(dup), T, sw); dup = which(i1 == i2); }
+    } else {
+        i1 = rdunif(NOFF, 0, ns - 1);
+        i2 = rdunif(NOFF, 0, ns - 1);
+        dup = which(i1 == i2);
+        while (size(dup) > 0) { i2[dup] = rdunif(size(dup), 0, ns - 1); dup = which(i1 == i2); }
+    }
+"""
+
+"Splice `new` for `old` into an Eidos image, which must contain `old` once."
+function eidos_splice(code::AbstractString, old::AbstractString, new::AbstractString, what)
+    occursin(new, code) && return String(code)
+    count(old, code) == 1 || error("the Eidos image of $what has changed; update the fecundity splice")
+    replace(code, old => new)
+end
+
+"The Eidos images of `select` and `reproduce` (by default QTSim's) with fecundity selection added."
+eidos_fecundity_select(code::AbstractString = eidos_images()[:select].code) =
+    EidosCode(:select, eidos_splice(code, EIDOS_VIABILITY, EIDOS_SELECTION, "select"))
+function eidos_fecundity_reproduce(code::AbstractString = eidos_images()[:reproduce].code)
+    code = eidos_splice(code, EIDOS_UNIFORM_COUNT, EIDOS_WEIGHTED_COUNT, "reproduce")
+    EidosCode(:reproduce, eidos_splice(code, EIDOS_UNIFORM_PARENTS, EIDOS_WEIGHTED_PARENTS, "reproduce"))
+end
+
 # --- steps with parameters, and demes with parameters of their own ---------
 
 "The Eidos constant of `slim_script` that holds each field of `Params` a step can override."
@@ -236,7 +306,7 @@ const EIDOS_CONSTANT = Dict{Symbol,String}(
     :MovePeriod => "movePeriod", :StandardisePhenotype => "standardise", :Drift => "drift",
     :RecombPoissonMean => "RECOMB", :Demography => "demography", :GrowthRate => "growthRate",
     :Sample => "sampleEvery", :ChangeFitnessGen => "changeGen", :ChangeFitnessSD => "changeSD",
-    :MutationScalar => "m", :MutationRatePerGamete => "rate",
+    :MutationScalar => "m", :MutationRatePerGamete => "rate", :Selection => "selection",
     :PopSize => "N", :PhenotypeVar => "VP", :Heritability => "h2", :InitFitnessSD => "initOmega",
     :NoQTL => "L", :NoGenerations => "NGEN")
 
@@ -378,7 +448,17 @@ function slim_model(f, ps::Vector{Params}, images, migration_rate)
     # QTLSim's fluctuating moves: in the image of the plain select when a deme uses one, and
     # their constants when a deme or a step does
     fluctuating = any(q -> q.MoveType in FLUCTUATING_MOVES, ps)
-    fluctuating && (images = merge(Dict{Any,Any}(:select => eidos_fluctuating_select()), Dict{Any,Any}(images)))
+    # fecundity selection: in the images of the plain select and reproduce when a deme or a
+    # step uses it, with the constant `selection`
+    fecund = any(q -> q.Selection === :fecundity, ps) ||
+             any(g -> !(g isa ObExpr) && haskey(stepparams(g), :Selection), stepsof(f))
+    builtin = Dict{Any,Any}()
+    fluctuating && (builtin[:select] = eidos_fluctuating_select())
+    if fecund
+        builtin[:select] = eidos_fecundity_select(get(builtin, :select, eidos_images()[:select]).code)
+        builtin[:reproduce] = eidos_fecundity_reproduce()
+    end
+    isempty(builtin) || (images = merge(builtin, Dict{Any,Any}(images)))
     stepmoves = any(g -> !(g isa ObExpr) && get(stepparams(g), :MoveType, :none) in FLUCTUATING_MOVES, stepsof(f))
     # a constant whose value differs between demes is a vector, one value per deme, and deme state
     value(fld) = (vs = [getfield(q, fld) for q in ps]; all(==(vs[1]), vs) ? vs[1] : vs)
@@ -391,6 +471,7 @@ function slim_model(f, ps::Vector{Params}, images, migration_rate)
                 "demography" => p.Demography, "growthRate" => value(:GrowthRate),
                 (migration_rate isa AbstractMatrix ? "MIG" => vec(permutedims(Float64.(migration_rate))) :
                  "migRate" => Float64(migration_rate)))
+    fecund && (defaults = (defaults..., "selection" => value(:Selection)))
     (fluctuating || stepmoves) &&
         (defaults = (defaults..., "moveNoiseSD" => value(:MoveNoiseSD), "moveAutocorr" => value(:MoveAutocorr),
                      "moveAmplitude" => value(:MoveAmplitude), "movePeriod" => value(:MovePeriod)))
