@@ -17,6 +17,7 @@ Each vignette lives in its own directory `NN_name/NN_name.qmd` and is rendered w
 | `08_validation_against_qtsim` | statistical, exact and published-results checks against QTSim |
 | `09_replicating_pagel_2025` | the paper's results, recomputed from its table and replicated by rerunning 710 of its populations, the survivors to the full 240,000 generations |
 | `10_demography_and_rescue` | a density-regulated population instead of QTSim's fixed size: how much faster populations die, and how the sustainable rate falls, with the moments lowering's predictions |
+| `11_demography_in_the_papers_populations` | vignette 09's 710 populations rerun with density regulation (R = 5, 2, 1.5): how survival, time to extinction and the sustainable rate move from the paper's fixed-size estimates |
 
 ## Rendering
 
@@ -30,8 +31,8 @@ julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
 The script renders each vignette twice, HTML first: in a single render of both formats,
 the self-contained HTML step can delete the figure files that the Markdown needs. Make
 sure the package is precompiled before rendering, otherwise Julia's precompilation output
-is captured into the first cell of the rendered file. Vignettes 02, 03, 06, 07, 08 and 09
-run their simulations on all threads (`julia: exeflags: ["--threads=auto"]`).
+is captured into the first cell of the rendered file. Vignettes 02, 03, 06, 07, 08, 09, 10
+and 11 run their simulations on all threads (`julia: exeflags: ["--threads=auto"]`).
 
 `julia ../scripts/sync_vignettes.jl` copies the rendered Markdown and figures into
 `docs/src/tutorials/` for the documentation site, and CI runs
@@ -44,7 +45,7 @@ Vignettes 06 and 08 run QTSim, which they find as the validation scripts do
 (`make -C reference/QTSim`, which needs a C compiler and GSL), or in the paper's code and
 data if they are unpacked in a `Repository/` folder next to the package's folder.
 Vignette 08 skips the sections that need QTSim when there is none, and uses one of the
-paper's input files (`Repository/Simulations/`) when they are there. Vignette 09 needs
+paper's input files (`Repository/Simulations/`) when they are there. Vignettes 09 and 11 need
 the paper's results tables, `Repository/Results/`. Vignette 06 also needs SLiM, version 5.2
 (the version tested) (`slim/build/slim` next to the package's folder, `ENV["SLIM"]`, or `slim` on the
 path); the hand-written SLiM port of QTSim it compares with comes with the package,
@@ -54,3 +55,7 @@ Vignette 09's simulations are stored next to it and read back on later renders:
 `replication_runs.csv` holds the 710 reruns of 2000 generations after the move (about an
 hour on ten threads to regenerate) and `survivor_runs.csv` the 63 of them still alive
 then, run on to 240,000 generations (about an hour and a half on eight threads, mostly for the two with 5000 loci).
+Vignette 11 stores its reruns the same way, one file per growth rate
+(`demography_runs_R5.0.csv`, `demography_runs_R2.0.csv`, `demography_runs_R1.5.csv`;
+about an hour each on twelve threads), and reads vignette 09's `replication_runs.csv`
+for the same populations at a fixed size.

@@ -112,7 +112,7 @@ julia -t auto --project=validate/slim validate/slim/compare_to_qtsim.jl   # SLiM
 QTSim's C source comes with the package, unmodified, in
 [`reference/QTSim`](reference/QTSim) (its README gives its provenance and how to build
 it), and CI builds it and runs both parity checks on every push. The published-results
-check and vignette 09 also need the paper's data, which is not part of this repository:
+check and vignettes 09 and 11 also need the paper's data, which is not part of this repository:
 they look for it in a `Repository/` folder next to this package's folder, the paper's code
 and data unpacked, with the input files under `Repository/Simulations/` and the results
 tables under `Repository/Results/`. Vignettes 06 and 08 use QTSim, and 06 also SLiM
@@ -120,7 +120,7 @@ tables under `Repository/Results/`. Vignettes 06 and 08 use QTSim, and 06 also S
 
 ## Documentation and vignettes
 
-The [documentation](https://ecorecipes.github.io/QTLSim.jl/dev/) includes ten
+The [documentation](https://ecorecipes.github.io/QTLSim.jl/dev/) includes eleven
 tutorials, rendered from the Quarto vignettes in [`vignettes/`](vignettes/), which go
 from a first simulation to a replication of the paper's results.
 It also has reference pages on the parameters (every field, with its QTSim option),
