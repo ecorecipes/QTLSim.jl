@@ -388,7 +388,7 @@ end
     lower(g, :moments)(m1, nothing)
     foldl(Catlab.compose, (lower(getfield(L, s), :moments) for s in steps))(m2, nothing)
     @test (m1.zbar, m1.VG, m1.θ, m1.gen) == (m2.zbar, m2.VG, m2.θ, m2.gen)
-    @test_throws ArgumentError lower(g ⊗ g ⋅ L.migrate(2), :moments)
+    @test lower(g ⊗ g ⋅ L.migrate(2), :moments) isa Ext_.DemeOp        # several demes (see below)
     @test_throws ArgumentError run_moments(p; cycle = L.develop)
 end
 
@@ -833,6 +833,221 @@ end
     @test_throws ArgumentError slim_script((g ⊗ g) ⋅ Catlab.braid(dom(g), dom(g)), p)
     sm = slim_script(g, Params(p; NoQTL = 20, RecombPoissonMean = 3.0))
     @test occursin("defineConstant(\"L\", 20)", sm) && occursin("defineConstant(\"RECOMB\", 3.0)", sm)
+end
+
+@testset "steps with parameters: syntax" begin
+    L = lifecycle(); g = L.generation; A, S = codom(L.develop), codom(L.select)
+    s3 = withparams(L.select; ω = 0.3)
+    @test dom(s3) == A && codom(s3) == S
+    @test s3 == withparams(L.select; ω = 0.3) && s3 != L.select && s3 != withparams(L.select; ω = 0.4)
+    @test withparams(L.select; ω = 1) == withparams(L.select; ω = 1.0)              # types normalised
+    @test sprint(show, s3) == "select(ω = 0.3)"
+    @test withparams(s3; θ = 0.1) == withparams(L.select; ω = 0.3, θ = 0.1)        # parameters merge
+    @test withparams(g) === g
+    # on a composite, each step takes the parameters it has
+    c = withparams(g; ω = 0.3, MutationScalar = 0.01)
+    @test dom(c) == codom(c) == dom(g)
+    @test c == L.develop ⋅ s3 ⋅ L.reproduce ⋅ L.record ⋅ L.rescale ⋅ withparams(L.mutate; MutationScalar = 0.01) ⋅ L.swap
+    @test_throws Exception s3 ⋅ L.develop                                 # still typed
+    @test_throws ArgumentError withparams(L.develop; ω = 0.3)             # develop takes no ω
+    @test_throws ArgumentError withparams(g; omega = 0.3)                 # no step takes it
+    @test_throws ArgumentError withparams(L.select; ω = -1.0)
+    @test_throws ArgumentError withparams(L.select; MoveType = :bogus)    # Params rejects it
+    @test_throws ArgumentError withparams(L.select; θ = 0.1, MoveFitnessSD = 0.1)
+    @test_throws ArgumentError withparams(L.reproduce; PopSize = 10)
+    m = L.migrate(3; rate = stepping_stone(3, 0.1))
+    @test dom(m) == dom(g ⊗ g ⊗ g) && m == withparams(L.migrate(3); rate = stepping_stone(3, 0.1))
+    @test_throws ArgumentError L.migrate(2; rate = 1.5)
+    @test_throws ArgumentError L.migrate(2; rate = ones(2, 2))
+    @test_throws ArgumentError L.migrate(3; rate = zeros(2, 2))
+end
+
+@testset "steps with parameters: kernel and moments lowerings" begin
+    L = lifecycle(); g = L.generation
+    p = Params(PopSize=200, NoQTL=5, Ploidy=2, NoGenerations=120, PhenotypeVar=0.02, Heritability=0.5,
+               MutationScalar=0.002, MutationRatePerGamete=0.01, InitFitnessSD=0.3, RecombPoissonMean=2.0)
+    same(a, b; but = ()) = all(getfield(a, k) == getfield(b, k) for k in keys(a) if !(k in but))
+    # without parameters, and with the deme's own values, the run is run!'s, bit for bit
+    a = run!(World(p), MersenneTwister(1))
+    @test same(a, run_composed(World(p), MersenneTwister(1)))
+    @test same(a, run_composed(World(p), MersenneTwister(1); cycle = withparams(g; ω = 0.3)))
+    # a step's fields of Params give the run of Params with those values
+    over = (MoveType = :continuous, MoveFitnessSDGen = 40, MoveFitnessSD = 0.002, RecombPoissonMean = 0.5,
+            Sample = 3, ChangeFitnessGen = 60, ChangeFitnessSD = 0.5, MutationScalar = 0.004)
+    @test same(run!(World(Params(p; over...)), MersenneTwister(2)),
+               run_composed(World(p), MersenneTwister(2); cycle = withparams(g; over...)))
+    # a step's ω is the width for that step: the run of a deme of that width, but the
+    # recorded width is the deme's
+    b = run_composed(World(Params(p; InitFitnessSD = 0.1)), MersenneTwister(3); cycle = withparams(g; ω = 0.3))
+    @test same(run!(World(p), MersenneTwister(3)), b; but = (:omega,)) && all(==(0.1), b.omega)
+    # a step's θ: the optimum it selects toward, the deme's recorded optimum unchanged
+    pθ = Params(p; NoQTL = 1, PopSize = 500, NoGenerations = 600, MutationRatePerGamete = 0.5, MutationScalar = 0.02)
+    o = run_composed(World(pθ), MersenneTwister(4); cycle = withparams(g; θ = 0.1))
+    @test abs(mean(o.pheno_mean[301:end]) - 0.1) < 0.02 && all(iszero, o.theta)
+    # a cycle of two generations, with two selection steps of different widths
+    two = withparams(g; ω = 0.2) ⋅ withparams(g; ω = 1.0)
+    o2 = run_composed(World(Params(p; NoGenerations = 10)), MersenneTwister(5); cycle = two)
+    @test o2.gen == 0:9
+    @test same(run!(World(Params(p; NoGenerations = 10)), MersenneTwister(5)),
+               run_composed(World(Params(p; NoGenerations = 10)), MersenneTwister(5); cycle = g ⋅ g))
+    # migration at the step's rate is migration at the lowering's rate
+    cyc = g ⊗ g ⊗ g
+    r1 = run_composed(p ⊗ demes(3), MersenneTwister(6); cycle = cyc ⋅ L.migrate(3; rate = 0.2))
+    r2 = run_composed(p ⊗ demes(3), MersenneTwister(6); cycle = cyc ⋅ L.migrate(3), migration_rate = 0.2)
+    @test same(r1, r2)
+    M = stepping_stone(3, 0.2)
+    @test same(run_composed(p ⊗ demes(3), MersenneTwister(7); cycle = cyc ⋅ L.migrate(3; rate = M)),
+               run_composed(p ⊗ demes(3), MersenneTwister(7); cycle = cyc ⋅ L.migrate(3), migration_rate = M))
+    # the moments lowering: a step's parameters, as Params with those values
+    pm = Params(pθ; NoGenerations = 300)
+    mo = run_moments(pm; cycle = withparams(g; over...))
+    @test same(run_moments(Params(pm; over...)), mo)
+    @test same(run_moments(Params(pm; InitFitnessSD = 0.2)), run_moments(pm; cycle = withparams(g; ω = 0.2)); but = (:omega,))
+    @test run_moments(pm; cycle = withparams(g; θ = 0.1)).pheno_mean[end] ≈ 0.1 rtol = 1e-4
+    # a user's image for one parameterised step, keyed by the generator's name
+    kick = withparams(L.select; ω = 0.5)
+    seen = Ref(0)
+    img = Dict(first(Catlab.args(kick)) => (w, rng) -> (seen[] += 1; QTLSim.select!(w, rng)))
+    run_composed(World(Params(p; NoGenerations = 7)), MersenneTwister(1);
+                 cycle = L.develop ⋅ kick ⋅ L.reproduce ⋅ L.mutate ⋅ L.swap, images = img)
+    @test seen[] == 7
+end
+
+@testset "steps with parameters: the Eidos lowering" begin
+    L = lifecycle(); g = L.generation
+    code(f) = lower(f, :eidos).code
+    plain = code(L.select)
+    s = code(withparams(L.select; ω = 0.3))
+    @test occursin("OMEGA = 0.3;", s) && !occursin("OMEGA = @POP@.getValue(\"OMEGA\");", s)
+    s = code(withparams(L.select; θ = 0.1))
+    @test occursin("THETA = 0.1;", s) && occursin("if (-1 >= 0 & gen >= -1)", s)
+    s = code(withparams(L.select; MoveType = :continuous, MoveFitnessSD = 0.01, MoveFitnessSDGen = 100))
+    @test occursin("if (100 >= 0 & gen >= 100)", s) && occursin("THETA = THETA + 0.01;", s)
+    @test !occursin("red_noise", s)
+    # the bare image of a step with a fluctuating move has the fluctuating moves
+    s = code(withparams(L.select; MoveType = :periodic, MoveAmplitude = 0.1, MovePeriod = 50.0))
+    @test occursin("\"periodic\" == \"periodic\"", s) && occursin("0.1 * sin(2 * PI * t / 50.0)", s)
+    @test !occursin("red_noise", plain)                                   # the plain step is QTSim's
+    s = code(withparams(L.mutate; MutationScalar = 0.01))
+    @test occursin("((0.01 / (2 * L * rate)) * VE)", s) && !occursin("k0 * MUTVAR", s)
+    @test occursin("// mutate: Poisson(L·rate) mutations", s)              # comments untouched
+    @test occursin("RECOMB", code(L.reproduce)) && occursin("rpois(2 * NOFF, 3.0)", code(withparams(L.reproduce; RecombPoissonMean = 3.0)))
+    @test occursin("gen % 10 == 0", code(withparams(L.record; Sample = 10)))
+    @test occursin("if (gen == 50) @POP@.setValue(\"OMEGA\", 0.5);",
+                   code(withparams(L.rescale; ChangeFitnessGen = 50, ChangeFitnessSD = 0.5)))
+    @test_throws ArgumentError lower(withparams(L.reproduce; CrossoverModel = :all), :eidos)
+    # migration at the step's rate: a literal, or a local copy of the matrix
+    mig(f) = lower(f, :eidos).emit(["p1", "p2", "p3"])
+    @test occursin("runif(sizes[d]) < 0.05", mig(L.migrate(3; rate = 0.05)))
+    m = mig(L.migrate(3; rate = stepping_stone(3, 0.02; circular = false)))
+    @test occursin("MIGstep = c(0.0, 0.01, 0.0, 0.01, 0.0, 0.01, 0.0, 0.01, 0.0);", m) && occursin("cumSum(MIGstep[", m)
+    # slim_script: a step's fluctuating move defines the constants it reads
+    p = Params(PopSize=100, NoQTL=1, Ploidy=2, NoGenerations=30, InitFitnessSD = 0.3)
+    sc = slim_script(withparams(g; MoveType = :periodic, MoveFitnessSDGen = 10, MoveAmplitude = 0.1), p)
+    @test occursin("defineConstant(\"movePeriod\", 100.0)", sc) && occursin("0.1 * sin(2 * PI * t / movePeriod)", sc)
+    @test !occursin("movePeriod", slim_script(g, p))
+    # one generation of each deme per tick
+    @test_throws ArgumentError slim_script(g ⋅ g, p)
+    @test_throws ArgumentError slim_script((g ⋅ g) ⊗ g ⋅ L.migrate(2), p)
+end
+
+@testset "per-deme parameters in slim_script" begin
+    L = lifecycle(); g = L.generation
+    p = Params(PopSize=100, NoQTL=1, Ploidy=2, NoGenerations=30, InitFitnessSD = 0.3)
+    cycle = g ⊗ g ⊗ g ⋅ L.migrate(3)
+    # the same Params in every deme: the model of one Params
+    @test slim_script(cycle, [p, p, p]; migration_rate = 0.01) == slim_script(cycle, p; migration_rate = 0.01)
+    @test slim_script(g, [p]) == slim_script(g, p)
+    ps = [p, Params(p; InitFitnessSD = 0.6, PopSize = 200, MoveType = :periodic, MoveFitnessSDGen = 5),
+          Params(p; Heritability = 0.4, MutationScalar = 0.002)]
+    sc = slim_script(cycle, ps)
+    @test occursin("defineConstant(\"N\", c(100, 200, 100))", sc)
+    @test occursin("defineConstant(\"initOmega\", c(0.3, 0.6, 0.3))", sc)
+    @test occursin("defineConstant(\"moveType\", c(\"phenotype\", \"periodic\", \"phenotype\"))", sc)
+    @test occursin("defineConstant(\"h2\", c(0.5, 0.5, 0.4))", sc) && occursin("defineConstant(\"VP\", 1.0)", sc)
+    @test occursin("function (*)perDeme(* x)", sc) && occursin("pop = sim.addSubpop(i + 1, perDeme(N)[i]);", sc)
+    @test occursin("pop.setValue(\"OMEGA\", perDeme(OMEGA0)[i]);", sc)
+    @test occursin("ifelse(perDeme(initOmega) < 0", sc)
+    # each deme's code reads its own values from its subpopulation, the derived ones too
+    for (pop, name) in (("p1", "N"), ("p2", "moveType"), ("p3", "ESD"), ("p3", "MUTVAR"))
+        @test occursin("$pop.getValue(\"$name\")", sc)
+    end
+    for name in ("N", "moveType", "moveGen", "h2", "m", "VG", "VE", "ESD", "MUTVAR")
+        @test occursin("pop.setValue(\"$name\", perDeme($name)[i]);", sc)
+    end
+    @test !occursin("p1.getValue(\"RECOMB\")", sc) && !occursin("setValue(\"initOmega\"", sc)
+    # the fluctuating moves are in the plain select, since a deme uses one
+    @test occursin("p1.getValue(\"moveType\") == \"red_noise\"", sc)
+    # a step's parameter wins over the deme's
+    sc2 = slim_script(withparams(g; MoveFitnessSDGen = 7) ⊗ g ⊗ g ⋅ L.migrate(3), ps)
+    @test occursin("if (7 >= 0 & gen >= 7)", sc2) && occursin("p2.getValue(\"moveGen\") >= 0", sc2)
+    @test_throws ArgumentError slim_script(cycle, [p, p])
+    @test_throws ArgumentError slim_script(cycle, [p, p, Params(p; NoQTL = 2)])
+    @test_throws ArgumentError slim_script(cycle, [p, p, Params(p; Demography = :beverton_holt)])
+end
+
+@testset "the moments of several demes" begin
+    L = lifecycle(); g = L.generation
+    Ext_ = Ext
+    # the expected composition after the kernel's migration: rows are distributions, and
+    # with two equal demes at a small rate about 2·rate of each is replaced
+    P = Ext_.migration_mixing([0 0.01; 0.01 0], [1000.0, 1000.0], [true, true])
+    @test all(sum(P; dims = 2) .≈ 1) && all(P .>= 0)
+    @test P[1, 2] ≈ 0.02 rtol = 0.02
+    P3 = Ext_.migration_mixing([0 0.2 0; 0.1 0 0; 0 0 0], [100.0, 300.0, 50.0], [true, true, true])
+    @test all(sum(P3; dims = 2) .≈ 1) && P3[3, :] == [0, 0, 1]
+    @test Ext_.migration_mixing([0 0.2; 0.2 0], [100.0, 100.0], [true, false]) == [1 0; 0 1]
+    # no migration: each deme is its own one-deme run
+    p = Params(PopSize=500, NoQTL=1, Ploidy=2, NoGenerations=400, PhenotypeVar=0.02, Heritability=0.5,
+               MutationScalar=0.02, MutationRatePerGamete=0.5, InitFitnessSD=0.3)
+    ps = [p, Params(p; InitFitnessSD = 0.6)]
+    o = run_moments(ps; cycle = g ⊗ g)
+    for d in 1:2
+        o1 = run_moments(ps[d])
+        @test o.geno_var[o.deme .== d] == o1.geno_var && o.pheno_mean[o.deme .== d] == o1.pheno_mean
+    end
+    @test run_moments(p; cycle = g ⊗ g).geno_var[1:2:end] == run_moments(p).geno_var
+    @test_throws ArgumentError run_moments([p, p]; cycle = g ⊗ g ⊗ g)
+    @test_throws ArgumentError run_moments([p, p]; cycle = g ⊗ g, zbar = [0.0, 0.1, 0.2])
+    # neutral demes with different means: the moments right after one migration are the
+    # kernel's, for unequal sizes and a migration matrix, and the means stay exact after
+    pn = Params(p; PopSize = 400, NoGenerations = 4, MutationScalar = 0.0, Drift = true)
+    psn = [pn, Params(pn; PopSize = 200), Params(pn; PopSize = 600)]
+    z0 = [0.0, 0.2, -0.1]
+    cyc = g ⊗ g ⊗ g ⋅ L.migrate(3; rate = [0 0.1 0.05; 0.2 0 0; 0.02 0.3 0])
+    mo = run_moments(psn; cycle = cyc, zbar = z0)
+    R = 300
+    zk = zeros(4, 3); vk = zeros(4, 3)
+    for r in 1:R
+        s = psn ⊗ demes(3)
+        for (d, w) in enumerate(s.demes); w.genome .= z0[d] / 2; end
+        ok = run_composed(s, MersenneTwister(r); cycle = cyc)
+        for j in eachindex(ok.gen)
+            zk[ok.gen[j] + 1, ok.deme[j]] += ok.pheno_mean[j] / R; vk[ok.gen[j] + 1, ok.deme[j]] += ok.geno_var[j] / R
+        end
+    end
+    at(t, d) = findfirst(i -> mo.gen[i] == t && mo.deme[i] == d, eachindex(mo.gen))
+    for d in 1:3
+        @test zk[2, d] ≈ mo.pheno_mean[at(1, d)] atol = 0.002
+        @test vk[2, d] ≈ mo.geno_var[at(1, d)] rtol = 0.03
+        @test all(abs(zk[t + 1, d] - mo.pheno_mean[at(t, d)]) < 0.004 for t in 2:3)
+    end
+    # selection toward different optima: the demes diverge, and migration holds them together,
+    # in the kernel (averaged over replicates) and in the moments
+    pd = Params(p; NoGenerations = 1000)
+    late(o, d) = mean(o.pheno_mean[i] for i in eachindex(o.gen) if o.deme[i] == d && o.gen[i] >= 600)
+    function divergence(rate)
+        cyc = withparams(g; θ = 0.1) ⊗ withparams(g; θ = -0.1, ω = 0.2) ⋅ L.migrate(2; rate)
+        mo = run_moments(pd; cycle = cyc)
+        ks = [(o = run_composed(pd ⊗ demes(2), MersenneTwister(s); cycle = cyc); late(o, 1) - late(o, 2)) for s in 1:8]
+        late(mo, 1) - late(mo, 2), mean(ks)
+    end
+    m0, k0 = divergence(0.0)
+    m1, k1 = divergence(0.02)
+    @test m0 ≈ 0.2 rtol = 1e-4
+    @test k0 ≈ 0.2 rtol = 0.05
+    @test m1 < 0.6m0 && k1 < 0.6k0
+    @test m1 ≈ k1 rtol = 0.25          # the one-locus kernel has more variance than the Gaussian lowering
 end
 
 @testset "sweep and replicate: threads, cache, resumption, errors" begin

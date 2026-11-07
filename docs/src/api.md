@@ -100,6 +100,7 @@ L = lifecycle()                                                        # the lif
 
 ```@docs
 lifecycle
+withparams
 lower
 slim_script
 run_composed
@@ -141,6 +142,8 @@ CurrentModule = Main
 ```@docs
 QTLSimCatlabExt
 QTLSimCatlabExt.Stage
+QTLSimCatlabExt.Step
+QTLSimCatlabExt.STEP_PARAMS
 QTLSimCatlabExt.EidosCode
 QTLSimCatlabExt.EidosMeta
 QTLSimCatlabExt.DemeOp
@@ -149,4 +152,6 @@ QTLSimCatlabExt.Demes
 QTLSimCatlabExt.Stratified
 QTLSimCatlabExt.Population
 QTLSimCatlabExt.Moments
+QTLSimCatlabExt.DemeMoments
+QTLSimCatlabExt.migration_mixing
 ```

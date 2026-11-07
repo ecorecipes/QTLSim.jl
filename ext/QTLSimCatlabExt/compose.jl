@@ -64,6 +64,39 @@ kernel_images(rec = nothing) = Dict{Symbol,Any}(
     :mutate => Operator(:mutate, (w, rng) -> QTLSim.mutate!(w, rng)),
     :swap => Operator(:swap, (w, rng) -> (QTLSim.swapbuffers!(w); w.gen += 1; w)))
 
+"""
+    with_step_params(s::Step, op::Operator)
+
+The image of a step with parameters `s.params`, from the image `op` of the plain step,
+in the kernel or the moments lowering: `op` runs with the deme's `Params` overridden by
+the step's fields of `Params`, its width `ω` and its optimum `θ` replaced by the step's
+`ω` and `θ` when it has them, and all three restored afterwards. A step's own `θ`
+replaces the move (`MoveFitnessSDGen = -1` for that step). So the parameters act in that
+step only: the deme's state keeps its own optimum and width, which is what `record`
+records, while a move made by a step's own move parameters moves the deme's optimum.
+"""
+function with_step_params(s, op::Operator)
+    fields = paramfields(s)
+    ω = get(s.params, :ω, nothing)
+    θ = get(s.params, :θ, nothing)
+    θ === nothing || (fields = merge(fields, (MoveFitnessSDGen = -1,)))
+    cache = IdDict{Params,Params}()          # the overridden Params, per deme's Params
+    Operator(Symbol(string(s)), function (w, rng)
+        p0, ω0, θ0 = w.p, w.ω, w.θ
+        isempty(fields) || (w.p = get!(() -> QTLSim.checkparams(Params(p0; fields...)), cache, p0))
+        ω === nothing || (w.ω = ω)
+        θ === nothing || (w.θ = θ)
+        try
+            op(w, rng)
+        finally
+            w.p = p0
+            ω === nothing || (w.ω = ω0)
+            θ === nothing || (w.θ = θ0)
+        end
+        w
+    end, op.scope)
+end
+
 # --- a run driven by one lowered life cycle -------------------------------
 
 function run_composed(w::World, rng; record::Bool=true, cycle = lifecycle().generation,
@@ -75,10 +108,14 @@ function run_composed(w::World, rng; record::Bool=true, cycle = lifecycle().gene
     step = lower(cycle, :kernel; images, record = record ? rec : nothing)
     p = w.p
     init_env!(w, rng)
-    for it in 0:p.NoGenerations-1
-        w.gen = it
+    # whole cycles until NoGenerations generations are done: a cycle of several generations
+    # advances w.gen at each swap, and one that does not advance it counts as one
+    w.gen = 0
+    while w.gen < p.NoGenerations
+        it = w.gen
         step(w, rng)
-        w.extinct && return (extinct=true, extinct_gen=it, rec...)
+        w.extinct && return (extinct=true, extinct_gen=w.gen, rec...)
+        w.gen = max(w.gen, it + 1)
     end
     (extinct=false, extinct_gen=-1, rec...)
 end
@@ -233,14 +270,16 @@ function run_composed(s::Stratified, rng; cycle, record::Bool=true, images = Dic
     p = first(s.demes).p
     d = collect(1:k)
     extinct_gen = fill(-1, k)
-    for it in 0:p.NoGenerations-1
-        foreach(w -> w.extinct || (w.gen = it), s.demes)
+    gen = 0                      # whole cycles, as for one World, with the demes in step
+    while gen < p.NoGenerations
+        foreach(w -> w.extinct || (w.gen = gen), s.demes)
         step.act(s, d, rng)
         for (i, w) in enumerate(s.demes)
-            w.extinct && extinct_gen[i] < 0 && (extinct_gen[i] = it)
+            w.extinct && extinct_gen[i] < 0 && (extinct_gen[i] = w.gen)
         end
         isextinct(s) && break
         d = d[step.perm]
+        gen = max(gen + 1, maximum(w.gen for w in s.demes if !w.extinct))
     end
     (extinct = isextinct(s), extinct_gen, gen = rec.gen, deme = rec.deme, pheno_mean = rec.pheno_mean,
      pheno_var = rec.pheno_var, geno_var = rec.geno_var, nsurv = rec.nsurv, theta = rec.theta, omega = rec.omega,

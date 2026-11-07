@@ -38,7 +38,7 @@ export periodic_response, red_noise_lag_var, expected_lag2, lag_load
 # migration graphs among demes
 export island_migration, stepping_stone
 # the categorical layer (implemented by QTLSimCatlabExt; load Catlab to use it)
-export lifecycle, lower, slim_script, operators, operator, demes, run_composed, migrate!,
+export lifecycle, withparams, lower, slim_script, operators, operator, demes, run_composed, migrate!,
        migration, totalpop, ndemes, population_schema, lift, lower!, genotypes, phenotypes,
        genome_from_acset, run_moments
 # sweeps and replicates on all threads, with a resumable CSV cache

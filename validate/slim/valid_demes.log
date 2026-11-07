@@ -1,0 +1,21 @@
+QTLSim kernel vs generated SLiM model, demes with parameters of their own, R = 50 runs each
+
+── A: three demes with their own Params (ω 0.15, 0.3, 0.6; N 400, 500, 600), migration 0.01 ──
+  deme 1 genetic variance            kernel  0.004304 ± 1e-04    SLiM  0.004333 ± 8.7e-05  KS p = 0.178
+  deme 1 mean phenotype              kernel -0.0001961 ± 0.0014   SLiM 0.0003782 ± 0.0017   KS p = 0.178
+  deme 2 genetic variance            kernel  0.006441 ± 0.00019  SLiM   0.00644 ± 0.00018  KS p = 0.711
+  deme 2 mean phenotype              kernel -0.0004172 ± 0.0025   SLiM 0.0004288 ± 0.0022   KS p = 0.112
+  deme 3 genetic variance            kernel  0.009348 ± 0.00047  SLiM   0.00938 ± 0.00043  KS p = 0.864
+  deme 3 mean phenotype              kernel 0.0003044 ± 0.0043   SLiM -0.0001425 ± 0.0046   KS p = 0.711
+
+── B: two demes, steps with θ = ±0.1 and ω = 0.2, 0.4, migration 0.02 ──
+  deme 1 genetic variance            kernel  0.006834 ± 0.00019  SLiM  0.006875 ± 0.00018  KS p = 0.711
+  deme 1 mean phenotype              kernel    0.0768 ± 0.0017   SLiM   0.07649 ± 0.0019   KS p = 0.711
+  deme 2 genetic variance            kernel   0.01088 ± 0.00056  SLiM   0.01084 ± 0.00045  KS p = 0.711
+  deme 2 mean phenotype              kernel    -0.023 ± 0.0038   SLiM  -0.02307 ± 0.0032   KS p = 0.711
+  difference of the deme means       kernel    0.0998 ± 0.0043   SLiM   0.09956 ± 0.0037   KS p = 0.964
+
+── C: steps with parameters = Params with those values, run for run in SLiM ──
+  identical output in 10 of 10 runs
+
+smallest p = 0.112: no discrepancy
