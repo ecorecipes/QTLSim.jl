@@ -39,13 +39,13 @@ own Julia process, and fails if any chunk throws; it does not write the rendered
 From the package root:
 
 ```sh
-julia -t 3 --project=vignettes scripts/run_vignettes.jl          # 01-05, 07 and 10
+julia -t 3 --project=vignettes scripts/run_vignettes.jl          # 01-06 and 10
 julia -t 3 --project=vignettes scripts/run_vignettes.jl 03 10    # by number or name
 ```
 
 Its default set is the vignettes that need neither QTSim, SLiM nor the paper's data. CI
-runs 01–05 and 10 on every push (about 5 minutes on three threads locally) and 07, which
-takes about 6 minutes on its own, on a weekly schedule and on manual runs.
+runs 01, 02, 03, 05, 06 and 10 on every push (about 5 minutes on three threads locally) and
+04, which takes about 6 minutes on its own, on a weekly schedule and on manual runs.
 
 `julia ../scripts/sync_vignettes.jl` copies the rendered Markdown and figures into
 `docs/src/tutorials/` for the documentation site, and CI runs
