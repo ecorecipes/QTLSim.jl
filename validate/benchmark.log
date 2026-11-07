@@ -1,0 +1,9 @@
+# 2026-11-07 13:53; Julia 1.12.6, 1 thread(s); Apple M3 Pro, 12 cores, 18 GB; QTSim: ../Repository/Code/QTSim/src/QTSim
+# ms per generation; kernels: median of 3 seeds, over generations 1–4000 (first) and 4001–5000; QTSim: (t(2500) − t(500))/2000, median of 3
+ NoQTL     first    kernel     dense     QTSim   dense/k   QTSim/k   load0   load1
+     1     0.101     0.103     0.118     0.206      1.15      2.00    2.64    2.59
+   100     0.251     0.250     0.248     0.470      0.99      1.88    2.59    2.57
+   500     0.330     0.327     0.469     1.412      1.43      4.32    2.57    2.44
+  1000     0.396     0.391     1.100     2.864      2.81      7.32    2.44    2.34
+  5000     0.798     0.784     4.946    13.214      6.31     16.85    2.34    2.30
+# finished before 2026-11-07 15:22 (each L started only once the 1-minute load was below 3); BENCH_MAXLOAD = 3.0
