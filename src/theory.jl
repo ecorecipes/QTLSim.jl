@@ -141,8 +141,7 @@ with `β = V_G/(V_G + V_s)`. With `ν = 2π/P`, the mean cycles as
 and `delay = phase/ν` is the phase lag in generations. The lag `θ − z̄` cycles with
 amplitude `lag_amplitude·A`, `lag_amplitude = 2 sin(ν/2)/D`. A slow cycle (`P → ∞`) is
 tracked with `gain → 1` and `delay → 1/β`, the delay of the steady lag behind a trend; a
-fast one is averaged out
-(`gain → 0`). Returns `(; gain, phase, delay, lag_amplitude)`.
+fast one is averaged out (`gain → 0`). Returns `(; gain, phase, delay, lag_amplitude)`.
 """
 function periodic_response(P::Real; VG::Real, Vs::Real)
     β = VG / (VG + Vs)

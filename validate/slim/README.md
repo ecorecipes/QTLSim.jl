@@ -35,6 +35,10 @@ port of QTSim written by hand, run for run, and against QTSim itself, in distrib
   regulation (`Demography = :beverton_holt`), which QTSim lacks; KS tests, 40 runs each,
   about 15 minutes on 10 threads; exits 1 if any p < 0.001; last result in
   `valid_demography.log`.
+- `compare_fluctuating.jl` — the kernel against the generated SLiM model with a
+  fluctuating optimum (`MoveType = :periodic` and `:red_noise`), which QTSim lacks; KS
+  tests, 40 runs each, about 4 minutes on 3 threads; exits 1 if any p < 0.001; last
+  result in `valid_fluctuating.log`.
 - `three_way_confirm.jl` — the large pre-specified test of QTSim vs the generated SLiM model
   vs the kernel (40,000 runs each, about 2.5 h on 8 threads); result in `three_way_confirm.log`.
 - `slim.jl` — `find_slim()`: `ENV["SLIM"]`, else `slim/build/slim` next to the package's
@@ -63,7 +67,9 @@ slim -s 42 -d "N=1000" -d "NGEN=6500" -d "moveGen=5000" -d "moveSD=1.0" validate
 
 Parameters can be overridden with `-d "NAME=value"`: `N VP h2 m rate NGEN moveGen moveSD
 changeGen changeSD initOmega` in both models, and `moveType` (`"phenotype"`, `"fitness"`,
-`"continuous"`), `L` (loci), `RECOMB` and `migRate` in the generated one. `initOmega < 0`
+`"continuous"`, and `"red_noise"` or `"periodic"` when the model was generated for one of
+them, with `moveNoiseSD`, `moveAutocorr`, `moveAmplitude` and `movePeriod`), `L` (loci),
+`RECOMB` and `migRate` in the generated one. `initOmega < 0`
 uses the analytical width `ω = V_G/√(m·V_E)`. In `qtsim.slim` the width change is tied to
 `moveGen`.
 
@@ -130,6 +136,16 @@ both, 583 and 562 generations after the move on average (p = 0.26). Moving 0.01 
 R = 1.5, a rate every population survives at a fixed size: all 40 die in both, after
 1341 and 1326 generations (p = 0.57). QTSim has a fixed size, so the kernel is the
 reference here.
+
+**Fluctuating optima (2026-11-07, `compare_fluctuating.jl`, `valid_fluctuating.log`, 40 runs
+each):** the kernel and the generated SLiM model with a periodic optimum (A = 0.1, P = 200;
+A = 0.15, P = 50) and red noise (σ = 0.1, ρ = 0.9 and 0), one locus, ω = 0.3. No run died.
+Across the 18 KS tests on the mean squared lag, genetic variance, survivors and the
+optimum's SD and autocorrelation, the smallest p was 0.029 (mean squared lag, P = 200,
+kernel 0.001193 against SLiM 0.001148). A rerun of that scenario alone with 200 runs each
+and new seeds, its threshold fixed in advance, gave 0.001164 against 0.001183 (p = 0.18).
+The mean squared lags are 1–8% above the Gaussian prediction (`expected_lag2`), which
+ignores drift. QTSim has no fluctuating optimum, so the kernel is the reference here.
 
 **Is the agreement real? (2026-11-05)** Low p-values like the 0.035 prompted a fuller
 investigation:
