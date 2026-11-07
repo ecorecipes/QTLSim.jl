@@ -1,0 +1,21 @@
+QTLSim kernel vs generated SLiM model, three neutral demes of 200, 300 generations, R = 300 runs each
+
+── island, scalar rate 0.05 ──
+  squared difference, end demes            kernel  0.002275  SLiM  0.001729  KS p = 0.100
+  squared difference, neighbours           kernel  0.002131  SLiM  0.001983  KS p = 0.787
+  genetic variance within a deme           kernel   0.05216  SLiM   0.05263  KS p = 0.584
+  ratio of the mean squared differences    kernel     1.068  SLiM     0.872
+
+── island, island_migration(3, 0.05) ──
+  squared difference, end demes            kernel  0.002275  SLiM  0.002068  KS p = 0.292
+  squared difference, neighbours           kernel  0.002208  SLiM  0.002257  KS p = 0.787
+  genetic variance within a deme           kernel   0.05284  SLiM    0.0527  KS p = 0.653
+  ratio of the mean squared differences    kernel     1.030  SLiM     0.916
+
+── line, stepping_stone(3, 0.05; circular = false) ──
+  squared difference, end demes            kernel  0.006459  SLiM  0.005779  KS p = 0.100
+  squared difference, neighbours           kernel  0.003015  SLiM  0.002919  KS p = 0.249
+  genetic variance within a deme           kernel   0.05233  SLiM   0.05177  KS p = 0.787
+  ratio of the mean squared differences    kernel     2.142  SLiM     1.980
+
+smallest p = 0.0996: no discrepancy
