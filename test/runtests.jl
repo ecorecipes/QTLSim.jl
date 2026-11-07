@@ -37,9 +37,10 @@ end
     # here): one round's variance has a relative SE of about 9%, so average 25 rounds
     # (SE ≈ 2%) and allow 4 SE
     v = map(1:25) do _
-        fill!(w.sgenome, 0.0)
+        setgenomes!(w, zeros(p.NoQTL, p.Ploidy, p.PopSize); offspring = true)
         mutate!(w, rng)
-        var(sum(@view w.sgenome[:, :, j]) for j in 1:p.PopSize)
+        G = genomes(w; offspring = true)
+        var(sum(@view G[:, :, j]) for j in 1:p.PopSize)
     end
     @test isapprox(mean(v), muteVar(p); rtol=0.08)
 end
@@ -179,7 +180,9 @@ end
     p = Params(PopSize=8, NoQTL=3, Ploidy=2, PhenotypeVar=0.02,
                Heritability=0.5, MutationScalar=0.001)
     w = World(p); rng = MersenneTwister(11)
-    for k in eachindex(w.genome); w.genome[k] = randn(rng); end
+    G = zeros(p.NoQTL, p.Ploidy, p.PopSize)
+    for k in eachindex(G); G[k] = randn(rng); end
+    setgenomes!(w, G)
     for i in 1:p.PopSize; w.env[i] = randn(rng); end
     develop!(w)
 
@@ -191,17 +194,17 @@ end
     @test genotypes(pop) ≈ w.genotype
     @test phenotypes(pop) ≈ w.phenotype
     # lower back: genome + env recovered exactly
-    @test genome_from_acset(pop, p.NoQTL, p.Ploidy) == w.genome
+    @test genome_from_acset(pop, p.NoQTL, p.Ploidy) == genomes(w) == G
     w2 = World(p); lower!(pop, w2)
-    @test w2.genome == w.genome
+    @test genomes(w2) == genomes(w)
     @test w2.env == w.env
     @test w2.genotype == w.genotype && w2.phenotype == w.phenotype   # recomputed by lower!
     @test_throws ArgumentError lower!(pop, World(Params(p; PopSize = 9)))
     @test_throws ArgumentError genome_from_acset(pop, p.NoQTL + 1, p.Ploidy)
     # haploid
-    ph = Params(p; Ploidy = 1); wh = World(ph); wh.genome .= randn(rng, size(wh.genome)); develop!(wh)
+    ph = Params(p; Ploidy = 1); wh = World(ph); setgenomes!(wh, randn(rng, ph.NoQTL, 1, ph.PopSize)); develop!(wh)
     wh2 = World(ph); lower!(lift(wh), wh2)
-    @test wh2.genome == wh.genome
+    @test genomes(wh2) == genomes(wh)
 end
 
 @testset "⋅ composition: run_composed == run! bitwise" begin
@@ -235,8 +238,8 @@ end
                Heritability=0.5, MutationScalar=0.001)
     s = p ⊗ demes(3)
     rng = MersenneTwister(31)
-    for w in s.demes, i in 1:w.p.PopSize
-        for k in eachindex(w.genome); w.genome[k] = randn(rng); end
+    for w in s.demes
+        setgenomes!(w, randn(rng, p.NoQTL, p.Ploidy, p.PopSize))
     end
     before = totalpop(s)
     m = migrate!(s, rng; rate=0.2)
@@ -259,6 +262,146 @@ end
     step(s, rng)                              # must not error (was a MethodError before the fix)
     @test all(w -> w.gen == 1, s.demes)       # the generation advanced every deme
     @test totalpop(s) == 3 * p.PopSize        # migration conserved total population
+end
+
+# ─── genomes as shared blocks, against the dense kernel ─────────────────
+
+# The dense kernel as it was before blocks (test/dense_reference.jl), run beside the block
+# kernel on the same seed, generation by generation: alleles bit for bit, genotypes to
+# rounding, survivors, sizes and extinction exactly; and the pool's reference counts match
+# the slots that name its blocks after every generation.
+include(joinpath(@__DIR__, "dense_reference.jl"))
+const Dense = DenseReference
+
+function same_as_dense(p, seed; blocksize = QTLSim.default_blocksize(p.NoQTL))
+    w = World(p; blocksize); d = Dense.World(p)
+    rb = MersenneTwister(seed); rd = MersenneTwister(seed)
+    init_env!(w, rb); Dense.init_env!(d, rd)
+    ok = true; gerr = 0.0
+    for t in 0:p.NoGenerations-1
+        w.gen = d.gen = t
+        generation!(w, rb); Dense.generation!(d, rd)
+        ok &= w.extinct == d.extinct && w.nsurv == d.nsurv && w.N == d.N && w.θ == d.θ
+        (w.extinct || !ok) && return (; ok, gerr, extinct = w.extinct, gen = t)
+        ok &= genomes(w) == d.genome[:, :, 1:d.N] && w.env[1:w.N] == d.env[1:d.N]
+        gerr = max(gerr, maximum(abs, w.genotype[1:w.N] .- d.genotype[1:d.N]))
+        QTLSim.check_blocks(w)                 # throws if a count is off
+    end
+    (; ok, gerr, extinct = false, gen = p.NoGenerations)
+end
+
+@testset "block genomes are the dense kernel's alleles" begin
+    base = Params(PopSize = 120, NoGenerations = 40, RecombPoissonMean = 3.0, PhenotypeVar = 0.03,
+                  Heritability = 0.3, MutationScalar = 0.003, InitFitnessSD = 1.0,
+                  MoveFitnessSDGen = 20, MoveFitnessSD = 0.02, MoveType = :continuous)
+    n = 0
+    for L in (1, 2, 7, 100, 1000), P in (1, 2), cm in (:qtsim, :all), seed in 1:2
+        p = Params(base; NoQTL = L, Ploidy = P, CrossoverModel = cm,
+                   MutationRatePerGamete = min(0.05, 2 / L),
+                   PopSize = L == 1000 ? 60 : 120, NoGenerations = L == 1000 ? 20 : 40)
+        r = same_as_dense(p, seed)
+        @test r.ok && r.gerr < 1e-12 && !r.extinct
+        n += 1
+    end
+    @test n == 40
+    # block sizes at the extremes: one locus per block, and one block per chromosome
+    for B in (1, 7), cm in (:qtsim, :all)
+        r = same_as_dense(Params(base; NoQTL = 7, Ploidy = 2, CrossoverModel = cm, MutationRatePerGamete = 0.1), 3; blocksize = B)
+        @test r.ok && r.gerr < 1e-12
+    end
+    # density regulation, with populations that persist and populations that die
+    bh = Params(base; NoQTL = 50, Ploidy = 2, Demography = :beverton_holt, GrowthRate = 1.5,
+                MutationRatePerGamete = 0.02, NoGenerations = 80)
+    for seed in 1:3
+        @test same_as_dense(bh, seed).ok
+        r = same_as_dense(Params(bh; MoveFitnessSD = 0.3, InitFitnessSD = 0.3), seed)
+        @test r.ok && r.extinct
+    end
+    # QTSim's extinction, haploid and diploid
+    for P in (1, 2)
+        r = same_as_dense(Params(base; NoQTL = 20, Ploidy = P, InitFitnessSD = 1e-3, MoveFitnessSDGen = 0,
+                                 MoveFitnessSD = 5.0, MoveType = :phenotype, MutationRatePerGamete = 0.05), 1)
+        @test r.ok && r.extinct
+    end
+end
+
+@testset "block genomes: migration between demes as in the dense kernel" begin
+    p = Params(PopSize = 80, NoQTL = 30, Ploidy = 2, NoGenerations = 25, RecombPoissonMean = 3.0,
+               PhenotypeVar = 0.03, Heritability = 0.3, MutationScalar = 0.01,
+               MutationRatePerGamete = 0.05, InitFitnessSD = 1.0)
+    # demes sharing a pool (⊗), with separate pools, and with pools of different block sizes
+    for build in (() -> p ⊗ demes(3), () -> Ext.Stratified([World(p) for _ in 1:3]),
+                  () -> Ext.Stratified([World(p; blocksize = b) for b in (1, 6, 30)]))
+        s = build(); ds = [Dense.World(p) for _ in 1:3]
+        rb = MersenneTwister(4); rd = MersenneTwister(4)
+        for (w, d) in zip(s.demes, ds); init_env!(w, rb); Dense.init_env!(d, rd); end
+        ok = true
+        for t in 0:p.NoGenerations-1
+            for (w, d) in zip(s.demes, ds)
+                w.gen = d.gen = t
+                generation!(w, rb); Dense.generation!(d, rd)
+            end
+            # migrate the block demes, then move the dense individuals the same way: an
+            # individual is identified by its environmental deviation, which moves with it
+            where = Dict(w.env[i] => (k, i) for (k, w) in enumerate(s.demes) for i in 1:w.N)
+            migrate!(s, rb; rate = 0.1)
+            copy!(rd, rb)
+            old = [copy(d.genome) for d in ds]; oldenv = [copy(d.env) for d in ds]
+            for (k, w) in enumerate(s.demes), i in 1:w.N
+                (k0, i0) = where[w.env[i]]
+                ds[k].genome[:, :, i] .= old[k0][:, :, i0]; ds[k].env[i] = oldenv[k0][i0]
+            end
+            ok &= all(genomes(w) == d.genome[:, :, 1:d.N] for (w, d) in zip(s.demes, ds))
+            ok &= all(maximum(abs, w.genotype[1:w.N] .- d.genotype[1:d.N]) < 1e-12 for (w, d) in zip(s.demes, ds))
+            if s.demes[1].pool === s.demes[2].pool
+                QTLSim.check_blocks(s.demes...)
+            else
+                foreach(QTLSim.check_blocks, s.demes)
+            end
+        end
+        @test ok
+    end
+end
+
+@testset "block pool: reference counts, no leaks, accessors" begin
+    p = Params(PopSize = 200, NoQTL = 100, Ploidy = 2, NoGenerations = 400, RecombPoissonMean = 3.0,
+               PhenotypeVar = 0.03, Heritability = 0.3, MutationScalar = 0.003,
+               MutationRatePerGamete = 0.02, InitFitnessSD = 1.0)
+    w = World(p); rng = MersenneTwister(1); init_env!(w, rng)
+    sizes = Int[]; live = Int[]
+    for t in 0:p.NoGenerations-1
+        w.gen = t; generation!(w, rng)
+        push!(live, QTLSim.check_blocks(w)); push!(sizes, length(w.pool.refs))
+    end
+    # live blocks stay far below the slots, and the pool stops growing
+    @test maximum(live) < 2 * p.Ploidy * p.PopSize * w.pool.nb
+    @test sizes[end] == sizes[100]
+    # steady state: a generation allocates nothing
+    allocs(w, rng) = @allocated generation!(w, rng)
+    allocs(w, rng)
+    @test allocs(w, rng) == 0
+    # a block shared by parent and offspring is copied before a mutation, never changed in place
+    q = Params(p; PopSize = 2, NoQTL = 9, MutationRatePerGamete = 0.5)
+    v = World(q); G = randn(MersenneTwister(2), 9, 2, 2); setgenomes!(v, G)
+    v.survivors = [1, 2]; v.nsurv = 2
+    r = MersenneTwister(3); reproduce!(v, r)
+    off = genomes(v; offspring = true)
+    mutate!(v, r)
+    @test genomes(v) == G                     # the parents are untouched
+    @test genomes(v; offspring = true) != off # the offspring mutated
+    QTLSim.check_blocks(v)
+    # cached block sums are recomputed from the values: a genotype is the sum of the alleles
+    develop!(v)
+    @test v.genotype ≈ vec(sum(G; dims = (1, 2))) atol = 1e-14
+    # accessors: shapes, errors, and a shared copy
+    @test size(genomes(w)) == (p.NoQTL, p.Ploidy, w.N)
+    @test_throws ArgumentError setgenomes!(v, zeros(8, 2, 2))
+    @test_throws ArgumentError setgenomes!(v, zeros(9, 2, 3))
+    @test_throws ArgumentError World(p; blocksize = 101)
+    u = QTLSim.shared_copy(w)
+    @test u.pool === w.pool && genomes(u) == genomes(w)
+    QTLSim.check_blocks(w, u)
+    @test QTLSim.default_blocksize.((1, 2, 7, 100, 5000)) == (1, 2, 3, 10, 71)
 end
 
 @testset "crossover model: :qtsim switches at most once, :all at every point" begin
@@ -416,7 +559,7 @@ end
     pop = lift(w)
     @test Catlab.nparts(pop, :Individual) == w.N
     w2 = World(b); lower!(pop, w2)
-    @test w2.N == w.N && w2.genome[:, :, 1:w.N] == w.genome[:, :, 1:w.N]
+    @test w2.N == w.N && genomes(w2) == genomes(w)
     # the moments lowering predicts the equilibrium size, and extinction for a fast move
     m = run_moments(Params(b; NoGenerations = 2000))
     @test m.popsize[end] ≈ 500 * (2 * m.mean_fitness[end] - 1) / m.mean_fitness[end] atol = 1
@@ -530,12 +673,13 @@ end
     p = Params(PopSize=200, NoQTL=1, Ploidy=2, NoGenerations=30, PhenotypeVar=0.02, Heritability=0.5,
                MutationScalar=0.02, MutationRatePerGamete=0.5, InitFitnessSD=0.3)
     s = p ⊗ demes(3)
-    for (d, w) in enumerate(s.demes); w.genome .= d; end
+    for (d, w) in enumerate(s.demes); setgenomes!(w, fill(Float64(d), p.NoQTL, p.Ploidy, p.PopSize)); end
     M = zeros(3, 3); M[1, 2] = 0.5
     c = migrate!(s, MersenneTwister(1); rate = M)
     @test c.count > 0 && totalpop(s) == 600
-    @test all(==(3.0), s.demes[3].genome) && 2.0 in s.demes[1].genome && 3.0 ∉ s.demes[1].genome
-    @test count(==(2.0), s.demes[1].genome) == count(==(1.0), s.demes[2].genome) > 0   # exchanges, not moves
+    G1, G2, G3 = genomes.(s.demes)
+    @test all(==(3.0), G3) && 2.0 in G1 && 3.0 ∉ G1
+    @test count(==(2.0), G1) == count(==(1.0), G2) > 0   # exchanges, not moves
     # a run along a graph, and demes with their own parameters
     L = lifecycle(); g = L.generation
     cycle = g ⊗ g ⊗ g ⋅ L.migrate(3)
@@ -721,7 +865,7 @@ end
     for w in (w1, w2), i in 1:p.PopSize; w.env[i] = 0.1 * i / p.PopSize; end
     lower(f ⋅ g, :kernel)(w1, MersenneTwister(4))
     r = MersenneTwister(4); lower(f, :kernel)(w2, r); lower(g, :kernel)(w2, r)
-    @test w1.genome == w2.genome && w1.env == w2.env && w1.θ == w2.θ && w1.gen == w2.gen == 1
+    @test genomes(w1) == genomes(w2) && w1.env == w2.env && w1.θ == w2.θ && w1.gen == w2.gen == 1
     # the lowered life cycle is run!, with the width schedule and through extinction
     a = run!(World(p), MersenneTwister(8)); b = run_composed(World(p), MersenneTwister(8))
     @test all(getfield(a, k) == getfield(b, k) for k in keys(a))
@@ -793,13 +937,13 @@ end
     s1 = p ⊗ demes(3); init!(s1, MersenneTwister(1)); s2 = deepcopy(s1)
     lower(g ⊗ g ⊗ g, :kernel).act(s1, [1, 2, 3], MersenneTwister(9))
     operators().generation(s2, MersenneTwister(9))
-    @test all(s1.demes[i].genome == s2.demes[i].genome for i in 1:3)
+    @test all(genomes(s1.demes[i]) == genomes(s2.demes[i]) for i in 1:3)
     # a braiding relabels the demes and moves no data
     b = lower((g ⊗ g) ⋅ Catlab.braid(Z, Z), :kernel)
     @test b.perm == [2, 1]
     s3 = p ⊗ demes(2); init!(s3, MersenneTwister(2)); s4 = deepcopy(s3)
     b.act(s3, [1, 2], MersenneTwister(4)); lower(g ⊗ g, :kernel).act(s4, [1, 2], MersenneTwister(4))
-    @test s3.demes[1].genome == s4.demes[1].genome && s3.demes[2].genome == s4.demes[2].genome
+    @test genomes(s3.demes[1]) == genomes(s4.demes[1]) && genomes(s3.demes[2]) == genomes(s4.demes[2])
     # runs: a row per deme and sampled generation; migration conserves every deme's size
     o = run_composed(p ⊗ demes(3), MersenneTwister(5); cycle = meta, migration_rate = 0.2)
     @test length(o.gen) == 3 * p.NoGenerations && sort(unique(o.deme)) == [1, 2, 3]
@@ -823,12 +967,12 @@ end
     end
     # a World ⊗ demes copies the World into independent demes
     w = World(p); s = w ⊗ demes(2)
-    @test ndemes(s) == 2 && s.demes[1] !== s.demes[2] && s.demes[1].genome == w.genome
+    @test ndemes(s) == 2 && s.demes[1] !== s.demes[2] && genomes(s.demes[1]) == genomes(w)
     # migration needs demes with the same loci and ploidy, and checks before moving anyone
     s = Ext.Stratified([World(p), World(Params(p; NoQTL = 2))])
-    g1 = copy(s.demes[1].genome)
+    g1 = genomes(s.demes[1])
     @test_throws ArgumentError migrate!(s, MersenneTwister(1); rate = 0.5)
-    @test s.demes[1].genome == g1
+    @test genomes(s.demes[1]) == g1
     @test_throws ArgumentError lower(g, :bogus)
     @test_throws ArgumentError Catlab.compose(lower(g ⊗ g, :kernel), lower(g ⊗ g ⊗ g, :kernel))
     @test_throws ArgumentError Catlab.compose(lower(g ⊗ g, :eidos), lower(g ⊗ g ⊗ g, :eidos))
@@ -1047,7 +1191,7 @@ end
     zk = zeros(4, 3); vk = zeros(4, 3)
     for r in 1:R
         s = psn ⊗ demes(3)
-        for (d, w) in enumerate(s.demes); w.genome .= z0[d] / 2; end
+        for (d, w) in enumerate(s.demes); setgenomes!(w, fill(z0[d] / 2, w.p.NoQTL, w.p.Ploidy, w.p.PopSize)); end
         ok = run_composed(s, MersenneTwister(r); cycle = cyc)
         for j in eachindex(ok.gen)
             zk[ok.gen[j] + 1, ok.deme[j]] += ok.pheno_mean[j] / R; vk[ok.gen[j] + 1, ok.deme[j]] += ok.geno_var[j] / R

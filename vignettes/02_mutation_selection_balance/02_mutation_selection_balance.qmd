@@ -58,9 +58,10 @@ operator to a large population of zero genomes, for several locus counts and rat
 function mutational_input(p; rounds = 20, seed = 1)
     w = World(p); rng = Xoshiro(seed); Δ = Float64[]
     for _ in 1:rounds
-        fill!(w.sgenome, 0.0)
+        setgenomes!(w, zeros(p.NoQTL, p.Ploidy, p.PopSize); offspring = true)
         mutate!(w, rng)                       # adds mutations to the offspring buffer
-        append!(Δ, sum(@view w.sgenome[:, :, j]) for j in 1:p.PopSize)
+        G = genomes(w; offspring = true)
+        append!(Δ, sum(@view G[:, :, j]) for j in 1:p.PopSize)
     end
     var(Δ)
 end

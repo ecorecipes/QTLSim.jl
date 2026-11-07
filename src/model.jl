@@ -14,24 +14,54 @@
 # C reference.
 
 """
-    World
+    World(p; blocksize = default_blocksize(p.NoQTL), pool = nothing)
 
-Mutable population state carried through the operators. Holds the current
-parents' genomes/environments, per-individual scratch (genotype/phenotype/
-fitness), the survivor index set, the current selection optimum `θ` and width
-`ω`, and a double buffer (`sgenome`/`senv`) for the offspring generation.
+Mutable population state carried through the operators. Holds the current parents'
+genomes and environments, per-individual scratch (genotype, phenotype, fitness), the
+survivor index set, the current selection optimum `θ` and width `ω`, and a double buffer
+(`schr`/`senv`) for the offspring generation.
 
-Genomes are stored as `(NoQTL, Ploidy, PopSize)`; the genotype of individual `i`
-is the sum over all its loci and chromosomes (QTSim `CaclGenotype`). The current
-population is individuals `1:N`, with `N == PopSize` always under QTSim's `Demography =
-:fixed`; under density regulation `N` varies, `PopSize` is the carrying capacity, and
-`Noff` is the number of offspring in the buffer. `θ0` and `ε` hold the state of a
-fluctuating optimum (`MoveType = :red_noise` or `:periodic`, see [`moveoptimum!`](@ref)).
+The current population is individuals `1:N`, with `N == PopSize` always under QTSim's
+`Demography = :fixed`; under density regulation `N` varies, `PopSize` is the carrying
+capacity, and `Noff` is the number of offspring in the buffer. `θ0` and `ε` hold the
+state of a fluctuating optimum (`MoveType = :red_noise` or `:periodic`, see
+[`moveoptimum!`](@ref)).
+
+# Genomes
+
+Each chromosome of `NoQTL` loci is split into `nb` blocks of `blocksize` loci (the last
+may be shorter), `⌈√NoQTL⌉` by default, and stored as `nb` ids of blocks in a
+pool (`QTLSim.BlockPool`): `w.chr[k, c, i]` is block `k` of chromosome `c` of
+individual `i`, an `(nb, Ploidy, PopSize)` array, and `w.schr` the same for the
+offspring. Blocks are shared and reference-counted. A gamete shares every block of its
+parent's chromosomes except the one that holds a crossover, which it builds; a mutation
+changes a block in place if nothing else holds it and copies it first otherwise. Each
+block caches the sum of its values, and the genotype of individual `i` (QTSim
+`CaclGenotype`) is the sum of its blocks' sums, chromosome by chromosome, block by
+block. So a generation costs about `N·√L` operations rather than `N·L`.
+
+Read the genomes with [`genomes`](@ref) and write them with [`setgenomes!`](@ref), which
+convert to and from a dense `(NoQTL, Ploidy, n)` array.
+
+Every slot of both buffers, all `PopSize` columns, holds one reference to a live block
+at all times. A slot drops its reference only when it is overwritten, after it has
+taken the new one: by [`reproduce!`](@ref) in the offspring buffer, which after a swap
+holds the previous parents, by [`mutate!`](@ref) when it copies a block, by
+`setgenomes!`, and by migration between demes that do not share a pool. So the previous
+parents' blocks are released one offspring slot at a time during the next
+`reproduce!`, never while a slot names them, and `swapbuffers!` moves no references.
+Demes of a metapopulation made by `⊗` share one pool, so that a migrant is moved by
+swapping its block ids.
+
+The random draws, and so the allele values, are those of a dense array of alleles
+(bit for bit, for the same seed). Genotypes are summed in another order, so they can
+differ from a sum over the dense array in the last bits (about 1e-16 relative).
 """
 mutable struct World
     p::Params
     gen::Int
-    genome::Array{Float64,3}
+    pool::BlockPool
+    chr::Array{Int32,3}     # parents: block ids, (nb, Ploidy, PopSize)
     env::Vector{Float64}
     genotype::Vector{Float64}
     phenotype::Vector{Float64}
@@ -40,23 +70,167 @@ mutable struct World
     nsurv::Int
     θ::Float64
     ω::Float64
-    sgenome::Array{Float64,3}
+    schr::Array{Int32,3}    # offspring: block ids
     senv::Vector{Float64}
     extinct::Bool
     N::Int
     Noff::Int
     θ0::Float64          # the optimum when a fluctuating move starts
     ε::Float64           # the optimum's AR(1) noise, MoveType = :red_noise
+    pts::Vector{Int}     # scratch for the crossover points of a gamete
 end
 
-function World(p::Params)
+function World(p::Params; blocksize::Integer = default_blocksize(p.NoQTL),
+               pool::Union{BlockPool,Nothing} = nothing)
     checkparams(p)
     N, L, P = p.PopSize, p.NoQTL, p.Ploidy
-    World(p, 0,
-          zeros(L, P, N), zeros(N),
+    if pool === nothing
+        pool = BlockPool(L, blocksize)
+    else
+        pool.L == L || throw(ArgumentError("a pool of chromosomes of $(pool.L) loci for NoQTL = $L"))
+    end
+    nb = pool.nb
+    # every slot of both buffers starts on one block of zeros per block position
+    chr = Array{Int32,3}(undef, nb, P, N)
+    for k in 1:nb
+        id = newblock!(pool)
+        fill!(view(pool.vals, blockoffset(pool, id) .+ (1:blocklen(pool, k))), 0.0)
+        pool.sums[id] = 0.0
+        pool.refs[id] = Int32(2 * P * N)
+        chr[k, :, :] .= id
+    end
+    World(p, 0, pool, chr, zeros(N),
           zeros(N), zeros(N), zeros(N),
-          Int[], 0, 0.0, initFitSD(p),
-          zeros(L, P, N), zeros(N), false, N, N, 0.0, 0.0)
+          sizehint!(Int[], N), 0, 0.0, initFitSD(p),
+          copy(chr), zeros(N), false, N, N, 0.0, 0.0, sizehint!(Int[], 16))
+end
+
+"""
+    shared_copy(w)
+
+A copy of `w` whose genomes are blocks of the same pool: the copy's slots name the same
+blocks, one more reference each. `World ⊗ demes(k)` makes its demes this way.
+"""
+function shared_copy(w::World)
+    v = World(w.p; pool = w.pool)
+    for f in fieldnames(World)
+        f in (:p, :pool, :chr, :schr) && continue
+        setfield!(v, f, deepcopy(getfield(w, f)))
+    end
+    for (dst, src) in ((v.chr, w.chr), (v.schr, w.schr)), i in eachindex(src)
+        old = dst[i]
+        dst[i] = retain!(w.pool, src[i])
+        release!(w.pool, old)
+    end
+    v
+end
+
+"""
+    genomes(w; offspring = false)
+
+The genomes of the current population as a dense `(NoQTL, Ploidy, N)` array of allele
+effects, a copy: `genomes(w)[l, c, i]` is the effect at locus `l` of chromosome `c` of
+individual `i`. With `offspring = true`, those of the `Noff` offspring in the buffer.
+"""
+function genomes(w::World; offspring::Bool = false)
+    pool, chr = w.pool, offspring ? w.schr : w.chr
+    n = offspring ? w.Noff : w.N
+    G = Array{Float64,3}(undef, pool.L, size(chr, 2), n)
+    @inbounds for i in 1:n, c in axes(chr, 2), k in 1:pool.nb
+        copyto!(G, LinearIndices(G)[(k - 1) * pool.B + 1, c, i],
+                pool.vals, blockoffset(pool, chr[k, c, i]) + 1, blocklen(pool, k))
+    end
+    G
+end
+
+"""
+    setgenomes!(w, G; offspring = false)
+
+Write the dense `(NoQTL, Ploidy, n)` array `G` into the genomes of individuals `1:n` of
+the current population (with `offspring = true`, of the offspring buffer); `n` may be at
+most `PopSize`. It changes neither `N` nor the genotypes: call [`develop!`](@ref) to
+bring the genotypes and phenotypes up to date.
+"""
+function setgenomes!(w::World, G::AbstractArray{<:Real,3}; offspring::Bool = false)
+    pool, chr = w.pool, offspring ? w.schr : w.chr
+    size(G, 1) == pool.L && size(G, 2) == size(chr, 2) && size(G, 3) <= size(chr, 3) ||
+        throw(ArgumentError("genomes of size $(size(G)) for $(pool.L) loci, ploidy $(size(chr, 2)) and at most $(size(chr, 3)) individuals"))
+    for i in axes(G, 3), c in axes(G, 2)
+        setchromosome!(w.pool, chr, c, i, view(G, :, c, i))
+    end
+    w
+end
+
+# Write the values `x` (length L) into chromosome `c` of individual `i` of `chr`, as new blocks.
+function setchromosome!(pool::BlockPool, chr::Array{Int32,3}, c, i, x::AbstractVector)
+    for k in 1:pool.nb
+        id = newblock!(pool)
+        o, lo, len = blockoffset(pool, id), (k - 1) * pool.B, blocklen(pool, k)
+        for t in 1:len
+            pool.vals[o + t] = x[firstindex(x) + lo + t - 1]
+        end
+        blocksum!(pool, id, len)
+        setslot!(pool, chr, k, c, i, id)
+    end
+end
+
+"The loci and ploidy of a `World`'s genomes."
+genome_shape(w::World) = (w.p.NoQTL, w.p.Ploidy)
+
+"""
+    exchange_genomes!(w, i, v, j)
+
+Exchange the genomes of individual `i` of `w` and individual `j` of `v`, which have the
+same loci and ploidy. Swaps block ids, `nb·Ploidy` of them, when the two share a pool;
+otherwise copies the blocks into the other pool, or, if the block sizes differ, the
+alleles.
+"""
+function exchange_genomes!(w::World, i::Integer, v::World, j::Integer)
+    genome_shape(w) == genome_shape(v) ||
+        throw(ArgumentError("exchanging genomes of shapes $(genome_shape(w)) and $(genome_shape(v))"))
+    pw, pv = w.pool, v.pool
+    if pw === pv
+        @inbounds for c in axes(w.chr, 2), k in axes(w.chr, 1)
+            w.chr[k, c, i], v.chr[k, c, j] = v.chr[k, c, j], w.chr[k, c, i]
+        end
+    elseif pw.B == pv.B
+        for c in axes(w.chr, 2), k in axes(w.chr, 1)
+            a, b, len = w.chr[k, c, i], v.chr[k, c, j], blocklen(pw, k)
+            setslot!(pv, v.chr, k, c, j, copyblock!(pv, pw, a, len))
+            setslot!(pw, w.chr, k, c, i, copyblock!(pw, pv, b, len))
+        end
+    else
+        gi = genomes_of(w, i); gj = genomes_of(v, j)
+        for c in axes(w.chr, 2)
+            setchromosome!(pw, w.chr, c, i, view(gj, :, c))
+            setchromosome!(pv, v.chr, c, j, view(gi, :, c))
+        end
+    end
+    nothing
+end
+
+# the (NoQTL, Ploidy) genome of one parent
+function genomes_of(w::World, i::Integer)
+    pool = w.pool
+    g = Matrix{Float64}(undef, pool.L, size(w.chr, 2))
+    for c in axes(w.chr, 2), k in 1:pool.nb
+        copyto!(g, (c - 1) * pool.L + (k - 1) * pool.B + 1,
+                pool.vals, blockoffset(pool, w.chr[k, c, i]) + 1, blocklen(pool, k))
+    end
+    g
+end
+
+"""
+    check_blocks(ws::World...)
+
+Check the reference counts of the pool the `World`s `ws` share, which must be all the
+`World`s that use it, against their buffers (see [`check_blocks`](@ref)). Returns the
+number of live blocks. For tests.
+"""
+function check_blocks(ws::World...)
+    pool = first(ws).pool
+    all(w -> w.pool === pool, ws) || throw(ArgumentError("the Worlds do not share one pool"))
+    check_blocks(pool, Iterators.flatten((w.chr, w.schr) for w in ws)...)
 end
 
 # --- environment ---------------------------------------------------------
@@ -85,12 +259,21 @@ end
     develop!(w)
 
 Genotype = Σ allele effects; phenotype = genotype + environment (QTSim
-`CaclPopPhenotype`). Deterministic given the environments drawn at birth.
+`CaclPopPhenotype`). Deterministic given the environments drawn at birth. The sum of the
+effects is the sum of the cached sums of the individual's blocks, chromosome by
+chromosome, block by block (see [`World`](@ref)).
 """
 function develop!(w::World)
+    sums, chr = w.pool.sums, w.chr
+    nb, P = size(chr, 1), size(chr, 2)
+    m = nb * P
     @inbounds for i in 1:w.N
-        w.genotype[i] = sum(@view w.genome[:, :, i])
-        w.phenotype[i] = w.genotype[i] + w.env[i]
+        g = 0.0
+        for t in m*(i-1)+1:m*i       # chromosome by chromosome, block by block
+            g += sums[chr[t]]
+        end
+        w.genotype[i] = g
+        w.phenotype[i] = g + w.env[i]
     end
     w
 end
@@ -204,6 +387,10 @@ point index, so only the LOWEST point switches: a gamete has at most one
 crossover. That is the default; `allpoints=true` switches at every point
 (Params `CrossoverModel = :all`). With `L == 1` both reduce to picking one
 parental chromosome at random (Mendelian segregation).
+
+This is the gamete on dense arrays of alleles. The kernel ([`reproduce!`](@ref)) builds
+gametes from shared blocks, with the same random draws in the same order, so it copies the
+same alleles.
 """
 function gamete!(dest, chrA, chrB, rng, recombMean, L, allpoints::Bool=false, pts::Vector{Int}=Int[])
     npts = rand(rng, Poisson(recombMean))
@@ -236,6 +423,78 @@ function gamete!(dest, chrA, chrB, rng, recombMean, L, allpoints::Bool=false, pt
     dest
 end
 
+# The kernel's gamete: `gamete!` on block ids. Writes chromosome `c` of offspring `j` (a
+# slot column of `w.schr`) from the two chromosomes of parent `par` in `w.chr`, with the
+# random draws of `gamete!`, in its order, so that the alleles are those `gamete!` would
+# copy. Blocks wholly on one side of every switch are shared; a block with a switch inside
+# it is built from the two strands, unless both strands hold the same block there.
+function gamete_blocks!(w::World, c::Int, j::Int, par::Int, rng, recombMean::Float64,
+                        allpoints::Bool)
+    pool, chr, schr, pts = w.pool, w.chr, w.schr, w.pts
+    L, B, nb = pool.L, pool.B, pool.nb
+    P = size(chr, 2)
+    # linear offsets: block k of strand s of the parent is chr[pb[s] + k], and block k
+    # of the gamete goes to schr[db + k]
+    pb1 = nb * P * (par - 1)
+    pb2 = pb1 + nb
+    db = nb * ((c - 1) + P * (j - 1))
+    npts = rand(rng, Poisson(recombMean))
+    if npts == 0 || npts >= L
+        pb = rand(rng, Bool) ? pb1 : pb2
+        @inbounds for k in 1:nb
+            share!(pool, schr, db + k, chr[pb + k])
+        end
+        return nothing
+    end
+    empty!(pts)
+    while length(pts) < npts
+        x = rand(rng, 0:L-2)
+        x in pts || push!(pts, x)
+    end
+    pb, po = rand(rng, Bool) ? (pb1, pb2) : (pb2, pb1)   # the current strand and the other
+    if allpoints
+        sort!(pts)
+    else                                 # QTSim: only the lowest point switches
+        pts[1] = minimum(pts)
+        npts = 1
+    end
+    # A switch after 0-based locus x: loci 1:x+1 (1-based) come from the current strand.
+    # Block k holds loci lo:hi; a switch with x+1 < hi falls inside it, x+1 == hi on its
+    # end, which changes the strand for the blocks after it only.
+    ip = 1
+    @inbounds for k in 1:nb
+        hi = k == nb ? L : k * B
+        a = chr[pb + k]
+        if ip <= npts && pts[ip] + 1 < hi
+            if a == chr[po + k]          # the same block on both strands: share it
+                while ip <= npts && pts[ip] + 1 < hi
+                    pb, po = po, pb; ip += 1
+                end
+                share!(pool, schr, db + k, a)
+            else
+                lo = (k - 1) * B + 1
+                id = newblock!(pool)
+                o = blockoffset(pool, id) - lo + 1      # locus l goes to vals[o + l]
+                l = lo
+                while ip <= npts && pts[ip] + 1 < hi
+                    e = pts[ip] + 1
+                    copyto!(pool.vals, o + l, pool.vals, blockoffset(pool, chr[pb + k]) - lo + 1 + l, e - l + 1)
+                    l = e + 1; pb, po = po, pb; ip += 1
+                end
+                copyto!(pool.vals, o + l, pool.vals, blockoffset(pool, chr[pb + k]) - lo + 1 + l, hi - l + 1)
+                blocksum!(pool, id, hi - lo + 1)
+                setslot!(pool, schr, db + k, id)
+            end
+        else
+            share!(pool, schr, db + k, a)
+        end
+        if ip <= npts && pts[ip] + 1 == hi
+            pb, po = po, pb; ip += 1
+        end
+    end
+    nothing
+end
+
 """
     noffspring(w, rng)
 
@@ -255,24 +514,29 @@ end
 """
     reproduce!(w, rng)
 
-Fill the offspring buffer `sgenome`/`senv` by fitness-independent random mating
-among survivors (QTSim `NewIn`). Haploid: clone a random survivor. Diploid: two
-distinct survivors each contribute a (recombined) gamete. Offspring get a fresh
+Fill the offspring buffer by fitness-independent random mating among survivors (QTSim
+`NewIn`). Haploid: clone a random survivor. Diploid: two distinct survivors each
+contribute a (recombined) gamete, drawn as by [`gamete!`](@ref). Offspring get a fresh
 environment. How many offspring is [`noffspring`](@ref)'s: `PopSize`, as in QTSim, or
 under density regulation a number that depends on the survivors.
+
+Offspring share their parents' blocks (see [`World`](@ref)); each slot it fills releases
+the block it named before, from the generation before the parents.
 """
 function reproduce!(w::World, rng)
     p = w.p
-    L = p.NoQTL
     esd = envsd(p)
     allpts = p.CrossoverModel === :all
     n = w.Noff = noffspring(w, rng)
     n == 0 && (w.extinct = true; return w)
-    pts = Int[]                      # crossover-point scratch, shared by every gamete
+    pool, chr, schr = w.pool, w.chr, w.schr
     if p.Ploidy == 1
         @inbounds for j in 1:n
             par = w.survivors[rand(rng, 1:w.nsurv)]
-            @views w.sgenome[:, 1, j] .= w.genome[:, 1, par]
+            nb = size(chr, 1)
+            for k in 1:nb
+                share!(pool, schr, nb * (j - 1) + k, chr[nb * (par - 1) + k])
+            end
             w.senv[j] = esd * randn(rng)
         end
     else
@@ -282,10 +546,8 @@ function reproduce!(w::World, rng)
             while p2 == p1
                 p2 = w.survivors[rand(rng, 1:w.nsurv)]
             end
-            gamete!(@view(w.sgenome[:, 1, j]), @view(w.genome[:, 1, p1]),
-                    @view(w.genome[:, 2, p1]), rng, p.RecombPoissonMean, L, allpts, pts)
-            gamete!(@view(w.sgenome[:, 2, j]), @view(w.genome[:, 1, p2]),
-                    @view(w.genome[:, 2, p2]), rng, p.RecombPoissonMean, L, allpts, pts)
+            gamete_blocks!(w, 1, j, p1, rng, p.RecombPoissonMean, allpts)
+            gamete_blocks!(w, 2, j, p2, rng, p.RecombPoissonMean, allpts)
             w.senv[j] = esd * randn(rng)
         end
     end
@@ -299,6 +561,9 @@ Add Gaussian mutations to the offspring buffer (QTSim `MutateIndividualChrNo`).
 Each chromosome receives `Poisson(L·rate)` mutations, each of variance
 `m/(ploidy·L·rate)·V_E`; in expectation this injects `m·V_E` of variance per
 individual per generation (Lean `mutationalVarianceInput_eq`).
+
+A mutation changes its block in place if the offspring is the only holder, and a copy of
+it otherwise; the block's sum is then recomputed from its values.
 """
 function mutate!(w::World, rng)
     p = w.p
@@ -306,21 +571,39 @@ function mutate!(w::World, rng)
     rate = p.MutationRatePerGamete
     mutsd = sqrt(max((p.MutationScalar / (p.Ploidy * L * rate)) * envVar(p), 0.0))
     λ = L * rate
+    pool, schr = w.pool, w.schr
+    B = pool.B
     @inbounds for j in 1:w.Noff
         for c in 1:p.Ploidy
             no = rand(rng, Poisson(λ))
             for _ in 1:no
                 pos = rand(rng, 1:L)
-                w.sgenome[pos, c, j] += mutsd * randn(rng)
+                x = mutsd * randn(rng)
+                k = (pos - 1) ÷ B + 1
+                len = blocklen(pool, k)
+                id = schr[k, c, j]
+                if pool.refs[id] > 1     # shared: copy on write
+                    nid = copyblock!(pool, pool, id, len)
+                    pool.refs[id] -= Int32(1)
+                    schr[k, c, j] = id = nid
+                end
+                pool.vals[blockoffset(pool, id) + pos - (k - 1) * B] += x
+                blocksum!(pool, id, len)
             end
         end
     end
     w
 end
 
-"Swap the parent and offspring buffers (QTSim double-buffer `swap`)."
+"""
+    swapbuffers!(w)
+
+Swap the parent and offspring buffers (QTSim double-buffer `swap`). No block references
+change: the old parents' blocks stay referenced by the offspring buffer until the next
+[`reproduce!`](@ref) overwrites it.
+"""
 function swapbuffers!(w::World)
-    w.genome, w.sgenome = w.sgenome, w.genome
+    w.chr, w.schr = w.schr, w.chr
     w.env, w.senv = w.senv, w.env
     w.N = w.Noff
     w

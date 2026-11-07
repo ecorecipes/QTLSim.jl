@@ -14,6 +14,8 @@ QTLSim
 Params
 checkparams
 World
+genomes
+setgenomes!
 simulate
 run!
 generation!

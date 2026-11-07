@@ -34,6 +34,7 @@ function lift(w::World)
     pop = Population()
     N, L, P = w.N, p.NoQTL, p.Ploidy
     add_parts!(pop, :Individual, N)
+    G = genomes(w)
     @inbounds for i in 1:N
         set_subpart!(pop, i, :env, w.env[i])
         set_subpart!(pop, i, :genotype, w.genotype[i])
@@ -42,7 +43,7 @@ function lift(w::World)
         for c in 1:P, l in 1:L
             a = add_part!(pop, :Allele)
             set_subpart!(pop, a, :owner, i)
-            set_subpart!(pop, a, :effect, w.genome[l, c, i])
+            set_subpart!(pop, a, :effect, G[l, c, i])
         end
     end
     pop
@@ -85,7 +86,7 @@ function lower!(pop::Population, w::World)
     (p.Demography === :fixed ? n == p.PopSize : 1 <= n <= p.PopSize) ||
         throw(ArgumentError("the population has $n individuals; the World holds PopSize = $(p.PopSize)" *
                             (p.Demography === :fixed ? "" : " at most")))
-    w.genome[:, :, 1:n] .= genome_from_acset(pop, p.NoQTL, p.Ploidy)
+    setgenomes!(w, genome_from_acset(pop, p.NoQTL, p.Ploidy))
     w.env[1:n] .= pop[:, :env]
     w.N = n
     QTLSim.develop!(w)                 # keep genotype and phenotype in step with the new genomes
