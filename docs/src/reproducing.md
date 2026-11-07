@@ -45,6 +45,9 @@ With that folder in place:
 
 - `validate/published_sweep.jl` reruns a stratified sample of the published inputs in
   QTLSim and compares them with the table, input by input.
+- `validate/demography_sweep.jl` reruns a fraction of every stratum, up to the whole sweep,
+  under Beverton–Holt density regulation and at a fixed size, paired by input, with new
+  seeds; it caches each run and resumes after an interruption.
 - The vignette [Replicating Pagel, Gardner and Meade (2025)](tutorials/09_replicating_pagel_2025.md)
   rebuilds the paper's results: survival, rates of change, lag, mortality, genetic
   variance and the critical rate k_c.

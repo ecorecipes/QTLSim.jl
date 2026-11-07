@@ -105,6 +105,7 @@ make -C reference/QTSim                                          # build QTSim (
 julia --project=. validate/gsl_locked.jl                         # exact parity with QTSim
 julia --project=. validate/compare_to_qtsim.jl                   # statistical parity with QTSim
 julia -t 10 --project=vignettes validate/published_sweep.jl      # against the published results
+julia -t 10 --project=vignettes validate/demography_sweep.jl     # the published sweep under density regulation
 julia --project=validate/slim validate/slim/check_generated.jl  # generated SLiM model vs the port (needs SLiM)
 julia -t auto --project=validate/slim validate/slim/compare_to_qtsim.jl   # SLiM model vs QTSim
 ```
