@@ -182,11 +182,11 @@ function migration_code(pops)
     k = length(pops)
     """
     // migrate: each offspring swaps places, with probability migRate, with a random
-    // offspring of a random other deme   [Zygotes^$k → Zygotes^$k]
+    // offspring of a random other deme, the demes in a random order   [Zygotes^$k → Zygotes^$k]
     kids = c($(join(("kids_" * p for p in pops), ", ")));
     sizes = c($(join(("size(kids_" * p * ")" for p in pops), ", ")));
     starts = c(0, cumSum(sizes))[0:$(k - 1)];
-    for (d in 0:$(k - 1)) {
+    for (d in sample(0:$(k - 1), $k)) {
         for (i in which(runif(sizes[d]) < migRate)) {
             e = rdunif(1, 0, $(k - 2)); if (e >= d) e = e + 1;
             if (sizes[e] == 0) next;
@@ -233,11 +233,12 @@ function migration_graph_code(pops)
     k = length(pops)
     """
     // migrate: each offspring of deme d swaps places, with probability MIG[d, e], with a
-    // random offspring of deme e (MIG row by row)   [Zygotes^$k → Zygotes^$k]
+    // random offspring of deme e (MIG row by row), the demes in a random order
+    // [Zygotes^$k → Zygotes^$k]
     kids = c($(join(("kids_" * p for p in pops), ", ")));
     sizes = c($(join(("size(kids_" * p * ")" for p in pops), ", ")));
     starts = c(0, cumSum(sizes))[0:$(k - 1)];
-    for (d in 0:$(k - 1)) {
+    for (d in sample(0:$(k - 1), $k)) {
         cum = cumSum(MIG[(d * $k):(d * $k + $(k - 1))]);
         u = runif(sizes[d]);
         for (i in which(u < cum[$(k - 1)])) {

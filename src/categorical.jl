@@ -164,6 +164,18 @@ a random individual of the deme in position `b`: migration along a graph. One un
 draw decides whether and where, so a matrix draws differently from a number, even
 `island_migration(k, r)`, which is the same model as `rate = r`. Demes must have the same
 loci and ploidy, and may differ in size.
+
+The swaps are made one after the other, so an individual that has just arrived in a deme
+can move again when that deme takes its turn. The order of the turns therefore matters:
+with the demes always visited in the order 1, …, k, migration would not commute with
+relabelling the demes, not even for the island model (k = 2 demes of 2 individuals are a
+counterexample). Each call therefore visits the demes in a uniformly random order (a
+`randperm(rng, k)`), and the individuals of each deme in order. Then migration commutes
+with every relabelling that preserves the matrix, in distribution: every relabelling for
+the island model (`island_migrate_after_generation_equivariant` in
+`lean/CategoricalQuantGen/Migration.lean`), the rotations and reflections of the ring for
+[`stepping_stone`](@ref). Extinct demes are skipped. The SLiM lowering draws its order
+the same way.
 """
 function migrate! end
 
