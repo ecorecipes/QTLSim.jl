@@ -31,6 +31,10 @@ port of QTSim written by hand, run for run, and against QTSim itself, in distrib
   one) against QTSim, scenarios A–E, KS tests, 20 runs per program. Exits 1 if any p < 0.001.
   Last results in `valid_generated.log` (generated model) and `valid.log` (`qtsim.slim`,
   scenarios A and B, run 2026-07-24 with an earlier version of the harness).
+- `compare_demography.jl` — the kernel against the generated SLiM model under density
+  regulation (`Demography = :beverton_holt`), which QTSim lacks; KS tests, 40 runs each,
+  about 15 minutes on 10 threads; exits 1 if any p < 0.001; last result in
+  `valid_demography.log`.
 - `three_way_confirm.jl` — the large pre-specified test of QTSim vs the generated SLiM model
   vs the kernel (40,000 runs each, about 2.5 h on 8 threads); result in `three_way_confirm.log`.
 - `slim.jl` — `find_slim()`: `ENV["SLIM"]`, else `slim/build/slim` next to the package's
@@ -117,6 +121,15 @@ demes in a line (`stepping_stone(3, 0.05; circular = false)`, 200 individuals ea
 generations, 300 runs each): the squared difference of the two end demes' means is 1.82
 (kernel) and 1.73 (SLiM) times that of neighbours, against about 1 for the island model in
 both; every KS p between the backends is 0.29 or more.
+
+**Density regulation (2026-11-07, `compare_demography.jl`, `valid_demography.log`, 40 runs each):**
+the kernel and the generated SLiM model with `Demography = :beverton_holt`, on vignette 10's
+parameter set (100 loci). Equilibrium with R = 1.5: population size 971 in both (KS
+p = 0.91), genetic variance p = 0.91. Moving 0.02 per generation with R = 2: all 40 die in
+both, 583 and 562 generations after the move on average (p = 0.26). Moving 0.01 with
+R = 1.5, a rate every population survives at a fixed size: all 40 die in both, after
+1341 and 1326 generations (p = 0.57). QTSim has a fixed size, so the kernel is the
+reference here.
 
 **Is the agreement real? (2026-11-05)** Low p-values like the 0.035 prompted a fuller
 investigation:

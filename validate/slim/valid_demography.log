@@ -1,0 +1,18 @@
+QTLSim kernel vs generated SLiM model, Beverton-Holt demography, R = 40 runs each
+
+── equilibrium (stabilising selection, 5000 generations), growth rate 1.5 ──
+  population size, gens 4000-4999    kernel       971 ± 2.1      SLiM     971.1 ± 2        KS p = 0.913
+  genetic variance, gens 4000-4999   kernel   0.09102 ± 0.014    SLiM   0.08839 ± 0.014    KS p = 0.913
+  extinctions                        kernel 0/40  SLiM 0/40
+
+── the optimum moving 0.02 per generation from 5000, growth rate 2.0 ──
+  extinct within 2000 generations    kernel 40/40  SLiM 40/40
+  generations after the move         kernel     583.4 ± 59       SLiM     561.7 ± 63       KS p = 0.263
+  population size before the move    kernel     978.5 ± 1.4      SLiM     978.8 ± 1.1      KS p = 0.573
+
+── the optimum moving 0.01 per generation from 5000, growth rate 1.5 ──
+  extinct within 2000 generations    kernel 40/40  SLiM 40/40
+  generations after the move         kernel      1341 ± 2.7e+02  SLiM      1326 ± 2.2e+02  KS p = 0.573
+  population size before the move    kernel     970.9 ± 1.8      SLiM     970.9 ± 1.6      KS p = 0.759
+
+smallest p = 0.263: no discrepancy

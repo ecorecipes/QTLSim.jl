@@ -64,5 +64,7 @@ With `Demography = :beverton_holt` the survivors' offspring are density-regulate
 `n` survivors, carrying capacity `K = PopSize` and `R = GrowthRate`, the next generation
 has `Poisson(R n/(1 + (R − 1) n/K))` individuals, at most `K` ([`noffspring`](@ref)). A
 population with mean fitness `W̄` settles near `K (R W̄ − 1)/((R − 1) W̄)` and shrinks when
-`R W̄ < 1`, so it can decline and be rescued by adaptation, or die. The lowering to SLiM
-covers QTSim's fixed size only.
+`R W̄ < 1`, so it can decline and be rescued by adaptation, or die. The SLiM model that
+`slim_script` generates draws the number of offspring the same way, and the two backends
+agree (`validate/slim/compare_demography.jl`). A population that leaves no offspring dies
+in that generation, which, as at selection, has no output row.

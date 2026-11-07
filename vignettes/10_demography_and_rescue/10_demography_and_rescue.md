@@ -242,8 +242,15 @@ much faster depends on how fast the population could regrow: with a few
 offspring per survivor the maximum sustainable rate is about half the
 rate at a fixed size. The paper’s estimate of about 3% of a phenotypic
 standard deviation per generation is therefore an upper bound that holds
-for populations able to make good their losses. The density-regulated
-model is QTLSim’s, not QTSim’s, and has no SLiM lowering.
+for populations able to make good their losses.
+
+The density-regulated model is QTLSim’s, not QTSim’s, so QTSim cannot
+check it, but SLiM can: the model `slim_script` generates from the same
+life cycle agrees with the kernel
+(`validate/slim/compare_demography.jl`). At 0.01 per generation with
+$R = 1.5$, all of 40 populations died in each backend, on average 1341
+and 1326 generations after the move, and at 0.02 with $R = 2$, after 583
+and 562.
 
 <div id="refs" class="references csl-bib-body hanging-indent">
 

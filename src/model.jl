@@ -338,6 +338,7 @@ function generation!(w::World, rng; rec = nothing)
     select!(w, rng)
     w.extinct && return w
     reproduce!(w, rng)
+    w.extinct && return w            # no offspring (density regulation): no record, as at selection
     record!(rec, w)
     rescale!(w)
     mutate!(w, rng)

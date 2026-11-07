@@ -113,33 +113,38 @@ eidos_images() = Dict{Symbol,Any}(
     if (ns < 2) { @POP@.setValue("extinct", T); adults.fitnessScaling = 0.0; break; }
 """),
     :reproduce => EidosCode(:reproduce, """
-    // reproduce: N offspring of two distinct survivors; each gamete copies a parental
+    // reproduce: NOFF offspring of two distinct survivors; each gamete copies a parental
     // chromosome, switching strands at most once, as QTSim does   [Survivors → Offspring]
-    i1 = rdunif(N, 0, ns - 1);
-    i2 = rdunif(N, 0, ns - 1);
+    // NOFF is N, as in QTSim, or density-regulated (QTLSim `noffspring`): Beverton-Holt
+    NOFF = N;
+    if (demography == "beverton_holt")
+        NOFF = min(N, rpois(1, growthRate * ns / (1 + (growthRate - 1) * ns / N)));
+    if (NOFF == 0) { @POP@.setValue("extinct", T); adults.fitnessScaling = 0.0; break; }
+    i1 = rdunif(NOFF, 0, ns - 1);
+    i2 = rdunif(NOFF, 0, ns - 1);
     dup = which(i1 == i2);
     while (size(dup) > 0) { i2[dup] = rdunif(size(dup), 0, ns - 1); dup = which(i1 == i2); }
     if (L == 1) {
         sa0 = a0[sidx]; sa1 = a1[sidx];
-        c0 = ifelse(runif(N) < 0.5, sa1[i1], sa0[i1]);
-        c1 = ifelse(runif(N) < 0.5, sa1[i2], sa0[i2]);
+        c0 = ifelse(runif(NOFF) < 0.5, sa1[i1], sa0[i1]);
+        c1 = ifelse(runif(NOFF) < 0.5, sa1[i2], sa0[i2]);
     } else {
         par = c(sidx[i1], sidx[i2]);                        // the parent of each of the 2N gametes
-        npts = rpois(2 * N, RECOMB);                        // crossover points drawn for each gamete
-        first = runif(2 * N) < 0.5;                         // T: the gamete starts on the parent's a0
-        cut = rep(L - 1, 2 * N);                            // the last locus taken from the starting strand
+        npts = rpois(2 * NOFF, RECOMB);                        // crossover points drawn for each gamete
+        first = runif(2 * NOFF) < 0.5;                         // T: the gamete starts on the parent's a0
+        cut = rep(L - 1, 2 * NOFF);                            // the last locus taken from the starting strand
         for (j in which(npts > 0 & npts < L)) cut[j] = min(sample(0:(L - 2), npts[j]));
-        loc = rep(0:(L - 1), 2 * N);
+        loc = rep(0:(L - 1), 2 * NOFF);
         at = repEach(par * L, L) + loc;
         g = ifelse((loc <= repEach(cut, L)) == repEach(first, L), a0[at], a1[at]);
-        c0 = g[0:(N * L - 1)];
-        c1 = g[(N * L):(2 * N * L - 1)];
+        c0 = g[0:(NOFF * L - 1)];
+        c1 = g[(NOFF * L):(2 * NOFF * L - 1)];
     }
 """),
     :record => EidosCode(:record, """
     // record: the parent generation's statistics, every `sampleEvery` generations   [Offspring → Offspring]
     if (gen % sampleEvery == 0)
-        catn(gen + "\\t" + mean(pheno) + "\\t" + var(genotype) + "\\t" + ns + "\\t" + @POP@.getValue("THETA") + "\\t" + @POP@.getValue("OMEGA") + ((DEMES > 1) ? "\\t" + @POP@.id else ""));
+        catn(gen + "\\t" + mean(pheno) + "\\t" + var(genotype) + "\\t" + ns + "\\t" + @POP@.getValue("THETA") + "\\t" + @POP@.getValue("OMEGA") + ((DEMES > 1) ? "\\t" + @POP@.id else "") + ((demography != "fixed") ? "\\t" + size(adults) else ""));
 """),
     :rescale => EidosCode(:rescale, """
     // rescale: the scheduled change of the fitness width, from the next generation   [Offspring → Offspring]
@@ -148,24 +153,24 @@ eidos_images() = Dict{Symbol,Any}(
     :mutate => EidosCode(:mutate, """
     // mutate: Poisson(L·rate) mutations per offspring chromosome, each adding N(0, MUTVAR)
     // to a random locus   [Offspring → Offspring]
-    k0 = rpois(N, L * rate);
-    k1 = rpois(N, L * rate);
+    k0 = rpois(NOFF, L * rate);
+    k1 = rpois(NOFF, L * rate);
     if (L == 1) {
-        c0 = c0 + rnorm(N, 0.0, sqrt(k0 * MUTVAR));
-        c1 = c1 + rnorm(N, 0.0, sqrt(k1 * MUTVAR));
+        c0 = c0 + rnorm(NOFF, 0.0, sqrt(k0 * MUTVAR));
+        c1 = c1 + rnorm(NOFF, 0.0, sqrt(k1 * MUTVAR));
     } else {
-        at = repEach(0:(N - 1), k0) * L + rdunif(sum(k0), 0, L - 1);
+        at = repEach(0:(NOFF - 1), k0) * L + rdunif(sum(k0), 0, L - 1);
         eff = rnorm(sum(k0), 0.0, sqrt(MUTVAR));
         for (j in seqAlong(at)) c0[at[j]] = c0[at[j]] + eff[j];
-        at = repEach(0:(N - 1), k1) * L + rdunif(sum(k1), 0, L - 1);
+        at = repEach(0:(NOFF - 1), k1) * L + rdunif(sum(k1), 0, L - 1);
         eff = rnorm(sum(k1), 0.0, sqrt(MUTVAR));
         for (j in seqAlong(at)) c1[at[j]] = c1[at[j]] + eff[j];
     }
 """),
     :swap => EidosCode(:swap, """
     // swap: the offspring replace their parents   [Offspring → Zygotes]
-    kids_@POP@ = @POP@.addEmpty(count = N);
-    for (k in seqLen(N)) {
+    kids_@POP@ = @POP@.addEmpty(count = NOFF);
+    for (k in seqLen(NOFF)) {
         kids_@POP@[k].setValue("a0", c0[(k * L):(k * L + L - 1)]);
         kids_@POP@[k].setValue("a1", c1[(k * L):(k * L + L - 1)]);
     }
@@ -233,8 +238,6 @@ function slim_script(f, p::Params; images = Dict{Symbol,Any}(), migration_rate::
     dom(f) == zk && codom(f) == zk ||
         throw(ArgumentError("a SLiM model iterates a life cycle on zygotes, Zygotes → Zygotes or " *
                             "Zygotes⊗…⊗Zygotes → Zygotes⊗…⊗Zygotes; got $(dom(f)) → $(codom(f))"))
-    p.Demography === :fixed ||
-        throw(ArgumentError("the lowering to Eidos covers QTSim's fixed population size (Demography = :fixed)"))
     p.Ploidy == 2 || throw(ArgumentError("the lowering to Eidos covers diploids (Ploidy = 2); got Ploidy = $(p.Ploidy)"))
     p.NoQTL == 1 || p.CrossoverModel === :qtsim ||
         throw(ArgumentError("with more than one locus the lowering to Eidos recombines as QTSim does " *
@@ -257,6 +260,7 @@ function slim_script(f, p::Params; images = Dict{Symbol,Any}(), migration_rate::
                 "moveGen" => p.MoveFitnessSDGen, "moveSD" => p.MoveFitnessSD, "moveType" => p.MoveType,
                 "changeGen" => p.ChangeFitnessGen, "changeSD" => p.ChangeFitnessSD,
                 "initOmega" => p.InitFitnessSD, "drift" => p.Drift, "standardise" => p.StandardisePhenotype,
+                "demography" => p.Demography, "growthRate" => p.GrowthRate,
                 (migration_rate isa AbstractMatrix ? "MIG" => vec(permutedims(Float64.(migration_rate))) :
                  "migRate" => Float64(migration_rate)))
     w = maximum(length ∘ first, defaults)
@@ -311,7 +315,8 @@ function slim_script(f, p::Params; images = Dict{Symbol,Any}(), migration_rate::
     // one generation per tick, done in the first call of the callback
     reproduction() {
         gen = sim.cycle - 1;                       // QTSim's generation index
-        if (gen == 0) catn("gen\\tphenoMean\\tgenoVar\\tnSurv\\ttheta\\tomega" + ((DEMES > 1) ? "\\tdeme" else ""));
+        if (gen == 0) catn("gen\\tphenoMean\\tgenoVar\\tnSurv\\ttheta\\tomega" + ((DEMES > 1) ? "\\tdeme" else "") +
+                       ((demography != "fixed") ? "\\tpopsize" else ""));
     """)
     for pop in pops
         println(io, "    kids_", pop, " = ", pop, ".individuals[integer(0)];")

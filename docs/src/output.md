@@ -16,7 +16,7 @@ recorded generation, every `Sample` generations from generation 0:
 | `omega` | the fitness width ω that generation |
 | `mean_fitness` | mean fitness W̄ of the parents (one minus the load); not in QTSim's output |
 | `sel_diff` | selection differential: the survivors' mean phenotype minus the mean; not in QTSim's output |
-| `popsize` | the population size N (`PopSize`, unless density-regulated); not in QTSim's output |
+| `popsize` | the population size N (`PopSize`, unless density-regulated); not in QTSim's output; in SLiM's table, the last column when density-regulated |
 
 These columns are joined by:
 - `extinct`, whether the population died;

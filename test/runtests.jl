@@ -421,7 +421,6 @@ end
     m = run_moments(Params(b; NoGenerations = 2000))
     @test m.popsize[end] ≈ 500 * (2 * m.mean_fitness[end] - 1) / m.mean_fitness[end] atol = 1
     @test run_moments(Params(fast; NoGenerations = 2000)).extinct
-    @test_throws ArgumentError slim_script(lifecycle().generation, b)
     @test_throws ArgumentError World(Params(p; Demography = :logistic))
     @test_throws ArgumentError World(Params(p; GrowthRate = 0.0))
 end
