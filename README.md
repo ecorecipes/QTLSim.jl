@@ -108,6 +108,16 @@ and in distribution against QTSim, including a test of 40,000 runs per program t
 no difference in genetic variance between QTSim, SLiM and the kernel (95% intervals about
 ±2%). CI builds SLiM 5.2 and runs the first two on every push.
 
+Metapopulations are checked against population-genetic theory (`validate/fst.jl`): neutral
+demes under the island model (k = 4 and 10, Nm = 0.1, 1 and 10) and a ring of 8 demes, 400
+runs each, against the exact expected within-deme variance, variance among deme means,
+Q_ST (= F_ST for a neutral additive trait) and, on the ring, differentiation by distance,
+from a pairwise coalescence recursion of the same life cycle (`neutral_deme_variances`).
+All 41 comparisons agree (largest |z| 2.6). Because `migrate!` exchanges individuals, the
+origins of two adults are correlated, which the textbook island model (independent
+migrants) misses by a relative 1/N: within-deme variance `2NV_m(kN − 1)/(N − 1)` instead
+of Lande's `2NkV_m`.
+
 From the package root:
 
 ```sh
@@ -117,6 +127,7 @@ julia --project=. validate/gsl_locked.jl                         # exact parity 
 julia --project=. validate/compare_to_qtsim.jl                   # statistical parity with QTSim
 julia -t 10 --project=vignettes validate/published_sweep.jl      # against the published results
 julia -t 10 --project=vignettes validate/demography_sweep.jl     # the published sweep under density regulation
+julia -t 4 --project=vignettes validate/fst.jl                   # metapopulations vs F_ST/Q_ST theory (~10 min)
 julia --project=validate/slim validate/slim/check_generated.jl  # generated SLiM model vs the port (needs SLiM)
 julia -t auto --project=validate/slim validate/slim/compare_to_qtsim.jl   # SLiM model vs QTSim
 ```

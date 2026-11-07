@@ -1,0 +1,139 @@
+QTLSim validate/fst.jl  2026-11-07 14:07
+Julia threads: 4; replicates per scenario R = 400
+Pre-specified criterion: exit 1 if any |z| ≥ 4.0, z = (simulated − predicted)/SE.
+
+== 1. migrate! against backward_migration, and the origins of pairs ==
+
+island r=0.05: k = 4, N = 50, 20000 calls of migrate!
+  quantity                              predicted     migrate!         SE       z
+  P[a,c], distance 0                     0.904849     0.904653   2.03e-04   -0.97
+  P[a,c], distance 1                     0.031717     0.031782   6.75e-05    0.97
+  pairs of distinct individuals              pool     exchange     migrate!         SE  z(pool)
+  same deme, same origin                 0.821769     0.821769     0.821311   3.55e-04    -1.29
+  different demes, same origin           0.059410     0.058142     0.058372   1.16e-04    -8.97
+  size conservation (N−1)q + (k−1)Nq′ = N−1: max deviation over calls 7.1e-15; the pool law gives 49.1782
+  λ = q − q′: pool 0.762359, migrate! 0.762939; equilibrium Q_ST 0.02349 (pool) vs 0.02357 (migrate!'s λ)
+
+island r=0.005: k = 10, N = 50, 20000 calls of migrate!
+  quantity                              predicted     migrate!         SE       z
+  P[a,c], distance 0                     0.990042     0.990037   4.45e-05   -0.10
+  P[a,c], distance 1                     0.001106     0.001107   4.94e-06    0.10
+  pairs of distinct individuals              pool     exchange     migrate!         SE  z(pool)
+  same deme, same origin                 0.980193     0.980193     0.980184   8.80e-05    -0.11
+  different demes, same origin           0.002201     0.002156     0.002158   9.58e-06    -4.49
+  size conservation (N−1)q + (k−1)Nq′ = N−1: max deviation over calls 7.1e-15; the pool law gives 49.0198
+  λ = q − q′: pool 0.977992, migrate! 0.978026; equilibrium Q_ST 0.28569 (pool) vs 0.28601 (migrate!'s λ)
+
+ring r=0.1: k = 8, N = 50, 20000 calls of migrate!
+  quantity                              predicted     migrate!         SE       z
+  P[a,c], distance 0                     0.821026     0.820811   1.78e-04   -1.21
+  P[a,c], distance 1                     0.086144     0.086275   8.53e-05    1.53
+  P[a,c], distance 2                     0.003269     0.003245   1.47e-05   -1.64
+  P[a,c], distance 3                     0.000072     0.000074   2.15e-06    0.56
+  P[a,c], distance 4                     0.000002     0.000002   5.30e-07    0.03
+  pairs of distinct individuals              pool     exchange     migrate!         SE  z(pool)
+  same deme, same origin                 0.688947     0.688947     0.688132   2.65e-04    -3.07
+  different demes, same origin           0.044436     0.043413     0.043661   3.72e-05   -20.85
+  size conservation (N−1)q + (k−1)Nq′ = N−1: max deviation over calls 7.1e-15; the pool law gives 49.3111
+
+== 2. neutral metapopulations against the exact recursion ==
+N = 50 diploids per deme, 20 loci, 1 mutations per chromosome per generation, V_m = 0.001
+Predictions use migrate!'s own law of pairs' origins, estimated from 40,000 calls in 4 batches;
+their SE (from the batches) is combined with the simulation's in z. 'pool' is the prediction with
+independent origins (the textbook island model), shown for comparison.
+3200 runs in 566 s
+
+island k=4 Nm=0.1: forward rate 0.00100, backward m = 0.00200, Nm = 0.1; 5900 generations, census 2950:10:5890, 400 replicates
+  statistic                   predicted  pred. SE  simulated        SE                95% CI      z       pool   equilib.
+  V_W (within demes)            0.39747   0.00022     0.3919    0.0032 [   0.3856,    0.3982]  -1.73    0.39213    0.40612
+  var of deme means              1.4992     0.016     1.4749     0.027 [    1.423,     1.527]  -0.78     1.4663     1.5387
+  Q_ST                          0.58453    0.0027    0.58399    0.0035 [   0.5771,    0.5909]  -0.12    0.58241    0.58563
+  equilibrium Q_ST: 0.5856 (migrate!'s law), 0.5834 (qst_island, pool law), Takahata 0.5844, Wright 1/(1+4Nm) 0.7143
+  equilibrium V_W: 0.40612 (migrate!'s law), 2NkV_m = 0.4 (Lande 1992), 2NV_m(kN−1)/(N−1) = 0.40612 (exchange)
+  at the census the expected V_W is 97.9% and the variance among means 97.4% of equilibrium
+
+island k=4 Nm=1.0: forward rate 0.01010, backward m = 0.02000, Nm = 1; 2500 generations, census 1250:10:2490, 400 replicates
+  statistic                   predicted  pred. SE  simulated        SE                95% CI      z       pool   equilib.
+  V_W (within demes)            0.39654   1.6e-05    0.38876     0.003 [   0.3828,    0.3947]  -2.57    0.39109    0.40612
+  var of deme means             0.15143   0.00053    0.14775    0.0017 [   0.1445,     0.151]  -2.11     0.1485    0.15524
+  Q_ST                          0.11949   0.00039    0.11896   0.00083 [   0.1173,    0.1206]  -0.57    0.11886     0.1196
+  equilibrium Q_ST: 0.1196 (migrate!'s law), 0.1190 (qst_island, pool law), Takahata 0.1233, Wright 1/(1+4Nm) 0.2000
+  equilibrium V_W: 0.40612 (migrate!'s law), 2NkV_m = 0.4 (Lande 1992), 2NV_m(kN−1)/(N−1) = 0.40612 (exchange)
+  at the census the expected V_W is 97.6% and the variance among means 97.5% of equilibrium
+
+island k=4 Nm=10.0: forward rate 0.11170, backward m = 0.20000, Nm = 10; 2100 generations, census 1050:10:2090, 400 replicates
+  statistic                   predicted  pred. SE  simulated        SE                95% CI      z       pool   equilib.
+  V_W (within demes)            0.39466   2.6e-07     0.3966    0.0033 [   0.3901,    0.4031]   0.58    0.38928    0.40612
+  var of deme means            0.017142   7.1e-06   0.017171   0.00016 [  0.01686,   0.01748]   0.18   0.016842   0.017641
+  Q_ST                        0.0087116   6.6e-06  0.0086603   6.8e-05 [ 0.008528,  0.008793]  -0.76  0.0086492   0.008713
+  equilibrium Q_ST: 0.0087 (migrate!'s law), 0.0087 (qst_island, pool law), Takahata 0.0139, Wright 1/(1+4Nm) 0.0244
+  equilibrium V_W: 0.40612 (migrate!'s law), 2NkV_m = 0.4 (Lande 1992), 2NV_m(kN−1)/(N−1) = 0.40612 (exchange)
+  at the census the expected V_W is 97.2% and the variance among means 97.2% of equilibrium
+
+island k=10 Nm=0.1: forward rate 0.00100, backward m = 0.00200, Nm = 0.1; 16700 generations, census 8350:10:16690, 400 replicates
+  statistic                   predicted  pred. SE  simulated        SE                95% CI      z       pool   equilib.
+  V_W (within demes)            0.99201   0.00047    0.99047    0.0082 [   0.9744,     1.007]  -0.19    0.97586     1.0184
+  var of deme means              4.4703     0.032       4.45     0.048 [    4.356,     4.544]  -0.35      4.388     4.5981
+  Q_ST                          0.66874    0.0017    0.66808    0.0013 [   0.6656,    0.6705]  -0.32    0.66826    0.66919
+  equilibrium Q_ST: 0.6692 (migrate!'s law), 0.6687 (qst_island, pool law), Takahata 0.6694, Wright 1/(1+4Nm) 0.7143
+  equilibrium V_W: 1.0184 (migrate!'s law), 2NkV_m = 1 (Lande 1992), 2NV_m(kN−1)/(N−1) = 1.0184 (exchange)
+  at the census the expected V_W is 97.4% and the variance among means 97.2% of equilibrium
+
+island k=10 Nm=1.0: forward rate 0.01008, backward m = 0.02000, Nm = 1; 6300 generations, census 3150:10:6290, 400 replicates
+  statistic                   predicted  pred. SE  simulated        SE                95% CI      z       pool   equilib.
+  V_W (within demes)            0.99057   3.2e-05    0.98501    0.0083 [   0.9688,     1.001]  -0.67    0.97438     1.0184
+  var of deme means             0.45131   0.00088     0.4463    0.0041 [   0.4383,    0.4543]  -1.20    0.44318    0.46421
+  Q_ST                           0.1639   0.00028     0.1631   0.00045 [   0.1622,     0.164]  -1.49    0.16365    0.16397
+  equilibrium Q_ST: 0.1640 (migrate!'s law), 0.1637 (qst_island, pool law), Takahata 0.1684, Wright 1/(1+4Nm) 0.2000
+  equilibrium V_W: 1.0184 (migrate!'s law), 2NkV_m = 1 (Lande 1992), 2NV_m(kN−1)/(N−1) = 1.0184 (exchange)
+  at the census the expected V_W is 97.3% and the variance among means 97.2% of equilibrium
+
+island k=10 Nm=10.0: forward rate 0.10947, backward m = 0.20000, Nm = 10; 5200 generations, census 2600:10:5190, 400 replicates
+  statistic                   predicted  pred. SE  simulated        SE                95% CI      z       pool   equilib.
+  V_W (within demes)            0.98821   1.6e-06     0.9788    0.0082 [   0.9627,    0.9949]  -1.14    0.97212     1.0184
+  var of deme means            0.050101   3.6e-05   0.049516   0.00043 [  0.04868,   0.05035]  -1.37   0.049212   0.051632
+  Q_ST                         0.013626   1.6e-05   0.013578   3.3e-05 [  0.01351,   0.01364]  -1.33   0.013593   0.013627
+  equilibrium Q_ST: 0.0136 (migrate!'s law), 0.0136 (qst_island, pool law), Takahata 0.0198, Wright 1/(1+4Nm) 0.0244
+  equilibrium V_W: 1.0184 (migrate!'s law), 2NkV_m = 1 (Lande 1992), 2NV_m(kN−1)/(N−1) = 1.0184 (exchange)
+  at the census the expected V_W is 97.0% and the variance among means 97.0% of equilibrium
+
+ring k=8 Nm=1.0: forward rate 0.01011, backward m = 0.02000, Nm = 1; 6100 generations, census 3050:10:6090, 400 replicates
+  statistic                   predicted  pred. SE  simulated        SE                95% CI      z       pool   equilib.
+  V_W (within demes)            0.79785   2.5e-05    0.79899    0.0067 [   0.7858,    0.8121]   0.17    0.78478    0.81429
+  var of deme means             0.59381   0.00092    0.59182    0.0071 [   0.5779,    0.6057]  -0.28    0.58816    0.60679
+  Q_ST                          0.24062    0.0003    0.23972    0.0014 [    0.237,    0.2425]  -0.62    0.24193    0.24085
+  ½(Ḡa−Ḡb)², distance 1         0.35232   0.00056    0.35037    0.0034 [   0.3437,     0.357]  -0.57    0.34616    0.35983
+  ½(Ḡa−Ḡb)², distance 2         0.59385   0.00092    0.59134    0.0068 [    0.578,    0.6047]  -0.37     0.5882    0.60678
+  ½(Ḡa−Ḡb)², distance 3         0.73868    0.0011    0.73693    0.0096 [    0.718,    0.7558]  -0.18    0.73334    0.75496
+  ½(Ḡa−Ḡb)², distance 4         0.78695    0.0012    0.78545     0.011 [   0.7643,    0.8066]  -0.14    0.78171    0.80436
+  pairwise F_ST at equilibrium (two demes, total convention): exact vs Slatkin 1991 eq 17:
+    distance 1: 0.0954 exact, 0.0986 Slatkin
+    distance 2: 0.1535 exact, 0.1579 Slatkin
+    distance 3: 0.1849 exact, 0.1899 Slatkin
+    distance 4: 0.1949 exact, 0.2000 Slatkin
+  at the census the expected V_W is 98.0% and the variance among means 97.9% of equilibrium
+
+ring k=8 Nm=10.0: forward rate 0.11341, backward m = 0.20000, Nm = 10; 4300 generations, census 2150:10:4290, 400 replicates
+  statistic                   predicted  pred. SE  simulated        SE                95% CI      z       pool   equilib.
+  V_W (within demes)            0.79193   6.6e-07    0.79117    0.0063 [   0.7789,    0.8034]  -0.12    0.77931    0.81429
+  var of deme means            0.059686   1.6e-05   0.059568   0.00053 [  0.05853,    0.0606]  -0.22   0.059051    0.06138
+  Q_ST                          0.02365   8.5e-06   0.023619   9.3e-05 [  0.02344,    0.0238]  -0.34    0.02382   0.023655
+  ½(Ḡa−Ḡb)², distance 1        0.038431   7.6e-06   0.038301   0.00032 [  0.03767,   0.03893]  -0.40   0.037755   0.039519
+  ½(Ḡa−Ḡb)², distance 2        0.059602   1.6e-05   0.059472   0.00052 [  0.05845,   0.06049]  -0.25   0.058969   0.061294
+  ½(Ḡa−Ḡb)², distance 3        0.072481   2.1e-05   0.072389   0.00066 [  0.07109,   0.07369]  -0.14    0.07187    0.07454
+  ½(Ḡa−Ḡb)², distance 4        0.076772   2.3e-05   0.076656   0.00071 [  0.07526,   0.07806]  -0.16    0.07617   0.078955
+  pairwise F_ST at equilibrium (two demes, total convention): exact vs Slatkin 1991 eq 17:
+    distance 1: 0.0071 exact, 0.0108 Slatkin
+    distance 2: 0.0136 exact, 0.0184 Slatkin
+    distance 3: 0.0176 exact, 0.0229 Slatkin
+    distance 4: 0.0189 exact, 0.0244 Slatkin
+  at the census the expected V_W is 97.3% and the variance among means 97.2% of equilibrium
+
+== 3. the moments lowering (run_moments, k demes, migration_mixing, erosion) ==
+island k=4 Nm=1.0, generation 2499: moments V_G within 0.1 (exact expectation 0.4043), variance among deme means 0 (exact 0.1545)
+The moments lowering is deterministic: deme means that start equal stay equal, so it has no between-deme
+variance, and erosion removes V_G/(2N) per deme without the variance migrants bring back from other demes;
+its within-deme fixed point is an isolated deme's 2N·V_m, not the metapopulation's 2Nk·V_m.
+
+41 comparisons; max |z| = 2.57
+PASS: every |z| < 4.0
