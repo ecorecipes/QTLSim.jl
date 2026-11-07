@@ -33,11 +33,13 @@ mutable struct Moments
     θ0::Float64          # the optimum when a fluctuating move starts
     erosion::Bool        # drift erodes V_G by V_G/(2N_e) per generation, N_e = expected survivors
     VE::Float64          # environmental variance: V_E, or with migrants a mixture of the demes' V_E
+    weighted::Bool       # Selection = :fecundity: all survive and mate in proportion to W
+    W2bar::Float64       # the mean of W², for the number of parents under fecundity selection
 end
 
 Moments(p::Params; zbar = 0.0, VG = 0.0, erosion = false) =
     Moments(p, 0, zbar, VG, VG + QTLSim.envVar(p), 0.0, QTLSim.initFitSD(p), p.PopSize, 1.0, 0.0,
-            zbar, VG, zbar, VG, false, p.PopSize, p.PopSize, 0.0, erosion, QTLSim.envVar(p))
+            zbar, VG, zbar, VG, false, p.PopSize, p.PopSize, 0.0, erosion, QTLSim.envVar(p), false, 1.0)
 
 isextinct(m::Moments) = m.extinct
 
@@ -61,6 +63,7 @@ function moments_select!(m::Moments; θ = nothing)
     end
     if p.Drift
         m.Wbar, m.S, m.zs, m.VGs = 1.0, 0.0, m.zbar, m.VG
+        m.W2bar = 1.0
     else
         # Gaussian selection of width ωe on z ~ N(z̄, V_P): survivors are N(z̄ + V_P λ/s, V_P ωe²/s)
         # with λ = θ − z̄ and s = ωe² + V_P, and the genotype regresses on the phenotype
@@ -71,9 +74,16 @@ function moments_select!(m::Moments; θ = nothing)
         m.S = m.VP * λ / s
         m.zs = m.zbar + m.VG * λ / s
         m.VGs = m.VG - m.VG^2 / s
+        # E[W²]: W² is c² times a Gaussian of width ωe/√2
+        s2 = ωe^2 + 2m.VP
+        m.W2bar = FITNESS_PEAK^2 * ωe / sqrt(s2) * exp(-λ^2 / s2)
     end
-    m.nsurv = m.N * m.Wbar
-    m.extinct = m.nsurv < (p.Ploidy == 2 ? 2 : 1)
+    # Fecundity selection (Selection = :fecundity) weights parents by W instead of culling
+    # by it: the same selection differential and parents' moments, as the parents'
+    # distribution is W(z) p(z)/W̄ either way, but everyone survives
+    m.weighted = p.Selection === :fecundity
+    m.nsurv = m.weighted ? m.N : m.N * m.Wbar
+    m.extinct = m.weighted ? m.N < p.Ploidy : m.nsurv < (p.Ploidy == 2 ? 2 : 1)
     m
 end
 
@@ -85,9 +95,15 @@ function moments_reproduce!(m::Moments)
     m.zoff, m.VGoff = m.zs, m.VGs
     # optional drift: offspring are 2N gametes from the expected nsurv survivors, mated at
     # random, so two gametes share a parent with probability 1/nsurv and a locus is
-    # identical by descent with probability 1/(2 nsurv)
-    m.erosion && (m.VGoff *= 1 - 1 / (2 * max(m.nsurv, 1.0)))
-    R, K, n = p.GrowthRate, p.PopSize, m.nsurv
+    # identical by descent with probability 1/(2 nsurv). Under fecundity selection two
+    # gametes share a parent with probability Σ(W_i/ΣW)² = E[W²]/(N W̄²), so the number of
+    # parents is N W̄²/E[W²], at least N W̄ when W ≤ 1: fecundity selection drifts less.
+    npar = m.weighted ? m.N * m.Wbar^2 / m.W2bar : m.nsurv
+    m.erosion && (m.VGoff *= 1 - 1 / (2 * max(npar, 1.0)))
+    # density regulation counts the expected survivors N W̄ or, under fecundity selection,
+    # the sum of the fitnesses, whose expectation is the same (QTLSim.noffspring)
+    R, K = p.GrowthRate, p.PopSize
+    n = m.weighted ? m.N * m.Wbar : m.nsurv
     # the expected number of offspring (the mean of QTLSim.noffspring), at most K
     m.Noff = p.Demography === :fixed ? K : min(K, R * n / (1 + (R - 1) * n / K))
     m.Noff < 1 && (m.extinct = true)

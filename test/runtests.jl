@@ -568,6 +568,86 @@ end
     @test_throws ArgumentError World(Params(p; GrowthRate = 0.0))
 end
 
+@testset "fecundity selection (Selection = :fecundity)" begin
+    p = Params(PopSize=300, NoQTL=10, Ploidy=2, NoGenerations=300, PhenotypeVar=0.02, Heritability=0.4,
+               MutationScalar=0.004, MutationRatePerGamete=1e-3, RecombPoissonMean=2.0)
+    @test Params().Selection === :viability
+    @test simulate(Params(p; Selection = :viability); seed = 4).geno_var == simulate(p; seed = 4).geno_var
+    @test_throws ArgumentError World(Params(p; Selection = :hard))
+    f = Params(p; Selection = :fecundity)
+    o = simulate(f; seed = 1)
+    @test !o.extinct && all(==(300), o.nsurv)                     # everyone survives selection
+    @test o.geno_var != simulate(p; seed = 1).geno_var
+    # parents are drawn in proportion to fitness; a parent of fitness 0 never
+    w = World(f); r = MersenneTwister(2); init_env!(w, r); develop!(w); QTLSim.select!(w, r)
+    @test w.weighted && w.wsum ≈ sum(w.fitness[1:w.N]) && w.survivors == 1:w.N
+    w.fitness[1:w.N] .= 0.0; w.fitness[1:4] .= (0.1, 0.2, 0.3, 0.4)
+    empty!(w.survivors); QTLSim.weigh!(w)
+    draws = [QTLSim.weighted_parent(w, r) for _ in 1:40_000]
+    @test all(<=(4), draws)
+    @test [count(==(i), draws) / 40_000 for i in 1:4] ≈ [0.1, 0.2, 0.3, 0.4] atol = 0.01
+    # fewer than two individuals of positive fitness: no two distinct parents
+    w.fitness[2:w.N] .= 0.0; w.extinct = false; empty!(w.survivors); QTLSim.weigh!(w)
+    @test w.extinct
+    # nearly all the weight on one: the second parent is still another one, without hanging
+    w.fitness[2] = 1e-300; w.fitness[3] = 3e-300; w.extinct = false; empty!(w.survivors); QTLSim.weigh!(w)
+    @test !w.extinct
+    ex = [QTLSim.weighted_parent_except(w, r, 1) for _ in 1:20_000]
+    @test all(in((2, 3)), ex)
+    @test count(==(3), ex) / 20_000 ≈ 0.75 atol = 0.02
+    QTLSim.reproduce!(w, r)
+    @test w.Noff == 300
+    # the selection differential recorded is the mating weights' Σ W z/ΣW − z̄
+    w = World(f); r = MersenneTwister(3); init_env!(w, r); rec = QTLSim.records()
+    develop!(w); QTLSim.select!(w, r); QTLSim.reproduce!(w, r); QTLSim.record!(rec, w)
+    z = w.phenotype[1:w.N]; W = w.fitness[1:w.N]
+    @test rec.sel_diff[1] ≈ sum(W .* z) / sum(W) - mean(z)
+    # with the same phenotypes, viability's mean survivors' differential is fecundity's
+    # (its expectation, to O(1/N)); viability's is noisier
+    w = World(Params(p; InitFitnessSD = 0.1)); r = MersenneTwister(5); init_env!(w, r)
+    w.env .+= range(-0.1, 0.1, length = w.N); develop!(w)
+    w.θ = 0.05
+    sv = map(1:2000) do _
+        QTLSim.select!(w, r); mean(w.phenotype[i] for i in w.survivors) - mean(w.phenotype[1:w.N])
+    end
+    w.p = Params(w.p; Selection = :fecundity); QTLSim.select!(w, r)
+    sf = sum(w.fitness[1:w.N] .* w.phenotype[1:w.N]) / w.wsum - mean(w.phenotype[1:w.N])
+    @test mean(sv) ≈ sf rtol = 0.02
+    # Beverton–Holt: the expected offspring number is the viability formula at n = ΣW
+    b = Params(f; Demography = :beverton_holt, GrowthRate = 2.0)
+    w = World(b); r = MersenneTwister(6); init_env!(w, r); develop!(w); QTLSim.select!(w, r)
+    w.fitness[1:w.N] .*= 0.2; empty!(w.survivors); QTLSim.weigh!(w)    # far below the cap K
+    S = w.wsum
+    @test mean(QTLSim.noffspring(w, r) for _ in 1:20_000) ≈ min(300, 2S / (1 + S / 300)) rtol = 0.01
+    ob = simulate(b; seed = 7)
+    @test !ob.extinct && 150 < mean(ob.popsize[100:end]) < 300
+    # the composed run and a select step with its own Selection agree with the kernel, bit for bit
+    L = lifecycle()
+    for q in (f, b, Params(f; Ploidy = 1))
+        ok = simulate(q; seed = 8)
+        @test run_composed(World(q), MersenneTwister(8)).geno_var == ok.geno_var
+        cyc = L.develop ⋅ withparams(L.select; Selection = :fecundity) ⋅ L.reproduce ⋅ L.record ⋅ L.rescale ⋅
+              L.mutate ⋅ L.swap
+        oc = run_composed(World(Params(q; Selection = :viability)), MersenneTwister(8); cycle = cyc)
+        @test oc.geno_var == ok.geno_var && oc.popsize == ok.popsize
+    end
+    # an optimum moving too fast: at a fixed size fecundity selection is soft and the population
+    # lives on; under density regulation it dies, as under viability selection
+    fast = Params(f; MoveFitnessSDGen = 50, MoveFitnessSD = 0.05, MoveType = :continuous, NoGenerations = 400)
+    @test !simulate(fast; seed = 9).extinct
+    @test simulate(Params(fast; Demography = :beverton_holt, GrowthRate = 1.5); seed = 9).extinct
+    # moments: the same mean and variance trajectory; with drift, fecundity erodes less
+    mf = run_moments(Params(fast; Demography = :beverton_holt, GrowthRate = 1.5, NoGenerations = 100))
+    mv = run_moments(Params(fast; Selection = :viability, Demography = :beverton_holt, GrowthRate = 1.5, NoGenerations = 100))
+    n = length(mv.gen)          # viability dies when N W̄ < 2, fecundity when fewer than one offspring are expected
+    @test length(mf.gen) >= n && mf.pheno_mean[1:n] == mv.pheno_mean && mf.geno_var[1:n] == mv.geno_var && mf.popsize[1:n] == mv.popsize
+    @test mf.nsurv == mf.popsize && mv.nsurv != mv.popsize
+    ev = run_moments(Params(p; NoGenerations = 500); erosion = true)
+    ef = run_moments(Params(f; NoGenerations = 500); erosion = true)
+    @test ef.geno_var[end] > ev.geno_var[end]
+    @test run_moments(Params(f; NoGenerations = 500)).geno_var == run_moments(Params(p; NoGenerations = 500)).geno_var
+end
+
 @testset "demographic stochasticity along the moments trajectory" begin
     Dist = QTLSim.Distributions
     # a Galton–Watson process with Poisson(λ) offspring: no selection (W̄ = 1) and a capacity
@@ -1204,6 +1284,18 @@ end
     sc = slim_script(withparams(g; MoveType = :periodic, MoveFitnessSDGen = 10, MoveAmplitude = 0.1), p)
     @test occursin("defineConstant(\"movePeriod\", 100.0)", sc) && occursin("0.1 * sin(2 * PI * t / movePeriod)", sc)
     @test !occursin("movePeriod", slim_script(g, p))
+    # fecundity selection: spliced into select and reproduce only when a deme or a step uses it
+    @test !occursin("selection", slim_script(g, p)) && !occursin("weighted", slim_script(g, p))
+    sc = slim_script(g, Params(p; Selection = :fecundity))
+    @test occursin("defineConstant(\"selection\", \"fecundity\")", sc)
+    @test occursin("i1 = sample(0:(ns - 1), NOFF, T, sw);", sc) && occursin("growthRate * nw /", sc)
+    @test occursin("i1 = rdunif(NOFF, 0, ns - 1);", sc)                 # viability, as before
+    s = code(withparams(L.select; Selection = :fecundity))
+    @test occursin("weighted = (\"fecundity\" == \"fecundity\");", s)
+    @test occursin("sample(0:(ns - 1), NOFF, T, sw)", code(L.develop ⋅ withparams(L.select; Selection = :fecundity) ⋅ L.reproduce))
+    sc = slim_script(g ⊗ g ⋅ L.migrate(2), [p, Params(p; Selection = :fecundity)])
+    @test occursin("defineConstant(\"selection\", c(\"viability\", \"fecundity\"))", sc) &&
+          occursin("p1.getValue(\"selection\") == \"fecundity\"", sc)
     # one generation of each deme per tick
     @test_throws ArgumentError slim_script(g ⋅ g, p)
     @test_throws ArgumentError slim_script((g ⋅ g) ⊗ g ⋅ L.migrate(2), p)

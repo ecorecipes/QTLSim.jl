@@ -22,11 +22,19 @@
 # (premove = true), not dropped; they count as dead in the share alive.
 #
 # Run from the package root, in the vignettes environment (XLSX):
-#   julia -t 10 --project=vignettes validate/demography_sweep.jl [R=5,2,1.5] [SCALE=0.01] [CAP=2000] [MAXL]
+#   julia -t 10 --project=vignettes validate/demography_sweep.jl [R=5,2,1.5] [SCALE=0.01] [CAP=2000] [MAXL] [SELECTION]
 # R is a comma-separated list of growth rates; SCALE the fraction of each stratum
 # (1.0 = all 119,984 inputs); CAP the generations after the move; MAXL skips strata with
-# more loci. The summary is printed and written to validate/demography_sweep/summary.md,
-# with the mean seconds per run and the CPU-hours they imply at scales 0.01, 0.05 and 1.
+# more loci; SELECTION is `viability` (QTSim's, the default) or `fecundity` (`Params`
+# `Selection`), whose runs are cached as runs_fecundity_<demography>.csv and summarised in
+# summary_fecundity.md. Under fecundity selection nobody dies at selection, so 50% mortality
+# is read from the mean fitness (the expected fraction surviving) rather than the
+# survivors, and each run also records `Tw`, the generations after the move until the
+# expected survivors N·W̄ first fall below two (-1 if never): when a population of that
+# size would most likely have died under viability selection. validate/fecundity_compare.jl
+# compares the two selection modes, paired by input. The summary is printed and written to
+# validate/demography_sweep/summary.md, with the mean seconds per run and the CPU-hours they
+# imply at scales 0.01, 0.05 and 1.
 #
 # Cost (2026-11-07, 12-core Apple M3 Pro, Julia 1.12; validate/benchmark.jl): most runs die
 # soon after the move, so a run costs about 10,000 generations, at 0.25, 0.33, 0.39 and
@@ -42,6 +50,9 @@ const GROWTH = length(ARGS) >= 1 ? Tuple(parse.(Float64, split(ARGS[1], ','))) :
 const SCALE  = length(ARGS) >= 2 ? parse(Float64, ARGS[2]) : 0.01
 const CAP    = length(ARGS) >= 3 ? parse(Int, ARGS[3]) : 2000
 const MAXL   = length(ARGS) >= 4 ? parse(Int, ARGS[4]) : typemax(Int)
+const SELECTION = length(ARGS) >= 5 ? Symbol(ARGS[5]) : :viability
+SELECTION in (:viability, :fecundity) || error("SELECTION is viability or fecundity, got $SELECTION")
+const FECUND = SELECTION === :fecundity
 const MOVE_GEN = 10_000
 const POP = 1000
 const SEED_BASE = 2_026_110_700_000           # 2026-11-07, then five digits for the row
@@ -77,16 +88,20 @@ end
 # size over the 100 generations before the move, N50 the size at 50% mortality.
 function measures(o, d; movegen = MOVE_GEN)
     gen, zbar, sd, ns, N = o.gen, o.pheno_mean, sqrt.(o.pheno_var), o.nsurv, o.popsize
+    frac = FECUND ? o.mean_fitness : ns ./ N          # the (expected) fraction surviving selection
     i0 = findfirst(==(movegen - 1), gen)
     post = findall(>=(movegen), gen)
-    k = isempty(post) ? lastindex(gen) : post[argmin(abs.(ns[post] ./ N[post] .- 0.5))]
+    k = isempty(post) ? lastindex(gen) : post[argmin(abs.(frac[post] .- 0.5))]
     T = o.extinct ? gen[end] + 2 - movegen : length(post)
     T50 = gen[k] + 2 - movegen
     sd50 = sd[k]
     x = d / sd50
     rate_ext = (zbar[end] - zbar[i0]) / T / sd50
-    (; T, extinct = o.extinct, T50, sd50, x, rate_ext, lag = x - rate_ext, VG = o.geno_var[i0],
-       N_eq = mean(N[i0-99:i0]), N50 = Float64(N[k]))
+    m = (; T, extinct = o.extinct, T50, sd50, x, rate_ext, lag = x - rate_ext, VG = o.geno_var[i0],
+         N_eq = mean(N[i0-99:i0]), N50 = Float64(N[k]))
+    FECUND || return m
+    j = findfirst(i -> N[i] * o.mean_fitness[i] < 2, post)
+    (; m..., Tw = j === nothing ? -1 : gen[post[j]] + 1 - movegen)
 end
 
 function run_one(t, i, R)
@@ -94,14 +109,15 @@ function run_one(t, i, R)
     p = Params(; NoGenerations = MOVE_GEN + CAP, Sample = 1, PopSize = POP, Ploidy = 2, NoQTL = t.L[i],
                PhenotypeVar = t.VP[i], Heritability = t.h2[i], MutationScalar = t.m[i],
                MutationRatePerGamete = 1e-4, RecombPoissonMean = t.u[i], InitFitnessSD = t.ω[i],
-               MoveFitnessSDGen = MOVE_GEN, MoveFitnessSD = t.d[i], MoveType = :continuous, dem...)
+               MoveFitnessSDGen = MOVE_GEN, MoveFitnessSD = t.d[i], MoveType = :continuous, Selection = SELECTION, dem...)
     t0 = time()
     o = simulate(p; seed = SEED_BASE + i)
     s = time() - t0
     head = (; row = i, L = t.L[i], u = t.u[i])
     if findfirst(==(MOVE_GEN - 1), o.gen) === nothing             # died before the move
         return (; head..., premove = true, died_gen = o.extinct_gen, T = -1, extinct = true, T50 = -1,
-                sd50 = NaN, x = NaN, rate_ext = NaN, lag = NaN, VG = NaN, N_eq = NaN, N50 = NaN, seconds = s)
+                sd50 = NaN, x = NaN, rate_ext = NaN, lag = NaN, VG = NaN, N_eq = NaN, N50 = NaN,
+                (FECUND ? (; Tw = -1) : (;))..., seconds = s)
     end
     (; head..., premove = false, died_gen = o.extinct_gen, measures(o, t.d[i])..., seconds = s)
 end
@@ -198,26 +214,27 @@ function main()
     t = read_master(MASTER)
     rows = nested_sample(t, SCALE)
     mkpath(OUT)
-    @printf("%d inputs (scale %g of each stratum%s), %d generations after the move, R = %s, %d threads\n",
-            length(rows), SCALE, MAXL < typemax(Int) ? ", NoQTL ≤ $MAXL" : "", CAP, join(GROWTH, ", "), Threads.nthreads())
+    @printf("%d inputs (scale %g of each stratum%s), %d generations after the move, R = %s, %s selection, %d threads\n",
+            length(rows), SCALE, MAXL < typemax(Int) ? ", NoQTL ≤ $MAXL" : "", CAP, join(GROWTH, ", "), SELECTION,
+            Threads.nthreads())
     sets = Pair{String,Vector}[]
     for R in (nothing, GROWTH...)
-        name = R === nothing ? "fixed (QTSim)" : "R = $R"
-        cache = joinpath(OUT, R === nothing ? "runs_fixed.csv" : "runs_R$(R).csv")
+        name = R === nothing ? (FECUND ? "fixed" : "fixed (QTSim)") : "R = $R"
+        cache = joinpath(OUT, (FECUND ? "runs_fecundity_" : "runs_") * (R === nothing ? "fixed.csv" : "R$(R).csv"))
         @printf("%s: cache %s (%.0f min so far)\n", name, relpath(cache, pwd()), (time() - t0) / 60)
         rs = sweep(i -> run_one(t, i, R), rows; cache, cost = i -> t.L[i],
                    progress = max(1, length(rows) ÷ 20))
         push!(sets, name => rs)
     end
     io = IOBuffer()
-    println(io, "# Density regulation in the published sweep\n")
+    println(io, "# Density regulation in the published sweep", FECUND ? ", fecundity selection" : "", "\n")
     println(io, "$(length(rows)) inputs, scale $SCALE of each stratum, $CAP generations after the move, ",
             "seeds $SEED_BASE + row. Strata weighted equally.\n")
     summarise(io, t, rows, [first(s) => last(s) for s in sets])
     cost_report(io, t, sets)
     s = String(take!(io))
     print(s)
-    write(joinpath(OUT, "summary.md"), s)
+    write(joinpath(OUT, FECUND ? "summary_fecundity.md" : "summary.md"), s)
     @printf("\ntotal %.1f min\n", (time() - t0) / 60)
 end
 

@@ -29,6 +29,15 @@ Some fields have no QTSim counterpart, or behave differently:
   `PopSize` and `GrowthRate` offspring per survivor at low density (see
   [`noffspring`](@ref)), so that it shrinks when mean fitness is low and can be rescued
   by adaptation.
+- `Selection`: QTSim's selection is on viability (`:viability`, the default): an
+  individual survives iff `U < W(z)`, and survivors mate at random. With `:fecundity`
+  everyone survives and each parent is drawn with probability `W/ΣW` (two distinct
+  parents when diploid), and under `:beverton_holt` the offspring number uses the sum of
+  fitnesses `ΣW = N·W̄` in place of the number of survivors (see [`noffspring`](@ref)).
+  `ΣW` is the expected number of survivors under viability, so the two have the same
+  expected selection and, at a fixed size, differ only in its variance. At a fixed size
+  fecundity selection is soft: the population dies only if fewer than `Ploidy`
+  individuals have positive fitness.
 - `MoveType = :red_noise` or `:periodic`, with `MoveNoiseSD`, `MoveAutocorr`,
   `MoveAmplitude` and `MovePeriod`: QTSim's optimum moves by a rule; these two make it
   fluctuate, around a linear trend of `MoveFitnessSD` per generation, with stationary
@@ -60,6 +69,7 @@ Base.@kwdef struct Params
     StandardisePhenotype::Bool  = false
     Demography::Symbol          = :fixed   # :fixed (QTSim: refill to PopSize) | :beverton_holt — Julia-only
     GrowthRate::Float64         = 2.0      # R, offspring per survivor at low density (:beverton_holt)
+    Selection::Symbol           = :viability  # :viability (QTSim: survive iff U < W) | :fecundity (mate ∝ W) — Julia-only
     Seed::Union{Nothing,Int}    = nothing
 end
 
@@ -114,7 +124,8 @@ generation and mutation per gamete; `0 ≤ Heritability ≤ 1` and `PhenotypeVar
 `MoveType` one of `:phenotype`, `:fitness`, `:continuous`, `:red_noise`, `:periodic`
 (QTSim falls back to the phenotype move on an unknown name; a misspelt symbol here would
 silently change the model); `MoveNoiseSD ≥ 0`, `0 ≤ MoveAutocorr < 1`, a finite
-`MoveAmplitude` and `MovePeriod > 0`; `CrossoverModel` `:qtsim` or `:all`; the schedules `MoveFitnessSDGen` and
+`MoveAmplitude` and `MovePeriod > 0`; `CrossoverModel` `:qtsim` or `:all`; `Selection`
+`:viability` or `:fecundity`; the schedules `MoveFitnessSDGen` and
 `ChangeFitnessGen` either −1 (off) or a generation, with `ChangeFitnessSD > 0` when the
 width changes; and `InitFitnessSD` either −1 (the analytical width, which needs
 `V_E > 0` and `m > 0`) or positive. Called by `World(p)`.
@@ -134,6 +145,7 @@ function checkparams(p::Params)
     p.CrossoverModel in (:qtsim, :all) || bad("CrossoverModel must be :qtsim or :all, got :$(p.CrossoverModel)")
     p.Demography in (:fixed, :beverton_holt) || bad("Demography must be :fixed or :beverton_holt, got :$(p.Demography)")
     p.GrowthRate > 0 || bad("GrowthRate must be positive, got $(p.GrowthRate)")
+    p.Selection in (:viability, :fecundity) || bad("Selection must be :viability or :fecundity, got :$(p.Selection)")
     p.MoveType in (:phenotype, :fitness, :continuous, :red_noise, :periodic) ||
         bad("MoveType must be :phenotype, :fitness, :continuous, :red_noise or :periodic, got :$(p.MoveType)")
     p.MoveNoiseSD >= 0 || bad("MoveNoiseSD must be non-negative, got $(p.MoveNoiseSD)")

@@ -91,7 +91,9 @@ by the step and its parameters. Its image in each lowering (`:kernel`, `:eidos`,
 
 - `select`: `ω`, a fixed width; `θ`, a fixed optimum, in place of the move; the move,
   `MoveType`, `MoveFitnessSD`, `MoveFitnessSDGen`, `MoveNoiseSD`, `MoveAutocorr`,
-  `MoveAmplitude` and `MovePeriod`; `StandardisePhenotype` and `Drift`;
+  `MoveAmplitude` and `MovePeriod`; `StandardisePhenotype` and `Drift`; `Selection`
+  (under `:fecundity` the survivors, all of them, carry their fitness as a mating weight,
+  which the plain `reproduce` samples by);
 - `reproduce`: `RecombPoissonMean`, `CrossoverModel` (`:qtsim` only in Eidos),
   `Demography` and `GrowthRate`;
 - `record`: `Sample`;
