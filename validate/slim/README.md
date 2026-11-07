@@ -44,6 +44,10 @@ port of QTSim written by hand, run for run, and against QTSim itself, in distrib
   (`withparams`), which QTSim lacks; KS tests, 50 runs each, about 4 minutes on 3 threads; and
   a run-for-run check that steps with parameters are the model of `Params` with those values;
   exits 1 if any p < 0.001 or any run differs; last result in `valid_demes.log`.
+- `compare_migration.jl` — the kernel against the generated SLiM model on three neutral
+  demes coupled by migration, which QTSim lacks: a scalar rate, the island matrix and a
+  line of stepping stones; KS tests, 300 runs each, about an hour on 3 threads; exits 1
+  if any p < 0.001; last result in `valid_migration.log`.
 - `three_way_confirm.jl` — the large pre-specified test of QTSim vs the generated SLiM model
   vs the kernel (40,000 runs each, about 2.5 h on 8 threads); result in `three_way_confirm.log`.
 - `slim.jl` — `find_slim()`: `ENV["SLIM"]`, else `slim/build/slim` next to the package's
@@ -102,7 +106,10 @@ QTSim's `RunSim` order inside one `reproduction()` call:
 
 Parents are then removed, so generations do not overlap. A life cycle on several demes,
 such as `g ⊗ g ⊗ g ⋅ migrate(3)`, generates a model with one subpopulation per deme and
-migration at `migRate`.
+migration at `migRate` (or along the matrix `MIG`). Migration visits the subpopulations in
+a new random order each generation (`sample`), as the kernel does (`randperm`): the swaps
+are sequential, so with a fixed order migration would not commute with relabelling the
+demes (`lean/CategoricalQuantGen/Migration.lean`).
 
 SLiM's random numbers differ from QTSim's GSL stream, so the agreement with QTSim is
 **statistical** (equality of distribution), not the bit-identical match that
@@ -129,11 +136,15 @@ generation that died, which QTSim does not.
 Vignette 06 repeats D and E with 50 runs per program, adding the kernel; there the SLiM
 model's p-values against QTSim are 0.18 to 0.71, survival in D included.
 
-**Migration graphs (2026-11-06):** the kernel and the generated SLiM model on three neutral
-demes in a line (`stepping_stone(3, 0.05; circular = false)`, 200 individuals each, 300
-generations, 300 runs each): the squared difference of the two end demes' means is 1.82
-(kernel) and 1.73 (SLiM) times that of neighbours, against about 1 for the island model in
-both; every KS p between the backends is 0.29 or more.
+**Migration (2026-11-07, `compare_migration.jl`, `valid_migration.log`, 300 runs each),
+with the demes visited in a random order in both backends:** three neutral demes of 200
+individuals, 300 generations, at a scalar rate 0.05, along `island_migration(3, 0.05)` and
+along a line of stepping stones (`stepping_stone(3, 0.05; circular = false)`). On the line
+the squared difference of the two end demes' means is 2.14 (kernel) and 1.98 (SLiM) times
+that of neighbours, against 0.87 to 1.07 for the island model. The KS p-values between the
+backends, on the end demes' and the neighbours' squared differences and the genetic
+variance within a deme, are 0.10 or more (nine tests). (Before the random order, a run on
+the line with the fixed order gave 1.82 and 1.73, every p 0.29 or more.)
 
 **Density regulation (2026-11-07, `compare_demography.jl`, `valid_demography.log`, 40 runs each):**
 the kernel and the generated SLiM model with `Demography = :beverton_holt`, on vignette 10's

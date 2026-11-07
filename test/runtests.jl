@@ -554,6 +554,33 @@ end
     @test_throws ArgumentError slim_script(cycle, p; migration_rate = ones(3, 3))
 end
 
+@testset "migration commutes with relabelling the demes, in distribution" begin
+    # Lean `randomOrderSweep_exchangeable`: with the demes visited in a random order,
+    # migrating a relabelled metapopulation is migrating the original and relabelling.
+    # Two demes of two individuals at rate 1: with the demes always visited in the order
+    # 1, 2, an arrangement has probability 1/8 one way and 0 the other (frequencies differ
+    # by about 0.13 over these seeds). Individuals are labelled by their `env`.
+    p = Params(PopSize = 2, NoQTL = 1, Ploidy = 2)
+    function outcomes(start, rate; n = 20_000)
+        tally = Dict{NTuple{4,Float64},Int}()
+        for seed in 1:n
+            s = p ⊗ demes(2)
+            s.demes[1].env .= start[1]; s.demes[2].env .= start[2]
+            migrate!(s, MersenneTwister(seed); rate)
+            key = (s.demes[1].env..., s.demes[2].env...)
+            tally[key] = get(tally, key, 0) + 1
+        end
+        tally
+    end
+    for rate in (1.0, [0.0 1.0; 1.0 0.0])
+        a = outcomes(([1.0, 2.0], [3.0, 4.0]), rate)
+        b = outcomes(([3.0, 4.0], [1.0, 2.0]), rate)
+        b = Dict((x[3], x[4], x[1], x[2]) => v for (x, v) in b)   # relabel back
+        @test sum(values(a)) == sum(values(b)) == 20_000
+        @test maximum(abs(get(a, x, 0) - get(b, x, 0)) for x in union(keys(a), keys(b))) / 20_000 < 0.03
+    end
+end
+
 @testset "fluctuating optima: red noise and periodic moves" begin
     p = Params(PopSize=1000, NoQTL=1, Ploidy=2, NoGenerations=4000, PhenotypeVar=0.02, Heritability=0.5,
                MutationScalar=0.02, MutationRatePerGamete=0.5, InitFitnessSD=0.3)

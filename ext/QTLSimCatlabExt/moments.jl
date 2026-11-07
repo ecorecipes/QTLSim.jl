@@ -169,12 +169,45 @@ individual of composition `P[a, :]` and receiving a random one of `b`, whose exp
 composition moves toward `P[a, :]` by a factor `1 − r/N_b` per visit. Over the `N_a`
 visits, with `f = (1 − r/N_b)^{N_a}`, deme `b` becomes `P[a, :] + f (P[b, :] − P[a, :])`
 and deme `a` receives `N_a r P[a, :] + N_b (1 − f)(P[b, :] − P[a, :])`, in place of the
-`N_a r` individuals it sends. These expectations are exact for any deme sizes.
+`N_a r` individuals it sends. These expectations are exact for any deme sizes, given the
+order in which the demes are visited.
+
+`migrate!` draws that order uniformly at random at every call (so that migration is
+exchangeable, `Migration.lean`), and the expected composition is the average of the
+above over all `k!` orders: exactly, by enumerating them, for `k ≤ 8`, and over 20,000
+random orders from a fixed seed (so deterministically, to about 1%) for more demes.
 """
 function migration_mixing(M::AbstractMatrix, N::AbstractVector, alive::AbstractVector{Bool})
     k = length(N)
+    k <= 1 && return migration_mixing(M, N, alive, collect(1:k))
+    orders = k <= 8 ? _permutations(k) : (rng = Xoshiro(20261107); [randperm(rng, k) for _ in 1:20_000])
+    sum(migration_mixing(M, N, alive, o) for o in orders) ./ length(orders)
+end
+
+# all permutations of 1:k, by Heap's algorithm
+function _permutations(k::Integer)
+    a, c, out = collect(1:k), ones(Int, k), [collect(1:k)]
+    i = 1
+    while i <= k
+        if c[i] < i
+            j = isodd(i) ? 1 : c[i]
+            a[j], a[i] = a[i], a[j]
+            push!(out, copy(a))
+            c[i] += 1
+            i = 1
+        else
+            c[i] = 1
+            i += 1
+        end
+    end
+    out
+end
+
+# the expected composition for one visiting order of the demes
+function migration_mixing(M::AbstractMatrix, N::AbstractVector, alive::AbstractVector{Bool}, order::AbstractVector{<:Integer})
+    k = length(N)
     P = [Float64(a == c) for a in 1:k, c in 1:k]
-    for a in 1:k
+    for a in order
         alive[a] || continue
         cs = P[a, :]
         received = zeros(k)

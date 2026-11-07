@@ -304,11 +304,11 @@ reproduction() {
         adults.fitnessScaling = 0.0;
     } while (F);
     // migrate: each offspring swaps places, with probability migRate, with a random
-    // offspring of a random other deme   [Zygotes^3 → Zygotes^3]
+    // offspring of a random other deme, the demes in a random order   [Zygotes^3 → Zygotes^3]
     kids = c(kids_p1, kids_p2, kids_p3);
     sizes = c(size(kids_p1), size(kids_p2), size(kids_p3));
     starts = c(0, cumSum(sizes))[0:2];
-    for (d in 0:2) {
+    for (d in sample(0:2, 3)) {
         for (i in which(runif(sizes[d]) < migRate)) {
             e = rdunif(1, 0, 1); if (e >= d) e = e + 1;
             if (sizes[e] == 0) next;

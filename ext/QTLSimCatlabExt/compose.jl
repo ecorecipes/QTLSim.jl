@@ -167,8 +167,8 @@ function migrate!(s::Stratified, rng; rate=0.01, demes=eachindex(s.demes))
         throw(ArgumentError("migration needs demes with the same loci and ploidy; got $([size(s.demes[d].genome)[1:2] for d in demes])"))
     rate isa AbstractMatrix && return migrate_graph!(s, rng, QTLSim.check_migration(rate, k), demes)
     count = 0
-    for (di, d) in enumerate(demes)
-        w = s.demes[d]
+    for di in randperm(rng, k)      # the demes in a uniformly random order, see the docstring
+        w = s.demes[demes[di]]
         w.extinct && continue
         for i in 1:w.N
             rand(rng) < rate || continue
@@ -191,11 +191,12 @@ end
 # Migration along a graph: an individual of the deme in position `a` starts a swap with
 # probability `M[a, b]` with a random individual of the deme in position `b`. One uniform
 # draw decides both whether and where: `u < Σ_b M[a, b]`, and `b` is where the cumulative
-# row first exceeds `u`.
+# row first exceeds `u`. As in `migrate!`, the demes take their turns in a uniformly random
+# order and the individuals of a deme in order.
 function migrate_graph!(s::Stratified, rng, M::AbstractMatrix, demes)
     count = 0
-    for (a, d) in enumerate(demes)
-        w = s.demes[d]
+    for a in randperm(rng, length(demes))
+        w = s.demes[demes[a]]
         w.extinct && continue
         cum = cumsum(M[a, :])
         for i in 1:w.N

@@ -36,10 +36,10 @@ does not have, which can be checked against each other: a fluctuating
 optimum, and demes coupled by migration, which the monoidal product `⊗`
 places side by side.
 
-The vignette needs SLiM (5.2, the version tested), the hand-written port and
-QTSim. It looks for SLiM in `slim/build/slim` in the folder that holds
-the package’s folder (the `SLIM` environment variable, or a `slim` on
-the path, can stand in for it), takes the port from the package’s
+The vignette needs SLiM (5.2, the version tested), the hand-written port
+and QTSim. It looks for SLiM in `slim/build/slim` in the folder that
+holds the package’s folder (the `SLIM` environment variable, or a `slim`
+on the path, can stand in for it), takes the port from the package’s
 `validate/slim/qtsim.slim`, and looks for QTSim built from the source
 that comes with the package (`make -C reference/QTSim`) or in the
 paper’s code.
@@ -64,7 +64,7 @@ all(isfile, (SLIM, PORT, QTSIM)) || error("this vignette needs SLiM, the SLiM po
 Threads.nthreads()
 ```
 
-    6
+    3
 
 ## The life cycle as a morphism
 
@@ -223,6 +223,8 @@ print(script)
         if (!exists("initOmega"))   defineConstant("initOmega", -1.0);
         if (!exists("drift"))       defineConstant("drift", F);
         if (!exists("standardise")) defineConstant("standardise", F);
+        if (!exists("demography"))  defineConstant("demography", "fixed");
+        if (!exists("growthRate"))  defineConstant("growthRate", 2.0);
         if (!exists("migRate"))     defineConstant("migRate", 0.0);
         defineConstant("DEMES", 1);                             // fixed by the life cycle
 
@@ -254,7 +256,8 @@ print(script)
     // one generation per tick, done in the first call of the callback
     reproduction() {
         gen = sim.cycle - 1;                       // QTSim's generation index
-        if (gen == 0) catn("gen\tphenoMean\tgenoVar\tnSurv\ttheta\tomega" + ((DEMES > 1) ? "\tdeme" else ""));
+        if (gen == 0) catn("gen\tphenoMean\tgenoVar\tnSurv\ttheta\tomega" + ((DEMES > 1) ? "\tdeme" else "") +
+                       ((demography != "fixed") ? "\tpopsize" else ""));
         kids_p1 = p1.individuals[integer(0)];
         do {   // deme p1
             if (p1.getValue("extinct")) break;
@@ -280,51 +283,56 @@ print(script)
             sidx = which(survived);
             ns = size(sidx);
             if (ns < 2) { p1.setValue("extinct", T); adults.fitnessScaling = 0.0; break; }
-            // reproduce: N offspring of two distinct survivors; each gamete copies a parental
+            // reproduce: NOFF offspring of two distinct survivors; each gamete copies a parental
             // chromosome, switching strands at most once, as QTSim does   [Survivors → Offspring]
-            i1 = rdunif(N, 0, ns - 1);
-            i2 = rdunif(N, 0, ns - 1);
+            // NOFF is N, as in QTSim, or density-regulated (QTLSim `noffspring`): Beverton-Holt
+            NOFF = N;
+            if (demography == "beverton_holt")
+                NOFF = min(N, rpois(1, growthRate * ns / (1 + (growthRate - 1) * ns / N)));
+            if (NOFF == 0) { p1.setValue("extinct", T); adults.fitnessScaling = 0.0; break; }
+            i1 = rdunif(NOFF, 0, ns - 1);
+            i2 = rdunif(NOFF, 0, ns - 1);
             dup = which(i1 == i2);
             while (size(dup) > 0) { i2[dup] = rdunif(size(dup), 0, ns - 1); dup = which(i1 == i2); }
             if (L == 1) {
                 sa0 = a0[sidx]; sa1 = a1[sidx];
-                c0 = ifelse(runif(N) < 0.5, sa1[i1], sa0[i1]);
-                c1 = ifelse(runif(N) < 0.5, sa1[i2], sa0[i2]);
+                c0 = ifelse(runif(NOFF) < 0.5, sa1[i1], sa0[i1]);
+                c1 = ifelse(runif(NOFF) < 0.5, sa1[i2], sa0[i2]);
             } else {
                 par = c(sidx[i1], sidx[i2]);                        // the parent of each of the 2N gametes
-                npts = rpois(2 * N, RECOMB);                        // crossover points drawn for each gamete
-                first = runif(2 * N) < 0.5;                         // T: the gamete starts on the parent's a0
-                cut = rep(L - 1, 2 * N);                            // the last locus taken from the starting strand
+                npts = rpois(2 * NOFF, RECOMB);                        // crossover points drawn for each gamete
+                first = runif(2 * NOFF) < 0.5;                         // T: the gamete starts on the parent's a0
+                cut = rep(L - 1, 2 * NOFF);                            // the last locus taken from the starting strand
                 for (j in which(npts > 0 & npts < L)) cut[j] = min(sample(0:(L - 2), npts[j]));
-                loc = rep(0:(L - 1), 2 * N);
+                loc = rep(0:(L - 1), 2 * NOFF);
                 at = repEach(par * L, L) + loc;
                 g = ifelse((loc <= repEach(cut, L)) == repEach(first, L), a0[at], a1[at]);
-                c0 = g[0:(N * L - 1)];
-                c1 = g[(N * L):(2 * N * L - 1)];
+                c0 = g[0:(NOFF * L - 1)];
+                c1 = g[(NOFF * L):(2 * NOFF * L - 1)];
             }
             // record: the parent generation's statistics, every `sampleEvery` generations   [Offspring → Offspring]
             if (gen % sampleEvery == 0)
-                catn(gen + "\t" + mean(pheno) + "\t" + var(genotype) + "\t" + ns + "\t" + p1.getValue("THETA") + "\t" + p1.getValue("OMEGA") + ((DEMES > 1) ? "\t" + p1.id else ""));
+                catn(gen + "\t" + mean(pheno) + "\t" + var(genotype) + "\t" + ns + "\t" + p1.getValue("THETA") + "\t" + p1.getValue("OMEGA") + ((DEMES > 1) ? "\t" + p1.id else "") + ((demography != "fixed") ? "\t" + size(adults) else ""));
             // rescale: the scheduled change of the fitness width, from the next generation   [Offspring → Offspring]
             if (gen == changeGen) p1.setValue("OMEGA", changeSD);
             // mutate: Poisson(L·rate) mutations per offspring chromosome, each adding N(0, MUTVAR)
             // to a random locus   [Offspring → Offspring]
-            k0 = rpois(N, L * rate);
-            k1 = rpois(N, L * rate);
+            k0 = rpois(NOFF, L * rate);
+            k1 = rpois(NOFF, L * rate);
             if (L == 1) {
-                c0 = c0 + rnorm(N, 0.0, sqrt(k0 * MUTVAR));
-                c1 = c1 + rnorm(N, 0.0, sqrt(k1 * MUTVAR));
+                c0 = c0 + rnorm(NOFF, 0.0, sqrt(k0 * MUTVAR));
+                c1 = c1 + rnorm(NOFF, 0.0, sqrt(k1 * MUTVAR));
             } else {
-                at = repEach(0:(N - 1), k0) * L + rdunif(sum(k0), 0, L - 1);
+                at = repEach(0:(NOFF - 1), k0) * L + rdunif(sum(k0), 0, L - 1);
                 eff = rnorm(sum(k0), 0.0, sqrt(MUTVAR));
                 for (j in seqAlong(at)) c0[at[j]] = c0[at[j]] + eff[j];
-                at = repEach(0:(N - 1), k1) * L + rdunif(sum(k1), 0, L - 1);
+                at = repEach(0:(NOFF - 1), k1) * L + rdunif(sum(k1), 0, L - 1);
                 eff = rnorm(sum(k1), 0.0, sqrt(MUTVAR));
                 for (j in seqAlong(at)) c1[at[j]] = c1[at[j]] + eff[j];
             }
             // swap: the offspring replace their parents   [Offspring → Zygotes]
-            kids_p1 = p1.addEmpty(count = N);
-            for (k in seqLen(N)) {
+            kids_p1 = p1.addEmpty(count = NOFF);
+            for (k in seqLen(NOFF)) {
                 kids_p1[k].setValue("a0", c0[(k * L):(k * L + L - 1)]);
                 kids_p1[k].setValue("a1", c1[(k * L):(k * L + L - 1)]);
             }
@@ -339,8 +347,9 @@ print(script)
 
     1000000 late() { sim.simulationFinished(); }   // backstop
 
-`run_slim` runs a SLiM model and reads the table it prints: the columns `gen`, `phenoMean`, `genoVar`, `nSurv`, `theta`
-and `omega` (QTSim’s output also has the phenotype ratio and the selection slopes).
+`run_slim` runs a SLiM model and reads the table it prints: the columns
+`gen`, `phenoMean`, `genoVar`, `nSurv`, `theta` and `omega` (QTSim’s
+output also has the phenotype ratio and the selection slopes).
 
 ``` julia
 function run_slim(model, seed; defines = Dict{String,Any}())
@@ -362,13 +371,13 @@ nothing
 ## The generated model is the hand-written port
 
 The package also has a SLiM port of QTSim written by hand,
-`validate/slim/qtsim.slim`, validated against QTSim before the life cycle
-existed. Run with the same seed and parameters, the generated model and
-the port print the same table, number for number, because their steps
-are the same Eidos statements in the same order and so draw the same
-random numbers. The one difference is intended: when a population dies,
-the port also prints the generation in which it died, and QTSim does
-not.
+`validate/slim/qtsim.slim`, validated against QTSim before the life
+cycle existed. Run with the same seed and parameters, the generated
+model and the port print the same table, number for number, because
+their steps are the same Eidos statements in the same order and so draw
+the same random numbers. The one difference is intended: when a
+population dies, the port also prints the generation in which it died,
+and QTSim does not.
 
 ``` julia
 port = read(PORT, String)
@@ -770,11 +779,11 @@ print(meta_script[findfirst("    // migrate:", meta_script).start:findfirst("   
 ```
 
         // migrate: each offspring swaps places, with probability migRate, with a random
-        // offspring of a random other deme   [Zygotes^3 → Zygotes^3]
+        // offspring of a random other deme, the demes in a random order   [Zygotes^3 → Zygotes^3]
         kids = c(kids_p1, kids_p2, kids_p3);
         sizes = c(size(kids_p1), size(kids_p2), size(kids_p3));
         starts = c(0, cumSum(sizes))[0:2];
-        for (d in 0:2) {
+        for (d in sample(0:2, 3)) {
             for (i in which(runif(sizes[d]) < migRate)) {
                 e = rdunif(1, 0, 1); if (e >= d) e = e + 1;
                 if (sizes[e] == 0) next;
@@ -821,12 +830,12 @@ end
 
 | migration rate | statistic | SLiM (generated) | kernel | KS p |
 |:---|:---|---:|---:|---:|
-| 0 | variance among deme means | 0.05984 | 0.04101 | 0.71 |
-| 0 | genetic variance within a deme | 0.06756 | 0.06794 | 0.54 |
-| 0.01 | variance among deme means | 0.003867 | 0.004719 | 0.54 |
-| 0.01 | genetic variance within a deme | 0.08543 | 0.08214 | 0.27 |
-| 0.1 | variance among deme means | 0.0004861 | 0.0004871 | 0.86 |
-| 0.1 | genetic variance within a deme | 0.08486 | 0.08425 | 0.54 |
+| 0 | variance among deme means | 0.04229 | 0.03561 | 0.71 |
+| 0 | genetic variance within a deme | 0.06253 | 0.06575 | 0.54 |
+| 0.01 | variance among deme means | 0.002747 | 0.004573 | 0.11 |
+| 0.01 | genetic variance within a deme | 0.08163 | 0.08147 | 0.86 |
+| 0.1 | variance among deme means | 0.0004292 | 0.0004158 | 1.00 |
+| 0.1 | genetic variance within a deme | 0.08662 | 0.08832 | 0.27 |
 
 The two backends agree at every migration rate: without migration the
 deme means spread apart by drift, and migration at 1% or 10% per
@@ -838,7 +847,14 @@ relies on: running products step by step is running each deme on its own
 in which a backend visits the demes does not matter), demes without
 migration iterate independently, and migration, which only rearranges
 individuals among positions, keeps every deme’s size and every total
-over the metapopulation.
+over the metapopulation. Migration itself is different: its swaps are
+made one after the other, and a migrant can move again from a deme
+visited later, so the order of the demes matters there. Both backends
+visit them in a new random order at each generation (`sample` in Eidos,
+`randperm` in the kernel), and `lean/CategoricalQuantGen/Migration.lean`
+proves that migration then commutes with relabelling the demes, in
+distribution, for the island model; with the demes always visited in the
+order 1, 2, 3 it would not.
 
 ## Summary
 

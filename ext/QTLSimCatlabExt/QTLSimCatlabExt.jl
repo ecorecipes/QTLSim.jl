@@ -24,6 +24,7 @@ using Catlab: @present, @acset_type, FreeSchema, FreeSymmetricMonoidalCategory, 
               GATExpr, ObExpr
 import Catlab: ⋅, ⊗, compose, id, otimes, braid, munit
 using Statistics: mean, var
+using Random: randperm, Xoshiro
 
 include("schema.jl")
 include("compose.jl")

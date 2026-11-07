@@ -247,7 +247,7 @@ spread(ms) = std([m[end] for m in ms])
         spread(isolated), spread(coupled))
 ```
 
-    spread of the deme means after 2500 generations: isolated 0.778, with migration 0.027
+    spread of the deme means after 2500 generations: isolated 0.778, with migration 0.115
 
 ``` julia
 fig = Figure(size = (900, 360))
@@ -319,7 +319,7 @@ end
 ```
 
     rate 0.000: deme means differ by 0.199 in the kernel, 0.200 in the moments
-    rate 0.005: deme means differ by 0.174 in the kernel, 0.161 in the moments
+    rate 0.005: deme means differ by 0.175 in the kernel, 0.161 in the moments
     rate 0.020: deme means differ by 0.122 in the kernel, 0.108 in the moments
 
 ``` julia

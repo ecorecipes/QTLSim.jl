@@ -304,11 +304,12 @@ reproduction() {
         adults.fitnessScaling = 0.0;
     } while (F);
     // migrate: each offspring of deme d swaps places, with probability MIG[d, e], with a
-    // random offspring of deme e (MIG row by row)   [Zygotes^3 → Zygotes^3]
+    // random offspring of deme e (MIG row by row), the demes in a random order
+    // [Zygotes^3 → Zygotes^3]
     kids = c(kids_p1, kids_p2, kids_p3);
     sizes = c(size(kids_p1), size(kids_p2), size(kids_p3));
     starts = c(0, cumSum(sizes))[0:2];
-    for (d in 0:2) {
+    for (d in sample(0:2, 3)) {
         cum = cumSum(MIG[(d * 3):(d * 3 + 2)]);
         u = runif(sizes[d]);
         for (i in which(u < cum[2])) {
