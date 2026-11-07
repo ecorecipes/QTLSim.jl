@@ -240,6 +240,9 @@ reproduces the paper’s results.
 - [Adaptation to a moving
   optimum](03_moving_optimum.md): the ways the
   optimum can move, and the paper’s measures of lag and extinction.
+- [Loci and
+  recombination](04_loci_and_recombination.md):
+  many loci, and the way QTSim recombines them.
 - [The categorical
   layer](05_categorical_layer.md) and
   [Recomposing the

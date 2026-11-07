@@ -182,6 +182,8 @@ reproduces the paper's results.
   how much genetic variance the population maintains, compared with theory.
 - [Adaptation to a moving optimum](../03_moving_optimum/03_moving_optimum.qmd): the
   ways the optimum can move, and the paper's measures of lag and extinction.
+- [Loci and recombination](../04_loci_and_recombination/04_loci_and_recombination.qmd):
+  many loci, and the way QTSim recombines them.
 - [The categorical layer](../05_categorical_layer/05_categorical_layer.qmd) and
   [Recomposing the model](../06_recomposing_the_model/06_recomposing_the_model.qmd):
   the population as an ACSet, and a generation as a composite of operators that can be
