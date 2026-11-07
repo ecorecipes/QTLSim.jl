@@ -25,7 +25,8 @@ Genomes are stored as `(NoQTL, Ploidy, PopSize)`; the genotype of individual `i`
 is the sum over all its loci and chromosomes (QTSim `CaclGenotype`). The current
 population is individuals `1:N`, with `N == PopSize` always under QTSim's `Demography =
 :fixed`; under density regulation `N` varies, `PopSize` is the carrying capacity, and
-`Noff` is the number of offspring in the buffer.
+`Noff` is the number of offspring in the buffer. `θ0` and `ε` hold the state of a
+fluctuating optimum (`MoveType = :red_noise` or `:periodic`, see [`moveoptimum!`](@ref)).
 """
 mutable struct World
     p::Params
@@ -44,6 +45,8 @@ mutable struct World
     extinct::Bool
     N::Int
     Noff::Int
+    θ0::Float64          # the optimum when a fluctuating move starts
+    ε::Float64           # the optimum's AR(1) noise, MoveType = :red_noise
 end
 
 function World(p::Params)
@@ -53,7 +56,7 @@ function World(p::Params)
           zeros(L, P, N), zeros(N),
           zeros(N), zeros(N), zeros(N),
           Int[], 0, 0.0, initFitSD(p),
-          zeros(L, P, N), zeros(N), false, N, N)
+          zeros(L, P, N), zeros(N), false, N, N, 0.0, 0.0)
 end
 
 # --- environment ---------------------------------------------------------
@@ -92,10 +95,44 @@ function develop!(w::World)
     w
 end
 
-"Move the optimum `θ` if the schedule says so (QTSim `SetFitnessMean`)."
-function moveoptimum!(w::World)
+"""
+    moveoptimum!(w, rng = nothing)
+
+Move the optimum `θ` if the schedule says so (QTSim `SetFitnessMean`). From generation
+`t0 = MoveFitnessSDGen` on, with `d = MoveFitnessSD`, `z̄` the mean phenotype and `t` the
+generation:
+
+- `:phenotype`: `θ = z̄ + √V_P·d`;
+- `:fitness`: `θ = z̄ + ω·d`;
+- `:continuous`: `θ += d`;
+- `:red_noise` (Julia-only): `θ_t = θ0 + d (t − t0) + ε_t`, where `θ0` is the optimum
+  before the move and `ε` is a stationary AR(1) process with standard deviation
+  `σ = MoveNoiseSD` and autocorrelation `ρ = MoveAutocorr`: `ε_{t0} ~ N(0, σ²)` and
+  `ε_t = ρ ε_{t−1} + σ √(1 − ρ²) ξ_t` with `ξ_t ~ N(0, 1)`. One normal draw per generation,
+  from `rng`;
+- `:periodic` (Julia-only): `θ_t = θ0 + d (t − t0) + A sin(2π (t − t0)/P)`, with
+  `A = MoveAmplitude` and `P = MovePeriod`. Draws nothing.
+
+The two fluctuating moves are exogenous: θ does not depend on the population. Their
+trend is `d` per generation, starting from `θ0` at `t0` (so a step behind `:continuous`,
+which already adds `d` at `t0`). With `ρ = 0` the noise is white; as `ρ → 1` it
+wanders more slowly with the same variance, so `σ` and `ρ` set the size and the time
+scale (`−1/ln ρ` generations) of the fluctuations separately.
+"""
+function moveoptimum!(w::World, rng = nothing)
     p = w.p
     (p.MoveFitnessSDGen != -1 && w.gen >= p.MoveFitnessSDGen) || return w
+    if p.MoveType === :red_noise || p.MoveType === :periodic
+        t = w.gen - p.MoveFitnessSDGen
+        t == 0 && (w.θ0 = w.θ)
+        if p.MoveType === :red_noise
+            rng === nothing && throw(ArgumentError("MoveType = :red_noise draws from a random number generator"))
+            σ, ρ = p.MoveNoiseSD, p.MoveAutocorr
+            w.ε = t == 0 ? σ * randn(rng) : ρ * w.ε + σ * sqrt(1 - ρ^2) * randn(rng)
+        end
+        w.θ = fluctuating_optimum(p, w.θ0, t, w.ε)
+        return w
+    end
     m = mean(view(w.phenotype, 1:w.N))
     if p.MoveType == :phenotype
         w.θ = m + sqrt(p.PhenotypeVar) * p.MoveFitnessSD
@@ -105,6 +142,21 @@ function moveoptimum!(w::World)
         w.θ += p.MoveFitnessSD
     end
     w
+end
+
+"""
+    fluctuating_optimum(p, θ0, t, ε = 0.0)
+
+The optimum of a fluctuating move `t` generations after it starts, from `θ0`:
+`θ0 + d t + ε` for `MoveType = :red_noise`, with the current noise `ε`, and
+`θ0 + d t + A sin(2π t/P)` for `:periodic` (see [`moveoptimum!`](@ref)). With `ε = 0` it
+is the expected optimum under red noise.
+"""
+function fluctuating_optimum(p::Params, θ0::Real, t::Real, ε::Real = 0.0)
+    trend = θ0 + p.MoveFitnessSD * t
+    p.MoveType === :red_noise && return trend + ε
+    p.MoveType === :periodic && return trend + p.MoveAmplitude * sin(2π * t / p.MovePeriod)
+    throw(ArgumentError("fluctuating_optimum is for MoveType :red_noise or :periodic, got :$(p.MoveType)"))
 end
 
 """
@@ -120,7 +172,7 @@ form `exp(−(z−θ)²/2ω²)` is what Lean `StabilizingSelection.lean` proves 
 """
 function select!(w::World, rng)
     p = w.p
-    moveoptimum!(w)
+    moveoptimum!(w, rng)
     sd = p.StandardisePhenotype ? std(view(w.phenotype, 1:w.N)) : 1.0
     @inbounds for i in 1:w.N
         if p.Drift

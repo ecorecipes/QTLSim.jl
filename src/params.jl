@@ -29,6 +29,10 @@ Some fields have no QTSim counterpart, or behave differently:
   `PopSize` and `GrowthRate` offspring per survivor at low density (see
   [`noffspring`](@ref)), so that it shrinks when mean fitness is low and can be rescued
   by adaptation.
+- `MoveType = :red_noise` or `:periodic`, with `MoveNoiseSD`, `MoveAutocorr`,
+  `MoveAmplitude` and `MovePeriod`: QTSim's optimum moves by a rule; these two make it
+  fluctuate, around a linear trend of `MoveFitnessSD` per generation, with stationary
+  AR(1) noise or a sine wave (see [`moveoptimum!`](@ref)).
 """
 Base.@kwdef struct Params
     NoGenerations::Int          = 20000
@@ -47,7 +51,11 @@ Base.@kwdef struct Params
     ChangeFitnessSD::Float64    = 0.0      # new width at ChangeFitnessGen
     MoveFitnessSDGen::Int       = -1       # generation the optimum starts moving
     MoveFitnessSD::Float64      = 1.0      # move size (in the MoveType's units)
-    MoveType::Symbol            = :phenotype  # :phenotype | :fitness | :continuous
+    MoveType::Symbol            = :phenotype  # :phenotype | :fitness | :continuous | :red_noise | :periodic (last two Julia-only)
+    MoveNoiseSD::Float64        = 0.0      # σ, stationary SD of the optimum's AR(1) noise (:red_noise)
+    MoveAutocorr::Float64       = 0.0      # ρ, the noise's autocorrelation between generations (:red_noise)
+    MoveAmplitude::Float64      = 0.0      # A, amplitude of the optimum's cycle (:periodic)
+    MovePeriod::Float64         = 100.0    # P, period of the cycle in generations (:periodic)
     Drift::Bool                 = false
     StandardisePhenotype::Bool  = false
     Demography::Symbol          = :fixed   # :fixed (QTSim: refill to PopSize) | :beverton_holt — Julia-only
@@ -103,9 +111,10 @@ end
 Throw an `ArgumentError` if `p` is not a model QTSim would run, or would run
 differently: `Ploidy` 1 or 2, at least one individual (two if diploid), locus, sampled
 generation and mutation per gamete; `0 ≤ Heritability ≤ 1` and `PhenotypeVar > 0`;
-`MoveType` one of `:phenotype`, `:fitness`, `:continuous` (QTSim falls back to the
-phenotype move on an unknown name; a misspelt symbol here would silently change the
-model); `CrossoverModel` `:qtsim` or `:all`; the schedules `MoveFitnessSDGen` and
+`MoveType` one of `:phenotype`, `:fitness`, `:continuous`, `:red_noise`, `:periodic`
+(QTSim falls back to the phenotype move on an unknown name; a misspelt symbol here would
+silently change the model); `MoveNoiseSD ≥ 0`, `0 ≤ MoveAutocorr < 1`, a finite
+`MoveAmplitude` and `MovePeriod > 0`; `CrossoverModel` `:qtsim` or `:all`; the schedules `MoveFitnessSDGen` and
 `ChangeFitnessGen` either −1 (off) or a generation, with `ChangeFitnessSD > 0` when the
 width changes; and `InitFitnessSD` either −1 (the analytical width, which needs
 `V_E > 0` and `m > 0`) or positive. Called by `World(p)`.
@@ -125,8 +134,12 @@ function checkparams(p::Params)
     p.CrossoverModel in (:qtsim, :all) || bad("CrossoverModel must be :qtsim or :all, got :$(p.CrossoverModel)")
     p.Demography in (:fixed, :beverton_holt) || bad("Demography must be :fixed or :beverton_holt, got :$(p.Demography)")
     p.GrowthRate > 0 || bad("GrowthRate must be positive, got $(p.GrowthRate)")
-    p.MoveType in (:phenotype, :fitness, :continuous) ||
-        bad("MoveType must be :phenotype, :fitness or :continuous, got :$(p.MoveType)")
+    p.MoveType in (:phenotype, :fitness, :continuous, :red_noise, :periodic) ||
+        bad("MoveType must be :phenotype, :fitness, :continuous, :red_noise or :periodic, got :$(p.MoveType)")
+    p.MoveNoiseSD >= 0 || bad("MoveNoiseSD must be non-negative, got $(p.MoveNoiseSD)")
+    0 <= p.MoveAutocorr < 1 || bad("MoveAutocorr must be in [0, 1), got $(p.MoveAutocorr)")
+    isfinite(p.MoveAmplitude) || bad("MoveAmplitude must be finite, got $(p.MoveAmplitude)")
+    p.MovePeriod > 0 && isfinite(p.MovePeriod) || bad("MovePeriod must be positive, got $(p.MovePeriod)")
     (p.MoveFitnessSDGen == -1 || p.MoveFitnessSDGen >= 0) ||
         bad("MoveFitnessSDGen must be -1 (no move) or a generation, got $(p.MoveFitnessSDGen)")
     (p.ChangeFitnessGen == -1 || p.ChangeFitnessGen >= 0) ||

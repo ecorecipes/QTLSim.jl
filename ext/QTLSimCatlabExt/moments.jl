@@ -30,20 +30,30 @@ mutable struct Moments
     extinct::Bool
     N::Float64           # expected population size
     Noff::Float64
+    θ0::Float64          # the optimum when a fluctuating move starts
 end
 
 Moments(p::Params; zbar = 0.0, VG = 0.0) =
     Moments(p, 0, zbar, VG, VG + QTLSim.envVar(p), 0.0, QTLSim.initFitSD(p), p.PopSize, 1.0, 0.0,
-            zbar, VG, zbar, VG, false, p.PopSize, p.PopSize)
+            zbar, VG, zbar, VG, false, p.PopSize, p.PopSize, 0.0)
 
 isextinct(m::Moments) = m.extinct
 
 # QTSim's fitness: pdf(Normal(0, ω), x)/(0.4/ω) = c·exp(−x²/2ω²), with c = 1/(0.4√(2π))
 const FITNESS_PEAK = 1 / (0.4 * sqrt(2π))
 
-function moments_select!(m::Moments)
+# A fluctuating move lowers to its expected optimum, `QTLSim.fluctuating_optimum` with no
+# noise: the periodic move exactly, red noise as its trend. `θ`, when given, is the optimum
+# instead (a realised sequence, `run_moments(p; optimum)`).
+function moments_select!(m::Moments; θ = nothing)
     p = m.p
-    if p.MoveFitnessSDGen != -1 && m.gen >= p.MoveFitnessSDGen     # QTSim SetFitnessMean
+    if θ !== nothing
+        m.θ = θ
+    elseif p.MoveFitnessSDGen != -1 && m.gen >= p.MoveFitnessSDGen && p.MoveType in (:red_noise, :periodic)
+        t = m.gen - p.MoveFitnessSDGen
+        t == 0 && (m.θ0 = m.θ)
+        m.θ = QTLSim.fluctuating_optimum(p, m.θ0, t)
+    elseif p.MoveFitnessSDGen != -1 && m.gen >= p.MoveFitnessSDGen     # QTSim SetFitnessMean
         m.θ = p.MoveType === :phenotype ? m.zbar + sqrt(p.PhenotypeVar) * p.MoveFitnessSD :
               p.MoveType === :fitness ? m.zbar + m.ω * p.MoveFitnessSD : m.θ + p.MoveFitnessSD
     end
@@ -101,8 +111,14 @@ id(s::Stage{:moments}) = nfactors(s) == 1 ? Operator(:id, (m, rng) -> m) :
     throw(ArgumentError("the moments lowering covers one deme"))
 
 function run_moments(p::Params; cycle = lifecycle().generation, images = Dict{Symbol,Any}(),
-                     zbar = 0.0, VG = 0.0)
+                     zbar = 0.0, VG = 0.0, optimum = nothing)
     QTLSim.checkparams(p)
+    if optimum !== nothing          # a given optimum per generation, optimum[t + 1], replaces the move
+        length(optimum) >= p.NoGenerations ||
+            throw(ArgumentError("optimum gives $(length(optimum)) generations; NoGenerations is $(p.NoGenerations)"))
+        images = merge(Dict{Symbol,Any}(:select => Operator(:select, (m, rng) -> moments_select!(m; θ = optimum[m.gen + 1]))),
+                       Dict{Symbol,Any}(images))
+    end
     zygotes = LifeCycle[:Zygotes]
     dom(cycle) == zygotes && codom(cycle) == zygotes ||
         throw(ArgumentError("the moments lowering iterates a life cycle Zygotes → Zygotes; got $(dom(cycle)) → $(codom(cycle))"))

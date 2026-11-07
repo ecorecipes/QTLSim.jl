@@ -24,6 +24,7 @@ rescale!
 develop!
 select!
 moveoptimum!
+fluctuating_optimum
 reproduce!
 noffspring
 mutate!
@@ -62,6 +63,15 @@ house_of_cards_vg
 steady_lag
 critical_rate
 mutation_adjusted
+```
+
+Fluctuating optima (`MoveType = :periodic` or `:red_noise`):
+
+```@docs
+periodic_response
+red_noise_lag_var
+expected_lag2
+lag_load
 ```
 
 ## The categorical layer

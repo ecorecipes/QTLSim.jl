@@ -26,7 +26,11 @@ files.
 | `ChangeFitnessSD` | the new width | 0.0 | `ChangeFitnessSD g w` (w) | `ChangeFitnessSD` |
 | `MoveFitnessSDGen` | generation from which the optimum moves; −1 for never | −1 | `MoveFitnessSD g d` (g) | `MoveFitnessSDGen` |
 | `MoveFitnessSD` | d, how far it moves (see below) | 1.0 | `MoveFitnessSD g d` (d) | `MoveFitnessSD` |
-| `MoveType` | `:phenotype`, `:fitness` or `:continuous` | `:phenotype` | `OptimumMoveType` | `MoveType` |
+| `MoveType` | `:phenotype`, `:fitness` or `:continuous`; or `:red_noise` or `:periodic` (Julia-only) | `:phenotype` | `OptimumMoveType` | `MoveType` |
+| `MoveNoiseSD` | σ, the stationary standard deviation of the optimum's noise, for `:red_noise` | 0.0 | — | — |
+| `MoveAutocorr` | ρ, in [0, 1), the noise's autocorrelation from one generation to the next, for `:red_noise` | 0.0 | — | — |
+| `MoveAmplitude` | A, the amplitude of the optimum's cycle, for `:periodic` | 0.0 | — | — |
+| `MovePeriod` | P > 0, the cycle's period in generations, for `:periodic` | 100.0 | — | — |
 | `Drift` | every fitness 1: a neutral run (QTSim has the option but switches it off) | `false` | (`Drift`, ignored) | `Drift` |
 | `StandardisePhenotype` | fitness of (z − θ)/sd(z) instead of z − θ | `false` | `StandardisePhenotype` | `StandardisePhenotype` |
 | `Demography` | `:fixed`: the survivors always produce `PopSize` offspring, as in QTSim; `:beverton_holt`: density-regulated (see below) | `:fixed` | — | — |
@@ -48,6 +52,29 @@ Each generation the optimum θ moves, from `MoveFitnessSDGen` on, by `MoveType`:
 - `:fitness`: θ = z̄ + ω·d, the same in units of the fitness width;
 - `:continuous`: θ = θ + d, a constant rate of environmental change; the paper's
   published runs use this.
+
+Two more moves, which QTSim lacks, make the optimum fluctuate around a linear trend of d
+per generation, as field environments do. With t₀ = `MoveFitnessSDGen` and θ₀ the optimum
+before the move (0, unless something else has set it), from generation t₀ on:
+
+- `:red_noise`: θ_t = θ₀ + d (t − t₀) + ε_t, where ε is a stationary AR(1) process with
+  standard deviation σ = `MoveNoiseSD` and autocorrelation ρ = `MoveAutocorr`:
+  ε_{t₀} ~ N(0, σ²), then ε_t = ρ ε_{t−1} + σ √(1 − ρ²) ξ_t with ξ_t ~ N(0, 1). σ sets
+  the size of the fluctuations and ρ their time scale, about −1/ln ρ generations, without
+  changing their variance. ρ = 0 is white noise. The move takes one normal draw per
+  generation from the run's random numbers, so it changes the rest of the run's draws.
+- `:periodic`: θ_t = θ₀ + d (t − t₀) + A sin(2π (t − t₀)/P), with A = `MoveAmplitude` and
+  P = `MovePeriod`. It draws nothing.
+
+Both are exogenous: θ does not depend on the population. d may be 0. The trend starts at
+θ₀ in generation t₀, one step behind `:continuous`, which has already added d by then. In
+a metapopulation each deme has its own noise. [`write_qtsim_options`](@ref) refuses these
+moves. The SLiM model that `slim_script` generates has both (`moveType`, `moveNoiseSD`,
+`moveAutocorr`, `moveAmplitude`, `movePeriod`), and agrees with the kernel
+(`validate/slim/compare_fluctuating.jl`). The moments lowering (`run_moments`) follows a
+periodic optimum exactly and red noise's trend, or a given sequence of optima. The steady
+lag and load are [`periodic_response`](@ref), [`red_noise_lag_var`](@ref),
+[`expected_lag2`](@ref) and [`lag_load`](@ref).
 
 Fitness is QTSim's Gaussian `pdf(Normal(0, ω), z − θ) / (0.4/ω)`, which keeps QTSim's
 0.4 in place of 1/√(2π), so the fitness at the optimum is 0.997 rather than 1. Selection

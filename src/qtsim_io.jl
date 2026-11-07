@@ -91,11 +91,16 @@ option QTSim reads, with QTSim's keywords. The seed is written when there is one
 QTSim cannot express two `Params` settings, so the file warns for them:
 - `CrossoverModel = :all`: QTSim applies only the lowest crossover point;
 - `Drift = true`: QTSim switches drift off.
+
+It is an `ArgumentError` to write `MoveType = :red_noise` or `:periodic`: QTSim has no
+fluctuating optimum, and would run a different model.
 """
 write_qtsim_options(path::AbstractString, p::Params; kw...) =
     open(io -> write_qtsim_options(io, p; kw...), path, "w")
 
 function write_qtsim_options(io::IO, p::Params; seed = p.Seed)
+    p.MoveType in (:phenotype, :fitness, :continuous) ||
+        throw(ArgumentError("QTSim has no MoveType :$(p.MoveType); only :phenotype, :fitness and :continuous can be written"))
     p.CrossoverModel === :qtsim || @warn "QTSim has only its own crossover model; CrossoverModel = :$(p.CrossoverModel) is not written"
     p.Drift && @warn "QTSim switches drift off; Drift = true is not written"
     p.Demography === :fixed || @warn "QTSim has a fixed population size; Demography = :$(p.Demography) is not written"

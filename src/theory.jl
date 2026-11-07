@@ -118,3 +118,85 @@ function mutation_adjusted(rate::AbstractVector, m::AbstractVector, dist; w = on
     d = pdf.(Ref(dist), m)
     rate .* d ./ (sum(w .* d) / sum(w))
 end
+
+# --- fluctuating optima ----------------------------------------------------
+#
+# Under Gaussian selection with a constant genetic variance V_G, the mean responds to the
+# lag λ_t = θ_t − z̄_t as z̄_{t+1} = z̄_t + β λ_t, with β = V_G/(V_G + V_s): a linear filter
+# of the optimum (the moments lowering's recursion once V_G has settled). Its response
+# to a linear trend is `steady_lag`; to a sine wave and to AR(1) noise it is below, after
+# Charlesworth (1993) and Lande and Shannon (1996), in this discrete-generation form.
+
+"""
+    periodic_response(P; VG, Vs)
+
+The steady response of the mean phenotype to an optimum that cycles with period `P`
+generations, `θ_t = A sin(2π t/P)`, when the mean follows `z̄_{t+1} = z̄_t + β (θ_t − z̄_t)`
+with `β = V_G/(V_G + V_s)`. With `ν = 2π/P`, the mean cycles as
+`z̄_t = gain·A sin(ν t − phase)`, where
+
+    D = √(1 − 2(1 − β) cos ν + (1 − β)²),   gain = β/D,
+    phase = atan(sin ν, cos ν − (1 − β)),
+
+and `delay = phase/ν` is the phase lag in generations. The lag `θ − z̄` cycles with
+amplitude `lag_amplitude·A`, `lag_amplitude = 2 sin(ν/2)/D`. A slow cycle (`P → ∞`) is
+tracked with `gain → 1` and `delay → 1/β`, the delay of the steady lag behind a trend; a
+fast one is averaged out
+(`gain → 0`). Returns `(; gain, phase, delay, lag_amplitude)`.
+"""
+function periodic_response(P::Real; VG::Real, Vs::Real)
+    β = VG / (VG + Vs)
+    ν = 2π / P
+    D = sqrt(1 - 2(1 - β) * cos(ν) + (1 - β)^2)
+    phase = atan(sin(ν), cos(ν) - (1 - β))
+    (gain = β / D, phase = phase, delay = phase / ν, lag_amplitude = 2sin(ν / 2) / D)
+end
+
+"""
+    red_noise_lag_var(σ, ρ; VG, Vs)
+
+The stationary variance of the lag `θ − z̄` when the optimum is AR(1) noise with
+standard deviation `σ` and autocorrelation `ρ`, `θ_t = ρ θ_{t−1} + σ√(1 − ρ²) ξ_t`, and the
+mean follows `z̄_{t+1} = z̄_t + β (θ_t − z̄_t)` with `β = V_G/(V_G + V_s)`:
+
+    E[(θ − z̄)²] = 2σ² (1 − ρ) / ((2 − β)(1 − ρ (1 − β))).
+
+White noise (`ρ = 0`) gives `2σ²/(2 − β)`, more than `σ²`, as the mean chases noise
+that has already gone; slowly wandering noise (`ρ → 1`) is tracked and the lag vanishes.
+"""
+function red_noise_lag_var(σ::Real, ρ::Real; VG::Real, Vs::Real)
+    β = VG / (VG + Vs)
+    2σ^2 * (1 - ρ) / ((2 - β) * (1 - ρ * (1 - β)))
+end
+
+"""
+    expected_lag2(p; VG)
+
+The expected squared lag `E[(θ − z̄)²]` of a population with genetic variance `VG`
+under the move of `p`, once the response is steady, with `V_s` =
+[`selection_variance`](@ref)`(p)`: the squared [`steady_lag`](@ref) of the trend
+`d = MoveFitnessSD`, plus, for `MoveType = :red_noise`, [`red_noise_lag_var`](@ref), or,
+for `:periodic`, the cycle's mean squared lag `(lag_amplitude·A)²/2`
+([`periodic_response`](@ref)). For `:continuous` it is the squared steady lag. The
+trend and the fluctuation add because the response is linear and the fluctuation has
+mean zero (over a cycle, for `:periodic`).
+"""
+function expected_lag2(p::Params; VG::Real)
+    Vs = selection_variance(p)
+    p.MoveType in (:continuous, :red_noise, :periodic) ||
+        throw(ArgumentError("expected_lag2 is for an exogenous optimum (:continuous, :red_noise, :periodic), got :$(p.MoveType)"))
+    trend = steady_lag(p.MoveFitnessSD; VG, Vs)^2
+    p.MoveType === :red_noise && return trend + red_noise_lag_var(p.MoveNoiseSD, p.MoveAutocorr; VG, Vs)
+    p.MoveType === :periodic && return trend + (periodic_response(p.MovePeriod; VG, Vs).lag_amplitude * p.MoveAmplitude)^2 / 2
+    trend
+end
+
+"""
+    lag_load(p; VG)
+
+The expected lag load on the log scale: the mean of `ln W̄(0) − ln W̄(λ)` for a lag λ,
+`E[λ²]/(2(ω² + V_P))` with `V_P = VG + V_E`, ω the initial width and `E[λ²]` from
+[`expected_lag2`](@ref). Gaussian selection of width ω on `z ~ N(z̄, V_P)` gives
+`ln W̄(λ) = ln W̄(0) − λ²/(2(ω² + V_P))` (Lande and Shannon 1996).
+"""
+lag_load(p::Params; VG::Real) = expected_lag2(p; VG) / (2 * (initFitSD(p)^2 + VG + envVar(p)))

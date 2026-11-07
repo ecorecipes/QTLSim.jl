@@ -111,7 +111,8 @@ seed, it is the same run as `run!`, bit for bit. For a metapopulation `s = p ⊗
 function run_composed end
 
 """
-    run_moments(p::Params; cycle = lifecycle().generation, images = Dict(), zbar = 0.0, VG = 0.0)
+    run_moments(p::Params; cycle = lifecycle().generation, images = Dict(), zbar = 0.0, VG = 0.0,
+                optimum = nothing)
 
 The life cycle `cycle` lowered to the moments of a Gaussian population (`lower(cycle, :moments)`)
 and iterated for `NoGenerations`: the deterministic, infinite-population predictions of
@@ -133,6 +134,14 @@ Returns the columns of [`run!`](@ref), predicted (`nsurv` rounded). The genetic 
 converges to [`gaussian_vg_exact`](@ref); under a continuous move the lag `θ − z̄`
 converges to [`steady_lag`](@ref). The population is extinct when fewer than two
 individuals (one, if haploid) are expected to survive. One deme only. Requires Catlab.
+
+The fluctuating moves lower to their expected optimum ([`fluctuating_optimum`](@ref)
+without noise): `MoveType = :periodic` exactly, since it is deterministic, and
+`:red_noise` as its linear trend. To follow one realisation of the noise, pass the
+optimum of every generation as `optimum` (`optimum[t + 1]` for generation `t`, at least
+`NoGenerations` values; for example `theta` from a kernel run with `Sample = 1`). It
+replaces the move whatever `MoveType` is, and the prediction is then the Gaussian
+population's response to that environment ([`expected_lag2`](@ref) gives its average).
 """
 function run_moments end
 

@@ -199,6 +199,34 @@ function migration_code(pops)
 """
 end
 
+# The fluctuating moves (QTLSim `moveoptimum!`, MoveType :red_noise and :periodic), which
+# QTSim lacks. `slim_script` splices them into the image of `select` only when `p` uses one,
+# so that the models of QTSim's own moves are unchanged. The optimum before the move
+# (THETA0) and the AR(1) noise (EPS) are deme state on @POP@, as THETA is.
+const EIDOS_CONTINUOUS_MOVE = "        else THETA = THETA + moveSD;\n"
+const EIDOS_FLUCTUATING_MOVE = """
+        else if (moveType == "red_noise" | moveType == "periodic") {
+            // θ = θ0 + d t + ε, ε AR(1) with stationary SD moveNoiseSD; or + A sin(2π t/P)
+            t = gen - moveGen;
+            if (t == 0) @POP@.setValue("THETA0", THETA);
+            THETA = @POP@.getValue("THETA0") + moveSD * t;
+            if (moveType == "red_noise") {
+                EPS = (t == 0) ? rnorm(1, 0.0, moveNoiseSD) else
+                    moveAutocorr * @POP@.getValue("EPS") + moveNoiseSD * sqrt(1 - moveAutocorr^2) * rnorm(1);
+                @POP@.setValue("EPS", EPS);
+                THETA = THETA + EPS;
+            } else THETA = THETA + moveAmplitude * sin(2 * PI * t / movePeriod);
+        }
+"""
+
+"The Eidos image of `select` with the fluctuating moves of `moveoptimum!` added."
+function eidos_fluctuating_select()
+    code = eidos_images()[:select].code
+    occursin(EIDOS_CONTINUOUS_MOVE, code) ||
+        error("the Eidos image of select has changed; update EIDOS_CONTINUOUS_MOVE")
+    EidosCode(:select, replace(code, EIDOS_CONTINUOUS_MOVE => EIDOS_FLUCTUATING_MOVE * EIDOS_CONTINUOUS_MOVE))
+end
+
 eidos_migrate(k) = EidosMeta(k, collect(1:k), migration_code, :migrate)
 
 function migration_graph_code(pops)
@@ -243,6 +271,8 @@ function slim_script(f, p::Params; images = Dict{Symbol,Any}(), migration_rate::
         throw(ArgumentError("with more than one locus the lowering to Eidos recombines as QTSim does " *
                             "(CrossoverModel = :qtsim); got :$(p.CrossoverModel)"))
     migration_rate isa AbstractMatrix && QTLSim.check_migration(migration_rate, k)
+    fluctuating = p.MoveType in (:red_noise, :periodic)
+    fluctuating && (images = merge(Dict{Symbol,Any}(:select => eidos_fluctuating_select()), Dict{Symbol,Any}(images)))
     img = lower(f, :eidos; images, migration_rate)
     pops = ["p$i" for i in 1:k]
     if img isa EidosCode
@@ -263,6 +293,8 @@ function slim_script(f, p::Params; images = Dict{Symbol,Any}(), migration_rate::
                 "demography" => p.Demography, "growthRate" => p.GrowthRate,
                 (migration_rate isa AbstractMatrix ? "MIG" => vec(permutedims(Float64.(migration_rate))) :
                  "migRate" => Float64(migration_rate)))
+    fluctuating && (defaults = (defaults..., "moveNoiseSD" => p.MoveNoiseSD, "moveAutocorr" => p.MoveAutocorr,
+                                "moveAmplitude" => p.MoveAmplitude, "movePeriod" => p.MovePeriod))
     w = maximum(length ∘ first, defaults)
     io = IOBuffer()
     print(io, """

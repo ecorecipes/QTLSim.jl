@@ -26,12 +26,14 @@ include("categorical.jl")
 
 # the simulation kernel
 export Params, World, simulate, run!, generation!, init_env!, checkparams,
-       develop!, select!, moveoptimum!, reproduce!, noffspring, mutate!, gamete!, swapbuffers!,
+       develop!, select!, moveoptimum!, fluctuating_optimum, reproduce!, noffspring, mutate!, gamete!, swapbuffers!,
        geneticVar, envVar, analyticalFitSD, initFitSD, muteVar,
        read_qtsim_options, write_qtsim_options
 # analytical predictions
 export selection_variance, gaussian_vg, gaussian_vg_exact, effective_size, house_of_cards_vg,
        steady_lag, critical_rate, mutation_adjusted
+# fluctuating optima
+export periodic_response, red_noise_lag_var, expected_lag2, lag_load
 # migration graphs among demes
 export island_migration, stepping_stone
 # the categorical layer (implemented by QTLSimCatlabExt; load Catlab to use it)
