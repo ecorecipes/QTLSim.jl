@@ -415,6 +415,25 @@ end
     min(searchsortedlast(view(w.cumw, 1:w.N), u) + 1, w.N)
 end
 
+# A parent other than `p1`, drawn with probability W_i/Σ_{j≠p1} W_j, by a scan of the
+# fitnesses (not of their cumulative sums, which lose the others' weight to rounding
+# when p1's dominates). Redrawing until the parent differs from p1 has this distribution
+# too, also after any number of failed redraws, so switching to it keeps the law.
+function weighted_parent_except(w::World, rng, p1::Int)
+    rest = 0.0
+    @inbounds for i in 1:w.N
+        i == p1 || (rest += w.fitness[i])
+    end
+    u = rand(rng) * rest
+    acc, last = 0.0, 0
+    @inbounds for i in 1:w.N
+        (i == p1 || w.fitness[i] <= 0) && continue
+        acc += w.fitness[i]; last = i
+        acc > u && return i
+    end
+    last
+end
+
 """
     gamete!(dest, chrA, chrB, rng, recombMean, L, allpoints=false, pts=Int[])
 
@@ -619,8 +638,12 @@ function reproduce_weighted!(w::World, rng, n, esd, allpts)
         else
             p1 = weighted_parent(w, rng)
             p2 = weighted_parent(w, rng)
+            tries = 1
             while p2 == p1
-                p2 = weighted_parent(w, rng)
+                # nearly all the weight on p1 (the rest can be 1e-300 when fitness nearly
+                # underflows): after 100 redraws, draw from the others exactly
+                p2 = tries < 100 ? weighted_parent(w, rng) : weighted_parent_except(w, rng, p1)
+                tries += 1
             end
             gamete_blocks!(w, 1, j, p1, rng, p.RecombPoissonMean, allpts)
             gamete_blocks!(w, 2, j, p2, rng, p.RecombPoissonMean, allpts)

@@ -273,7 +273,8 @@ const EIDOS_WEIGHTED_PARENTS = """
         i1 = sample(0:(ns - 1), NOFF, T, sw);
         i2 = sample(0:(ns - 1), NOFF, T, sw);
         dup = which(i1 == i2);
-        while (size(dup) > 0) { i2[dup] = sample(0:(ns - 1), size(dup), T, sw); dup = which(i1 == i2); }
+        for (t in 1:100) { if (size(dup) == 0) break; i2[dup] = sample(0:(ns - 1), size(dup), T, sw); dup = which(i1 == i2); }
+        for (j in dup) { w2 = sw; w2[i1[j]] = 0.0; i2[j] = sample(0:(ns - 1), 1, T, w2); }   // nearly all weight on one
     } else {
         i1 = rdunif(NOFF, 0, ns - 1);
         i2 = rdunif(NOFF, 0, ns - 1);

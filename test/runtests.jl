@@ -589,6 +589,14 @@ end
     # fewer than two individuals of positive fitness: no two distinct parents
     w.fitness[2:w.N] .= 0.0; w.extinct = false; empty!(w.survivors); QTLSim.weigh!(w)
     @test w.extinct
+    # nearly all the weight on one: the second parent is still another one, without hanging
+    w.fitness[2] = 1e-300; w.fitness[3] = 3e-300; w.extinct = false; empty!(w.survivors); QTLSim.weigh!(w)
+    @test !w.extinct
+    ex = [QTLSim.weighted_parent_except(w, r, 1) for _ in 1:20_000]
+    @test all(in((2, 3)), ex)
+    @test count(==(3), ex) / 20_000 ≈ 0.75 atol = 0.02
+    QTLSim.reproduce!(w, r)
+    @test w.Noff == 300
     # the selection differential recorded is the mating weights' Σ W z/ΣW − z̄
     w = World(f); r = MersenneTwister(3); init_env!(w, r); rec = QTLSim.records()
     develop!(w); QTLSim.select!(w, r); QTLSim.reproduce!(w, r); QTLSim.record!(rec, w)
