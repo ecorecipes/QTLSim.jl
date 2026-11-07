@@ -2530,7 +2530,7 @@ window.Quarto = {
 <span id="cb5-52"><a href="#cb5-52" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
 <span id="cb5-53"><a href="#cb5-53" aria-hidden="true" tabindex="-1"></a><span class="cn">nothing</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p>Each growth rate takes about an hour on ten threads, mostly for the populations with many loci, so the runs are stored next to this vignette, as in vignette 09.</p>
+<p>Each growth rate takes roughly ten minutes on ten threads (estimated from the kernel’s single-thread speed: about 40 minutes of CPU time), so the runs are stored next to this vignette, as in vignette 09.</p>
 <div id="8" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>fixed <span class="op">=</span> <span class="fu">read_runs</span>(FIXED)</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>runs <span class="op">=</span> <span class="fu">Dict</span>(R <span class="op">=&gt;</span> <span class="fu">run_sample</span>(t, rows, R) <span class="cf">for</span> R <span class="kw">in</span> GROWTH)</span>

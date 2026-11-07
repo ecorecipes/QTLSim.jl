@@ -146,9 +146,11 @@ scatterlines!(ax, Ls, costs, color = :navy)
 fig
 ```
 
-A 5000-locus population takes several milliseconds per generation, roughly fifteen times
-as long as a 100-locus one, so the paper's 250,000-generation runs at that size are
-expensive; the
+The kernel copies and sums blocks of about √L loci rather than single loci, so the time
+grows far more slowly than the number of loci: a 5000-locus population takes under a
+millisecond per generation, about three times as long as a 100-locus one. One of the
+paper's 250,000-generation runs still takes a few minutes, and all 119,984 of them
+thousands of CPU-hours, so the
 [replication](../09_replicating_pagel_2025/09_replicating_pagel_2025.qmd) therefore
 samples the paper's inputs and stops each run 2000 generations after the optimum starts
 to move.

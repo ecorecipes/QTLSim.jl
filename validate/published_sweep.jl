@@ -24,6 +24,14 @@
 #   julia -t 10 --project=vignettes validate/published_sweep.jl [CAP=2000] [SCALE=1.0] [MAXL]
 # SCALE multiplies the per-stratum sample sizes; MAXL skips strata with more loci. Per-run results are written to
 # validate/published_sweep_results.csv.
+#
+# Cost (2026-11-07, 12-core Apple M3 Pro, Julia 1.12): the default sample (589 inputs, 1154
+# kernel runs of up to 12,000 generations) is about 1 CPU-hour at the single-thread speeds
+# of validate/benchmark.jl; a 4-thread run of `2000 0.1` (58 inputs) took 4 minutes with
+# other jobs on the machine, so the whole sample takes roughly half an hour on 4 threads
+# (extrapolated). A 5000-locus World holds about 20 MB (dense genomes took 160 MB). The
+# last full run, in published_sweep.log, took 146 minutes on 8 threads with the dense
+# kernel.
 
 include(joinpath(@__DIR__, "gsl_locked.jl"))     # QTSIM, SIMDIR, ROOT, read_qtsim_opts
 using XLSX, HypothesisTests, Statistics, Random, Printf

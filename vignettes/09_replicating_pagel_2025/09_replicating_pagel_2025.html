@@ -2708,7 +2708,7 @@ window.Quarto = {
 <span id="cb16-64"><a href="#cb16-64" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
 <span id="cb16-65"><a href="#cb16-65" aria-hidden="true" tabindex="-1"></a><span class="cn">nothing</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p>The runs take about an hour on ten threads, mostly for the populations with many loci, so each finished run is stored next to this vignette and read back on later renders. Deleting the file reruns them, and an interrupted replication resumes where it stopped.</p>
+<p>The runs take roughly ten minutes on ten threads (estimated from the kernel’s single-thread speed: about 45 minutes of CPU time), so each finished run is stored next to this vignette and read back on later renders. Deleting the file reruns them, and an interrupted replication resumes where it stopped.</p>
 <div id="20" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>runs <span class="op">=</span> <span class="fu">run_replication</span>(t, rows, CACHE)</span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>w <span class="op">=</span> [<span class="fl">1</span> <span class="op">/</span> SAMPLE_SIZE[L] for L <span class="kw">in</span> runs.L]                 <span class="co"># every stratum counts equally</span></span>

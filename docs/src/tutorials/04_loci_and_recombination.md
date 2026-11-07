@@ -84,7 +84,8 @@ parental chromosome, and the starting chromosome is chosen fairly. On
 average, then, a gamete carries half of the parent’s additive genotype
 under either model, so neither biases the mean. Lean proves this for any
 assignment of loci to strands (`gamete_expected_sum_by` in
-`lean/CategoricalQuantGen/Recombination.lean`). With random allelic effects:
+`lean/CategoricalQuantGen/Recombination.lean`). With random allelic
+effects:
 
 ``` julia
 a = randn(Xoshiro(2), L); b = randn(Xoshiro(3), L)
@@ -160,12 +161,12 @@ end
 for (L, c) in zip(Ls, costs); @printf("%5d loci: %7.3f ms per generation\n", L, c); end
 ```
 
-        1 loci:   0.130 ms per generation
-       10 loci:   0.355 ms per generation
-      100 loci:   0.454 ms per generation
-      500 loci:   0.992 ms per generation
-     1000 loci:   1.798 ms per generation
-     5000 loci:   6.533 ms per generation
+        1 loci:   0.110 ms per generation
+       10 loci:   0.265 ms per generation
+      100 loci:   0.259 ms per generation
+      500 loci:   0.336 ms per generation
+     1000 loci:   0.404 ms per generation
+     5000 loci:   0.868 ms per generation
 
 ``` julia
 fig = Figure(size = (480, 360))
@@ -190,9 +191,12 @@ steadily with the number of loci.
 </div>
 ```
 
-A 5000-locus population takes several milliseconds per generation,
-roughly fifteen times as long as a 100-locus one, so the paper’s
-250,000-generation runs at that size are expensive; the
+The kernel copies and sums blocks of about √L loci rather than single
+loci, so the time grows far more slowly than the number of loci: a
+5000-locus population takes under a millisecond per generation, about
+three times as long as a 100-locus one. One of the paper’s
+250,000-generation runs still takes a few minutes, and all 119,984 of
+them thousands of CPU-hours, so the
 [replication](09_replicating_pagel_2025.md)
 therefore samples the paper’s inputs and stops each run 2000 generations
 after the optimum starts to move.
