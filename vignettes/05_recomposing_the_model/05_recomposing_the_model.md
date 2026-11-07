@@ -9,6 +9,8 @@ Simon Frost
   optimum](#inserting-a-new-operator-a-fluctuating-optimum)
 - [Stratifying with ⊗ and coupling with
   migration](#stratifying-with--and-coupling-with-migration)
+- [Steps with parameters: demes under different
+  selection](#steps-with-parameters-demes-under-different-selection)
 
 ## Overview
 
@@ -270,6 +272,94 @@ Right: with 5% migration per generation composed into the generation,
 they stay together.
 
 </div>
+
+## Steps with parameters: demes under different selection
+
+The operators above take their parameters from `Params`. A step of the
+life cycle can carry its own instead, as part of the syntax:
+`withparams` gives a step parameters, and the result is a new generator,
+named by the step and its parameters, with the same type. Here deme 1
+selects toward an optimum of 0.1 with width 0.3, and deme 2 toward −0.1
+with width 0.15. `migrate(2; rate)` carries its rate.
+
+``` julia
+L = lifecycle(); g = L.generation
+narrow = withparams(L.select; θ = -0.1, ω = 0.15)
+println(narrow, ": ", Catlab.dom(narrow), " → ", Catlab.codom(narrow))
+two_demes(rate) = withparams(g; θ = 0.1, ω = 0.3) ⊗ withparams(g; θ = -0.1, ω = 0.15) ⋅ L.migrate(2; rate)
+two_demes(0.01)
+```
+
+    select(θ = -0.1, ω = 0.15): Adults → Survivors
+
+    ((develop⋅select(θ = 0.1, ω = 0.3)⋅reproduce⋅record⋅rescale⋅mutate⋅swap)⊗(develop⋅select(θ = -0.1, ω = 0.15)⋅reproduce⋅record⋅rescale⋅mutate⋅swap))⋅migrate(rate = 0.01): Zygotes⊗Zygotes → Zygotes⊗Zygotes
+
+The same life cycle lowers to the kernel and to the moments of a
+Gaussian population, and each step’s parameters go with it. In the
+moments lowering, `migrate` mixes the demes as the kernel’s migration
+does: a deme’s mean becomes the weighted mean of the demes its
+individuals came from, and its genetic variance the variance within them
+plus the variance between their means. Below, 20 kernel runs per
+migration rate are averaged and set against the moments.
+
+``` julia
+pd = Params(base; PopSize = 500, NoGenerations = 1000)
+rates = [0.0, 0.005, 0.02]
+deme(o, d) = (i = findall(==(d), o.deme); (o.gen[i], o.pheno_mean[i], o.geno_var[i]))
+moments = [run_moments(pd; cycle = two_demes(r)) for r in rates]
+kernel = map(rates) do r
+    runs = [run_composed(pd ⊗ demes(2), Xoshiro(s); cycle = two_demes(r)) for s in 1:20]
+    [mean(deme(o, d)[k] for o in runs) for d in 1:2, k in 2:3]   # mean trajectories
+end
+for (r, mo, k) in zip(rates, moments, kernel)
+    late(x) = mean(x[601:end])
+    @printf("rate %.3f: deme means differ by %.3f in the kernel, %.3f in the moments\n",
+            r, late(k[1, 1]) - late(k[2, 1]), late(deme(mo, 1)[2]) - late(deme(mo, 2)[2]))
+end
+```
+
+    rate 0.000: deme means differ by 0.199 in the kernel, 0.200 in the moments
+    rate 0.005: deme means differ by 0.174 in the kernel, 0.161 in the moments
+    rate 0.020: deme means differ by 0.122 in the kernel, 0.108 in the moments
+
+``` julia
+fig = Figure(size = (900, 360))
+ax1 = Axis(fig[1, 1], xlabel = "generation", ylabel = "deme mean phenotype")
+ax2 = Axis(fig[1, 2], xlabel = "generation", ylabel = "genetic variance")
+hlines!(ax1, [0.1, -0.1], color = :gray, linestyle = :dash)
+for (r, mo, k, c) in zip(rates, moments, kernel, colours), d in 1:2
+    gens = deme(mo, d)[1]
+    lines!(ax1, gens, k[d, 1], color = c, label = d == 1 ? "rate $r" : nothing)
+    lines!(ax1, gens, deme(mo, d)[2], color = c, linestyle = :dot)
+    lines!(ax2, gens, k[d, 2], color = c, linestyle = d == 1 ? :solid : :dashdot)
+    lines!(ax2, gens, deme(mo, d)[3], color = c, linestyle = :dot)
+end
+axislegend(ax1, position = :rc)
+fig
+```
+
+<div id="fig-step-parameters">
+
+<img
+src="05_recomposing_the_model_files/figure-commonmark/fig-step-parameters-output-1.png"
+width="900" height="360" />
+
+Figure 5: Two demes selected toward different optima (dashed), deme 2
+more narrowly, at three migration rates. Kernel means over 20 runs
+(solid) and the moments lowering (dotted). Migration pulls the deme
+means together, and more strongly the deme under weaker selection.
+Right: genetic variance, which migration raises in both demes.
+
+</div>
+
+The moments get the means right and the direction of every effect. They
+predict a little less divergence under migration than the kernel shows,
+because this one-locus kernel holds more genetic variance than the
+Gaussian approximation, as it does without migration. With the moments
+lowering covering several demes, any metapopulation built from these
+steps has a deterministic prediction, and each deme can have its own
+parameters there, in the kernel (`[p1, p2] ⊗ demes(2)`) and in SLiM
+(`slim_script(cycle, [p1, p2])`).
 
 Every variant here is a line of composition rather than a change to the
 simulator. That rearranging the operators is well defined, that

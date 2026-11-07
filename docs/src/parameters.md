@@ -95,3 +95,25 @@ population with mean fitness `W̄` settles near `K (R W̄ − 1)/((R − 1) W̄)
 `slim_script` generates draws the number of offspring the same way, and the two backends
 agree (`validate/slim/compare_demography.jl`). A population that leaves no offspring dies
 in that generation, which, as at selection, has no output row.
+
+## Parameters of a deme, and of a step
+
+A metapopulation can give each deme its own `Params`: `[p1, p2, p3] ⊗ demes(3)` in the
+kernel, `run_moments([p1, p2, p3]; cycle)` in the moments lowering and
+`slim_script(cycle, [p1, p2, p3])` in SLiM. The demes run for the same `NoGenerations`, and
+migration needs the same `NoQTL` and `Ploidy`. In the SLiM model a constant whose value
+differs between demes holds one value per deme, which each deme keeps on its
+subpopulation; `NoQTL`, `NoGenerations`, `Ploidy`, `CrossoverModel` and `Demography` must
+be the same in every deme there.
+
+A step of the life cycle can also carry parameters, which override the deme's for that
+step only ([`withparams`](@ref)): `withparams(L.select; ω = 0.3)` selects with width 0.3
+whatever the deme's width is, `withparams(g; θ = 0.1)` is a generation whose selection is
+toward a fixed optimum 0.1, and `lifecycle().migrate(k; rate)` migrates at its own rate.
+The fields a step can override are those its image reads: the move, `ω`, `θ`,
+`StandardisePhenotype` and `Drift` for `select`; `RecombPoissonMean`, `CrossoverModel`,
+`Demography` and `GrowthRate` for `reproduce`; `Sample` for `record`; `ChangeFitnessGen`
+and `ChangeFitnessSD` for `rescale`; `MutationScalar` and `MutationRatePerGamete` for
+`mutate`. A step with the deme's own values is the plain step, bit for bit, and a step's
+fields of `Params` give the same run as `Params` with those values. A step's `ω` and `θ`
+leave the deme's state alone, so the `omega` and `theta` columns record the deme's.

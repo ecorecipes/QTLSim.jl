@@ -219,12 +219,88 @@ const EIDOS_FLUCTUATING_MOVE = """
         }
 """
 
-"The Eidos image of `select` with the fluctuating moves of `moveoptimum!` added."
-function eidos_fluctuating_select()
-    code = eidos_images()[:select].code
+"The Eidos image of `select` (by default QTSim's) with the fluctuating moves of `moveoptimum!` added."
+function eidos_fluctuating_select(code::AbstractString = eidos_images()[:select].code)
+    occursin(EIDOS_FLUCTUATING_MOVE, code) && return EidosCode(:select, code)
     occursin(EIDOS_CONTINUOUS_MOVE, code) ||
         error("the Eidos image of select has changed; update EIDOS_CONTINUOUS_MOVE")
     EidosCode(:select, replace(code, EIDOS_CONTINUOUS_MOVE => EIDOS_FLUCTUATING_MOVE * EIDOS_CONTINUOUS_MOVE))
+end
+
+# --- steps with parameters, and demes with parameters of their own ---------
+
+"The Eidos constant of `slim_script` that holds each field of `Params` a step can override."
+const EIDOS_CONSTANT = Dict{Symbol,String}(
+    :MoveType => "moveType", :MoveFitnessSD => "moveSD", :MoveFitnessSDGen => "moveGen",
+    :MoveNoiseSD => "moveNoiseSD", :MoveAutocorr => "moveAutocorr", :MoveAmplitude => "moveAmplitude",
+    :MovePeriod => "movePeriod", :StandardisePhenotype => "standardise", :Drift => "drift",
+    :RecombPoissonMean => "RECOMB", :Demography => "demography", :GrowthRate => "growthRate",
+    :Sample => "sampleEvery", :ChangeFitnessGen => "changeGen", :ChangeFitnessSD => "changeSD",
+    :MutationScalar => "m", :MutationRatePerGamete => "rate",
+    :PopSize => "N", :PhenotypeVar => "VP", :Heritability => "h2", :InitFitnessSD => "initOmega",
+    :NoQTL => "L", :NoGenerations => "NGEN")
+
+"""
+Replace whole-word identifiers in the code of an Eidos fragment, leaving its comments
+alone: `subs` maps an identifier to its replacement. One pass, so a replacement is not
+itself rewritten.
+"""
+function substitute_identifiers(code::AbstractString, subs)
+    isempty(subs) && return String(code)
+    d = Dict{String,String}(String(k) => String(v) for (k, v) in subs)
+    re = Regex("\\b(" * join(sort!(collect(keys(d)); by = length, rev = true), "|") * ")\\b")
+    lines = map(split(code, '\n')) do line
+        i = findfirst("//", line)
+        body, comment = i === nothing ? (line, "") : (line[1:prevind(line, first(i))], line[first(i):end])
+        replace(body, re => s -> d[s]) * comment
+    end
+    join(lines, '\n')
+end
+
+"""
+    eidos_with_params(s::Step, c::EidosCode)
+
+The Eidos image of a step with parameters, from the image `c` of the plain step: each
+constant of `slim_script` the step overrides (`EIDOS_CONSTANT`) becomes the step's value,
+a literal, and a step's `ω` and `θ` replace the deme's `OMEGA` and `THETA` where the
+step reads them. A `select` whose own `MoveType` is a fluctuating move gets the code of
+the fluctuating moves. As in the kernel, the deme's state is left alone.
+"""
+function eidos_with_params(s, c::EidosCode)
+    pr = s.params
+    get(pr, :CrossoverModel, :qtsim) === :qtsim ||
+        throw(ArgumentError("the lowering to Eidos recombines as QTSim does (CrossoverModel = :qtsim); the step $s does not"))
+    code = c.code
+    s.name === :select && get(pr, :MoveType, :none) in (:red_noise, :periodic) &&
+        (code = eidos_fluctuating_select(code).code)
+    haskey(pr, :ω) && (code = replace(code, "@POP@.getValue(\"OMEGA\")" => eidos_literal(pr.ω)))
+    haskey(pr, :θ) && (code = replace(code, "@POP@.getValue(\"THETA\")" => eidos_literal(pr.θ)))
+    # the mutational variance per mutation, from the step's mutation scalar or rate
+    (haskey(pr, :MutationScalar) || haskey(pr, :MutationRatePerGamete)) &&
+        (code = substitute_identifiers(code, ["MUTVAR" => "((m / (2 * L * rate)) * VE)"]))
+    subs = Dict{String,String}(EIDOS_CONSTANT[k] => eidos_literal(v) for (k, v) in pairs(pr) if haskey(EIDOS_CONSTANT, k))
+    haskey(pr, :θ) && (subs["moveGen"] = "-1")
+    EidosCode(Symbol(string(s)), substitute_identifiers(code, subs))
+end
+
+"""
+The Eidos constants of `slim_script` that become deme state when the demes have
+parameters of their own: the code of a deme reads `@POP@.getValue("NAME")` in place of
+the constant `NAME`.
+"""
+deme_state(code::AbstractString, names) =
+    substitute_identifiers(code, [n => "@POP@.getValue(\"$n\")" for n in names])
+
+"Migration among `k` demes at the step's own `rate`, a number or a matrix, written into its Eidos."
+function eidos_migrate_at(k, rate::Real)
+    lit = eidos_literal(Float64(rate))
+    EidosMeta(k, collect(1:k), pops -> replace(migration_code(pops), r"\bmigRate\b" => lit), :migrate)
+end
+function eidos_migrate_at(k, M::AbstractMatrix)
+    QTLSim.check_migration(M, k)
+    lit = eidos_literal(vec(permutedims(Float64.(M))))
+    EidosMeta(k, collect(1:k), pops -> "    MIGstep = $lit;   // this step's migration matrix, row by row\n" *
+                                       replace(migration_graph_code(pops), r"\bMIG\b" => "MIGstep"), :migrate)
 end
 
 eidos_migrate(k) = EidosMeta(k, collect(1:k), migration_code, :migrate)
@@ -260,20 +336,71 @@ eidos_literal(x::AbstractFloat) = repr(Float64(x))
 eidos_literal(x::Symbol) = string('"', x, '"')
 eidos_literal(x::AbstractVector) = "c(" * join(eidos_literal.(x), ", ") * ")"
 
-function slim_script(f, p::Params; images = Dict{Symbol,Any}(), migration_rate::Union{Real,AbstractMatrix} = 0.0)
+const FLUCTUATING_MOVES = (:red_noise, :periodic)
+
+# The fields that must be the same in every deme of a SLiM model.
+const SHARED_FIELDS = (:Ploidy, :NoQTL, :NoGenerations, :CrossoverModel, :Demography)
+
+slim_script(f, p::Params; images = Dict{Symbol,Any}(), migration_rate::Union{Real,AbstractMatrix} = 0.0) =
+    slim_model(f, fill(p, max(nfactors(dom(f)), 1)), images, migration_rate)
+
+function slim_script(f, ps::AbstractVector{Params}; images = Dict{Symbol,Any}(),
+                     migration_rate::Union{Real,AbstractMatrix} = 0.0)
+    k = max(nfactors(dom(f)), 1)
+    length(ps) == k || throw(ArgumentError("$(length(ps)) parameter sets for a life cycle on $k deme$(k == 1 ? "" : "s")"))
+    slim_model(f, collect(Params, ps), images, migration_rate)
+end
+
+function slim_model(f, ps::Vector{Params}, images, migration_rate)
     k = nfactors(dom(f))
     zk = zygotes_word(max(k, 1))
     dom(f) == zk && codom(f) == zk ||
         throw(ArgumentError("a SLiM model iterates a life cycle on zygotes, Zygotes → Zygotes or " *
                             "Zygotes⊗…⊗Zygotes → Zygotes⊗…⊗Zygotes; got $(dom(f)) → $(codom(f))"))
+    # one tick of SLiM is one generation of each deme: a step into Zygotes from another stage
+    # (swap) ends a generation, and the life cycle has one per deme
+    Z = LifeCycle[:Zygotes]
+    ngen = count(g -> !(g isa ObExpr) && codom(g) == Z && dom(g) != Z, stepsof(f))
+    ngen == max(k, 1) ||
+        throw(ArgumentError("a SLiM model runs one generation of each deme per tick, so the life cycle has one " *
+                            "step into Zygotes (swap) per deme; it has $ngen for $(max(k, 1)) deme$(k > 1 ? "s" : "")"))
+    p = ps[1]
     p.Ploidy == 2 || throw(ArgumentError("the lowering to Eidos covers diploids (Ploidy = 2); got Ploidy = $(p.Ploidy)"))
     p.NoQTL == 1 || p.CrossoverModel === :qtsim ||
         throw(ArgumentError("with more than one locus the lowering to Eidos recombines as QTSim does " *
                             "(CrossoverModel = :qtsim); got :$(p.CrossoverModel)"))
+    for fld in SHARED_FIELDS
+        all(q -> getfield(q, fld) == getfield(p, fld), ps) ||
+            throw(ArgumentError("in a SLiM model the demes have the same $fld; got $([getfield(q, fld) for q in ps])"))
+    end
     migration_rate isa AbstractMatrix && QTLSim.check_migration(migration_rate, k)
-    fluctuating = p.MoveType in (:red_noise, :periodic)
-    fluctuating && (images = merge(Dict{Symbol,Any}(:select => eidos_fluctuating_select()), Dict{Symbol,Any}(images)))
-    img = lower(f, :eidos; images, migration_rate)
+    # QTLSim's fluctuating moves: in the image of the plain select when a deme uses one, and
+    # their constants when a deme or a step does
+    fluctuating = any(q -> q.MoveType in FLUCTUATING_MOVES, ps)
+    fluctuating && (images = merge(Dict{Any,Any}(:select => eidos_fluctuating_select()), Dict{Any,Any}(images)))
+    stepmoves = any(g -> !(g isa ObExpr) && get(stepparams(g), :MoveType, :none) in FLUCTUATING_MOVES, stepsof(f))
+    # a constant whose value differs between demes is a vector, one value per deme, and deme state
+    value(fld) = (vs = [getfield(q, fld) for q in ps]; all(==(vs[1]), vs) ? vs[1] : vs)
+    defaults = ("N" => value(:PopSize), "VP" => value(:PhenotypeVar), "h2" => value(:Heritability),
+                "m" => value(:MutationScalar), "rate" => value(:MutationRatePerGamete), "L" => p.NoQTL,
+                "RECOMB" => value(:RecombPoissonMean), "NGEN" => p.NoGenerations, "sampleEvery" => value(:Sample),
+                "moveGen" => value(:MoveFitnessSDGen), "moveSD" => value(:MoveFitnessSD), "moveType" => value(:MoveType),
+                "changeGen" => value(:ChangeFitnessGen), "changeSD" => value(:ChangeFitnessSD),
+                "initOmega" => value(:InitFitnessSD), "drift" => value(:Drift), "standardise" => value(:StandardisePhenotype),
+                "demography" => p.Demography, "growthRate" => value(:GrowthRate),
+                (migration_rate isa AbstractMatrix ? "MIG" => vec(permutedims(Float64.(migration_rate))) :
+                 "migRate" => Float64(migration_rate)))
+    (fluctuating || stepmoves) &&
+        (defaults = (defaults..., "moveNoiseSD" => value(:MoveNoiseSD), "moveAutocorr" => value(:MoveAutocorr),
+                     "moveAmplitude" => value(:MoveAmplitude), "movePeriod" => value(:MovePeriod)))
+    perdeme = [key for (key, v) in defaults if v isa AbstractVector && key != "MIG"]
+    vary(names...) = any(in(perdeme), names)
+    derived = [n for (n, on) in ("VG" => vary("VP", "h2"), "VE" => vary("VP", "h2"), "ESD" => vary("VP", "h2"),
+                                 "MUTVAR" => vary("m", "rate", "VP", "h2"),
+                                 "OMEGA0" => vary("initOmega", "VP", "h2", "m")) if on]
+    # what the steps read from the deme's subpopulation (initOmega and OMEGA0 found the deme)
+    state = filter(n -> !(n in ("initOmega", "OMEGA0")), vcat(perdeme, derived))
+    img = lower(f, :eidos; images, migration_rate, deme_constants = state)
     pops = ["p$i" for i in 1:k]
     if img isa EidosCode
         body = deme_block(img.code, "p1")
@@ -284,17 +411,6 @@ function slim_script(f, p::Params; images = Dict{Symbol,Any}(), migration_rate::
         body = img.emit(pops)
     end
     cycle = sprint(show, MIME"text/plain"(), f)
-    defaults = ("N" => p.PopSize, "VP" => p.PhenotypeVar, "h2" => p.Heritability, "m" => p.MutationScalar,
-                "rate" => p.MutationRatePerGamete, "L" => p.NoQTL, "RECOMB" => p.RecombPoissonMean,
-                "NGEN" => p.NoGenerations, "sampleEvery" => p.Sample,
-                "moveGen" => p.MoveFitnessSDGen, "moveSD" => p.MoveFitnessSD, "moveType" => p.MoveType,
-                "changeGen" => p.ChangeFitnessGen, "changeSD" => p.ChangeFitnessSD,
-                "initOmega" => p.InitFitnessSD, "drift" => p.Drift, "standardise" => p.StandardisePhenotype,
-                "demography" => p.Demography, "growthRate" => p.GrowthRate,
-                (migration_rate isa AbstractMatrix ? "MIG" => vec(permutedims(Float64.(migration_rate))) :
-                 "migRate" => Float64(migration_rate)))
-    fluctuating && (defaults = (defaults..., "moveNoiseSD" => p.MoveNoiseSD, "moveAutocorr" => p.MoveAutocorr,
-                                "moveAmplitude" => p.MoveAmplitude, "movePeriod" => p.MovePeriod))
     w = maximum(length ∘ first, defaults)
     io = IOBuffer()
     print(io, """
@@ -307,6 +423,12 @@ function slim_script(f, p::Params; images = Dict{Symbol,Any}(), migration_rate::
     // $k deme$(k == 1 ? "" : "s"). Regenerate it with QTLSim's `slim_script` rather than editing it.
     //
     // Parameters can be overridden with  slim -d "NAME=value"  and the seed set with -s.
+    """)
+    isempty(perdeme) || print(io, """
+    // The demes have parameters of their own: $(join(perdeme, ", ")) hold one value per deme
+    // (a single value applies to all), and each deme keeps its values on its subpopulation.
+    """)
+    print(io, """
 
     initialize() {
         initializeSLiMModelType("nonWF");
@@ -316,6 +438,8 @@ function slim_script(f, p::Params; images = Dict{Symbol,Any}(), migration_rate::
         println(io, "    if (!exists(\"", key, "\"))", " "^(w - length(key)), " defineConstant(\"", key, "\", ",
                 eidos_literal(v), ");")
     end
+    omega0 = "OMEGA0" in derived ? "ifelse(perDeme(initOmega) < 0, perDeme(VG / sqrt(m * VE)), perDeme(initOmega))" :
+                                 "initOmega < 0 ? VG / sqrt(m * VE) else initOmega"
     print(io, """
         defineConstant("DEMES", $k);                             // fixed by the life cycle
 
@@ -323,7 +447,7 @@ function slim_script(f, p::Params; images = Dict{Symbol,Any}(), migration_rate::
         defineConstant("VE", VP - VG);
         defineConstant("ESD", sqrt(VE));
         defineConstant("MUTVAR", (m / (2 * L * rate)) * VE);       // m/(Ploidy·NoQTL·rate)·V_E
-        defineConstant("OMEGA0", initOmega < 0 ? VG / sqrt(m * VE) else initOmega);
+        defineConstant("OMEGA0", $omega0);
 
         // vestigial genetics: SLiM supplies only the life cycle
         initializeMutationRate(0.0);
@@ -333,14 +457,27 @@ function slim_script(f, p::Params; images = Dict{Symbol,Any}(), migration_rate::
         initializeRecombinationRate(0.0);
     }
 
+    """)
+    at(n) = n in perdeme || n in derived ? "perDeme($n)[i]" : n
+    isempty(perdeme) || print(io, """
+    // a constant with one value for all demes, or one per deme, as one per deme
+    function (*)perDeme(* x) { return (size(x) == 1) ? rep(x, DEMES) else x; }
+
+    """)
+    print(io, """
     1 first() {
         for (i in seqLen(DEMES)) {
-            pop = sim.addSubpop(i + 1, N);
+            pop = sim.addSubpop(i + 1, $(at("N")));
             pop.individuals.setValue("a0", rep(0.0, L));   // founders: allele values 0
             pop.individuals.setValue("a1", rep(0.0, L));
             pop.setValue("THETA", 0.0);
-            pop.setValue("OMEGA", OMEGA0);
+            pop.setValue("OMEGA", $(at("OMEGA0")));
             pop.setValue("extinct", F);
+    """)
+    for n in state
+        println(io, "        pop.setValue(\"", n, "\", perDeme(", n, ")[i]);")
+    end
+    print(io, """
         }
     }
 

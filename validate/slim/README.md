@@ -39,6 +39,11 @@ port of QTSim written by hand, run for run, and against QTSim itself, in distrib
   fluctuating optimum (`MoveType = :periodic` and `:red_noise`), which QTSim lacks; KS
   tests, 40 runs each, about 4 minutes on 3 threads; exits 1 if any p < 0.001; last
   result in `valid_fluctuating.log`.
+- `compare_demes.jl` — the kernel against the generated SLiM model on demes with parameters
+  of their own (`slim_script(cycle, [p1, p2, p3])`) and on steps with parameters
+  (`withparams`), which QTSim lacks; KS tests, 50 runs each, about 4 minutes on 3 threads; and
+  a run-for-run check that steps with parameters are the model of `Params` with those values;
+  exits 1 if any p < 0.001 or any run differs; last result in `valid_demes.log`.
 - `three_way_confirm.jl` — the large pre-specified test of QTSim vs the generated SLiM model
   vs the kernel (40,000 runs each, about 2.5 h on 8 threads); result in `three_way_confirm.log`.
 - `slim.jl` — `find_slim()`: `ENV["SLIM"]`, else `slim/build/slim` next to the package's
@@ -148,6 +153,15 @@ kernel 0.001193 against SLiM 0.001148). A rerun of that scenario alone with 200 
 and new seeds, its threshold fixed in advance, gave 0.001164 against 0.001183 (p = 0.18).
 The mean squared lags are 1–8% above the Gaussian prediction (`expected_lag2`), which
 ignores drift. QTSim has no fluctuating optimum, so the kernel is the reference here.
+
+**Demes with parameters of their own (2026-11-07, `compare_demes.jl`, `valid_demes.log`, 50
+runs each):** three demes with ω = 0.15, 0.3, 0.6 and 400, 500, 600 individuals, migration
+0.01; and two demes whose steps carry optima ±0.1 and widths 0.2 and 0.4, migration 0.02, so
+that their means differ by 0.0998 (kernel) and 0.0996 (SLiM). One locus, 1000 generations.
+Across the 17 KS tests on each deme's genetic variance and mean phenotype and on the
+difference of the means, the smallest p was 0.112. A life cycle whose steps carry a
+continuous move and a mutation scalar gives the same output as `Params` with those values in
+10 of 10 seeds. QTSim has no demes, so the kernel is the reference here.
 
 **Is the agreement real? (2026-11-05)** Low p-values like the 0.035 prompted a fuller
 investigation:

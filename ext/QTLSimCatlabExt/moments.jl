@@ -32,11 +32,12 @@ mutable struct Moments
     Noff::Float64
     θ0::Float64          # the optimum when a fluctuating move starts
     erosion::Bool        # drift erodes V_G by V_G/(2N_e) per generation, N_e = expected survivors
+    VE::Float64          # environmental variance: V_E, or with migrants a mixture of the demes' V_E
 end
 
 Moments(p::Params; zbar = 0.0, VG = 0.0, erosion = false) =
     Moments(p, 0, zbar, VG, VG + QTLSim.envVar(p), 0.0, QTLSim.initFitSD(p), p.PopSize, 1.0, 0.0,
-            zbar, VG, zbar, VG, false, p.PopSize, p.PopSize, 0.0, erosion)
+            zbar, VG, zbar, VG, false, p.PopSize, p.PopSize, 0.0, erosion, QTLSim.envVar(p))
 
 isextinct(m::Moments) = m.extinct
 
@@ -95,7 +96,8 @@ end
 
 function moments_record!(rec, m::Moments)
     (rec === nothing || m.gen % m.p.Sample != 0) && return m
-    push!(rec.gen, m.gen); push!(rec.pheno_mean, m.zbar); push!(rec.pheno_var, m.VP)
+    push!(rec.gen, m.gen); haskey(rec, :deme) && push!(rec.deme, rec.demeof[m])
+    push!(rec.pheno_mean, m.zbar); push!(rec.pheno_var, m.VP)
     push!(rec.geno_var, m.VG); push!(rec.nsurv, round(Int, m.nsurv)); push!(rec.theta, m.θ)
     push!(rec.omega, m.ω); push!(rec.mean_fitness, m.Wbar); push!(rec.sel_diff, m.S)
     push!(rec.popsize, round(Int, m.N))
@@ -104,19 +106,16 @@ end
 
 "The image of each step of the life cycle in the moments lowering, by name."
 moment_images(rec = nothing) = Dict{Symbol,Any}(
-    :develop => Operator(:develop, (m, rng) -> (m.VP = m.VG + QTLSim.envVar(m.p); m)),
+    :develop => Operator(:develop, (m, rng) -> (m.VP = m.VG + m.VE; m)),
     :select => Operator(:select, (m, rng) -> moments_select!(m)),
     :reproduce => Operator(:reproduce, (m, rng) -> m.extinct ? m : moments_reproduce!(m)),
     :record => Operator(:record, (m, rng) -> moments_record!(rec, m)),
     :rescale => Operator(:rescale, (m, rng) -> (m.gen == m.p.ChangeFitnessGen && (m.ω = m.p.ChangeFitnessSD); m)),
     :mutate => Operator(:mutate, (m, rng) -> (m.VGoff += QTLSim.muteVar(m.p); m)),
-    :swap => Operator(:swap, (m, rng) -> (m.zbar = m.zoff; m.VG = m.VGoff; m.N = m.Noff; m.gen += 1; m)))
+    :swap => Operator(:swap, (m, rng) -> (m.zbar = m.zoff; m.VG = m.VGoff; m.VE = QTLSim.envVar(m.p); m.N = m.Noff; m.gen += 1; m)))
 
-id(s::Stage{:moments}) = nfactors(s) == 1 ? Operator(:id, (m, rng) -> m) :
-    throw(ArgumentError("the moments lowering covers one deme"))
-
-function run_moments(p::Params; cycle = lifecycle().generation, images = Dict{Symbol,Any}(),
-                     zbar = 0.0, VG = 0.0, optimum = nothing, erosion = false)
+function run_moments1(p::Params; cycle = lifecycle().generation, images = Dict{Symbol,Any}(),
+                      zbar = 0.0, VG = 0.0, optimum = nothing, erosion = false)
     QTLSim.checkparams(p)
     if optimum !== nothing          # a given optimum per generation, optimum[t + 1], replaces the move
         length(optimum) >= p.NoGenerations ||
@@ -130,10 +129,142 @@ function run_moments(p::Params; cycle = lifecycle().generation, images = Dict{Sy
     rec = records()
     step = lower(cycle, :moments; images, record = rec)
     m = Moments(p; zbar, VG, erosion)
-    for it in 0:p.NoGenerations-1
-        m.gen = it
+    m.gen = 0                    # whole cycles, as in run_composed
+    while m.gen < p.NoGenerations
+        it = m.gen
         step(m, nothing)
-        m.extinct && return (extinct = true, extinct_gen = it, rec...)
+        m.extinct && return (extinct = true, extinct_gen = m.gen, rec...)
+        m.gen = max(m.gen, it + 1)
     end
     (extinct = false, extinct_gen = -1, rec...)
+end
+
+# --- several demes ----------------------------------------------------------
+
+"The moments of the demes of a metapopulation, which the image of a morphism on several demes (a `DemeOp`) updates."
+struct DemeMoments
+    demes::Vector{Moments}
+end
+
+isextinct(s::DemeMoments) = all(isextinct, s.demes)
+
+id(s::Stage{:moments}) = nfactors(s) == 1 ? Operator(:id, (m, rng) -> m) :
+                         DemeOp(nfactors(s), collect(1:nfactors(s)), (st, d, rng) -> st)
+braid(a::Stage{:moments}, b::Stage{:moments}) =
+    DemeOp(nfactors(a) + nfactors(b), braid_perm(nfactors(a), nfactors(b)), (st, d, rng) -> st)
+
+"""
+    migration_mixing(M, N, alive)
+
+The expected composition of the demes after the kernel's migration (`migrate!`), with
+`M[a, b]` the probability that a visit to an individual of deme `a` starts an exchange
+with a random individual of deme `b`, `N` the deme sizes and `alive` which demes take
+part: `P[a, c]` is the expected fraction of deme `a` that came from deme `c`.
+
+`migrate!` visits the demes in order, and each individual of a deme once. When deme `a`
+is visited, its individuals all have the composition of the deme, `P[a, :]` (earlier
+demes chose partners in it at random), and its unvisited ones do not change while it is
+visited. Each visit exchanges with deme `b` with probability `r = M[a, b]`, sending an
+individual of composition `P[a, :]` and receiving a random one of `b`, whose expected
+composition moves toward `P[a, :]` by a factor `1 − r/N_b` per visit. Over the `N_a`
+visits, with `f = (1 − r/N_b)^{N_a}`, deme `b` becomes `P[a, :] + f (P[b, :] − P[a, :])`
+and deme `a` receives `N_a r P[a, :] + N_b (1 − f)(P[b, :] − P[a, :])`, in place of the
+`N_a r` individuals it sends. These expectations are exact for any deme sizes.
+"""
+function migration_mixing(M::AbstractMatrix, N::AbstractVector, alive::AbstractVector{Bool})
+    k = length(N)
+    P = [Float64(a == c) for a in 1:k, c in 1:k]
+    for a in 1:k
+        alive[a] || continue
+        cs = P[a, :]
+        received = zeros(k)
+        sent = 0.0
+        for b in 1:k
+            r = M[a, b]
+            (b == a || r == 0 || !alive[b]) && continue
+            f = (1 - r / N[b])^N[a]
+            received .+= N[a] * r .* cs .+ N[b] * (1 - f) .* (P[b, :] .- cs)
+            P[b, :] .= cs .+ f .* (P[b, :] .- cs)
+            sent += N[a] * r
+        end
+        P[a, :] .= ((N[a] - sent) .* cs .+ received) ./ N[a]
+    end
+    P
+end
+
+"""
+    moments_migrate!(s, demes, rate)
+
+The image of `migrate` in the moments lowering: the demes `s.demes[demes]` mix as the
+kernel's migration mixes them, at `rate` (a number: `rate/(k − 1)` toward each other
+deme; or a matrix), with expected composition `P` from `migration_mixing`. A deme becomes
+a mixture of the demes it received from: its mean genotype is `Σ_c P[a, c] z̄_c`, its
+genetic variance `Σ_c P[a, c] V_c + Σ_c P[a, c] (z̄_c − z̄_a)²`, the variance within the
+demes plus that between their means, and its environmental variance `Σ_c P[a, c] V_E,c`,
+since migrants keep the environmental deviations they were born with. These are the
+mixture's first and second moments for the expected composition; the sampling variance
+of the numbers of migrants, of order `rate/N`, is left out, as drift is in the rest of
+the lowering. The mixture is not Gaussian, which the next selection assumes it is.
+"""
+function moments_migrate!(s, demes, rate)
+    ms = s.demes[demes]
+    k = length(ms)
+    M = rate isa AbstractMatrix ? QTLSim.check_migration(rate, k) :
+        [a == b ? 0.0 : Float64(rate) / (k - 1) for a in 1:k, b in 1:k]
+    alive = [!m.extinct for m in ms]
+    P = migration_mixing(M, [m.N for m in ms], alive)
+    z, V, VE = [m.zbar for m in ms], [m.VG for m in ms], [m.VE for m in ms]
+    for a in 1:k
+        alive[a] || continue
+        w = P[a, :]
+        za = sum(w .* z)
+        ms[a].zbar = za
+        ms[a].VG = sum(w .* V) + sum(w .* (z .- za) .^ 2)
+        ms[a].VE = sum(w .* VE)
+    end
+    s
+end
+
+"Migration among `k` demes at `rate`, as the image of the step `migrate` in the moments lowering."
+moments_migrate_op(k, rate) = DemeOp(k, collect(1:k), (s, d, rng) -> moments_migrate!(s, d, rate))
+
+function run_moments(p::Params; cycle = lifecycle().generation, kw...)
+    k = nfactors(dom(cycle))
+    k > 1 ? run_moments(fill(p, k); cycle, kw...) : run_moments1(p; cycle, kw...)
+end
+
+function run_moments(ps::AbstractVector{Params}; cycle, images = Dict{Symbol,Any}(), zbar = 0.0, VG = 0.0,
+                     erosion = false, migration_rate::Union{Real,AbstractMatrix} = 0.0)
+    k = length(ps)
+    k == 1 && return run_moments1(ps[1]; cycle, images, zbar, VG, erosion)
+    foreach(QTLSim.checkparams, ps)
+    all(q -> q.NoGenerations == ps[1].NoGenerations, ps) ||
+        throw(ArgumentError("the demes of a metapopulation run for the same number of generations"))
+    zk = zygotes_word(k)
+    dom(cycle) == zk && codom(cycle) == zk ||
+        throw(ArgumentError("the moments of $k demes iterate a life cycle on $k zygote stages, Zygotes⊗…⊗Zygotes; " *
+                            "got $(dom(cycle)) → $(codom(cycle))"))
+    rec = (gen = Int[], deme = Int[], pheno_mean = Float64[], pheno_var = Float64[], geno_var = Float64[],
+           nsurv = Int[], theta = Float64[], omega = Float64[], mean_fitness = Float64[], sel_diff = Float64[],
+           popsize = Int[], demeof = IdDict{Moments,Int}())
+    perdeme(x, name) = x isa AbstractVector ? (length(x) == k ? x : throw(ArgumentError("$name gives $(length(x)) values for $k demes"))) : fill(x, k)
+    s = DemeMoments([Moments(q; zbar = z, VG = v, erosion) for (q, z, v) in zip(ps, perdeme(zbar, "zbar"), perdeme(VG, "VG"))])
+    for (i, m) in enumerate(s.demes); rec.demeof[m] = i; end
+    step = demeop(lower(cycle, :moments; images, record = rec, migration_rate))
+    d = collect(1:k)
+    extinct_gen = fill(-1, k)
+    gen = 0
+    while gen < ps[1].NoGenerations
+        foreach(m -> m.extinct || (m.gen = gen), s.demes)
+        step.act(s, d, nothing)
+        for (i, m) in enumerate(s.demes)
+            m.extinct && extinct_gen[i] < 0 && (extinct_gen[i] = m.gen)
+        end
+        isextinct(s) && break
+        d = d[step.perm]
+        gen = max(gen + 1, maximum(m.gen for m in s.demes if !m.extinct))
+    end
+    (extinct = isextinct(s), extinct_gen, gen = rec.gen, deme = rec.deme, pheno_mean = rec.pheno_mean,
+     pheno_var = rec.pheno_var, geno_var = rec.geno_var, nsurv = rec.nsurv, theta = rec.theta, omega = rec.omega,
+     mean_fitness = rec.mean_fitness, sel_diff = rec.sel_diff, popsize = rec.popsize)
 end
