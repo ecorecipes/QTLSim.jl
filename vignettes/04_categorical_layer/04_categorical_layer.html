@@ -2454,12 +2454,12 @@ window.Quarto = {
 </section>
 <section id="from-arrays-to-an-acset-and-back" class="level2">
 <h2 class="anchored" data-anchor-id="from-arrays-to-an-acset-and-back">From arrays to an ACSet and back</h2>
-<p>The kernel keeps the population in a <code>World</code>: genomes in a <code>(NoQTL, Ploidy, PopSize)</code> array plus per-individual vectors. <code>lift</code> turns a <code>World</code> into a <code>Population</code> ACSet. For a population small enough to print, with effects rounded so they are easy to read:</p>
+<p>The kernel keeps the population in a <code>World</code>: genomes as blocks of alleles shared between individuals, which <code>genomes</code> and <code>setgenomes!</code> read and write as a <code>(NoQTL, Ploidy, PopSize)</code> array, plus per-individual vectors. <code>lift</code> turns a <code>World</code> into a <code>Population</code> ACSet. For a population small enough to print, with effects rounded so they are easy to read:</p>
 <div id="6" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>p <span class="op">=</span> <span class="fu">Params</span>(PopSize <span class="op">=</span> <span class="fl">3</span>, Ploidy <span class="op">=</span> <span class="fl">2</span>, NoQTL <span class="op">=</span> <span class="fl">2</span>, PhenotypeVar <span class="op">=</span> <span class="fl">0.02</span>, Heritability <span class="op">=</span> <span class="fl">0.4</span>)</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>w <span class="op">=</span> <span class="fu">World</span>(p)</span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> <span class="fu">Xoshiro</span>(<span class="fl">1</span>)</span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>w.genome <span class="op">.=</span> <span class="fu">round</span>.(<span class="fl">0.1</span> <span class="op">.*</span> <span class="fu">randn</span>(rng, <span class="fu">size</span>(w.genome)), digits <span class="op">=</span> <span class="fl">3</span>)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="fu">setgenomes!</span>(w, <span class="fu">round</span>.(<span class="fl">0.1</span> <span class="op">.*</span> <span class="fu">randn</span>(rng, p.NoQTL, p.Ploidy, p.PopSize), digits <span class="op">=</span> <span class="fl">3</span>))</span>
 <span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>w.env <span class="op">.=</span> <span class="fu">round</span>.(<span class="fu">sqrt</span>(<span class="fu">envVar</span>(p)) <span class="op">.*</span> <span class="fu">randn</span>(rng, p.PopSize), digits <span class="op">=</span> <span class="fl">3</span>)</span>
 <span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="fu">develop!</span>(w)                    <span class="co"># genotype = sum of effects; phenotype = genotype + env</span></span>
 <span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>pop <span class="op">=</span> <span class="fu">lift</span>(w)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
@@ -2597,21 +2597,21 @@ window.Quarto = {
 <span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>(genotype_before <span class="op">=</span> w.genotype[<span class="fl">1</span>], genotype_after <span class="op">=</span> w2.genotype[<span class="fl">1</span>],</span>
 <span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a> others_unchanged <span class="op">=</span> w2.genotype[<span class="fl">2</span><span class="op">:</span><span class="fl">3</span>] <span class="op">==</span> w.genotype[<span class="fl">2</span><span class="op">:</span><span class="fl">3</span>])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
-<pre><code>(genotype_before = -0.020999999999999994, genotype_after = 0.973, others_unchanged = true)</code></pre>
+<pre><code>(genotype_before = -0.020999999999999998, genotype_after = 0.973, others_unchanged = true)</code></pre>
 </div>
 </div>
 <p>The round trip is exact for a full-sized population too:</p>
 <div id="12" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>big <span class="op">=</span> <span class="fu">Params</span>(PopSize <span class="op">=</span> <span class="fl">1000</span>, Ploidy <span class="op">=</span> <span class="fl">2</span>, NoQTL <span class="op">=</span> <span class="fl">100</span>, PhenotypeVar <span class="op">=</span> <span class="fl">0.02</span>, Heritability <span class="op">=</span> <span class="fl">0.4</span>)</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>wb <span class="op">=</span> <span class="fu">World</span>(big)</span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>wb.genome <span class="op">.=</span> <span class="fl">0.05</span> <span class="op">.*</span> <span class="fu">randn</span>(<span class="fu">Xoshiro</span>(<span class="fl">2</span>), <span class="fu">size</span>(wb.genome))</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="fu">setgenomes!</span>(wb, <span class="fl">0.05</span> <span class="op">.*</span> <span class="fu">randn</span>(<span class="fu">Xoshiro</span>(<span class="fl">2</span>), big.NoQTL, big.Ploidy, big.PopSize))</span>
 <span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="fu">develop!</span>(wb)</span>
 <span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>t <span class="op">=</span> <span class="pp">@elapsed</span> popb <span class="op">=</span> <span class="fu">lift</span>(wb)</span>
 <span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>wb2 <span class="op">=</span> <span class="fu">World</span>(big); <span class="fu">lower!</span>(popb, wb2)</span>
 <span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="pp">@printf</span>(<span class="st">&quot;%d alleles; lift took %.2f s; genome recovered exactly: %s</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>        <span class="fu">nparts</span>(popb, <span class="op">:</span>Allele), t, wb2.genome <span class="op">==</span> wb.genome)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>        <span class="fu">nparts</span>(popb, <span class="op">:</span>Allele), t, <span class="fu">genomes</span>(wb2) <span class="op">==</span> <span class="fu">genomes</span>(wb))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>200000 alleles; lift took 0.02 s; genome recovered exactly: true</code></pre>
+<pre><code>200000 alleles; lift took 0.01 s; genome recovered exactly: true</code></pre>
 </div>
 </div>
 </section>
@@ -2638,7 +2638,7 @@ window.Quarto = {
 <span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>left <span class="op">=</span> <span class="fu">iterate_op</span>((develop <span class="op">⋅</span> select) <span class="op">⋅</span> (reproduce <span class="op">⋅</span> mutate <span class="op">⋅</span> swap), q)</span>
 <span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>right <span class="op">=</span> <span class="fu">iterate_op</span>(develop <span class="op">⋅</span> (select <span class="op">⋅</span> (reproduce <span class="op">⋅</span> (mutate <span class="op">⋅</span> swap))), q)</span>
-<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>left.genome <span class="op">==</span> right.genome</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a><span class="fu">genomes</span>(left) <span class="op">==</span> <span class="fu">genomes</span>(right)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>true</code></pre>
 </div>

@@ -64,16 +64,18 @@ deviation, genotype, phenotype and fitness are attributes.
 
 ## From arrays to an ACSet and back
 
-The kernel keeps the population in a `World`: genomes in a
-`(NoQTL, Ploidy, PopSize)` array plus per-individual vectors. `lift`
-turns a `World` into a `Population` ACSet. For a population small enough
-to print, with effects rounded so they are easy to read:
+The kernel keeps the population in a `World`: genomes as blocks of
+alleles shared between individuals, which `genomes` and `setgenomes!`
+read and write as a `(NoQTL, Ploidy, PopSize)` array, plus
+per-individual vectors. `lift` turns a `World` into a `Population`
+ACSet. For a population small enough to print, with effects rounded so
+they are easy to read:
 
 ``` julia
 p = Params(PopSize = 3, Ploidy = 2, NoQTL = 2, PhenotypeVar = 0.02, Heritability = 0.4)
 w = World(p)
 rng = Xoshiro(1)
-w.genome .= round.(0.1 .* randn(rng, size(w.genome)), digits = 3)
+setgenomes!(w, round.(0.1 .* randn(rng, p.NoQTL, p.Ploidy, p.PopSize), digits = 3))
 w.env .= round.(sqrt(envVar(p)) .* randn(rng, p.PopSize), digits = 3)
 develop!(w)                    # genotype = sum of effects; phenotype = genotype + env
 pop = lift(w)
@@ -132,22 +134,22 @@ develop!(w2)
  others_unchanged = w2.genotype[2:3] == w.genotype[2:3])
 ```
 
-    (genotype_before = -0.020999999999999994, genotype_after = 0.973, others_unchanged = true)
+    (genotype_before = -0.020999999999999998, genotype_after = 0.973, others_unchanged = true)
 
 The round trip is exact for a full-sized population too:
 
 ``` julia
 big = Params(PopSize = 1000, Ploidy = 2, NoQTL = 100, PhenotypeVar = 0.02, Heritability = 0.4)
 wb = World(big)
-wb.genome .= 0.05 .* randn(Xoshiro(2), size(wb.genome))
+setgenomes!(wb, 0.05 .* randn(Xoshiro(2), big.NoQTL, big.Ploidy, big.PopSize))
 develop!(wb)
 t = @elapsed popb = lift(wb)
 wb2 = World(big); lower!(popb, wb2)
 @printf("%d alleles; lift took %.2f s; genome recovered exactly: %s\n",
-        nparts(popb, :Allele), t, wb2.genome == wb.genome)
+        nparts(popb, :Allele), t, genomes(wb2) == genomes(wb))
 ```
 
-    200000 alleles; lift took 0.02 s; genome recovered exactly: true
+    200000 alleles; lift took 0.05 s; genome recovered exactly: true
 
 ## A generation as a composite of operators
 
@@ -185,7 +187,7 @@ end
 
 left = iterate_op((develop ⋅ select) ⋅ (reproduce ⋅ mutate ⋅ swap), q)
 right = iterate_op(develop ⋅ (select ⋅ (reproduce ⋅ (mutate ⋅ swap))), q)
-left.genome == right.genome
+genomes(left) == genomes(right)
 ```
 
     true

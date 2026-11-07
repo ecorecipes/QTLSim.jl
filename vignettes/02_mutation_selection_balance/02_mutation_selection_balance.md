@@ -54,17 +54,19 @@ $\alpha^2 = m V_E / (2 n \mu)$ to a random locus. The scaling is chosen
 so that, in expectation, mutation adds exactly $V_m = m V_E$ to the
 genetic variance of a diploid individual each generation, whatever the
 number of loci and the mutation rate. That statement is proved in Lean
-(`mutationalVarianceInput_eq` in `lean/CategoricalQuantGen/Mutation.lean`); here we
-check it by applying the mutation operator to a large population of zero
-genomes, for several locus counts and rates.
+(`mutationalVarianceInput_eq` in
+`lean/CategoricalQuantGen/Mutation.lean`); here we check it by applying
+the mutation operator to a large population of zero genomes, for several
+locus counts and rates.
 
 ``` julia
 function mutational_input(p; rounds = 20, seed = 1)
     w = World(p); rng = Xoshiro(seed); Δ = Float64[]
     for _ in 1:rounds
-        fill!(w.sgenome, 0.0)
+        setgenomes!(w, zeros(p.NoQTL, p.Ploidy, p.PopSize); offspring = true)
         mutate!(w, rng)                       # adds mutations to the offspring buffer
-        append!(Δ, sum(@view w.sgenome[:, :, j]) for j in 1:p.PopSize)
+        G = genomes(w; offspring = true)
+        append!(Δ, sum(@view G[:, :, j]) for j in 1:p.PopSize)
     end
     var(Δ)
 end
@@ -93,11 +95,11 @@ $\omega = V_G / \sqrt{m V_E}$ with $V_G = h^2 V_P$. That is the Gaussian
 approximation solved for $\omega$, with $V_s \approx \omega^2$: if
 $V_G = \sqrt{V_m \omega^2}$ and $V_m = m V_E$, then
 $\omega = V_G / \sqrt{m V_E}$. The algebra is proved in
-`lean/CategoricalQuantGen/Heritability.lean` (`analyticalFitSD_eq`). The width is
-therefore exactly the one that would hold the population at the target
-$h^2 V_P$ if the Gaussian approximation were right, which makes it a
-direct test of that approximation. The paper itself does not use it: it
-draws $\omega$ at random for each population.
+`lean/CategoricalQuantGen/Heritability.lean` (`analyticalFitSD_eq`). The
+width is therefore exactly the one that would hold the population at the
+target $h^2 V_P$ if the Gaussian approximation were right, which makes
+it a direct test of that approximation. The paper itself does not use
+it: it draws $\omega$ at random for each population.
 
 ## Equilibrium across the paper’s parameter space
 
@@ -279,7 +281,8 @@ and the Gaussian prediction, which does not depend on the number of loci
 
 The equilibrium variance grows with the number of loci, as the house of
 cards predicts, while the Gaussian approximation misses the trend
-entirely. In these single runs the house of cards overestimates the level by about 30% at 100 loci and above. The [replication
+entirely. In these single runs the house of cards overestimates the
+level by about 30% at 100 loci and above. The [replication
 vignette](../09_replicating_pagel_2025/09_replicating_pagel_2025.qmd)
 makes the same comparison for the paper’s own parameter sets.
 
