@@ -2762,6 +2762,18 @@ Figure 1: Fraction of populations alive 2000 generations after the optimum star
 <li><strong>Survivors’ rate.</strong> The median rate of change sustained by populations still alive 2000 generations after the move is 0.032 at a fixed size, the paper’s “about 3%”. It stays at 0.032 with <span class="math inline">\(R = 5\)</span>, and falls to 0.029 with <span class="math inline">\(R = 2\)</span> and to 0.023 with <span class="math inline">\(R = 1.5\)</span>.</li>
 </ul>
 <p>The paper’s conclusion that maximum sustainable rates are low is therefore, if anything, conservative. With QTSim’s fixed population size its estimates are upper bounds: a population that has to make good its own losses sustains about a quarter less, and, once it can no longer keep up, dies in about half the time.</p>
+<p>An independent replication, <code>validate/demography_sweep.jl</code>, reran 1200 other inputs (1% of every stratum) with new seeds, at a fixed size and with each growth rate, paired by input (<code>validate/demography_sweep_summary.md</code>).</p>
+<ul>
+<li><strong>The fixed-size runs match the paper’s own runs of the same inputs:</strong> 8.2% alive in both, with median extinction times of 134 and 135 generations.</li>
+<li><strong>Under density regulation:</strong>
+<ul>
+<li>6.7%, 5.9% and 5.0% were alive;</li>
+<li>the median time to extinction fell to 79, 58 and 50 generations;</li>
+<li>paired by input, populations lasted 0.60, 0.43 and 0.37 times as long, as here;</li>
+<li>half survived standardised rates of 0.058, 0.060 and 0.053, against 0.073 at a fixed size.</li>
+</ul></li>
+<li><strong>No input survived better under density regulation.</strong></li>
+</ul>
 
 </section>
 

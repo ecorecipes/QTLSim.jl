@@ -343,6 +343,23 @@ its estimates are upper bounds: a population that has to make good its
 own losses sustains about a quarter less, and, once it can no longer
 keep up, dies in about half the time.
 
+An independent replication, `validate/demography_sweep.jl`, reran 1200
+other inputs (1% of every stratum) with new seeds, at a fixed size and
+with each growth rate, paired by input
+(`validate/demography_sweep_summary.md`).
+
+- **The fixed-size runs match the paper’s own runs of the same inputs:**
+  8.2% alive in both, with median extinction times of 134 and 135
+  generations.
+- **Under density regulation:**
+  - 6.7%, 5.9% and 5.0% were alive;
+  - the median time to extinction fell to 79, 58 and 50 generations;
+  - paired by input, populations lasted 0.60, 0.43 and 0.37 times as
+    long, as here;
+  - half survived standardised rates of 0.058, 0.060 and 0.053, against
+    0.073 at a fixed size.
+- **No input survived better under density regulation.**
+
 ```@raw html
 <div id="refs" class="references csl-bib-body hanging-indent">
 ```
