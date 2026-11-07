@@ -31,7 +31,7 @@ state of a fluctuating optimum (`MoveType = :red_noise` or `:periodic`, see
 
 Each chromosome of `NoQTL` loci is split into `nb` blocks of `blocksize` loci (the last
 may be shorter), `⌈√NoQTL⌉` by default, and stored as `nb` ids of blocks in a
-[`BlockPool`](@ref QTLSim.BlockPool): `w.chr[k, c, i]` is block `k` of chromosome `c` of
+pool (`QTLSim.BlockPool`): `w.chr[k, c, i]` is block `k` of chromosome `c` of
 individual `i`, an `(nb, Ploidy, PopSize)` array, and `w.schr` the same for the
 offspring. Blocks are shared and reference-counted. A gamete shares every block of its
 parent's chromosomes except the one that holds a crossover, which it builds; a mutation
