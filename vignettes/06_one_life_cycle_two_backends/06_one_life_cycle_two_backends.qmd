@@ -522,7 +522,13 @@ relies on: running products step by step is running each deme on its own (the
 interchange law, also for independent Markov kernels, so the order in which a backend
 visits the demes does not matter), demes without migration iterate independently, and
 migration, which only rearranges individuals among positions, keeps every deme's size
-and every total over the metapopulation.
+and every total over the metapopulation. Migration itself is different: its swaps are
+made one after the other, and a migrant can move again from a deme visited later, so the
+order of the demes matters there. Both backends visit them in a new random order at each
+generation (`sample` in Eidos, `randperm` in the kernel), and
+`lean/CategoricalQuantGen/Migration.lean` proves that migration then commutes with
+relabelling the demes, in distribution, for the island model; with the demes always
+visited in the order 1, 2, 3 it would not.
 
 ## Summary
 

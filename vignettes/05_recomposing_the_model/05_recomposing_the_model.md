@@ -245,7 +245,7 @@ spread(ms) = std([m[end] for m in ms])
         spread(isolated), spread(coupled))
 ```
 
-    spread of the deme means after 2500 generations: isolated 0.778, with migration 0.027
+    spread of the deme means after 2500 generations: isolated 0.778, with migration 0.115
 
 ``` julia
 fig = Figure(size = (900, 360))
