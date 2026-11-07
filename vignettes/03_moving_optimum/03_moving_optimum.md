@@ -7,6 +7,7 @@ Simon Frost
 - [Anatomy of an extinction](#anatomy-of-an-extinction)
 - [The paper’s measures](#the-papers-measures)
 - [How long populations last](#how-long-populations-last)
+- [Fluctuating optima](#fluctuating-optima)
 
 ## Overview
 
@@ -249,16 +250,146 @@ the others died.
 
 Populations that survive keep pace: their lag per generation is close to
 zero. Once the environment moves faster than they can respond, the lag
-grows every generation and the population dies, sooner the faster the change. For this parameter set every
-population survived 2000 generations at rates up to about 6% of a
-phenotypic standard deviation per generation, and every one died at
-about 7% and above. Surviving 2000 generations is not surviving
-indefinitely, though: the paper ran its populations for up to 240,000
-generations, and its estimate of the sustainable rate, about 3% of a
-standard deviation per generation, comes from the populations that
-lasted that long. The [replication
+grows every generation and the population dies, sooner the faster the
+change. For this parameter set every population survived 2000
+generations at rates up to about 6% of a phenotypic standard deviation
+per generation, and every one died at about 7% and above. Surviving 2000
+generations is not surviving indefinitely, though: the paper ran its
+populations for up to 240,000 generations, and its estimate of the
+sustainable rate, about 3% of a standard deviation per generation, comes
+from the populations that lasted that long. The [replication
 vignette](../09_replicating_pagel_2025/09_replicating_pagel_2025.qmd)
 maps the boundary across the paper’s whole parameter space.
+
+## Fluctuating optima
+
+Field environments change noisily, not along a straight line. Two more
+move types, which QTSim lacks, let the optimum fluctuate around a linear
+trend of $d$ per generation, starting from its value $\theta_0$ at
+generation $t_0$ = `MoveFitnessSDGen`:
+
+- `:periodic`:
+  $\theta_t = \theta_0 + d(t - t_0) + A \sin(2\pi (t - t_0)/P)$, with
+  amplitude $A$ = `MoveAmplitude` and period $P$ = `MovePeriod`;
+- `:red_noise`: $\theta_t = \theta_0 + d(t - t_0) + \varepsilon_t$,
+  where $\varepsilon$ is stationary AR(1) noise with standard deviation
+  $\sigma$ = `MoveNoiseSD` and autocorrelation $\rho$ = `MoveAutocorr`:
+  $\varepsilon_t = \rho\,\varepsilon_{t-1} + \sigma\sqrt{1-\rho^2}\,\xi_t$.
+
+Once its genetic variance has settled, a large population’s mean follows
+the optimum as $\bar z_{t+1} = \bar z_t + \beta(\theta_t - \bar z_t)$,
+with $\beta = V_G/(V_G + V_s)$ and $V_s = \omega^2 + V_E$. This linear
+filter tracks a slow cycle with a delay of about $1/\beta$ generations,
+damps a fast one, and chases noise that has already moved on.
+`periodic_response`, `red_noise_lag_var` and `expected_lag2` give its
+steady response ([Bürger and Lynch 1995](#ref-BurgerLynch1995)). A
+population under strong selection ($\omega = 0.3$, one locus) shows it
+in a few thousand generations. The three moves below share the trend,
+and the cycle and the noise have the same variance, $A^2/2 = \sigma^2$.
+
+``` julia
+import Catlab                       # run_moments is part of the categorical layer
+c = Params(PopSize = 1000, Ploidy = 2, NoQTL = 1, NoGenerations = 3000, PhenotypeVar = 0.02,
+           Heritability = 0.5, MutationScalar = 0.02, MutationRatePerGamete = 0.5,
+           InitFitnessSD = 0.3, MoveFitnessSDGen = 1000, MoveFitnessSD = 0.001)
+fluct = [("linear, d = 0.001", Params(c; MoveType = :continuous)),
+         ("periodic, A = 0.1, P = 200", Params(c; MoveType = :periodic, MoveAmplitude = 0.1, MovePeriod = 200.0)),
+         ("red noise, σ = 0.071, ρ = 0.95", Params(c; MoveType = :red_noise, MoveNoiseSD = 0.1 / √2,
+                                                  MoveAutocorr = 0.95))]
+frun = [(name, q, simulate(q; seed = 7)) for (name, q) in fluct]
+nothing
+```
+
+``` julia
+fig = Figure(size = (960, 300))
+for (j, ((name, q, r), col)) in enumerate(zip(frun, (:crimson, :navy, :teal)))
+    ax = Axis(fig[1, j], xlabel = "generation", ylabel = j == 1 ? "phenotype / optimum" : "",
+              title = name, limits = ((900, 3000), nothing))
+    m = q.MoveType === :red_noise ? run_moments(q; optimum = r.theta) : run_moments(q)
+    lines!(ax, r.gen, r.theta, color = :gray)
+    lines!(ax, r.gen, r.pheno_mean, color = col)
+    lines!(ax, m.gen, m.pheno_mean, color = :black, linestyle = :dash)
+end
+fig
+```
+
+<div id="fig-fluctuating">
+
+<img
+src="03_moving_optimum_files/figure-commonmark/fig-fluctuating-output-1.png"
+width="960" height="300" />
+
+Figure 4: The optimum (gray) and the mean phenotype (colour) under three
+moves that share a trend of 0.001 per generation from generation 1000.
+Dashed: the Gaussian prediction of the moments lowering (`run_moments`),
+given the run’s own optimum for red noise.
+
+</div>
+
+Averaged over eight runs each and over generations 1500 to 2999, the
+mean squared lag is close to the prediction at the runs’ genetic
+variance. Drift adds about the same small amount to each, because it
+moves the mean at random, so it shows most in the small lag behind the
+steady trend. The load, the loss of log mean fitness to the lag, is
+`lag_load`.
+
+``` julia
+win(r) = findall(g -> 1500 <= g <= 2999, r.gen)
+for (name, q) in fluct
+    rs = [simulate(q; seed = s) for s in 1:8]
+    lag2 = mean(mean((r.theta[win(r)] .- r.pheno_mean[win(r)]) .^ 2) for r in rs)
+    VG = mean(mean(r.geno_var[win(r)]) for r in rs)
+    surv = mean(mean(r.nsurv[win(r)]) for r in rs)
+    @printf("%-32s mean squared lag %.5f (theory %.5f)   load %.4f   survivors %.0f\n",
+            name, lag2, expected_lag2(q; VG), lag_load(q; VG), surv)
+end
+```
+
+    linear, d = 0.001                mean squared lag 0.00036 (theory 0.00027)   load 0.0013   survivors 916
+    periodic, A = 0.1, P = 200       mean squared lag 0.00146 (theory 0.00137)   load 0.0064   survivors 911
+    red noise, σ = 0.071, ρ = 0.95   mean squared lag 0.00282 (theory 0.00268)   load 0.0126   survivors 905
+
+At the same variance of the optimum, the cycle of period 200 costs more
+than the steady trend but less than noise with a correlation time of
+about 20 generations, which changes faster than the population can
+follow. The gain of the response, the ratio of the mean’s amplitude to
+the optimum’s, falls as the period shortens:
+
+``` julia
+periods = [25.0, 50.0, 100.0, 200.0, 400.0, 800.0, 1600.0]
+gjobs = [(P, s) for P in periods for s in 1:3]
+gres = Vector{Any}(undef, length(gjobs))
+Threads.@threads :greedy for k in eachindex(gjobs)
+    P, s = gjobs[k]
+    q = Params(c; MoveType = :periodic, MoveFitnessSD = 0.0, MoveAmplitude = 0.1, MovePeriod = P,
+               NoGenerations = 4200)
+    r = simulate(q; seed = 50 + k)
+    w = findall(>=(1000 + 1200), r.gen); t = r.gen[w] .- 1000
+    X = hcat(sin.(2π .* t ./ P), cos.(2π .* t ./ P), ones(length(t)))
+    a, b, _ = X \ r.pheno_mean[w]
+    gres[k] = (; P, gain = hypot(a, b) / 0.1, VG = mean(r.geno_var[w]))
+end
+VGg = mean(r.VG for r in gres)
+fig = Figure(size = (520, 340))
+ax = Axis(fig[1, 1], xscale = log10, xlabel = "period P (generations)", ylabel = "gain")
+Ps = exp.(range(log(20), log(2000), 100))
+lines!(ax, Ps, [periodic_response(P; VG = VGg, Vs = selection_variance(c)).gain for P in Ps], color = :gray)
+scatter!(ax, [r.P for r in gres], [r.gain for r in gres], color = :navy)
+fig
+```
+
+<div id="fig-gain">
+
+<img
+src="03_moving_optimum_files/figure-commonmark/fig-gain-output-1.png"
+width="520" height="340" />
+
+Figure 5: The gain of the mean phenotype’s response to a periodic
+optimum (A = 0.1, no trend) against the period, in three runs per period
+(points), and the linear filter’s prediction at the runs’ genetic
+variance (line).
+
+</div>
 
 <div id="refs" class="references csl-bib-body hanging-indent">
 

@@ -1,0 +1,35 @@
+QTLSim kernel vs generated SLiM model, fluctuating optima, R = 40 runs each
+
+── periodic, A = 0.1, P = 200 ──
+  extinctions                    kernel 0/40  SLiM 0/40
+  mean squared lag               kernel  0.001193 ± 8.4e-05  SLiM  0.001148 ± 7e-05    KS p = 0.029
+  genetic variance               kernel   0.00642 ± 0.0001   SLiM  0.006457 ± 0.00011  KS p = 0.573
+  survivors                      kernel     912.1 ± 0.55     SLiM     912.2 ± 0.6      KS p = 0.759
+  expected squared lag           0.001081 (Gaussian theory at the kernel's V_G)
+
+── periodic, A = 0.15, P = 50 ──
+  extinctions                    kernel 0/40  SLiM 0/40
+  mean squared lag               kernel  0.009687 ± 0.00011  SLiM  0.009719 ± 0.00011  KS p = 0.573
+  genetic variance               kernel  0.006433 ± 0.00011  SLiM  0.006417 ± 0.00011  KS p = 0.913
+  survivors                      kernel     876.9 ± 0.53     SLiM     876.8 ± 0.65     KS p = 0.263
+  expected squared lag           0.009606 (Gaussian theory at the kernel's V_G)
+
+── red noise, σ = 0.1, ρ = 0.9 ──
+  extinctions                    kernel 0/40  SLiM 0/40
+  mean squared lag               kernel  0.006897 ± 0.00062  SLiM  0.006865 ± 0.00059  KS p = 0.988
+  genetic variance               kernel  0.006433 ± 0.00012  SLiM  0.006453 ± 0.00011  KS p = 0.759
+  survivors                      kernel     888.8 ± 2.5      SLiM       889 ± 2.4      KS p = 0.913
+  SD of θ                        kernel     0.101 ± 0.0054   SLiM    0.1005 ± 0.0053   KS p = 0.913
+  lag-1 autocorrelation of θ     kernel    0.9011 ± 0.011    SLiM    0.9001 ± 0.0096   KS p = 0.913
+  expected squared lag           0.006679 (Gaussian theory at the kernel's V_G)
+
+── red noise, σ = 0.1, ρ = 0 ──
+  extinctions                    kernel 0/40  SLiM 0/40
+  mean squared lag               kernel   0.01047 ± 0.00042  SLiM   0.01044 ± 0.00034  KS p = 0.988
+  genetic variance               kernel  0.006392 ± 0.00011  SLiM  0.006417 ± 0.00012  KS p = 0.759
+  survivors                      kernel     875.3 ± 1.7      SLiM     875.4 ± 1.4      KS p = 0.913
+  SD of θ                        kernel    0.1004 ± 0.002    SLiM    0.1002 ± 0.0017   KS p = 0.988
+  lag-1 autocorrelation of θ     kernel  0.006132 ± 0.03     SLiM -0.001542 ± 0.027    KS p = 0.400
+  expected squared lag           0.01031 (Gaussian theory at the kernel's V_G)
+
+smallest p = 0.0293: no discrepancy
