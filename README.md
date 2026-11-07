@@ -49,9 +49,9 @@ changes one, and it caches each block's sum. A generation then costs about
 `PopSize·√NoQTL` operations rather than `PopSize·NoQTL`, and allocates nothing once the
 pool of blocks has grown to its working size. With 1000 diploid individuals and the
 paper's parameters it is about 1.2 times faster than a dense array of alleles at 100
-loci, 5 times at 500, 6 at 1000 and 9 at 5000 (2.4 ms rather than 22 ms per generation). The random draws and allele values are those of the dense
-array, bit for bit; genotypes are summed in another order and can differ in the last
-bits. `genomes(w)` and `setgenomes!(w, G)` read and write the genomes of a `World` as a
+loci, 5 times at 500, 6 at 1000 and 9 at 5000 (2.4 ms rather than 22 ms per
+generation). The random draws and allele values are those of the dense array, bit for
+bit; genotypes are summed in another order and can differ in the last bits. `genomes(w)` and `setgenomes!(w, G)` read and write the genomes of a `World` as a
 dense `(NoQTL, Ploidy, N)` array.
 
 ## The categorical layer
