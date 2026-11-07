@@ -112,7 +112,7 @@ function run_composed end
 
 """
     run_moments(p::Params; cycle = lifecycle().generation, images = Dict(), zbar = 0.0, VG = 0.0,
-                optimum = nothing)
+                optimum = nothing, erosion = false)
 
 The life cycle `cycle` lowered to the moments of a Gaussian population (`lower(cycle, :moments)`)
 and iterated for `NoGenerations`: the deterministic, infinite-population predictions of
@@ -124,7 +124,9 @@ step's image updates the means and variances:
   `N·W̄`, the selection differential, and the survivors' genotypic mean and variance
   `z̄ + V_G λ/s` and `V_G − V_G²/s`, with `λ = θ − z̄` and `s = ω² + V_P`;
 - `reproduce`: passes those to the offspring (the continuum-of-alleles approximation, no
-  drift);
+  drift); with `erosion = true`, drift erodes the offspring's genetic variance by the
+  factor `1 − 1/(2 N_e)`, with `N_e` the expected number of survivors, which mate at
+  random;
 - `mutate`: adds `m·V_E`.
 
 The expected population size is `PopSize`, or under `Demography = :beverton_holt` the
@@ -133,7 +135,8 @@ mean of [`noffspring`](@ref) for the expected survivors, `R n/(1 + (R − 1) n/K
 Returns the columns of [`run!`](@ref), predicted (`nsurv` rounded). The genetic variance
 converges to [`gaussian_vg_exact`](@ref); under a continuous move the lag `θ − z̄`
 converges to [`steady_lag`](@ref). The population is extinct when fewer than two
-individuals (one, if haploid) are expected to survive. One deme only. Requires Catlab.
+individuals (one, if haploid) are expected to survive; [`extinction_distribution`](@ref)
+adds the demographic stochasticity along the trajectory. One deme only. Requires Catlab.
 
 The fluctuating moves lower to their expected optimum ([`fluctuating_optimum`](@ref)
 without noise): `MoveType = :periodic` exactly, since it is deterministic, and

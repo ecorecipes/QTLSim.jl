@@ -33,7 +33,7 @@ of quantitative-genetic theory for the same model [@Lande1976; @BurgerLynch1995]
 ```{julia}
 using QTLSim
 import Catlab                       # loads the categorical layer, for run_moments
-using CairoMakie, Printf, Statistics
+using CairoMakie, DelimitedFiles, Printf, Random, Statistics
 CairoMakie.activate!(type = "png")
 ```
 
@@ -159,11 +159,11 @@ A population that cannot grow fast enough to make good its losses cannot sustain
 rates a population of fixed size can.
 
 The moments lowering predicts the time to extinction closely at fast rates, where the
-outcome is decided by the lag. At slow rates it is less accurate, and it predicts that
-the fixed-size population survives 0.02 per generation, which none of the six did: the
-Gaussian approximation's genetic variance and its deterministic population size leave
-out the drift and the fluctuations in size that decide whether a slowly declining
-population lasts.
+outcome is decided by the lag. At slow rates it is less accurate: under density
+regulation the populations outlive its prediction, and at a fixed size it predicts that
+the population survives 0.02 per generation, which none of the six did. The section on
+demographic noise and drift below shows that the error lies in the genetic variance, not
+in the deterministic population size.
 
 ## A population in decline
 
@@ -185,6 +185,219 @@ axislegend(ax, position = :lb)
 fig
 ```
 
+## Demographic noise and drift in the theory
+
+The moments lowering follows one deterministic trajectory. Two kinds of chance are left
+out of it. The first is demographic: given the mean fitness $\bar W_t$ of generation $t$,
+the number of survivors is binomial, and under density regulation the number of
+offspring is Poisson. `extinction_distribution` follows the size of the population along
+the trajectory of $\bar W_t$ as a Markov chain on $0, \dots, K$, exactly as the kernel
+draws it (binomial survival, at least two survivors, $\min(K, \mathrm{Poisson})$
+offspring), and gives the probability of extinction by each generation. At a fixed size
+each generation is an independent trial, lost with probability
+$P(\mathrm{Binomial}(N, \bar W_t) < 2)$. (Its `method = :branching` linearises the density
+dependence instead: each survivor has Poisson offspring at the per-capita rate of the
+trajectory, a Galton–Watson process whose extinction probability comes from iterating
+generating functions. Near $K$ that process lacks the regulation that holds the size to
+the trajectory, so it spreads the sizes too widely and brings extinction forward; the
+chain does not.)
+
+The second is genetic drift. With `erosion = true`, `run_moments` takes
+$V_G/(2N_e)$ from the genetic variance each generation, with $N_e$ the expected number of
+survivors. Drift then matters most when few survive, which is when the population is far
+behind the optimum.
+
+The simulations are 100 populations of each demography at five slow rates, the rates at
+which the deterministic prediction failed. Each run is `simulate` with its own seed; the
+5000 generations before the move do not depend on the rate, so each population's first
+5000 generations are run once and copied, with the random number generator, for each
+rate, which gives the same runs. The runs are stored in `rescue_runs.csv` (delete it to
+rerun them, about 15 minutes on three threads).
+
+```{julia}
+const CACHE = joinpath(@__DIR__, "rescue_runs.csv")
+slow = [0.005, 0.01, 0.015, 0.02, 0.03]
+if !isfile(CACHE)
+    jobs = [(i, rep) for i in eachindex(demog) for rep in 1:100]
+    rows = Vector{Vector{Any}}(undef, length(jobs))
+    Threads.@threads :greedy for k in eachindex(jobs)
+        i, rep = jobs[k]
+        p = Params(base; demog[i][2]...)
+        w, rng = World(p), MersenneTwister(100_000i + rep)
+        init_env!(w, rng)
+        rec = QTLSim.records()
+        for it in 0:4999
+            w.gen = it
+            generation!(w, rng; rec)
+        end
+        Ts = map(slow) do d                  # the same as simulate(Params(p; MoveFitnessSD = d); seed)
+            w2, rng2 = deepcopy(w), deepcopy(rng)
+            w2.p = Params(p; MoveFitnessSD = d)
+            for it in 5000:6999
+                w2.gen = it
+                generation!(w2, rng2)
+                w2.extinct && return it - 5000
+            end
+            -1
+        end
+        rows[k] = Any[i, rep, mean(rec.geno_var[4001:5000]), Ts...]
+    end
+    open(CACHE, "w") do io
+        println(io, join(["demography", "rep", "vg_premove", ("T_" .* string.(slow))...], ','))
+        writedlm(io, rows, ',')
+    end
+end
+runs = readdlm(CACHE, ',', header = true)[1]
+size(runs, 1)
+```
+
+For each demography and rate the table gives the simulated outcome and four
+predictions: the deterministic one of the moments lowering, the same trajectory with
+demographic noise, the trajectory with drift (and demographic noise), and the last
+started at the move from the genetic variance the simulated populations had then,
+rather than the theory's own.
+
+```{julia}
+#| output: asis
+gT(m) = m.extinct ? m.extinct_gen - 5000 : missing
+cell(T) = ismissing(T) ? "survives" : string(T)
+dcell(e, off) = ismissing(e.median) ? (e.psurvive >= 0.995 ? "survives" : @sprintf("%.0f%% survive", 100e.psurvive)) :
+                string(e.median - off)
+cells = [(i, d) for i in eachindex(demog) for d in slow]
+preds = Vector{Any}(undef, length(cells))
+Threads.@threads :greedy for k in eachindex(cells)
+    i, d = cells[k]
+    p = Params(base; demog[i][2]..., MoveFitnessSD = d)
+    m, me = run_moments(p), run_moments(p; erosion = true)
+    q = Params(p; MoveFitnessSDGen = 0, NoGenerations = 2000)       # from the move on
+    vg = mean(runs[runs[:, 1] .== i, 3])
+    mc = run_moments(q; VG = vg, erosion = true)
+    preds[k] = (; det = gT(m), noise = extinction_distribution(p, m; from = 5000),
+                drift = extinction_distribution(p, me; from = 5000),
+                calib = extinction_distribution(q, mc), vg)
+end
+theory = Dict(zip(cells, preds))
+simT(i, j) = [t < 0 ? missing : t for t in runs[runs[:, 1] .== i, 3+j]]
+fmtT(x) = isinf(x) ? ">2000" : string(round(Int, x))
+println("| demography | rate | alive (of 100) | simulated median (IQR) | deterministic | + demographic noise | + drift | + drift, simulated V_G |")
+println("|:--|--:|--:|--:|--:|--:|--:|--:|")
+for (i, (name, _)) in enumerate(demog), (j, d) in enumerate(slow)
+    T = simT(i, j); th = theory[(i, d)]
+    srt = sort([ismissing(t) ? Inf : float(t) for t in T])     # survivors outlive everything
+    q = [srt[ceil(Int, f * length(srt))] for f in (0.25, 0.5, 0.75)]
+    s = isinf(q[2]) ? "survive" : @sprintf("%s (%s–%s)", fmtT(q[2]), fmtT(q[1]), fmtT(q[3]))
+    @printf("| %s | %.3f | %d | %s | %s | %s | %s | %s |\n", name, d, count(ismissing, T), s,
+            cell(th.det), dcell(th.noise, 5000), dcell(th.drift, 5000), dcell(th.calib, 0))
+end
+```
+
+Times are generations after the move: the simulated median and interquartile range
+(when at least half the populations died within 2000 generations; the survivors count
+as the longest-lived), and the predicted median time to extinction.
+
+```{julia}
+#| output: asis
+println("| demography | V_G before the move, simulated | Gaussian (moments lowering) | with drift |")
+println("|:--|--:|--:|--:|")
+for (i, (name, kw)) in enumerate(demog)
+    p = Params(base; kw..., MoveFitnessSD = 0.01)
+    @printf("| %s | %.4f | %.4f | %.4f |\n", name, theory[(i, 0.01)].vg,
+            run_moments(p).geno_var[5000], run_moments(p; erosion = true).geno_var[5000])
+end
+```
+
+```{julia}
+#| label: fig-extinction-distribution
+#| fig-cap: "The distribution of the time to extinction at one slow rate for each demography: the fraction of the 100 simulated populations extinct by each generation after the move (black), and the predicted probability of extinction with demographic noise along the deterministic trajectory (blue), with drift (orange), and with drift from the simulated genetic variance at the move (red). Dashed: the deterministic prediction."
+fig = Figure(size = (760, 560))
+cases = [(1, 0.02), (2, 0.02), (3, 0.015), (4, 0.01)]
+for (k, (i, d)) in enumerate(cases)
+    ax = Axis(fig[(k - 1) ÷ 2 + 1, (k - 1) % 2 + 1], title = @sprintf("%s, rate %.3f", demog[i][1], d),
+              xlabel = "generations after the move", ylabel = "P(extinct)", limits = (0, 2000, 0, 1))
+    T = sort(collect(skipmissing(simT(i, findfirst(==(d), slow)))))
+    stairs!(ax, [0; T; 2000], [0; (1:length(T)) ./ 100; length(T) / 100], color = :black, step = :post,
+            label = "simulated")
+    th = theory[(i, d)]
+    lines!(ax, th.noise.gen .- 5000, th.noise.pext, color = :steelblue, label = "demographic noise")
+    lines!(ax, th.drift.gen .- 5000, th.drift.pext, color = :darkorange, label = "+ drift")
+    lines!(ax, th.calib.gen, th.calib.pext, color = :crimson, label = "+ drift, simulated V_G")
+    k == 2 && axislegend(ax, position = :rb, labelsize = 11)
+    ismissing(th.det) || vlines!(ax, th.det, color = :steelblue, linestyle = :dash)
+end
+fig
+```
+
+Demographic noise alone changes little. Along the deterministic trajectory it brings
+extinction forward, by 2–12% under density regulation and by more at a fixed size (from
+1548 to 1118 generations at 0.03), where the population is lost in the first generation
+in which fewer than two of 1000 survive, and the expected number of survivors approaches
+two only slowly. But it cannot explain the simulations. The predicted distributions of
+the time to extinction are much narrower than the simulated ones; no rate gives a
+probability of survival between 0 and 1, while with $R = 2$ at 0.01, 56 of 100 populations
+survived; and under density regulation the simulated populations outlive the
+deterministic prediction at every lethal rate but one ($R = 5$ at 0.015, where the noise
+brings the prediction to the simulated median), so the noise, which shortens lives, moves
+the prediction the wrong way. The variation among populations is genetic.
+
+The genetic variance is where the theory fails. Before the move the simulated
+populations have more than twice the Gaussian approximation's genetic variance. With
+weak stabilising selection ($V_s = \omega^2 + V_E \approx 25$) and rare mutations
+(0.01 per gamete), the variance is held by a few alleles at a time, closer to the
+house-of-cards balance than to the Gaussian $\sqrt{V_mV_s}$ (vignette 02). With less
+variance the theory's populations fall further behind, so under density regulation they
+die too early. After the move the simulated variance falls, as directional selection
+fixes the alleles that carried it and drift erodes it among the few survivors, while the
+Gaussian recursion, in which selection moves the mean without using up variance, keeps
+it:
+
+```{julia}
+#| output: asis
+vgcases = [(1, 0.02), (4, 0.01)]
+vgsim = Matrix{Vector{Float64}}(undef, 2, 12)
+Threads.@threads :greedy for k in 1:24
+    ci, r = (k - 1) ÷ 12 + 1, (k - 1) % 12 + 1
+    c = vgcases[ci]
+    o = simulate(Params(base; demog[c[1]][2]..., MoveFitnessSD = c[2]); seed = 77r)
+    g(t) = (j = findfirst(==(t), o.gen); j === nothing ? NaN : mean(o.geno_var[j-20:j]))
+    vgsim[ci, r] = g.([4999, 5500, 6000])
+end
+println("| demography, rate | | at the move | 500 generations after | 1000 after |")
+println("|:--|:--|--:|--:|--:|")
+for (ci, c) in enumerate(vgcases)
+    v = [filter(!isnan, [vgsim[ci, r][t] for r in 1:12]) for t in 1:3]
+    @printf("| %s, %.3f | simulated | %s |\n", demog[c[1]][1], c[2],
+            join((@sprintf("%.4f (%d)", mean(x), length(x)) for x in v), " | "))
+    p = Params(base; demog[c[1]][2]..., MoveFitnessSD = c[2])
+    for (label, m) in (("moments", run_moments(p)), ("with drift", run_moments(p; erosion = true)))
+        vals = [(j = findfirst(==(t), m.gen); j === nothing ? "extinct" : @sprintf("%.4f", m.geno_var[j]))
+                for t in (4999, 5500, 6000)]
+        @printf("| | %s | %s |\n", label, join(vals, " | "))
+    end
+end
+```
+
+The simulated values are means over 12 populations, of the genetic variance averaged
+over the preceding 20 generations; in parentheses, the number still alive. That is why
+at a fixed size the deterministic prediction survives 0.02 per generation, which none of
+the populations did.
+
+Drift, with $N_e$ the number of survivors, makes the theory's variance collapse once
+survival falls, and so predicts that fixed-size populations die at 0.02 and 0.03 per
+generation, though about a fifth too early. But it also lowers the variance before the
+move, further below the simulated one, so it makes the density-regulated predictions
+worse, and it predicts deaths at 0.015 at a fixed size and at 0.01 with $R = 5$, where
+all 100 populations survived. Starting the recursion with drift from the simulated
+variance at the move gives the best predictions at a fixed size (775 generations at
+0.03, against 830 simulated), but under density regulation it is no better than the
+deterministic prediction, and all four are early at the slowest lethal rates (with
+$R = 1.5$ at 0.01, 676 to 855 generations, against 1264). No version reproduces the
+survival of about half the populations with $R = 2$ at 0.01. The remaining error lies in
+how the genetic variance, carried by a few alleles of large effect, changes under
+directional selection, which neither the Gaussian recursion nor a drift correction to it
+describes. At the fast rates, where the outcome is decided within a few hundred
+generations by the lag, the variance has little time to change and the deterministic
+prediction holds.
+
 ## Summary
 
 QTSim's fixed population size is not neutral for the paper's question. A population
@@ -195,6 +408,15 @@ with a few offspring per survivor the maximum sustainable rate is about half the
 at a fixed size. The paper's estimate of about 3% of a phenotypic standard deviation per
 generation is therefore an upper bound that holds for populations able to make good
 their losses.
+
+The deterministic theory of the moments lowering predicts the time to extinction at
+fast rates. At slow rates its error is genetic, not demographic: adding the chance in
+survival and reproduction along its trajectory (`extinction_distribution`) changes its
+predictions by a few percent and leaves the spread among populations unexplained, and
+adding drift to its genetic variance (`run_moments(p; erosion = true)`) captures the
+collapse of the variance at a fixed size but not the variance these populations hold
+before the move. Predicting extinction at slow rates needs a theory of the genetic
+variance under directional selection with few segregating alleles.
 
 The density-regulated model is QTLSim's, not QTSim's, so QTSim cannot check it, but SLiM
 can: the model `slim_script` generates from the same life cycle agrees with the kernel
