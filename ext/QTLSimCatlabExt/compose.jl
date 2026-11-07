@@ -134,13 +134,19 @@ mutable struct Stratified
     demes::Vector{World}
 end
 
-⊗(p::Params, d::Demes) = Stratified([World(p) for _ in 1:d.k])
-⊗(w::World, d::Demes) = Stratified([deepcopy(w) for _ in 1:d.k])
+# The demes share one pool of blocks (see `World`), so that a migrant moves by swapping
+# block ids; demes with different numbers of loci cannot share one.
+⊗(p::Params, d::Demes) = (pool = QTLSim.BlockPool(p.NoQTL); Stratified([World(p; pool) for _ in 1:d.k]))
+function ⊗(w::World, d::Demes)
+    w1 = deepcopy(w)
+    Stratified([w1; [QTLSim.shared_copy(w1) for _ in 2:d.k]])
+end
 function ⊗(ps::AbstractVector{Params}, d::Demes)
     length(ps) == d.k || throw(ArgumentError("$(length(ps)) parameter sets for $(d.k) demes"))
     all(q -> q.NoGenerations == ps[1].NoGenerations, ps) ||
         throw(ArgumentError("the demes of a metapopulation run for the same number of generations"))
-    Stratified([World(q) for q in ps])
+    pools = Dict{Int,QTLSim.BlockPool}()
+    Stratified([World(q; pool = get!(() -> QTLSim.BlockPool(q.NoQTL), pools, q.NoQTL)) for q in ps])
 end
 
 isextinct(s::Stratified) = all(w -> w.extinct, s.demes)
@@ -162,9 +168,9 @@ end
 function migrate!(s::Stratified, rng; rate=0.01, demes=eachindex(s.demes))
     k = length(demes)
     k < 2 && return (count=0,)
-    shape = size(s.demes[first(demes)].genome)[1:2]
-    all(d -> size(s.demes[d].genome)[1:2] == shape, demes) ||
-        throw(ArgumentError("migration needs demes with the same loci and ploidy; got $([size(s.demes[d].genome)[1:2] for d in demes])"))
+    shape = QTLSim.genome_shape(s.demes[first(demes)])
+    all(d -> QTLSim.genome_shape(s.demes[d]) == shape, demes) ||
+        throw(ArgumentError("migration needs demes with the same loci and ploidy; got $([QTLSim.genome_shape(s.demes[d]) for d in demes])"))
     rate isa AbstractMatrix && return migrate_graph!(s, rng, QTLSim.check_migration(rate, k), demes)
     count = 0
     for (di, d) in enumerate(demes)
@@ -180,10 +186,11 @@ function migrate!(s::Stratified, rng; rate=0.01, demes=eachindex(s.demes))
     (count=count,)
 end
 
+# Exchange individual i of deme w and individual j of deme v: their genomes, by swapping
+# block ids when the demes share a pool, as demes made by ⊗ do (QTLSim.exchange_genomes!),
+# and their environments.
 function swap_individuals!(w::World, i, v::World, j)
-    for c in axes(w.genome, 2), l in axes(w.genome, 1)
-        w.genome[l, c, i], v.genome[l, c, j] = v.genome[l, c, j], w.genome[l, c, i]
-    end
+    QTLSim.exchange_genomes!(w, i, v, j)
     w.env[i], v.env[j] = v.env[j], w.env[i]
     1
 end

@@ -19,6 +19,7 @@ using Random, Statistics, Distributions
 
 include("params.jl")
 include("qtsim_io.jl")
+include("blocks.jl")
 include("model.jl")
 include("theory.jl")
 include("migration.jl")
@@ -26,7 +27,7 @@ include("categorical.jl")
 include("sweep.jl")
 
 # the simulation kernel
-export Params, World, simulate, run!, generation!, init_env!, checkparams,
+export Params, World, genomes, setgenomes!, simulate, run!, generation!, init_env!, checkparams,
        develop!, select!, moveoptimum!, fluctuating_optimum, reproduce!, noffspring, mutate!, gamete!, swapbuffers!,
        geneticVar, envVar, analyticalFitSD, initFitSD, muteVar,
        read_qtsim_options, write_qtsim_options
