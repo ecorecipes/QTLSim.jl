@@ -28,17 +28,25 @@
 
 ## Cost
 
-Mean seconds per run (on this machine, with the threads it ran on), and the CPU-hours
-they imply for every demography run here (fixed size and each R) at three scales:
+The seconds per run this sweep recorded were measured while the kernel was changing
+(partly on the dense kernel, before block genomes) and with other heavy jobs on the
+machine, and overstated the cost several times over.
+Re-estimated (2026-11-07) from the generations each of these runs lasted and the
+single-thread time per generation of the current kernel on the paper's inputs
+(`validate/benchmark.jl`: 0.25, 0.33, 0.39 and 0.78 ms per generation at 100, 500, 1000
+and 5000 loci; 12-core Apple M3 Pro, Julia 1.12), single-thread CPU time:
 
-- NoQTL  100, u 3: 13.3 s per input over 4 demographies
-- NoQTL  100, u 5: 15.3 s per input over 4 demographies
-- NoQTL  500, u 3: 18.9 s per input over 4 demographies
-- NoQTL  500, u 5: 21.4 s per input over 4 demographies
-- NoQTL 1000, u 3: 69.1 s per input over 4 demographies
-- NoQTL 1000, u 5: 29.0 s per input over 4 demographies
-- NoQTL 5000, u 3: 402.9 s per input over 4 demographies
-- NoQTL 5000, u 5: 274.0 s per input over 4 demographies
-- scale 0.01: about 35 CPU-hours
-- scale 0.05: about 176 CPU-hours
-- scale 1.00: about 3516 CPU-hours
+- NoQTL  100: 10 s per input over 4 demographies
+- NoQTL  500: 13 s per input over 4 demographies
+- NoQTL 1000: 16 s per input over 4 demographies
+- NoQTL 5000: 32 s per input over 4 demographies
+- scale 0.01: about 6 CPU-hours
+- scale 0.05: about 30 CPU-hours
+- scale 1.00: about 600 CPU-hours, 270 of them in the 5000-locus strata
+
+The time per generation was measured at u = 3; u matters little, since a gamete has at
+most one crossover. Several threads cost more CPU time per run than one: a 58-input slice
+of `validate/published_sweep.jl` (runs of the same kind) took 733 s of CPU time on 4
+threads, with other jobs running, against 360 s estimated from the single-thread times
+(the 733 s include compilation and six QTSim runs). So scale 0.01 takes roughly an hour
+on 10 threads (an estimate, not measured).

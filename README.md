@@ -47,12 +47,17 @@ The kernel stores each chromosome as about √`NoQTL` blocks of loci, shared bet
 parents and offspring and copied only when a crossover falls inside one or a mutation
 changes one, and it caches each block's sum. A generation then costs about
 `PopSize·√NoQTL` operations rather than `PopSize·NoQTL`, and allocates nothing once the
-pool of blocks has grown to its working size. With 1000 diploid individuals and the
-paper's parameters it is about 1.2 times faster than a dense array of alleles at 100
-loci, 5 times at 500, 6 at 1000 and 9 at 5000 (2.4 ms rather than 22 ms per
-generation). The random draws and allele values are those of the dense array, bit for
-bit; genotypes are summed in another order and can differ in the last bits. `genomes(w)` and `setgenomes!(w, G)` read and write the genomes of a `World` as a
-dense `(NoQTL, Ploidy, N)` array.
+pool of blocks has grown to its working size. With 1000 diploid individuals on the
+paper's inputs, a generation takes 0.25 ms at 100 loci, 0.33 ms at 500, 0.39 ms at 1000
+and 0.78 ms at 5000: as long as with a dense array of alleles at 100 loci, and 1.4, 2.8
+and 6.3 times shorter at 500, 1000 and 5000 loci (4.9 ms per generation for the dense
+array at 5000). QTSim takes 0.47, 1.4, 2.9 and 13 ms per generation on the same inputs,
+1.9 to 17 times as long. (One thread, before the optimum moves, on a 12-core Apple M3 Pro
+with Julia 1.12, 2026-11-07; `validate/benchmark.jl`, log in `validate/benchmark.log`.)
+The random draws and allele values are those of the dense array, bit for bit; genotypes
+are summed in another order and can differ in the last bits. `genomes(w)` and
+`setgenomes!(w, G)` read and write the genomes of a `World` as a dense
+`(NoQTL, Ploidy, N)` array.
 
 ## The categorical layer
 

@@ -28,11 +28,13 @@
 # more loci. The summary is printed and written to validate/demography_sweep/summary.md,
 # with the mean seconds per run and the CPU-hours they imply at scales 0.01, 0.05 and 1.
 #
-# Cost (2026-11-07, Apple silicon): most runs die soon after the move, so a run costs
-# about 10,000 generations, at 0.42, 1.5, 3.1 and 9.2 ms per generation for 100, 500,
-# 1000 and 5000 loci. With the fixed size and three growth rates (four runs per input)
-# that is about 48 CPU-hours at scale 0.01, 240 at 0.05 and 4800 for the whole sweep,
-# two thirds of it in the 5000-locus strata; MAXL = 1000 cuts it to a third.
+# Cost (2026-11-07, 12-core Apple M3 Pro, Julia 1.12; validate/benchmark.jl): most runs die
+# soon after the move, so a run costs about 10,000 generations, at 0.25, 0.33, 0.39 and
+# 0.78 ms per generation on one thread for 100, 500, 1000 and 5000 loci. With the fixed
+# size and three growth rates (four runs per input) that is about 6 CPU-hours at scale
+# 0.01, 30 at 0.05 and 600 for the whole sweep, 45% of it in the 5000-locus strata
+# (MAXL = 1000 cuts it to 330). Several threads take up to about twice the CPU time of
+# one, so scale 0.01 takes roughly an hour on 10 threads (estimated).
 
 using QTLSim, XLSX, Printf, Random, Statistics
 

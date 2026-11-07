@@ -144,9 +144,9 @@ end
 nothing
 ```
 
-Each growth rate takes about an hour on ten threads, mostly for the
-populations with many loci, so the runs are stored next to this
-vignette, as in vignette 09.
+Each growth rate takes roughly ten minutes on ten threads (estimated
+from the kernel’s single-thread speed: about 40 minutes of CPU time), so
+the runs are stored next to this vignette, as in vignette 09.
 
 ``` julia
 fixed = read_runs(FIXED)

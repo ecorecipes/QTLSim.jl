@@ -65,10 +65,15 @@ path); the hand-written SLiM port of QTSim it compares with comes with the packa
 in `validate/slim/qtsim.slim`.
 
 Vignette 09's simulations are stored next to it and read back on later renders:
-`replication_runs.csv` holds the 710 reruns of 2000 generations after the move (about an
-hour on ten threads to regenerate) and `survivor_runs.csv` the 63 of them still alive
-then, run on to 240,000 generations (about an hour and a half on eight threads, mostly for the two with 5000 loci).
+`replication_runs.csv` holds the 710 reruns of 2000 generations after the move (about 45
+minutes of single-thread CPU time to regenerate, roughly ten minutes on ten threads) and
+`survivor_runs.csv` the 63 of them still alive then, run on to 240,000 generations (about
+an hour of CPU time, roughly a quarter of an hour on eight threads; the longest run, at 5000
+loci, takes 3 to 6 minutes).
 Vignette 11 stores its reruns the same way, one file per growth rate
 (`demography_runs_R5.0.csv`, `demography_runs_R2.0.csv`, `demography_runs_R1.5.csv`;
-about an hour each on twelve threads), and reads vignette 09's `replication_runs.csv`
-for the same populations at a fixed size.
+about 40 minutes of CPU time each, roughly ten minutes on ten threads), and reads
+vignette 09's `replication_runs.csv` for the same populations at a fixed size.
+These times are estimates from the single-thread speed of the kernel measured by
+`validate/benchmark.jl` (12-core Apple M3 Pro, Julia 1.12, 2026-11-07); several threads
+take up to about twice the CPU time of one.

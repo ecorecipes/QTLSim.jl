@@ -354,9 +354,10 @@ end
 nothing
 ```
 
-The runs take about an hour on ten threads, mostly for the populations
-with many loci, so each finished run is stored next to this vignette and
-read back on later renders. Deleting the file reruns them, and an
+The runs take roughly ten minutes on ten threads (estimated from the
+kernel’s single-thread speed: about 45 minutes of CPU time), so each
+finished run is stored next to this vignette and read back on later
+renders. Deleting the file reruns them, and an
 interrupted replication resumes where it stopped.
 
 ``` julia
