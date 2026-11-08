@@ -511,7 +511,17 @@ end
     p = Params(PopSize=1000, NoQTL=1, Ploidy=2, NoGenerations=3000, PhenotypeVar=0.02, Heritability=0.5,
                MutationScalar=0.02, MutationRatePerGamete=0.5, InitFitnessSD=0.3)
     o = run_moments(p)
-    @test o.geno_var[end] ≈ gaussian_vg_exact(p) rtol = 1e-6         # converges to the fixed point
+    @test o.geno_var[end] ≈ gaussian_vg_loci(p) rtol = 1e-6          # converges to the multilocus fixed point
+    # one diploid locus: half of selection's reduction (between the haplotypes) is not inherited
+    @test gaussian_vg_loci(p) ≈ QTLSim.gaussian_vg_closed(2muteVar(p), selection_variance(p)) > gaussian_vg_exact(p)
+    # the legacy aggregate recursion converges to gaussian_vg_exact, which the multilocus
+    # model is for one haploid locus (or haploid clones of any number of loci)
+    @test run_moments(p; loci = :aggregate).geno_var[end] ≈ gaussian_vg_exact(p) rtol = 1e-6
+    ph = Params(p; Ploidy = 1, NoQTL = 20)
+    @test run_moments(ph).geno_var ≈ run_moments(ph; loci = :aggregate).geno_var rtol = 1e-9
+    @test gaussian_vg_loci(ph) ≈ gaussian_vg_exact(ph)
+    @test_throws ArgumentError run_moments(p; loci = :other)
+    @test_throws ArgumentError run_moments(p; loci = :aggregate, between = true)
     @test o.pheno_var[end] ≈ o.geno_var[end] + envVar(p)
     @test all(0 .< o.mean_fitness .<= 1) && o.nsurv[1] == round(Int, 1000 * o.mean_fitness[1])
     # a continuous move: the lag converges to Lande's steady lag
@@ -528,12 +538,66 @@ end
     # the lowering is a functor: the generation's image is the composite of the steps' images
     steps = (:develop, :select, :reproduce, :record, :rescale, :mutate, :swap)
     Ext_ = Ext
-    m1 = Ext_.Moments(p; VG = 0.003); m2 = deepcopy(m1)
-    lower(g, :moments)(m1, nothing)
-    foldl(Catlab.compose, (lower(getfield(L, s), :moments) for s in steps))(m2, nothing)
-    @test (m1.zbar, m1.VG, m1.θ, m1.gen) == (m2.zbar, m2.VG, m2.θ, m2.gen)
+    for cov in (nothing, Ext_.DemeCov([1000.0], [0.003]; drift = false), Ext_.DemeCov([1000.0], [0.003]))
+        m1 = Ext_.Moments(p; VG = 0.003, cov); m2 = deepcopy(m1)
+        lower(g, :moments)(m1, nothing)
+        foldl(Catlab.compose, (lower(getfield(L, s), :moments) for s in steps))(m2, nothing)
+        @test (m1.zbar, m1.VG, m1.θ, m1.gen) == (m2.zbar, m2.VG, m2.θ, m2.gen)
+    end
     @test lower(g ⊗ g ⋅ L.migrate(2), :moments) isa Ext_.DemeOp        # several demes (see below)
     @test_throws ArgumentError run_moments(p; cycle = L.develop)
+end
+
+@testset "the multilocus Gaussian model: genic variance, LD, recombination, drift" begin
+    L = lifecycle(); g = L.generation
+    p = Params(PopSize = 1000, NoQTL = 50, Ploidy = 2, NoGenerations = 20_000, PhenotypeVar = 1.0, Heritability = 0.5,
+               MutationScalar = 0.01, MutationRatePerGamete = 0.01)
+    Vm, Vs = muteVar(p), selection_variance(p)
+    # without drift: V²/(V_s + V) = 2L·V_m, whatever the crossover model
+    V = gaussian_vg_loci(p)
+    @test V^2 / (Vs + V) ≈ 2 * 50 * Vm
+    @test V ≈ gaussian_vg_exact(Params(p; MutationScalar = 100 * p.MutationScalar, InitFitnessSD = initFitSD(p))) rtol = 1e-12
+    for q in (p, Params(p; CrossoverModel = :all), Params(p; RecombPoissonMean = 5.0))
+        @test run_moments(q).geno_var[end] ≈ V rtol = 1e-6
+        e = multilocus_equilibrium(q)
+        @test e.VG ≈ V rtol = 1e-6
+        @test e.ld < 0 && e.genic ≈ e.VG - e.ld
+        # the LD at equilibrium: −(1 − 1/L)·b/ρ per haplotype, b = L V_m/2, so ld = −(L − 1) V_m/ρ
+        @test e.ld ≈ -(50 - 1) * Vm / pair_recombination(q) rtol = 1e-6
+    end
+    # less recombination, more LD, the same V_G
+    @test multilocus_equilibrium(Params(p; RecombPoissonMean = 0.5)).ld < multilocus_equilibrium(p).ld
+    # drift: erosion = true and between = true (one deme) are the same recursion, and its
+    # fixed point is gaussian_vg_loci(p; drift = true), below the deterministic one
+    a, b = run_moments(p; erosion = true), run_moments(p; between = true)
+    @test a.geno_var == b.geno_var
+    @test a.geno_var[end] ≈ gaussian_vg_loci(p; drift = true) rtol = 1e-6
+    @test gaussian_vg_loci(p; drift = true) < V
+    # selection: the genic reduction is the sum of the loci's shares, (H/L)²/s each, and the
+    # survivors' variance is V − V²/s
+    H, s, Lq = 0.7, 3.0, 50
+    st = QTLSim.hap_init(2H, Inf, 2)
+    st2, β = QTLSim.hap_select(st, 1 / s, Inf, Lq, 2)
+    @test st[4] - st2[4] ≈ sum((H / Lq)^2 / s for _ in 1:Lq) && β ≈ 2H / s
+    @test QTLSim.hap_vpop(st2, Inf, 2) ≈ 2H - (2H)^2 / s
+    # recombination turns the LD back into variance: one generation of mating at ρ = 1
+    # restores the haplotypes' LE, losing only the between-haplotype part
+    st3 = QTLSim.hap_reproduce(st2, Inf, 1.0, 2)
+    @test st3[1] - st3[4] ≈ st2[2] - st2[5]
+    # a continuous move: Lande's steady lag with the multilocus V_G
+    pc = Params(p; NoGenerations = 30_000, MoveFitnessSDGen = 20_000, MoveFitnessSD = 0.01, MoveType = :continuous)
+    oc = run_moments(pc)
+    @test oc.theta[end] - oc.pheno_mean[end] ≈ steady_lag(pc; VG = oc.geno_var[end]) rtol = 1e-6
+    # several demes without migration are independent copies of one, drift or not
+    for erosion in (false, true)
+        @test run_moments(Params(p; NoGenerations = 300); cycle = g ⊗ g, erosion).geno_var[1:2:end] ==
+              run_moments(Params(p; NoGenerations = 300); erosion).geno_var
+    end
+    @test_throws ArgumentError run_moments([p, Params(p; Ploidy = 1)]; cycle = g ⊗ g)
+    # haploid drift is clonal: V_G loses 1/n per generation, not 1/(2n)
+    ph = Params(p; Ploidy = 1, NoQTL = 1, Drift = true, NoGenerations = 30, MutationScalar = 0.0, InitFitnessSD = 1.0)
+    oh = run_moments(ph; VG = 1.0, erosion = true)
+    @test oh.geno_var ≈ [(1 - 1 / 1000)^t * 1000 / 999 for t in 0:29]      # expected sample variances
 end
 
 @testset "density-regulated demography (Beverton-Holt)" begin
@@ -718,7 +782,9 @@ end
     pf = Params(pm; Demography = :fixed, MoveFitnessSDGen = -1, NoGenerations = 20_000)
     me, m0 = run_moments(pf; erosion = true), run_moments(pf)
     @test me.geno_var[end] < m0.geno_var[end]
-    # its fixed point: V = (V − V²/s)(1 − 1/(2 N W̄)) + V_m, with s = V_s + V
+    @test me.geno_var[end] ≈ gaussian_vg_loci(pf; drift = true) rtol = 1e-6
+    # the legacy aggregate recursion's fixed point: V = (V − V²/s)(1 − 1/(2 N W̄)) + V_m, s = V_s + V
+    me = run_moments(pf; erosion = true, loci = :aggregate)
     V, s = me.geno_var[end], selection_variance(pf) + me.geno_var[end]
     @test (V - V^2 / s) * (1 - 1 / (2 * 500 * me.mean_fitness[end])) + muteVar(pf) ≈ V rtol = 1e-6
 end
@@ -952,7 +1018,7 @@ end
     @test_throws ArgumentError expected_lag2(p; VG = 0.004)
 
     # the moments lowering: the periodic move lowers exactly, and the mean responds as predicted
-    V = gaussian_vg_exact(p)
+    V = gaussian_vg_loci(p)                  # the fixed point, which the move leaves alone
     P, A = 200.0, 0.1
     pm = Params(p; MoveType = :periodic, MoveFitnessSDGen = 500, MoveFitnessSD = 0.0, MoveAmplitude = A, MovePeriod = P)
     o = run_moments(pm; VG = V)
@@ -1665,14 +1731,22 @@ end
 
 @testset "several traits: the moments lowering, a second table for the same syntax" begin
     L = lifecycle(); g = L.generation
-    p = Params(PopSize = 1000, NoQTL = 50, Ploidy = 2, NoGenerations = 4000, PhenotypeVar = 1.0, Heritability = 0.5,
+    p = Params(PopSize = 1000, NoQTL = 50, Ploidy = 2, NoGenerations = 20_000, PhenotypeVar = 1.0, Heritability = 0.5,
                MutationScalar = 0.01, MutationRatePerGamete = 0.01, NoTraits = 2, MutCorr = 0.5, SelCorr = -0.3)
     o = run_moments(p)                       # dispatches to the trait table
-    @test o.gmatrix[end] ≈ gaussian_G(p) rtol = 1e-6
+    @test o.gmatrix[end] ≈ gaussian_G_loci(p) rtol = 1e-6       # the multilocus fixed point
+    @test gaussian_G_loci(p) ≈ gaussian_G(100 .* mutational_covariance(p), selection_variance_matrix(p))
+    @test run_moments(p; loci = :aggregate).gmatrix[end] ≈ gaussian_G(p) rtol = 1e-6    # the legacy recursion
+    @test run_moments(p; erosion = true).gmatrix[end] ≈ gaussian_G_loci(p; drift = true) rtol = 1e-6
+    # one trait of the two-trait recursion is the one-trait recursion
+    p1t = Params(p; NoTraits = 1, MutCorr = 0.0, SelCorr = 0.0, NoGenerations = 2000)
+    for erosion in (false, true)
+        @test Ext.run_trait_moments(p1t; erosion).geno_var[2:end] ≈ run_moments(p1t; erosion).geno_var[2:end] rtol = 1e-10
+    end
     @test o.pmatrix[end] ≈ o.gmatrix[end] + envVar(p) * [1 0; 0 1]
     @test all(0 .< o.mean_fitness .<= 1)
     # a continuous move along (1, 2): the lag converges to the steady lag vector
-    pc = Params(p; NoGenerations = 8000, MoveFitnessSDGen = 4000, MoveType = :continuous, MoveFitnessSD = 0.002,
+    pc = Params(p; NoGenerations = 30_000, MoveFitnessSDGen = 20_000, MoveType = :continuous, MoveFitnessSD = 0.002,
                 MoveDirection = [1.0, 2.0])
     oc = run_moments(pc)
     @test oc.trait_lag[end] ≈ steady_lag_vector(pc; G = oc.gmatrix[end]) rtol = 1e-6

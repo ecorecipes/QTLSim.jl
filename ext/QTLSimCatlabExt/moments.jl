@@ -37,60 +37,60 @@ mutable struct Moments
     W2bar::Float64       # the mean of W², for the number of parents under fecundity selection
     cov::Any             # `nothing`, or the demes' expected second moments (`DemeCov`, `between = true`)
     idx::Int             # this deme's index in `cov`
+    sinv::Float64        # 1/s, s = ω² + V_P the width of selection on the phenotype (0 when neutral)
 end
 
 Moments(p::Params; zbar = 0.0, VG = 0.0, erosion = false, cov = nothing, idx = 1) =
     Moments(p, 0, zbar, VG, VG + QTLSim.envVar(p), 0.0, QTLSim.initFitSD(p), p.PopSize, 1.0, 0.0,
             zbar, VG, zbar, VG, false, p.PopSize, p.PopSize, 0.0, erosion, QTLSim.envVar(p), false, 1.0,
-            cov, idx)
+            cov, idx, 0.0)
 
-# --- drift among demes: the expected second moments (between = true) -------
+# --- the multilocus model: expected second moments of the haplotypes ----------------
 #
-# With `between = true` the lowering also carries, for k demes, the expected second
-# moments of the genes about the demes' deterministic means z̄_a (the `zbar` of each
-# `Moments`), in units of a haplotype: one gamete's alleles summed over the loci, so that
-# an adult's genotype is h₁ + h₂ and its expected mean half the deme's z̄.
+# By default (`loci = :multilocus`) the lowering carries, for each of its k demes, the
+# expected second moments of the genes about the demes' deterministic means z̄_a (the
+# `zbar` of each `Moments`), in units of a haplotype: one gamete's alleles summed over the
+# loci, so that a diploid adult's genotype is h₁ + h₂ and its expected mean half the
+# deme's z̄ (a haploid's genotype is its one haplotype).
 #
 #   T[a]    = E[(h − z̄_a/2)²]                  one haplotype of an adult of deme a
-#   R[a]    = E[(h₁ − z̄_a/2)(h₂ − z̄_a/2)]      the two haplotypes of one adult
+#   R[a]    = E[(h₁ − z̄_a/2)(h₂ − z̄_a/2)]      the two haplotypes of one adult (diploid)
 #   Q[a, b] = E[(h − z̄_a/2)(h′ − z̄_b/2)]       haplotypes of two distinct adults of a and b
 #
 # and the same sums restricted to pairs of alleles at one locus, the genic parts Tg, Rg,
 # Qg (Σ_l over loci of the per-locus moments). The full moment is the genic part plus the
-# covariances of alleles at different loci (linkage disequilibrium, LD).
+# covariances of alleles at different loci (linkage disequilibrium, LD). The genetic
+# variance within deme a is `V_G = 2T + 2R − 4C` (haploid `T − C`), with C the expected
+# square of the deviation of the deme's mean haplotype from z̄_a/2.
 #
-# For a neutral additive trait under the continuum-of-alleles mutation of `mutate!`, the
-# alleles at different loci are uncorrelated, so full = genic, and the expected squared
-# difference of two genes, T_a + T_b − 2Q_ab (or 2T_a − 2R_a in one adult), is V_m times
-# their expected coalescence time truncated at the start of the run. The steps below,
-# composed, are `deme_coalescence`'s recursion read forward: the moments of generation t
-# are V_m times its E[min(T, t)], exactly. Selection and deterministic differences among
-# the demes' means create LD, which the full moments carry and recombination breaks up.
+# The images of select, reproduce and mutate on one deme's moments are QTLSim's
+# `hap_select`, `hap_reproduce` and `hap_mutate`, whose equations are in
+# src/multilocus.jl: Gaussian selection of width s lowers a haplotype's within-deme
+# variance by D = H²/s (H = V_G/2, diploid), the genic parts by D/L (each locus carries
+# 1/L of H; Lande's multilocus Gaussian), the rest is negative LD; recombination at the
+# rate `pair_recombination(p)` turns LD back into variance; mutation adds V_m/Ploidy to
+# each haplotype. Without drift (the default) the demes are infinite, C = Q = 0, and one
+# deme converges to `gaussian_vg_loci(p)`. With drift (`erosion = true`, or `between =
+# true`, which also records the statistics among demes) each deme has its expected N
+# adults and n parents, and selection also shrinks the deviation of the deme's mean,
+# C ← (1 − β)² C and Q_ab ← (1 − β) Q_ab with β = V_G/s. Each step's image (`cov_*!`) acts
+# on these moments; for a neutral additive trait under the continuum-of-alleles mutation
+# of `mutate!`, full = genic, and the expected squared difference of two genes is V_m
+# times their expected coalescence time truncated at the start of the run: the steps
+# composed are `deme_coalescence`'s recursion read forward, exactly.
 #
-# Each step's image (`cov_*!`) acts on them; for deme a of N adults, with
-#   C_aa = (2(N−1)Q_aa + T_a + R_a)/(2N)   the expected square of the deme's mean haplotype deviation,
-#   σ²_a = T_a − C_aa, r_a = R_a − C_aa    the within-deme variance of a haplotype and covariance of an adult's two,
-# (and Cg, σ²g, rg from Tg, Rg, Qg alike):
-# - select (Gaussian, β = V_G/s from moments_select!, L loci): the deme mean's deviation
-#   shrinks by 1 − β, C ← (1 − β)² C, Q_ab ← (1 − β) Q_ab; within the deme the genotypic
-#   variance falls by the factor 1 − β and an adult's h₁ − h₂ is unchanged (Gaussian
-#   truncation), σ² ← σ² − β(σ² + r)/2, r ← r − β(σ² + r)/2. Each locus responds as its
-#   share of V_G, β/L (equal shares): σ²g ← σ²g − (β/L)(σ²g + rg)/2, likewise rg,
-#   Cg ← Cg − β(2 − β)/L · C, Qg_ab ← Qg_ab − (β/L) Q_ab (Lande's multilocus Gaussian). The
-#   rest of the reduction is negative LD. Neutral selection (β = 0) is the identity;
-# - reproduce (n parents; ρ the probability that a gamete's alleles at two random distinct
-#   loci come from different parental haplotypes, `pair_recombination`): R_a ← Q_aa (an
-#   offspring's two haplotypes come from distinct parents), Q_aa ← (T_a + R_a)/(2n) +
-#   (1 − 1/n) Q_aa (two offspring share a parent with probability 1/n, and then a
-#   haplotype with probability 1/2), the same for the genic parts, and
-#   T_a ← Tg_a + (1 − ρ)(T_a − Tg_a) + ρ (R_a − Rg_a) (recombination);
-# - mutate: T_a += V_m/2 and Tg_a += V_m/2 (each haplotype gains V_m/2, locus by locus);
-# - migrate (backward matrix P, law J of the origins of two distinct adults): with
-#   Δ_ac = (z̄_c − z̄′_a)/2, T′_a = Σ_c P_ac (T_c + Δ_ac²), R′_a = Σ_c P_ac (R_c + Δ_ac²),
-#   Q′_ab = Σ_cd J[ab, cd] (Q_cd + Δ_ac Δ_bd); in the genic parts Δ_ac Δ_bd is weighted by
-#   1/L, the deterministic difference of the means spread equally over the loci.
+# Migration (backward matrix P, law J of the origins of two distinct adults): with
+# Δ_ac = (z̄_c − z̄′_a)/Ploidy, T′_a = Σ_c P_ac (T_c + Δ_ac²), R′_a = Σ_c P_ac (R_c + Δ_ac²),
+# Q′_ab = Σ_cd J[ab, cd] (Q_cd + Δ_ac Δ_bd); in the genic parts Δ_ac Δ_bd is weighted by
+# 1/L, the deterministic difference of the means spread equally over the loci. Without
+# drift P is `migration_mixing` and J = P ⊗ P, so Q stays 0.
+#
+# With `loci = :aggregate` there are no haplotype moments (`cov = nothing`): selection's
+# reduction V_G²/s is inherited whole, V ← V − V²/(V_s + V) + V_m, exact only for one
+# haploid locus (or haploid clones), with fixed point `gaussian_vg_exact`; `erosion`
+# multiplies V_G by 1 − 1/(2n). It is the recursion of QTLSim before the multilocus model.
 
-"The expected second moments of the genes of k demes (`between = true`); see the comment above."
+"The expected second moments of the haplotypes of k demes (`loci = :multilocus`); see the comment above."
 mutable struct DemeCov
     T::Vector{Float64}
     R::Vector{Float64}
@@ -100,67 +100,61 @@ mutable struct DemeCov
     Qg::Matrix{Float64}
     origins::Any                         # :exchange, :pool or a k² × k² matrix
     cache::Dict{Any,Any}                 # (M, N, alive) => (P, J); (L, mean, model) => ρ
+    ploidy::Int
+    drift::Bool                          # finite demes (N adults, n parents); false: infinite
 end
 
 # demes start as Hardy–Weinberg populations in linkage equilibrium, with exactly their
 # mean z̄ and population variance V
-function DemeCov(N::AbstractVector, V::AbstractVector; origins = :exchange)
+function DemeCov(N::AbstractVector, V::AbstractVector; origins = :exchange, ploidy::Integer = 2, drift::Bool = true)
     k = length(N)
-    T = V ./ 2
-    Q = zeros(k, k)
-    for a in 1:k; Q[a, a] = -T[a] / (2N[a] - 2); end
-    DemeCov(T, zeros(k), Q, copy(T), zeros(k), copy(Q), origins, Dict{Any,Any}())
+    st = [QTLSim.hap_init(float(V[a]), drift ? float(N[a]) : Inf, ploidy) for a in 1:k]
+    Q, Qg = zeros(k, k), zeros(k, k)
+    for a in 1:k; Q[a, a] = st[a][3]; Qg[a, a] = st[a][6]; end
+    DemeCov([x[1] for x in st], zeros(k), Q, [x[4] for x in st], zeros(k), Qg, origins, Dict{Any,Any}(), ploidy, drift)
 end
 
+# the number of adults (parents) of a deme in the moments: infinite without drift
+_nd(c::DemeCov, N) = c.drift ? max(N, 2.0) : Inf
+_np(c::DemeCov, n) = c.drift ? max(n, 1.0) : Inf
+_state(c::DemeCov, a) = (c.T[a], c.R[a], c.Q[a, a], c.Tg[a], c.Rg[a], c.Qg[a, a])
+_setstate!(c::DemeCov, a, st) = ((c.T[a], c.R[a], c.Q[a, a], c.Tg[a], c.Rg[a], c.Qg[a, a]) = st; c)
 # the expected square of the deviation of deme a's mean haplotype, C_aa
-_cmean(T, R, Q, a, N) = (2(N - 1) * Q[a, a] + T[a] + R[a]) / (2N)
-_cmean(c::DemeCov, a, N) = _cmean(c.T, c.R, c.Q, a, N)
-# the expected within-deme population variance (divisor N) of genotypes, 2σ² + 2r
-_vpop(c::DemeCov, a, N) = 2c.T[a] + 2c.R[a] - 4_cmean(c, a, N)
+_cmean(c::DemeCov, a, N) = QTLSim.hap_cmean(c.T[a], c.R[a], c.Q[a, a], _nd(c, N), c.ploidy)
+# the expected within-deme population variance (divisor N) of genotypes
+_vpop(c::DemeCov, a, N) = QTLSim.hap_vpop(_state(c, a), _nd(c, N), c.ploidy)
 
 function cov_select!(m::Moments)
-    c, a, N, L = m.cov, m.idx, max(m.N, 2.0), m.p.NoQTL
-    β = m.VG > 0 ? 1 - m.VGs / m.VG : 0.0
-    β == 0 && return m
-    C, Cg = _cmean(c.T, c.R, c.Q, a, N), _cmean(c.Tg, c.Rg, c.Qg, a, N)
-    σ2, r = c.T[a] - C, c.R[a] - C
-    σ2g, rg = c.Tg[a] - Cg, c.Rg[a] - Cg
+    c, a, L = m.cov, m.idx, m.p.NoQTL
+    m.sinv == 0 && return m                 # neutral: the identity
+    st, β = QTLSim.hap_select(_state(c, a), m.sinv, _nd(c, m.N), L, c.ploidy)
     for b in axes(c.Q, 1)
         b == a && continue
         c.Qg[a, b] -= β / L * c.Q[a, b]; c.Qg[b, a] = c.Qg[a, b]
         c.Q[a, b] *= 1 - β;              c.Q[b, a] = c.Q[a, b]
     end
-    Cg -= β * (2 - β) / L * C
-    C *= (1 - β)^2
-    d, dg = β * (σ2 + r) / 2, β / L * (σ2g + rg) / 2
-    σ2, r, σ2g, rg = σ2 - d, r - d, σ2g - dg, rg - dg
-    c.T[a], c.R[a], c.Q[a, a] = C + σ2, C + r, C - (σ2 + r) / (2N - 2)
-    c.Tg[a], c.Rg[a], c.Qg[a, a] = Cg + σ2g, Cg + rg, Cg - (σ2g + rg) / (2N - 2)
+    _setstate!(c, a, st)
     m
 end
 
 function cov_reproduce!(m::Moments, npar)
-    c, a, n, p = m.cov, m.idx, max(npar, 1.0), m.p
+    c, a, p = m.cov, m.idx, m.p
     ρ = get!(() -> QTLSim.pair_recombination(p), c.cache, (p.NoQTL, p.RecombPoissonMean, p.CrossoverModel))
-    T, R, Q = c.T[a], c.R[a], c.Q[a, a]
-    Tg, Rg, Qg = c.Tg[a], c.Rg[a], c.Qg[a, a]
-    c.R[a], c.Rg[a] = Q, Qg
-    c.Q[a, a] = (T + R) / (2n) + (1 - 1 / n) * Q
-    c.Qg[a, a] = (Tg + Rg) / (2n) + (1 - 1 / n) * Qg
-    c.T[a] = Tg + (1 - ρ) * (T - Tg) + ρ * (R - Rg)
+    _setstate!(c, a, QTLSim.hap_reproduce(_state(c, a), _np(c, npar), ρ, c.ploidy))
     m
 end
 
 function moments_mutate!(m::Moments)
     Vm = QTLSim.muteVar(m.p)
     m.VGoff += Vm
-    m.cov === nothing || (m.cov.T[m.idx] += Vm / 2; m.cov.Tg[m.idx] += Vm / 2)
+    c = m.cov
+    c === nothing || _setstate!(c, m.idx, QTLSim.hap_mutate(_state(c, m.idx), Vm, c.ploidy))
     m
 end
 
 function moments_swap!(m::Moments)
     m.zbar = m.zoff; m.VG = m.VGoff; m.VE = QTLSim.envVar(m.p); m.N = m.Noff; m.gen += 1
-    m.cov === nothing || m.extinct || (m.VG = _vpop(m.cov, m.idx, max(m.N, 2.0)))
+    m.cov === nothing || m.extinct || (m.VG = _vpop(m.cov, m.idx, m.N))
     m
 end
 
@@ -186,7 +180,7 @@ function moments_select!(m::Moments; θ = nothing)
     end
     if p.Drift
         m.Wbar, m.S, m.zs, m.VGs = 1.0, 0.0, m.zbar, m.VG
-        m.W2bar = 1.0
+        m.W2bar, m.sinv = 1.0, 0.0
     else
         # Gaussian selection of width ωe on z ~ N(z̄, V_P): survivors are N(z̄ + V_P λ/s, V_P ωe²/s)
         # with λ = θ − z̄ and s = ωe² + V_P, and the genotype regresses on the phenotype
@@ -197,6 +191,7 @@ function moments_select!(m::Moments; θ = nothing)
         m.S = m.VP * λ / s
         m.zs = m.zbar + m.VG * λ / s
         m.VGs = m.VG - m.VG^2 / s
+        m.sinv = 1 / s
         # E[W²]: W² is c² times a Gaussian of width ωe/√2
         s2 = ωe^2 + 2m.VP
         m.W2bar = FITNESS_PEAK^2 * ωe / sqrt(s2) * exp(-λ^2 / s2)
@@ -211,9 +206,9 @@ function moments_select!(m::Moments; θ = nothing)
     m
 end
 
-# Offspring inherit the survivors' mean and genetic variance: the Gaussian (continuum of
-# alleles) approximation, in which selection's reduction of the variance is genic and
-# lasting, and drift is ignored.
+# Offspring inherit the survivors' mean. Their genetic variance comes from the haplotype
+# moments (`cov_reproduce!`; the multilocus model), or with `loci = :aggregate` it is the
+# survivors', all of selection's reduction inherited (exact for one haploid locus).
 function moments_reproduce!(m::Moments)
     p = m.p
     m.zoff, m.VGoff = m.zs, m.VGs
@@ -238,7 +233,7 @@ function moments_record!(rec, m::Moments)
     (rec === nothing || m.gen % m.p.Sample != 0) && return m
     push!(rec.gen, m.gen); haskey(rec, :deme) && push!(rec.deme, rec.demeof[m])
     push!(rec.pheno_mean, m.zbar); push!(rec.pheno_var, m.VP)
-    push!(rec.geno_var, m.cov === nothing ? m.VG : m.VG * m.N / (m.N - 1)); push!(rec.nsurv, round(Int, m.nsurv)); push!(rec.theta, m.θ)
+    push!(rec.geno_var, m.cov === nothing || !m.cov.drift ? m.VG : m.VG * m.N / (m.N - 1)); push!(rec.nsurv, round(Int, m.nsurv)); push!(rec.theta, m.θ)
     push!(rec.omega, m.ω); push!(rec.mean_fitness, m.Wbar); push!(rec.sel_diff, m.S)
     push!(rec.popsize, round(Int, m.N))
     m
@@ -255,8 +250,10 @@ moment_images(rec = nothing) = Dict{Symbol,Any}(
     :swap => Operator(:swap, (m, rng) -> moments_swap!(m)))
 
 function run_moments1(p::Params; cycle = lifecycle().generation, images = Dict{Symbol,Any}(),
-                      zbar = 0.0, VG = 0.0, optimum = nothing, erosion = false, between = false, origins = :exchange)
+                      zbar = 0.0, VG = 0.0, optimum = nothing, erosion = false, between = false, origins = :exchange,
+                      loci::Symbol = :multilocus)
     QTLSim.checkparams(p)
+    check_loci(loci, between)
     between && check_between([p], origins)
     if optimum !== nothing          # a given optimum per generation, optimum[t + 1], replaces the move
         length(optimum) >= p.NoGenerations ||
@@ -269,7 +266,8 @@ function run_moments1(p::Params; cycle = lifecycle().generation, images = Dict{S
         throw(ArgumentError("the moments lowering iterates a life cycle Zygotes → Zygotes; got $(dom(cycle)) → $(codom(cycle))"))
     rec = records()
     step = lower(cycle, :moments; images, record = rec)
-    m = Moments(p; zbar, VG, erosion, cov = between ? DemeCov([float(p.PopSize)], [float(VG)]; origins) : nothing)
+    cov = loci === :multilocus ? DemeCov([float(p.PopSize)], [float(VG)]; origins, ploidy = p.Ploidy, drift = between || erosion) : nothing
+    m = Moments(p; zbar, VG, erosion, cov)
     mp = metapop_records()
     m.gen = 0                    # whole cycles, as in run_composed
     while m.gen < p.NoGenerations
@@ -331,12 +329,17 @@ function moments_migrate!(s, demes, rate)
     s
 end
 
-# The backward matrix P and the law J of the origins of pairs, for `between = true`: P is
+# The backward matrix P and the law J of the origins of pairs. Without drift P is
+# `migration_mixing`, as for `loci = :aggregate`, and J = P ⊗ P. With drift P is
 # `backward_migration` (`migration_mixing` averaged over the visiting orders; exactly
 # symmetric for the island model) and J is `exchange_origins(P, N)` (the kernel's
 # `migrate!`), `kron(P, P)` (`:pool`) or a given matrix. Cached per (M, N, alive).
 function cov_mixing(c::DemeCov, M, Nv, alive)
     get!(c.cache, (M, Nv, alive)) do
+        if !c.drift
+            P = migration_mixing(M, Nv, alive)
+            return (P, kron(P, P))
+        end
         P = all(alive) ? backward_migration(M, Nv) : migration_mixing(M, Nv, alive)
         J = c.origins === :exchange ? exchange_origins(P, Nv) : c.origins === :pool ? kron(P, P) : c.origins
         size(J) == (length(Nv)^2, length(Nv)^2) ||
@@ -354,7 +357,7 @@ function cov_migrate!(s, ms, M, alive)
     ix = [m.idx for m in ms]
     z, VE = [m.zbar for m in ms], [m.VE for m in ms]
     z2 = [alive[a] ? sum(P[a, :] .* z) : z[a] for a in 1:k]
-    Δ = [(z[cc] - z2[a]) / 2 for a in 1:k, cc in 1:k]
+    Δ = [(z[cc] - z2[a]) / c.ploidy for a in 1:k, cc in 1:k]
     function mix(T, R, Q, κ)
         T2, R2, Q2 = copy(T), copy(R), copy(Q)
         for a in 1:k
@@ -392,7 +395,7 @@ function cov_summary(ms::AbstractVector{Moments})
     Nv = [max(m.N, 2.0) for m in ms]
     within = [_vpop(c, m.idx, N) * N / (N - 1) for (m, N) in zip(ms, Nv)]
     C = [_cmean(c, m.idx, N) for (m, N) in zip(ms, Nv)]
-    pairs = [a == b ? 0.0 : (ms[a].zbar - ms[b].zbar)^2 / 2 + 2(C[a] + C[b] - 2c.Q[ms[a].idx, ms[b].idx])
+    pairs = [a == b ? 0.0 : (ms[a].zbar - ms[b].zbar)^2 / 2 + c.ploidy^2 / 2 * (C[a] + C[b] - 2c.Q[ms[a].idx, ms[b].idx])
              for a in 1:k, b in 1:k]
     VW = sum(within) / k
     k == 1 && return (; within, pairs, VW, among = 0.0, between = 0.0, qst = 0.0, qst_demes = 0.0)
@@ -419,6 +422,12 @@ function check_between(ps, origins)
         throw(ArgumentError("origins is :exchange, :pool or a k² × k² matrix; got $origins"))
 end
 
+function check_loci(loci, between)
+    loci in (:multilocus, :aggregate) || throw(ArgumentError("loci is :multilocus or :aggregate; got :$loci"))
+    loci === :aggregate && between &&
+        throw(ArgumentError("between = true tracks the haplotype moments of the multilocus model; it has no loci = :aggregate"))
+end
+
 "Migration among `k` demes at `rate`, as the image of the step `migrate` in the moments lowering."
 moments_migrate_op(k, rate) = DemeOp(k, collect(1:k), (s, d, rng) -> moments_migrate!(s, d, rate))
 
@@ -430,12 +439,15 @@ end
 
 function run_moments(ps::AbstractVector{Params}; cycle, images = Dict{Symbol,Any}(), zbar = 0.0, VG = 0.0,
                      erosion = false, migration_rate::Union{Real,AbstractMatrix} = 0.0, between = false,
-                     origins::Union{Symbol,AbstractMatrix} = :exchange)
+                     origins::Union{Symbol,AbstractMatrix} = :exchange, loci::Symbol = :multilocus)
     k = length(ps)
-    k == 1 && return between ? run_moments1(ps[1]; cycle, images, zbar = only(vcat(zbar)), VG = only(vcat(VG)), erosion, between, origins) :
-                               run_moments1(ps[1]; cycle, images, zbar, VG, erosion)
+    k == 1 && return between ? run_moments1(ps[1]; cycle, images, zbar = only(vcat(zbar)), VG = only(vcat(VG)), erosion, between, origins, loci) :
+                               run_moments1(ps[1]; cycle, images, zbar, VG, erosion, loci)
     foreach(QTLSim.checkparams, ps)
+    check_loci(loci, between)
     between && check_between(ps, origins)
+    loci === :multilocus && any(q -> q.Ploidy != ps[1].Ploidy, ps) &&
+        throw(ArgumentError("the demes of a metapopulation have the same ploidy"))
     all(q -> q.NoGenerations == ps[1].NoGenerations, ps) ||
         throw(ArgumentError("the demes of a metapopulation run for the same number of generations"))
     zk = zygotes_word(k)
@@ -447,7 +459,8 @@ function run_moments(ps::AbstractVector{Params}; cycle, images = Dict{Symbol,Any
            popsize = Int[], demeof = IdDict{Moments,Int}())
     perdeme(x, name) = x isa AbstractVector ? (length(x) == k ? x : throw(ArgumentError("$name gives $(length(x)) values for $k demes"))) : fill(x, k)
     zs, vs = perdeme(zbar, "zbar"), perdeme(VG, "VG")
-    cov = between ? DemeCov([float(q.PopSize) for q in ps], float.(vs); origins) : nothing
+    cov = loci === :multilocus ?
+          DemeCov([float(q.PopSize) for q in ps], float.(vs); origins, ploidy = ps[1].Ploidy, drift = between || erosion) : nothing
     s = DemeMoments([Moments(q; zbar = z, VG = v, erosion, cov, idx = i) for (i, (q, z, v)) in enumerate(zip(ps, zs, vs))])
     mp = metapop_records()
     for (i, m) in enumerate(s.demes); rec.demeof[m] = i; end

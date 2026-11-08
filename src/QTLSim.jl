@@ -25,6 +25,7 @@ include("model.jl")
 include("traits.jl")
 include("theory.jl")
 include("traits_theory.jl")
+include("multilocus.jl")
 include("migration.jl")
 include("categorical.jl")
 include("sweep.jl")
@@ -36,7 +37,7 @@ export Params, World, genomes, setgenomes!, simulate, run!, generation!, init_en
        mutational_covariance, selection_covariance, selection_shape, move_direction, traitvalues,
        read_qtsim_options, write_qtsim_options
 # analytical predictions
-export selection_variance, gaussian_vg, gaussian_vg_exact, effective_size, house_of_cards_vg,
+export selection_variance, gaussian_vg, gaussian_vg_exact, gaussian_vg_loci, multilocus_equilibrium, effective_size, house_of_cards_vg,
        steady_lag, critical_rate, mutation_adjusted, extinction_distribution, rescue_probability
 # fluctuating optima
 export periodic_response, red_noise_lag_var, expected_lag2, lag_load
