@@ -3,9 +3,12 @@
 # (Lande 1975, 1976; Bürger and Lynch 1995). The same morphism of the life-cycle category
 # that the kernel and SLiM simulate is lowered to its predicted means and variances, so
 # a simulation can be checked against theory step for step, and any life cycle built
-# from these steps has a prediction. By default the population is the multilocus Gaussian
-# model (src/multilocus.jl), whose fixed point is `gaussian_vg_loci`; `loci = :aggregate` is
-# the one-locus recursion of `gaussian_vg_exact`. The algebra is in
+# from these steps has a prediction. The population is the multilocus Gaussian model
+# (src/multilocus.jl, `loci = :multilocus`), whose fixed point is `gaussian_vg_loci`, by
+# default with the rare-alleles closure (src/rare_alleles.jl, `loci = :rare_alleles`, fixed
+# point `rare_alleles_vg`) for one diploid trait (`loci = :auto`, resolved by
+# `QTLSim.moments_loci` and `resolve_loci` below); `loci = :aggregate` is the one-locus
+# recursion of `gaussian_vg_exact`. The algebra is in
 # lean/CategoricalQuantGen/Multilocus.lean and Theory.lean.
 
 """
@@ -49,7 +52,7 @@ Moments(p::Params; zbar = 0.0, VG = 0.0, erosion = false, cov = nothing, idx = 1
 
 # --- the multilocus model: expected second moments of the haplotypes ----------------
 #
-# By default (`loci = :multilocus`) the lowering carries, for each of its k demes, the
+# Unless `loci = :aggregate`, the lowering carries, for each of its k demes, the
 # expected second moments of the genes about the demes' deterministic means z̄_a (the
 # `zbar` of each `Moments`), in units of a haplotype: one gamete's alleles summed over the
 # loci, so that a diploid adult's genotype is h₁ + h₂ and its expected mean half the
@@ -73,8 +76,10 @@ Moments(p::Params; zbar = 0.0, VG = 0.0, erosion = false, cov = nothing, idx = 1
 # variance by D = H²/s (H = V_G/2, diploid), the genic parts by D/L (each locus carries
 # 1/L of H; Lande's multilocus Gaussian), the rest is negative LD; recombination at the
 # rates of `QTLSim.pair_classes(p)` turns LD back into variance, class by class; mutation adds V_m/Ploidy to
-# each haplotype. Without drift (the default) the demes are infinite, C = Q = 0, and one
-# deme converges to `gaussian_vg_loci(p)`. With drift (`erosion = true`, or `between =
+# each haplotype. With `loci = :rare_alleles` the genic part also loses β²α²/(2s) of
+# itself (`hap_select`'s `α2`, one α² per deme). Without drift (the default) the demes are
+# infinite, C = Q = 0, and one deme converges to `gaussian_vg_loci(p)` (`rare_alleles_vg(p)`
+# with the rare-alleles closure). With drift (`erosion = true`, or `between =
 # true`, which also records the statistics among demes) each deme has its expected N
 # adults and n parents, and selection also shrinks the deviation of the deme's mean,
 # C ← (1 − β)² C and Q_ab ← (1 − β) Q_ab with β = V_G/s. Each step's image (`cov_*!`) acts
@@ -94,7 +99,7 @@ Moments(p::Params; zbar = 0.0, VG = 0.0, erosion = false, cov = nothing, idx = 1
 # haploid locus (or haploid clones), with fixed point `gaussian_vg_exact`; `erosion`
 # multiplies V_G by 1 − 1/(2n). It is the recursion of QTLSim before the multilocus model.
 
-"The expected second moments of the haplotypes of k demes (`loci = :multilocus`), by pair class; see the comment above."
+"The expected second moments of the haplotypes of k demes (`loci = :multilocus` or `:rare_alleles`), by pair class; see the comment above."
 mutable struct DemeCov
     T::Matrix{Float64}                   # k × classes
     R::Matrix{Float64}
@@ -105,23 +110,26 @@ mutable struct DemeCov
     cache::Dict{Any,Any}                 # (M, N, alive) => (P, J)
     ploidy::Int
     drift::Bool                          # finite demes (N adults, n parents); false: infinite
-    α2::Float64                          # loci = :rare_alleles: the mutation effect variance α²; 0: Gaussian
+    α2::Vector{Float64}                  # per deme; loci = :rare_alleles: the mutation effect variance α²; 0: Gaussian
 end
 
 # demes start as Hardy–Weinberg populations in linkage equilibrium, with exactly their
 # mean z̄ and population variance V
 function DemeCov(N::AbstractVector, V::AbstractVector; origins = :exchange, ploidy::Integer = 2, drift::Bool = true,
-                 classes = ([1.0, 0.0], [0.0, 0.0]), α2::Real = 0.0)
+                 classes = ([1.0, 0.0], [0.0, 0.0]), α2 = 0.0)
     k = length(N)
     ω, ρ = classes
     nc = length(ω)
     st = [QTLSim.hap_init(float(V[a]), drift ? float(N[a]) : Inf, ploidy, nc) for a in 1:k]
     T, R, Q = zeros(k, nc), zeros(k, nc), zeros(k, k, nc)
     for a in 1:k; T[a, :] = st[a][1]; Q[a, a, :] = st[a][3]; end
-    DemeCov(T, R, Q, collect(float.(ω)), collect(float.(ρ)), origins, Dict{Any,Any}(), ploidy, drift, float(α2))
+    α2s = α2 isa Real ? fill(float(α2), k) : collect(Float64, α2)
+    length(α2s) == k || throw(ArgumentError("α2 gives $(length(α2s)) values for $k demes"))
+    DemeCov(T, R, Q, collect(float.(ω)), collect(float.(ρ)), origins, Dict{Any,Any}(), ploidy, drift, α2s)
 end
-DemeCov(p::Params, N::AbstractVector, V::AbstractVector; loci::Symbol = :multilocus, kw...) =
-    DemeCov(N, V; ploidy = p.Ploidy, classes = QTLSim.pair_classes(p), α2 = QTLSim.rare_alleles_effect(p, loci), kw...)
+# α2: one value per deme, from `resolve_loci` (0 for the multilocus Gaussian model)
+DemeCov(p::Params, N::AbstractVector, V::AbstractVector; α2 = 0.0, kw...) =
+    DemeCov(N, V; ploidy = p.Ploidy, classes = QTLSim.pair_classes(p), α2, kw...)
 
 # the number of adults (parents) of a deme in the moments: infinite without drift
 _nd(c::DemeCov, N) = c.drift ? max(N, 2.0) : Inf
@@ -136,7 +144,7 @@ _vpop(c::DemeCov, a, N) = QTLSim.hap_vpop(_state(c, a), _nd(c, N), c.ploidy)
 function cov_select!(m::Moments)
     c, a = m.cov, m.idx
     m.sinv == 0 && return m                 # neutral: the identity
-    st, β = QTLSim.hap_select(_state(c, a), m.sinv, _nd(c, m.N), c.ω, c.ploidy; c.α2)
+    st, β = QTLSim.hap_select(_state(c, a), m.sinv, _nd(c, m.N), c.ω, c.ploidy; α2 = c.α2[a])
     for b in axes(c.Q, 1)
         b == a && continue
         Qab = sum(c.Q[a, b, :])
@@ -265,9 +273,10 @@ moment_images(::OneTraitModel, rec = nothing) = Dict{Symbol,Any}(
 
 function run_moments1(p::Params; cycle = lifecycle().generation, images = Dict{Symbol,Any}(),
                       zbar = 0.0, VG = 0.0, optimum = nothing, erosion = false, between = false, origins = :exchange,
-                      loci::Symbol = :multilocus)
+                      loci::Symbol = :auto)
     QTLSim.checkparams(p)
     check_loci(loci, between)
+    loci, α2 = resolve_loci([p], cycle, loci)
     between && check_between([p], origins)
     if optimum !== nothing          # a given optimum per generation, optimum[t + 1], replaces the move
         length(optimum) >= p.NoGenerations ||
@@ -280,7 +289,7 @@ function run_moments1(p::Params; cycle = lifecycle().generation, images = Dict{S
         throw(ArgumentError("the moments lowering iterates a life cycle Zygotes → Zygotes; got $(dom(cycle)) → $(codom(cycle))"))
     rec = records()
     step = lower(cycle, :moments; images, record = rec)
-    cov = loci === :aggregate ? nothing : DemeCov(p, [float(p.PopSize)], [float(VG)]; loci, origins, drift = between || erosion)
+    cov = loci === :aggregate ? nothing : DemeCov(p, [float(p.PopSize)], [float(VG)]; α2, origins, drift = between || erosion)
     m = Moments(p; zbar, VG, erosion, cov)
     mp = metapop_records()
     m.gen = 0                    # whole cycles, as in run_composed
@@ -438,8 +447,8 @@ function check_between(ps, origins)
 end
 
 function check_loci(loci, between)
-    loci in (:multilocus, :rare_alleles, :aggregate) ||
-        throw(ArgumentError("loci is :multilocus, :rare_alleles or :aggregate; got :$loci"))
+    loci in (:auto, :multilocus, :rare_alleles, :aggregate) ||
+        throw(ArgumentError("loci is :auto, :multilocus, :rare_alleles or :aggregate; got :$loci"))
     loci === :aggregate && between &&
         throw(ArgumentError("between = true tracks the haplotype moments of the multilocus model; it has no loci = :aggregate"))
 end
@@ -447,25 +456,59 @@ end
 "Migration among `k` demes at `rate`, as the image of the step `migrate` in the moments lowering."
 moments_migrate_op(k, rate) = DemeOp(k, collect(1:k), (s, d, rng) -> moments_migrate!(s, d, rate))
 
+# The mutation fields (`MutationScalar`, `MutationRatePerGamete`) that the mutate steps of
+# `cycle` carry: a named tuple when every mutate step carries the same (empty when none
+# does), `nothing` when they differ.
+function mutate_fields(cycle)
+    fs = unique([NamedTuple(k => v for (k, v) in pairs(stepparams(g)) if k in (:MutationScalar, :MutationRatePerGamete))
+                 for g in stepsof(cycle) if !(g isa ObExpr) && stepname(g) === :mutate])
+    isempty(fs) ? (;) : length(fs) == 1 ? only(fs) : nothing
+end
+
+# `loci` resolved for the demes `ps` and the life cycle `cycle`, with the rare-alleles
+# effect variance α² of each deme (zeros unless :rare_alleles). `:auto` is
+# `QTLSim.moments_loci` of every deme (with the mutate steps' fields), :rare_alleles if all
+# of them are, and :multilocus if the mutate steps carry different mutation fields (then no
+# one α² describes the mutations; an explicit :rare_alleles is an error there).
+function resolve_loci(ps::AbstractVector{Params}, cycle, loci::Symbol)
+    loci in (:multilocus, :aggregate) && return loci, zeros(length(ps))
+    mf = mutate_fields(cycle)
+    if mf === nothing
+        loci === :auto && return :multilocus, zeros(length(ps))
+        throw(ArgumentError("loci = :rare_alleles needs one law of mutation effects per deme; the mutate steps of the " *
+                            "life cycle carry different MutationScalar or MutationRatePerGamete"))
+    end
+    qs = isempty(mf) ? ps : [Params(q; mf...) for q in ps]
+    if loci === :auto
+        all(q -> QTLSim.moments_loci(q) === :rare_alleles, qs) || return :multilocus, zeros(length(ps))
+        loci = :rare_alleles
+    end
+    loci, [QTLSim.rare_alleles_effect(q, loci) for q in qs]
+end
+
 function run_moments(p::Params; cycle = lifecycle().generation, kw...)
-    p.NoTraits > 1 && get(kw, :loci, :multilocus) === :rare_alleles &&
+    loci = get(kw, :loci, :auto)
+    p.NoTraits > 1 && loci === :rare_alleles &&
         throw(ArgumentError("loci = :rare_alleles is for one trait; NoTraits = $(p.NoTraits)"))
-    p.NoTraits > 1 && return run_trait_moments(p; cycle, kw...)    # trait_moments.jl
+    p.NoTraits > 1 && return run_trait_moments(p; cycle, kw..., loci = loci === :auto ? :multilocus : loci)    # trait_moments.jl
     k = nfactors(dom(cycle))
     k > 1 ? run_moments(fill(p, k); cycle, kw...) : run_moments1(p; cycle, kw...)
 end
 
 function run_moments(ps::AbstractVector{Params}; cycle, images = Dict{Symbol,Any}(), zbar = 0.0, VG = 0.0,
                      erosion = false, migration_rate::Union{Real,AbstractMatrix} = 0.0, between = false,
-                     origins::Union{Symbol,AbstractMatrix} = :exchange, loci::Symbol = :multilocus)
+                     origins::Union{Symbol,AbstractMatrix} = :exchange, loci::Symbol = :auto)
+    ps[1].NoTraits > 1 && loci === :rare_alleles &&
+        throw(ArgumentError("loci = :rare_alleles is for one trait; NoTraits = $(ps[1].NoTraits)"))
     ps[1].NoTraits > 1 && return run_trait_moments(collect(Params, ps); cycle, images, erosion, migration_rate, between, origins,
-                                                   loci, (zbar isa Real ? (;) : (; zbar))..., (VG isa Real ? (;) : (; G = VG))...)  # trait_moments.jl
+                                                   loci = loci === :auto ? :multilocus : loci, (zbar isa Real ? (;) : (; zbar))..., (VG isa Real ? (;) : (; G = VG))...)  # trait_moments.jl
     k = length(ps)
     k == 1 && return between ? run_moments1(ps[1]; cycle, images, zbar = only(vcat(zbar)), VG = only(vcat(VG)), erosion, between, origins, loci) :
                                run_moments1(ps[1]; cycle, images, zbar, VG, erosion, loci)
     foreach(QTLSim.checkparams, ps)
     check_loci(loci, between)
     between && check_between(ps, origins)
+    loci, α2 = resolve_loci(collect(Params, ps), cycle, loci)
     loci !== :aggregate && any(q -> (q.Ploidy, q.NoQTL, q.RecombPoissonMean, q.CrossoverModel) !=
                                      (ps[1].Ploidy, ps[1].NoQTL, ps[1].RecombPoissonMean, ps[1].CrossoverModel), ps) &&
         throw(ArgumentError("the demes of a metapopulation share Ploidy, NoQTL, RecombPoissonMean and CrossoverModel"))
@@ -481,7 +524,7 @@ function run_moments(ps::AbstractVector{Params}; cycle, images = Dict{Symbol,Any
     perdeme(x, name) = x isa AbstractVector ? (length(x) == k ? x : throw(ArgumentError("$name gives $(length(x)) values for $k demes"))) : fill(x, k)
     zs, vs = perdeme(zbar, "zbar"), perdeme(VG, "VG")
     cov = loci === :aggregate ? nothing :
-          DemeCov(ps[1], [float(q.PopSize) for q in ps], float.(vs); loci, origins, drift = between || erosion)
+          DemeCov(ps[1], [float(q.PopSize) for q in ps], float.(vs); α2, origins, drift = between || erosion)
     s = DemeMoments([Moments(q; zbar = z, VG = v, erosion, cov, idx = i) for (i, (q, z, v)) in enumerate(zip(ps, zs, vs))])
     mp = metapop_records()
     for (i, m) in enumerate(s.demes); rec.demeof[m] = i; end

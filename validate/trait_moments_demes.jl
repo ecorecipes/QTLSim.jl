@@ -100,7 +100,7 @@ function runmeta(s, seed)
 end
 
 function predict(s)
-    mo = run_moments(params(s); cycle = cycle(s), migration_rate = RATE, between = true)
+    mo = run_moments(params(s); cycle = cycle(s), migration_rate = RATE, between = true, loci = :multilocus)
     sel = findall(in(CENSUS), mo.metapop.gen)
     W, A = mean(mo.metapop.within[sel]), mean(mo.metapop.var_among[sel])
     rows = findall(in(CENSUS), mo.gen)

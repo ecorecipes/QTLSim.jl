@@ -1,5 +1,6 @@
 # Mutation–selection–drift balance across regimes: the rare-alleles closure of the moments
-# lowering (`run_moments(p; loci = :rare_alleles)`), its equilibrium, and the closed form
+# lowering (`run_moments(p; loci = :rare_alleles)`, the default for one diploid trait,
+# `moments_loci`), its equilibrium, and the closed form
 # it reduces to for loci in linkage equilibrium, Hermisson and Wagner's (2004) "stochastic
 # house of Gauss". The comparison with the kernel is validate/moments_regimes.jl.
 #
@@ -81,9 +82,37 @@ function mutation_effect_variance(p::Params)
     muteVar(p) / (p.Ploidy * p.NoQTL * p.MutationRatePerGamete)
 end
 
+"""
+    QTLSim.moments_loci(p, loci = :auto) -> Symbol
+
+The model of the loci that the moments lowering ([`run_moments`](@ref)) and
+[`multilocus_equilibrium`](@ref) use when asked for `loci`: any value but `:auto` is
+returned as it is, and `:auto`, the default, resolves to
+- `:rare_alleles`, the rare-alleles closure (src/rare_alleles.jl), for one diploid trait:
+  within 15% of the kernel in 46 of 47 weak-selection cells of
+  `validate/moments_regimes.jl`, never farther from it than the multilocus Gaussian, and
+  up to 10× closer in the house-of-cards and drift regimes, to which it reduces to the
+  Gaussian when mutations are many and small;
+- `:multilocus`, the multilocus Gaussian model (src/multilocus.jl), when
+  - `NoTraits > 1`: the closure is for one trait;
+  - `Ploidy = 1`: the closure has not been compared with the kernel for haploids
+    (`validate/moments_regimes.jl` is diploid).
+`run_moments` also resolves `:auto` to `:multilocus` when the `mutate` steps of the life
+cycle carry different `MutationScalar` or `MutationRatePerGamete`, as no one `α²` then
+describes the mutations; when they all carry the same, `α²` is theirs. The demes of a
+metapopulation each have their own `α²`.
+"""
+function moments_loci(p::Params, loci::Symbol = :auto)
+    loci === :auto || return loci
+    p.NoTraits > 1 && return :multilocus
+    p.Ploidy == 1 && return :multilocus
+    :rare_alleles
+end
+
 # α² for the rare-alleles closure, 0 for the multilocus Gaussian model
 function rare_alleles_effect(p::Params, loci::Symbol)
-    loci in (:multilocus, :rare_alleles) || throw(ArgumentError("loci is :multilocus, :rare_alleles or :aggregate; got :$loci"))
+    loci = moments_loci(p, loci)
+    loci in (:multilocus, :rare_alleles) || throw(ArgumentError("loci is :auto, :multilocus, :rare_alleles or :aggregate; got :$loci"))
     loci === :multilocus && return 0.0
     p.NoTraits == 1 || throw(ArgumentError("loci = :rare_alleles is for one trait; NoTraits = $(p.NoTraits)"))
     mutation_effect_variance(p)
@@ -121,8 +150,9 @@ end
 """
     rare_alleles_vg(p; drift = false)
 
-The equilibrium genetic variance of the moments lowering with `loci = :rare_alleles`
-(`run_moments(p; loci = :rare_alleles)`; with `drift = true`, of `erosion = true`): the
+The equilibrium genetic variance of the moments lowering with `loci = :rare_alleles`,
+the default for one diploid trait ([`QTLSim.moments_loci`](@ref)):
+`run_moments(p)` converges to it (with `drift = true`, `run_moments(p; erosion = true)`). The
 multilocus model of [`gaussian_vg_loci`](@ref) with the rare-alleles closure, in which the
 genic variance also loses `β²α²/(2s)` of itself to selection per generation, `α²` =
 [`QTLSim.mutation_effect_variance`](@ref)`(p)`, `s = V_s + V_G` and `β = V_G/V_genic` the

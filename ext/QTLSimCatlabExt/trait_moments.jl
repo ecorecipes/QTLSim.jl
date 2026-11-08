@@ -373,7 +373,8 @@ The moments lowering of a model of several traits: `cycle` lowered with the tabl
 `TraitModel(n)` (`trait_moment_images`) and iterated `NoGenerations` times from mean `zbar`
 and genetic covariance `G` (zero by default; with several demes, one or one per deme).
 `run_moments(p)` calls it when `p.NoTraits > 1`; called directly with one trait it runs the
-multivariate recursion with 1×1 matrices, which is the one-trait recursion. By default the
+multivariate recursion with 1×1 matrices, which is the one-trait recursion with `loci =
+:multilocus` (`loci = :rare_alleles` is for `run_moments` of one trait). By default the
 multilocus model (converging to `gaussian_G_loci(p)`, or with `erosion = true` to
 `gaussian_G_loci(p; drift = true)`); `loci = :aggregate` is the old recursion
 (`gaussian_G(p)`). `optimum`, a vector of optimum vectors, one per generation, replaces the
@@ -401,6 +402,8 @@ function run_trait_moments(ps::AbstractVector{Params}; cycle = lifecycle().gener
     k = length(ps)
     foreach(QTLSim.checkparams, ps)
     check_loci(loci, between)
+    loci === :rare_alleles && throw(ArgumentError("loci = :rare_alleles is for one trait; NoTraits = $(ps[1].NoTraits)"))
+    loci === :auto && (loci = :multilocus)       # several traits: the multilocus Gaussian model (QTLSim.moments_loci)
     between && check_between(ps, origins)
     p = ps[1]
     n = p.NoTraits

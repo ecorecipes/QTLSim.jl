@@ -22,8 +22,10 @@
 # replicates.
 #
 # Predictions: `gaussian_vg_loci(p; drift = true)` (the multilocus model with drift, the
-# fixed point of `run_moments(p; erosion = true)`, checked here), `gaussian_vg_loci(p)`
-# (without drift), `multilocus_equilibrium(p; drift = true).ld` (LD), the old aggregate
+# fixed point of `run_moments(p; erosion = true, loci = :multilocus)`, checked here; the
+# script passes `loci = :multilocus` explicitly since the default became the rare-alleles
+# closure, so its log is unchanged), `gaussian_vg_loci(p)`
+# (without drift), `multilocus_equilibrium(p; drift = true, loci = :multilocus).ld` (LD), the old aggregate
 # fixed point `gaussian_vg_exact(p)` and the aggregate with drift
 # (`run_moments(p; loci = :aggregate, erosion = true)`), and `house_of_cards_vg(p;
 # nsurv)` with the kernel's mean number of survivors.
@@ -139,9 +141,9 @@ for (i, (L, N, x, μ)) in enumerate(cells)
     p = Params(base; NoQTL = L, PopSize = N, CrossoverModel = x, MutationRatePerGamete = μ)
     t = @elapsed rs = replicates(p, R, 10_000 * i)
     vk = [r.vg for r in rs]
-    e = multilocus_equilibrium(p; drift = true)
+    e = multilocus_equilibrium(p; drift = true, loci = :multilocus)
     newd, new0 = e.VG, gaussian_vg_loci(p)
-    mo = run_moments(Params(p; NoGenerations = SMOKE ? 2000 : 200_000, Sample = 1000); erosion = true).geno_var[end]
+    mo = run_moments(Params(p; NoGenerations = SMOKE ? 2000 : 200_000, Sample = 1000); erosion = true, loci = :multilocus).geno_var[end]
     agg, aggd = gaussian_vg_exact(p), run_moments(Params(p; NoGenerations = SMOKE ? 2000 : 200_000, Sample = 1000); loci = :aggregate, erosion = true).geno_var[end]
     ns = mean(r.nsurv for r in rs)
     hoc = house_of_cards_vg(p; nsurv = ns)
@@ -160,7 +162,7 @@ for r in rows
                  r.aggd, r.vk / r.aggd, r.hoc, r.vk / r.hoc))
 end
 say()
-say("LD (V_G − genic variance, zygotes at the end): kernel against multilocus_equilibrium(p; drift = true).ld")
+say("LD (V_G − genic variance, zygotes at the end): kernel against multilocus_equilibrium(p; drift = true, loci = :multilocus).ld")
 say("  L     N  crossover μ        kernel LD     ±SE   predicted  ratio")
 for r in rows
     r.L == 1 && continue
@@ -200,7 +202,7 @@ lk, ls = mean(r.lag for r in rS), se([r.lag for r in rS])
 vkS = mean(r.vg for r in rS)
 VS = gaussian_vg_loci(pS; drift = true)
 λth = steady_lag(pS; VG = VS)
-λmo = (o = run_moments(pS; erosion = true); o.theta[end] - o.pheno_mean[end])
+λmo = (o = run_moments(pS; erosion = true, loci = :multilocus); o.theta[end] - o.pheno_mean[end])
 λk = steady_lag(pS; VG = vkS)
 say(@sprintf("S, steady lag behind a continuous move of 0.01 per generation (%.0f s)", t))
 say(@sprintf("  kernel lag %.5f ± %.5f, kernel V_G %.4f (stationary prediction %.4f)", lk, ls, vkS, VS))

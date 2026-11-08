@@ -230,7 +230,10 @@ end
     gaussian_vg_loci(p; drift = false)
 
 The equilibrium genetic variance of the multilocus Gaussian model, the fixed point that
-the moments lowering (`run_moments`, by default) converges to. Without drift, the
+the moments lowering converges to with `loci = :multilocus` (`run_moments(p; loci =
+:multilocus)`; the default for several traits and for haploids,
+[`QTLSim.moments_loci`](@ref)). For one diploid trait the default is the rare-alleles
+closure, whose fixed point is [`rare_alleles_vg`](@ref). Without drift, the
 positive root of `V²/(V_s + V) = n·V_m`,
 
     V = (n V_m + √(n² V_m² + 4 n V_m V_s))/2,
@@ -248,21 +251,22 @@ mutation (Lande's per-locus sum).
 With `drift = true`, the stationary expected within-population sample variance of the
 same recursion with drift among `N = PopSize` adults and their parents (survivors, or
 `N W̄²/E[W²]` under fecundity selection; [`multilocus_equilibrium`](@ref)), which is what
-`run_moments(p; erosion = true)` converges to and the kernel's `geno_var` estimates.
+`run_moments(p; loci = :multilocus, erosion = true)` converges to and the kernel's `geno_var` estimates.
 
 The Gaussian assumption fails when few mutations of large effect hold the variance at a
 locus (`α² = V_m/(2Lμ)` large against the locus's share `V/(2L)`, the house-of-cards
-regime, [`house_of_cards_vg`](@ref)); there the kernel holds less variance than either.
+regime, [`house_of_cards_vg`](@ref)); there the kernel holds less variance than either,
+and [`rare_alleles_vg`](@ref) fits it.
 """
 gaussian_vg_loci(p::Params; drift::Bool = false) =
-    drift ? multilocus_equilibrium(p; drift).VG : gaussian_vg_closed(gaussian_units(p) * muteVar(p), selection_variance(p))
+    drift ? multilocus_equilibrium(p; drift, loci = :multilocus).VG : gaussian_vg_closed(gaussian_units(p) * muteVar(p), selection_variance(p))
 
 gaussian_vg_closed(Vm, Vs) = (Vm + sqrt(Vm^2 + 4Vm * Vs)) / 2
 
 """
-    multilocus_equilibrium(p; drift = false, loci = :multilocus, tol = 1e-14, maxiter = 10^7)
+    multilocus_equilibrium(p; drift = false, loci = :auto, tol = 1e-14, maxiter = 10^7)
 
-The equilibrium of the multilocus Gaussian recursion of the moments lowering, found by
+The equilibrium of the haplotype-moment recursion of the moments lowering, found by
 iterating one generation (selection, reproduction, mutation; see src/multilocus.jl) from
 [`gaussian_vg_loci`](@ref)'s deterministic value, at a fixed optimum, until `V_G` changes
 by less than `tol` relative to itself. With `drift = true` the population has `N =
@@ -271,11 +275,12 @@ and `n` parents, `N W̄` survivors (`N W̄²/E[W²]` under fecundity selection).
 traits the variances are matrices. Returns `(; VG, genic, ld, N, nparents, Wbar)`: `VG`
 the within-population genetic variance (the expected sample variance, divisor `N − 1`,
 with drift), `genic` its genic part and `ld = VG − genic` the contribution of linkage
-disequilibrium. With `loci = :rare_alleles` (one trait), the recursion of
-`run_moments(p; loci = :rare_alleles)`, with the rare-alleles closure of
-src/rare_alleles.jl ([`rare_alleles_vg`](@ref)).
+disequilibrium. `loci` is the moments lowering's: the default `:auto` resolves as in
+`run_moments` ([`QTLSim.moments_loci`](@ref)), to `:rare_alleles` for one diploid trait (the rare-alleles closure of src/rare_alleles.jl, [`rare_alleles_vg`](@ref)) and
+to `:multilocus` otherwise (the multilocus Gaussian model, [`gaussian_vg_loci`](@ref) and
+[`gaussian_G_loci`](@ref)).
 """
-function multilocus_equilibrium(p::Params; drift::Bool = false, loci::Symbol = :multilocus, tol::Real = 1e-14, maxiter::Integer = 10^7)
+function multilocus_equilibrium(p::Params; drift::Bool = false, loci::Symbol = :auto, tol::Real = 1e-14, maxiter::Integer = 10^7)
     p.Drift && throw(ArgumentError("no equilibrium without selection (Drift = true)"))
     nt, L, h = p.NoTraits, p.NoQTL, p.Ploidy
     α2 = rare_alleles_effect(p, loci)
@@ -342,4 +347,4 @@ A # (n M)`, the matrix geometric mean. With `drift = true`, the stationary expec
 covariance with drift ([`multilocus_equilibrium`](@ref)).
 """
 gaussian_G_loci(p::Params; drift::Bool = false) =
-    drift ? multilocus_equilibrium(p; drift).VG : gaussian_G(gaussian_units(p) .* mutational_covariance(p), selection_variance_matrix(p))
+    drift ? multilocus_equilibrium(p; drift, loci = :multilocus).VG : gaussian_G(gaussian_units(p) .* mutational_covariance(p), selection_variance_matrix(p))

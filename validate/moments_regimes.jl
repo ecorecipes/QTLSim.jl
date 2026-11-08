@@ -1,6 +1,6 @@
 # The moments lowering across regimes of mutation, selection and drift: the multilocus
-# Gaussian model (`loci = :multilocus`, the default), the rare-alleles closure (`loci =
-# :rare_alleles`, src/rare_alleles.jl) and the closed forms (`house_of_cards_vg`, Bürger's
+# Gaussian model (`loci = :multilocus`), the rare-alleles closure (`loci = :rare_alleles`,
+# src/rare_alleles.jl; since this script's runs, the default for one diploid trait) and the closed forms (`house_of_cards_vg`, Bürger's
 # stochastic house of cards; `house_of_gauss_vg`, Hermisson and Wagner's 2004 stochastic
 # house of Gauss) against the kernel: equilibrium V_G over a grid, the steady lag behind
 # a continuous move, the time to extinction under a fast move, and the pre-move V_G of

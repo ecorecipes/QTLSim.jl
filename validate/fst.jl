@@ -295,7 +295,7 @@ function main()
     # --- 3. the moments lowering ---
     say("\n== 3. the moments lowering (run_moments, k demes, migration_mixing, erosion) ==")
     pl = plans[2]                                 # island k = 4, Nm = 1
-    mo = run_moments(fill(pl.p, pl.k); cycle = pl.cycle, erosion = true, migration_rate = pl.M)
+    mo = run_moments(fill(pl.p, pl.k); cycle = pl.cycle, erosion = true, migration_rate = pl.M, loci = :multilocus)
     last_gen = maximum(mo.gen)
     sel = mo.gen .== last_gen
     say(@sprintf("%s, generation %d: moments V_G within %.4g (exact expectation %.4g), variance among deme means %.4g (exact %.4g)",

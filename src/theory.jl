@@ -21,10 +21,12 @@ selection_variance(p::Params) = initFitSD(p)^2 + envVar(p)
 Lande's (1975) weak-mutation form of the equilibrium genetic variance of a Gaussian
 population of one haploid locus (or of the aggregate recursion), `√(V_m V_s)`, with
 `V_m = m·V_E` ([`muteVar`](@ref)) and `V_s` from [`selection_variance`](@ref). It
-ignores drift and the number of loci; for many loci it is far too small. The prediction
-for QTSim's model, diploid with `L` loci that recombine, is
+ignores drift and the number of loci; for many loci it is far too small. The Gaussian
+prediction for QTSim's model, diploid with `L` loci that recombine, is
 [`gaussian_vg_loci`](@ref), `√(2L·V_m V_s)` for weak mutation (with drift,
-`gaussian_vg_loci(p; drift = true)`), and the moments lowering's (`run_moments`) default.
+`gaussian_vg_loci(p; drift = true)`), `run_moments(p; loci = :multilocus)`'s fixed point;
+the moments lowering's default for one trait, the rare-alleles closure, converges to
+[`rare_alleles_vg`](@ref), which also holds in the house-of-cards and drift regimes.
 """
 gaussian_vg(p::Params) = sqrt(muteVar(p) * selection_variance(p))
 

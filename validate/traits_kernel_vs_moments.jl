@@ -74,7 +74,7 @@ say()
 # --- E: equilibrium G ---------------------------------------------------------
 t = @elapsed rE = runs(pE, R, 2000:5999; seed0 = 1000)
 Gk = mean(r.G for r in rE)
-Gm = run_moments(pE; erosion = true).gmatrix[end]
+Gm = run_moments(pE; erosion = true, loci = :multilocus).gmatrix[end]
 G0 = gaussian_G(pE)
 say("E, equilibrium G ($(round(t; digits = 1)) s)")
 say("  kernel        ", fmt(Gk), "   (SE of entries ", fmt(std([r.G for r in rE]) ./ sqrt(R)), ")")
@@ -92,7 +92,7 @@ check(min(vector_angle(gmax(Gk), gmax(Gm)), vector_angle(gmax(Gk), -gmax(Gm))) <
 pC = base
 rC = runs(pC, R, 2000:5999; seed0 = 3000)
 vk = mean(r.vg for r in rC)
-vm = run_moments(pC; erosion = true).geno_var[end]
+vm = run_moments(pC; erosion = true, loci = :multilocus).geno_var[end]
 say(@sprintf("C, one trait in the same regime: kernel V_G %.6f ± %.6f, moments+drift %.6f, ratio %.3f (two traits: %.3f, %.3f)",
              vk, se([r.vg for r in rC]), vm, vk / vm, Gk[1, 1] / Gm[1, 1], Gk[2, 2] / Gm[2, 2]))
 say()
@@ -102,7 +102,7 @@ t = @elapsed rL = runs(pL, R, 4000:6999; seed0 = 2000)
 λk = mean(r.lag for r in rL)
 GkL = mean(r.G for r in rL)
 λG = steady_lag_vector(pL; G = GkL)
-oL = run_moments(pL; erosion = true)
+oL = run_moments(pL; erosion = true, loci = :multilocus)
 λm = oL.trait_lag[end]
 say("L, steady lag behind an optimum moving by 0.001 along (1, 2)/√5 ($(round(t; digits = 1)) s)")
 say(@sprintf("  kernel lag              (%.5f, %.5f) ± (%.5f, %.5f)", λk..., se([r.lag[1] for r in rL]), se([r.lag[2] for r in rL])))

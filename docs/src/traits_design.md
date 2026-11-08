@@ -198,7 +198,7 @@ parameters. A general framework would let a model own its `Params`.
   optimum vector), lowered from the unchanged `lifecycle()` by `lower(f, :moments; images
   = trait_moment_images(rec))`. `run_moments(p)` uses it when `NoTraits > 1`; with
   `NoTraits = 1` the table runs 1×1 matrices and reproduces moments.jl's one-trait
-  recursion to 1e-10, with and without drift's erosion, with a move and a width change.
+  recursion with `loci = :multilocus` to 1e-10, with and without drift's erosion, with a move and a width change.
   Several demes too (`run_trait_moments(ps; cycle)`, see "The moments of several demes" below).
 - **Eidos lowering** (`ext/QTLSimCatlabExt/eidos_traits.jl`): `eidos_trait_images`, a
   second table of Eidos for the seven steps. An individual's `a0`/`a1` hold `L·n` values

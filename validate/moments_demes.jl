@@ -19,7 +19,9 @@
 # a bootstrap). Predictions are the same averages of `run_moments(...; between = true)`
 # (law of origins `:exchange`, the default), and, for comparison, of the old lowering
 # (`erosion = true`, deterministic means; skipped for k = 10, whose `migration_mixing`
-# over 20,000 visiting orders per generation is slow).
+# over 20,000 visiting orders per generation is slow). The script passes `loci =
+# :multilocus`, the default when it ran (the default is now the rare-alleles closure,
+# which in these scenarios differs from it by less than 1%).
 #
 # PRE-SPECIFIED CRITERIA (written before the kernel runs):
 # - Neutral scenarios (A, D0): the prediction is exact up to the first-order exchange
@@ -109,7 +111,7 @@ qst_of(within, among, k, N) = (σ2 = (k - 1) / k * (among - within / N); σ2 / (
 
 function predict(s)
     p = params(s)
-    mo = run_moments(p; cycle = cycle(s), migration_rate = RATE, between = true)
+    mo = run_moments(p; cycle = cycle(s), migration_rate = RATE, between = true, loci = :multilocus)
     sel = findall(in(CENSUS), mo.metapop.gen)
     w, a = mean(mo.metapop.within[sel]), mean(mo.metapop.var_among[sel])
     new = [w, a, qst_of(w, a, s.k, s.N)]

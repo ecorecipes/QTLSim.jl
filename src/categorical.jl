@@ -192,9 +192,9 @@ function run_composed end
 """
     run_moments(p::Params; cycle = lifecycle().generation, images = Dict(), zbar = 0.0, VG = 0.0,
                 optimum = nothing, erosion = false, migration_rate = 0.0, between = false, origins = :exchange,
-                loci = :multilocus)
+                loci = :auto)
     run_moments(ps::Vector{Params}; cycle, images = Dict(), zbar = 0.0, VG = 0.0, erosion = false,
-                migration_rate = 0.0, between = false, origins = :exchange, loci = :multilocus)
+                migration_rate = 0.0, between = false, origins = :exchange, loci = :auto)
 
 The life cycle `cycle` lowered to the moments of a Gaussian population (`lower(cycle, :moments)`)
 and iterated for `NoGenerations`: the predictions of quantitative-genetic theory for the
@@ -209,7 +209,19 @@ variances:
   recombination makes of the survivors' (below);
 - `mutate`: adds `V_m = m·V_E`.
 
-**The multilocus model (`loci = :multilocus`, the default).** The population is
+**Which model (`loci`).** The default, `loci = :auto`, is the rare-alleles closure
+(`:rare_alleles`, below) for one diploid trait, and the multilocus Gaussian model
+(`:multilocus`) for several traits and for haploids (the closure has not been compared
+with the kernel for haploids), and when the `mutate` steps of `cycle` carry different
+`MutationScalar` or `MutationRatePerGamete` (no one mutation effect variance);
+[`QTLSim.moments_loci`](@ref) gives the resolution for a `Params`. Ask for
+`loci = :multilocus` or `:aggregate` to use those models anywhere; `:rare_alleles` with
+several traits is an error. The rare-alleles closure is within 15% of the kernel in 46 of
+47 weak-selection cells of `validate/moments_regimes.jl`, never farther from it than the
+multilocus Gaussian, and up to 10× closer in the house-of-cards and drift regimes; when
+mutations are many and small the two agree.
+
+**The multilocus model (`loci = :multilocus`).** The population is
 `NoQTL` additive loci whose allelic values are jointly Gaussian (Lande 1975; Bulmer
 1980; Turelli and Barton 1990). The lowering carries the expected second moments of the
 haplotypes (one gamete's alleles summed over the loci): the variance `T` of one
@@ -235,7 +247,8 @@ to [`steady_lag`](@ref) with that variance. The model is good when many small mu
 hold each locus's variance; when few large ones do (the house-of-cards regime,
 [`house_of_cards_vg`](@ref)) the kernel holds less (`validate/moments_loci.jl`).
 
-**The rare-alleles closure (`loci = :rare_alleles`, one trait).** The multilocus model
+**The rare-alleles closure (`loci = :rare_alleles`, one trait; the default for one diploid
+trait).** The multilocus model
 with the fourth cumulant of a locus's alleles set to `α²` times their variance (`α²` =
 `QTLSim.mutation_effect_variance(p)`, the variance of one mutation's effect): selection
 also removes `β²α²/(2s)` of the genic variance, each rare mutant at its own rate, with
@@ -245,8 +258,11 @@ the (stochastic) house of cards when they are rare and large and to `2N V_m` whe
 selection is weak against drift; its equilibrium is [`rare_alleles_vg`](@ref), and for
 loci in linkage equilibrium [`house_of_gauss_vg`](@ref). Equations in
 src/rare_alleles.jl; the kernel comparison across regimes, including the paper's
-populations, is `validate/moments_regimes.jl`. The demes of a metapopulation share the
-first deme's `α²`.
+populations, is `validate/moments_regimes.jl`. With drift (`erosion = true`) one deme
+converges to `rare_alleles_vg(p; drift = true)`, and under a continuous move the lag to
+[`steady_lag`](@ref) with that variance. Each deme of a metapopulation has its own `α²`;
+when the `mutate` steps of `cycle` carry `MutationScalar` or `MutationRatePerGamete`
+(all the same), `α²` is computed with them.
 
 **The aggregate recursion (`loci = :aggregate`).** QTLSim's moments lowering before the
 multilocus model: the offspring inherit the survivors' variance, `V ← V − V²/(V_s + V) +
@@ -311,7 +327,9 @@ recursion read forward, so the predictions are [`neutral_deme_variances`](@ref) 
 generation, exactly: in the island model the within-deme variance settles at the
 metapopulation's 2NV_m(kN − 1)/(N − 1), not at an isolated deme's 2NV_m. With selection
 they are the Gaussian approximation; `validate/moments_demes.jl` compares them with the
-kernel (k = 5 and 10, a common optimum and an optimum per deme). For one deme,
+kernel (k = 5 and 10, a common optimum and an optimum per deme), with `loci = :multilocus`;
+in those scenarios (many small mutations) the rare-alleles default differs from it by less
+than 1%. For one deme,
 `between = true` is `erosion = true` with the extra column. The result has one more
 column, `metapop`, a named tuple with one entry per census generation (every `Sample`th,
 at the start of a generation, before any step): `gen`; `within`, the mean over demes of
@@ -323,7 +341,7 @@ expected squared differences of deme means (the deterministic differences includ
 These are the statistics of [`neutral_deme_variances`](@ref), with the same names. One
 deme: `var_among`, `between` and the Q_STs are 0. Generation 0's Q_ST is 0/0, NaN.
 
-**Several traits** (`NoTraits > 1`): the same models with matrices,
+**Several traits** (`NoTraits > 1`): the multilocus (the default) and aggregate models with matrices,
 `run_trait_moments` (ext/QTLSimCatlabExt/trait_moments.jl); the fixed point is
 [`gaussian_G_loci`](@ref) (with `loci = :aggregate`, [`gaussian_G`](@ref)). On a life cycle of
 `k` demes too, with `migration_rate`, `between` and `origins` as above: `metapop` then holds

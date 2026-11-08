@@ -46,7 +46,8 @@ and recorded generation, plus a `deme` column (1 to k). For metapopulations:
 
 [`run_moments`](@ref) returns the same columns, predicted by the moments lowering: the
 means and variances of a Gaussian population, `nsurv` the expected survivors rounded. By
-default (the multilocus model) `geno_var` is the infinite population's genetic variance,
+default (the rare-alleles closure for one diploid trait, the multilocus Gaussian model for
+several traits and haploids; `loci`) `geno_var` is the infinite population's genetic variance,
 or with `erosion = true` (or `between = true`) the expected within-population sample
 variance, as the kernel records it.
 [`extinction_distribution`](@ref) takes a `run_moments` result with `Sample = 1` and
