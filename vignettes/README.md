@@ -18,7 +18,7 @@ Each vignette lives in its own directory `NN_name/NN_name.qmd` and is rendered w
 | `09_replicating_pagel_2025` | the paper's results, recomputed from its table and replicated by rerunning 710 of its populations, the survivors to the full 240,000 generations |
 | `10_demography_and_rescue` | a density-regulated population instead of QTSim's fixed size: how much faster populations die, and how the sustainable rate falls, with the moments lowering's predictions |
 | `11_demography_in_the_papers_populations` | vignette 09's 710 populations rerun with density regulation (R = 5, 2, 1.5): how survival, time to extinction and the sustainable rate move from the paper's fixed-size estimates |
-| `12_metapopulations` | demes and migration: building metapopulations, how the kernel's migration exchanges individuals, neutral Q_ST among demes against exact island and stepping-stone theory, and local adaptation (Q_ST > F_ST) |
+| `12_metapopulations` | demes and migration: building metapopulations, how the kernel's migration exchanges individuals, neutral Q_ST among demes against exact island and stepping-stone theory, local adaptation (Q_ST > F_ST), and the moments lowering's prediction of the variance among demes |
 
 ## Rendering
 

@@ -319,7 +319,7 @@ end
 @printf("%d runs in %.0f s on %d threads\n", length(jobs), elapsed, Threads.nthreads())
 ```
 
-    600 runs in 90 s on 3 threads
+    600 runs in 89 s on 3 threads
 
 ``` julia
 ringdist(a, b, k) = min(mod(a - b, k), mod(b - a, k))
@@ -607,13 +607,95 @@ previous section.
 
 ## What the moments lowering predicts
 
-*Placeholder.* This section will compare the moments lowering’s
-deterministic prediction of the variance among demes with the
-simulations above, once the lowering carries covariances between demes.
+The moments lowering ([Recomposing the
+model](06_recomposing_the_model.md)) gives
+a life cycle its deterministic prediction. With `between = true` it also
+carries the expected second moments of genes across demes, so it
+predicts the variance within demes, the variance among deme means and
+$Q_{ST}$ for any life cycle on diploid demes, with drift, mutation,
+migration and selection, in the column `metapop`. `origins` chooses the
+law of migrants’ origins, `:exchange` (the default, the kernel’s) or
+`:pool`. For a neutral trait it is the exact recursion of
+`neutral_deme_variances`, generation by generation; under selection it
+is an approximation. Below, the four demes of 50 with $Nm \approx 1$
+start, as the kernel’s do, with all genomes equal, neutral or selected
+toward the four optima of the previous section, and the prediction is
+set against 30 kernel runs of each, recorded every 20 generations:
 
-<!-- TODO: after merging the branch that adds between-deme covariances to the moments
-lowering (run_moments on k demes), compare its prediction of the variance among deme
-means and of Q_ST with the neutral island simulations and with neutral_deme_variances. -->
+``` julia
+Mla = island_migration(4, 0.01)
+traj_census = collect(0:20:2980)
+cases = [("neutral", fill(Params(sel_base; Drift = true), 4), neutral),
+         ("local optima", fill(sel_base, 4), selected)]
+traj_jobs = [(c, rep) for c in eachindex(cases) for rep in 1:30]
+traj_runs = Vector{Any}(undef, length(traj_jobs))
+Threads.@threads :greedy for j in eachindex(traj_jobs)
+    c, rep = traj_jobs[j]
+    traj_runs[j] = census_run(cases[c][2], cases[c][3], Mla, 90_000 + j, traj_census)
+end
+traj = map(eachindex(cases)) do c
+    rs = [traj_runs[j] for j in eachindex(traj_jobs) if traj_jobs[j][1] == c]
+    VW = [mean(mean(r.vg[:, t]) for r in rs) for t in eachindex(traj_census)]
+    among = [mean(var(r.mg[:, t]) for r in rs) for t in eachindex(traj_census)]
+    mo = run_moments(cases[c][2]; cycle = cases[c][3], migration_rate = Mla, between = true).metapop
+    (; VW, qst = qst_of.(VW, among, 4, N), mo)
+end
+late = traj_census .>= 1500
+println("| trait | V_W, kernel | V_W, moments | Q_ST, kernel | Q_ST, moments |\n|:--|--:|--:|--:|--:|")
+for (c, tr) in enumerate(traj)
+    mlate = tr.mo.gen .>= 1500
+    @printf("| %s | %.4f | %.4f | %.4f | %.4f |\n", cases[c][1], mean(tr.VW[late]), mean(tr.mo.within[mlate]),
+            mean(tr.qst[late]), mean(tr.mo.qst[mlate]))
+end
+```
+
+| trait        | V_W, kernel | V_W, moments | Q_ST, kernel | Q_ST, moments |
+|:-------------|------------:|-------------:|-------------:|--------------:|
+| neutral      |      0.3902 |       0.4014 |       0.1204 |        0.1206 |
+| local optima |      0.1703 |       0.1729 |       0.3081 |        0.2842 |
+
+``` julia
+fig = Figure(size = (820, 340))
+axv = Axis(fig[1, 1], xlabel = "generation", ylabel = "variance within demes")
+axq = Axis(fig[1, 2], xlabel = "generation", ylabel = "Q_ST")
+for (c, col) in zip(eachindex(cases), (:black, :crimson))
+    tr = traj[c]
+    scatter!(axv, traj_census, traj[c].VW, color = (col, 0.5), markersize = 5)
+    lines!(axv, tr.mo.gen, tr.mo.within, color = col, label = cases[c][1])
+    scatter!(axq, traj_census[2:end], tr.qst[2:end], color = (col, 0.5), markersize = 5)
+    lines!(axq, tr.mo.gen[2:end], tr.mo.qst[2:end], color = col)
+end
+axislegend(axv, position = :rb)
+fig
+```
+
+```@raw html
+<div id="fig-moments">
+```
+
+![](12_metapopulations_files/figure-commonmark/fig-moments-output-1.png)
+
+Figure 2: Four demes of 50 with Nm ≈ 1, starting from equal genomes: the
+variance within demes (left) and Q_ST (right) over time. Points: 30
+kernel runs, from the mean within-deme variance and the mean variance
+among deme means every 20 generations. Lines: the moments lowering with
+between = true. Black: a neutral trait; red: demes selected toward
+optima −0.6, −0.2, 0.2 and 0.6.
+
+```@raw html
+</div>
+```
+
+For the neutral trait the prediction is exact, and the kernel follows
+it. With local optima it captures the main effects: selection holds the
+variance within demes at less than half the neutral value and keeps
+$Q_{ST}$ well above the neutral expectation. Quantitatively it is a few
+percent off:
+
+over generations 1500–2980 it overpredicts the variance within demes by
+2% and underpredicts Q<sub>ST</sub> by 8%, in the direction
+`validate/moments_demes.jl` finds under weak selection with five and ten
+demes (4–5% and 5–8%, `validate/moments_demes.log`).
 
 ## Summary
 
@@ -631,7 +713,9 @@ $Nm \approx 0.1$ to 10 and on a stepping-stone ring. Wright’s
 $1/(1+4Nm)$ overestimates $Q_{ST}$ with few demes or much migration, and
 the exchange raises the variance within demes above the textbook
 $2NkV_m$, by a factor $(kN-1)/(k(N-1))$ that matters only in small
-demes.
+demes. The moments lowering with `between = true` predicts the same
+quantities deterministically: exactly for a neutral trait, and within
+several percent under selection.
 
 ## Where next
 
