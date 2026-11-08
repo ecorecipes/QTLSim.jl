@@ -806,6 +806,74 @@ end
     @test_throws ArgumentError run_moments(pa; cycle = gmix, loci = :rare_alleles)
 end
 
+@testset "allele-frequency spectrum (loci = :spectrum): neutral, equilibrium, moving-optimum limits" begin
+    p = Params(PopSize = 1000, Ploidy = 2, NoQTL = 100, PhenotypeVar = 0.022, Heritability = 0.32, MutationScalar = 0.004,
+               MutationRatePerGamete = 1e-4, RecombPoissonMean = 3.0, InitFitnessSD = 5.0)
+    Vm = muteVar(p)
+    # no selection: the neutral spectrum holds 2N V_m (Lynch and Hill 1986), and a move changes nothing
+    e0 = spectrum_equilibrium(Params(p; Drift = true))
+    @test e0.VG ≈ 2 * 1000 * Vm rtol = 0.01
+    sp = e0.spectrum
+    @test QTLSim.spectrum_select(sp, 3.0, Inf) == 0.0 && QTLSim.spectrum_linked(sp, 1000) == 0.0
+    # no move: the lowering converges to the stationary spectrum, which for rare mutations in
+    # linkage equilibrium is close to Hermisson and Wagner's stochastic house of Gauss
+    e = spectrum_equilibrium(p)
+    @test e.VG == spectrum_vg(p)
+    @test e.VG ≈ house_of_gauss_vg(p; nsurv = e.nparents) rtol = 0.05
+    o = run_moments(Params(p; NoGenerations = 30_000, Sample = 1000); loci = :spectrum)
+    @test o.geno_var[end] ≈ e.VG rtol = 2e-3
+    @test !o.extinct && all(o.theta .== 0)
+    # the start of a move: the stationary spectrum is symmetric in the effects, so selection
+    # moves the mean by V_G λ/S exactly (no skew), Lande's Gaussian response
+    S = initFitSD(p)^2 + envVar(p) + QTLSim.spectrum_vg(e.spectrum)
+    @test QTLSim.spectrum_select(e.spectrum, 0.7, S) ≈ QTLSim.spectrum_vg(e.spectrum) * 0.7 / S rtol = 1e-8
+    # a population started at V_G takes the stationary shape scaled to V_G
+    @test run_moments(Params(p; NoGenerations = 1, Sample = 1); loci = :spectrum, VG = 0.05).geno_var[1] ≈ 0.05 * 1000 / 999 rtol = 1e-10
+    # a fast move: the lag decides, within a few hundred generations, and the time to extinction
+    # is the Gaussian closure's (rare alleles, with drift) to within 10%
+    pm = Params(p; NoGenerations = 7000, Sample = 1, MoveFitnessSDGen = 5000, MoveType = :continuous, MoveFitnessSD = 0.2)
+    ms, mr = run_moments(pm; loci = :spectrum), run_moments(pm; loci = :rare_alleles, erosion = true)
+    @test ms.extinct && mr.extinct
+    @test abs(ms.extinct_gen - mr.extinct_gen) <= 0.1 * (mr.extinct_gen - 5000)
+    # a slow move in the house-of-cards regime: directional selection drives the rare alleles of
+    # large effect to intermediate frequency and V_G rises (Barton and Turelli 1987), with or
+    # without the linked-selection term; the rare-alleles closure keeps its stationary value
+    pH = Params(PopSize = 1000, Ploidy = 2, NoQTL = 100, PhenotypeVar = 1.0, Heritability = 0.5, MutationScalar = 0.01,
+                MutationRatePerGamete = 1e-4, RecombPoissonMean = 2.0, NoGenerations = 16_000, Sample = 10,
+                MoveFitnessSDGen = 10_000, MoveType = :continuous, MoveFitnessSD = 0.01)
+    for lk in (:barton, :none)
+        h = run_moments(pH; loci = :spectrum, spectrum = (linkage = lk,))
+        @test h.geno_var[end] > 1.3 * h.geno_var[findfirst(==(9990), h.gen)]
+    end
+    hr = run_moments(pH; loci = :rare_alleles, erosion = true)
+    @test hr.geno_var[end] ≈ hr.geno_var[findfirst(==(9990), hr.gen)] rtol = 0.02
+    # linked selection (Barton 1995): N/N_e − 1 grows as b² V_G, nothing with free recombination
+    spl = QTLSim.AlleleSpectrum(p); spl.n .= sp.n
+    QTLSim.spectrum_select(spl, 2.0, 25.0); c2 = QTLSim.spectrum_linked(spl, 1000)
+    QTLSim.spectrum_select(spl, 4.0, 25.0); c4 = QTLSim.spectrum_linked(spl, 1000)
+    @test c2 > 0 && c4 ≈ 4c2
+    spf = QTLSim.AlleleSpectrum(Params(p; CrossoverModel = :all, RecombPoissonMean = 50.0)); spf.n .= sp.n
+    QTLSim.spectrum_select(spf, 2.0, 25.0)
+    @test QTLSim.spectrum_linked(spf, 1000) < 0.01c2
+    # the slow-move collapse: under QTSim's crossover the variance falls more than with free recombination
+    pv = Params(p; NoGenerations = 6000, Sample = 10, MoveFitnessSDGen = 5000, MoveType = :continuous, MoveFitnessSD = 0.02)
+    vl = run_moments(pv; loci = :spectrum).geno_var[end]
+    vf = run_moments(pv; loci = :spectrum, spectrum = (linkage = :none,)).geno_var[end]
+    @test vl < 0.5vf
+    # limits of the option
+    g2 = lifecycle().generation ⊗ lifecycle().generation
+    @test_throws ArgumentError run_moments([p, p]; cycle = g2, loci = :spectrum)
+    @test_throws ArgumentError run_moments(Params(p; NoGenerations = 10); loci = :spectrum, between = true)
+    @test_throws ArgumentError run_moments(Params(p; NoGenerations = 10, Ploidy = 1); loci = :spectrum)
+    @test_throws ArgumentError run_moments(Params(p; NoGenerations = 10, NoTraits = 2); loci = :spectrum)
+    @test_throws ArgumentError QTLSim.AlleleSpectrum(p; linkage = :bogus)
+    # one law of effects from the mutate steps: their fields are the spectrum's
+    gm = withparams(lifecycle().generation; MutationRatePerGamete = 1e-3)
+    q = Params(p; NoGenerations = 300, Sample = 50)
+    @test run_moments(q; cycle = gm, loci = :spectrum).geno_var ≈ run_moments(Params(q; MutationRatePerGamete = 1e-3); loci = :spectrum).geno_var
+    @test_throws ArgumentError run_moments(q; cycle = gm ⋅ lifecycle().generation, loci = :spectrum)
+end
+
 @testset "demographic stochasticity along the moments trajectory" begin
     Dist = QTLSim.Distributions
     # a Galton–Watson process with Poisson(λ) offspring: no selection (W̄ = 1) and a capacity

@@ -97,7 +97,9 @@ weak-selection cells across the Gaussian, house-of-cards and drift regimes
 `house_of_gauss_vg` is its closed form for loci in linkage equilibrium. The default,
 `loci = :auto`, is the rare-alleles closure for one diploid trait and the multilocus model
 for several traits and for haploids (`QTLSim.moments_loci`); `multilocus_equilibrium`
-takes the same default.
+takes the same default. Under a moving optimum, the allele-frequency spectrum (`loci = :spectrum`,
+src/spectrum.jl, `validate/vg_move.jl`) follows how sweeps, drift and linked selection
+change the variance; `spectrum_equilibrium` and `spectrum_vg` are its stationary state.
 
 ```@docs
 selection_variance
@@ -110,6 +112,13 @@ house_of_cards_vg
 house_of_gauss_vg
 rare_alleles_vg
 QTLSim.mutation_effect_variance
+spectrum_equilibrium
+spectrum_vg
+QTLSim.AlleleSpectrum
+QTLSim.spectrum_select
+QTLSim.spectrum_step!
+QTLSim.spectrum_linked
+QTLSim.spectrum_mutate!
 QTLSim.moments_loci
 steady_lag
 critical_rate
