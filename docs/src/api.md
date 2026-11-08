@@ -95,6 +95,7 @@ deme_coalescence
 exchange_origins
 neutral_deme_variances
 fst_stepping_stone
+pair_recombination
 QTLSim.migration_mixing
 ```
 
