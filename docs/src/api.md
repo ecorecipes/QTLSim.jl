@@ -176,6 +176,7 @@ exchange_origins
 neutral_deme_variances
 fst_stepping_stone
 pair_recombination
+QTLSim.pair_classes
 QTLSim.migration_mixing
 ```
 
