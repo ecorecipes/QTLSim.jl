@@ -48,6 +48,11 @@ port of QTSim written by hand, run for run, and against QTSim itself, in distrib
   demes coupled by migration, which QTSim lacks: a scalar rate, the island matrix and a
   line of stepping stones; KS tests, 300 runs each, about an hour on 3 threads; exits 1
   if any p < 0.001; last result in `valid_migration.log`.
+- `compare_traits.jl` — the kernel against the generated SLiM model with two traits and
+  pleiotropy (`NoTraits = 2`, the Eidos images of `eidos_traits.jl`), which QTSim lacks:
+  G matrix and genetic correlation at equilibrium (one locus), lag vector and G under a
+  move along (1, 2) (ten loci); KS tests, 40 runs each, about 20 minutes on 3 threads;
+  exits 1 if any p < 0.001; last result in `valid_traits.log`.
 - `three_way_confirm.jl` — the large pre-specified test of QTSim vs the generated SLiM model
   vs the kernel (40,000 runs each, about 2.5 h on 8 threads); result in `three_way_confirm.log`.
 - `slim.jl` — `find_slim()`: `ENV["SLIM"]`, else `slim/build/slim` next to the package's
@@ -154,6 +159,12 @@ both, 583 and 562 generations after the move on average (p = 0.26). Moving 0.01 
 R = 1.5, a rate every population survives at a fixed size: all 40 die in both, after
 1341 and 1326 generations (p = 0.57). QTSim has a fixed size, so the kernel is the
 reference here.
+
+**Several traits (2026-11-07, `compare_traits.jl`, `valid_traits.log`, 40 runs each):** the
+kernel and the generated SLiM model with two pleiotropic traits. One diploid locus at
+equilibrium: G entries, genetic correlation and survivors, KS p 0.26–0.91. Ten loci,
+optimum moving along (1, 2): lag vector, G entries and the final mean, p 0.26–0.99.
+No discrepancy (smallest p 0.26).
 
 **Fluctuating optima (2026-11-07, `compare_fluctuating.jl`, `valid_fluctuating.log`, 40 runs
 each):** the kernel and the generated SLiM model with a periodic optimum (A = 0.1, P = 200;

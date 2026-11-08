@@ -1,5 +1,6 @@
 using QTLSim
 using Test, Statistics, Random
+using QTLSim: eigvals, Symmetric   # LinearAlgebra, through the package
 
 # The categorical layer is the package extension QTLSimCatlabExt, loaded with Catlab.
 import Catlab
@@ -1513,4 +1514,218 @@ end
         @test sweep(j -> (; j), 1:5; cache = c3) == [(; j) for j in 1:5]
     end
     @test_throws ArgumentError sweep(identity, 1:2; ntasks = 0)
+end
+
+@testset "several traits: parameters and the kernel" begin
+    base = Params(PopSize = 300, NoQTL = 20, Ploidy = 2, NoGenerations = 200, PhenotypeVar = 1.0,
+                  Heritability = 0.5, MutationScalar = 0.01, MutationRatePerGamete = 0.01, RecombPoissonMean = 2.0)
+    p = Params(base; NoTraits = 2, MutCorr = 0.6, SelCorr = -0.4)
+    # derived matrices; one trait is the scalar model
+    @test mutational_covariance(p) ≈ muteVar(p) .* [1 0.6; 0.6 1]
+    @test selection_covariance(p) ≈ initFitSD(p)^2 .* [1 -0.4; -0.4 1]
+    @test selection_covariance(Params(p; SelCorr = 0.0, SelCov = [2.0 0.5; 0.5 1.0])) ≈ [2.0 0.5; 0.5 1.0]
+    @test mutational_covariance(base) ≈ fill(muteVar(base), 1, 1)
+    @test selection_covariance(base) ≈ fill(initFitSD(base)^2, 1, 1)
+    @test move_direction(Params(p; MoveDirection = [3.0, 4.0])) ≈ [0.6, 0.8] && move_direction(p) == [1.0, 0.0]
+    @test Params(p) == p && hash(Params(p)) == hash(p) && Params(base; NoTraits = 2) == Params(base; NoTraits = 2)
+    # checkparams
+    bad(; kw...) = @test_throws ArgumentError World(Params(base; kw...))
+    bad(NoTraits = 0); bad(MutCorr = 0.5)                     # trait fields need NoTraits > 1
+    bad(NoTraits = 2, SelCorr = 1.0); bad(NoTraits = 3, MutCorr = -0.6)   # not a correlation of 3 traits
+    bad(NoTraits = 2, MutCov = [1.0 2.0; 2.0 1.0]); bad(NoTraits = 2, SelCov = ones(3, 3))
+    bad(NoTraits = 2, MutCov = [1.0 0.0; 0.0 1.0], MutCorr = 0.1); bad(NoTraits = 2, MoveDirection = [1.0])
+    bad(NoTraits = 2, MoveDirection = [0.0, 0.0]); bad(NoTraits = 2, MoveType = :red_noise)
+    bad(NoTraits = 2, StandardisePhenotype = true)
+    @test World(Params(base; NoTraits = 3, MutCorr = -0.5)) isa World       # -1/(n-1) is singular but allowed
+    @test_throws ArgumentError write_qtsim_options(IOBuffer(), p)
+    # genotypes are the sums of the effects, trait by trait; the block pool stays consistent;
+    # a generation allocates nothing in the steady state
+    w = World(p); rng = MersenneTwister(4); init_env!(w, rng)
+    for t in 0:149
+        w.gen = t; generation!(w, rng)
+    end
+    QTLSim.check_blocks(w)
+    develop!(w)
+    G = genomes(w)
+    @test size(G) == (2, p.NoQTL, 2, w.N)
+    @test traitvalues(w; what = :genotype) ≈ dropdims(sum(G; dims = (2, 3)); dims = (2, 3)) atol = 1e-12
+    @test traitvalues(w) ≈ traitvalues(w; what = :genotype) .+ traitvalues(w; what = :env)
+    @test w.genotype[1:w.N] == traitvalues(w; what = :genotype)[1, :]      # the scalar fields hold trait 1
+    alloc(w, rng) = @allocated generation!(w, rng)
+    alloc(w, rng); @test alloc(w, rng) == 0
+    v = World(p); setgenomes!(v, G); develop!(v)
+    @test genomes(v) == G
+    @test traitvalues(v; what = :genotype) ≈ dropdims(sum(G; dims = (2, 3)); dims = (2, 3)) atol = 1e-12
+    @test_throws ArgumentError setgenomes!(v, zeros(p.NoQTL, 2, 3))
+    # fitness: QTSim's 0.4 at the optimum; with Ω diagonal, the product of one-trait fitnesses
+    q = Params(base; NoTraits = 2, InitFitnessSD = 0.7)
+    u = World(q); init_env!(u, MersenneTwister(1)); develop!(u)
+    Z = traitvalues(u)
+    select!(u, MersenneTwister(2))
+    c = 1 / (0.4 * sqrt(2π))
+    @test u.fitness[1:u.N] ≈ [c * exp(-(Z[1, i]^2 + Z[2, i]^2) / (2 * 0.7^2)) for i in 1:u.N]
+    one = World(Params(base; InitFitnessSD = 0.7)); one.phenotype .= Z[1, :]; select!(one, MersenneTwister(2))
+    @test u.fitness[1:u.N] ≈ one.fitness .* [exp(-Z[2, i]^2 / (2 * 0.7^2)) for i in 1:u.N]
+    # mutation injects M per individual per generation (Lean mutationalVarianceInput_eq, for
+    # every linear combination of the traits)
+    pm = Params(base; NoTraits = 2, PopSize = 40000, NoQTL = 10, MutationRatePerGamete = 0.05,
+                MutCov = [0.02 -0.012; -0.012 0.01])
+    m = World(pm); m.Noff = m.N; r = MersenneTwister(9)
+    mutate!(m, r); swapbuffers!(m); develop!(m)
+    C = cov(traitvalues(m; what = :genotype); dims = 2)
+    @test C ≈ mutational_covariance(pm) rtol = 0.05
+    # the records: per-trait means, G and P matrices, lag and selection differential
+    o = simulate(Params(p; MoveFitnessSDGen = 100, MoveType = :continuous, MoveFitnessSD = 0.01,
+                        MoveDirection = [1.0, 1.0]); seed = 3)
+    @test !o.extinct && length(o.trait_mean) == length(o.gen) == length(o.gmatrix)
+    @test o.pheno_mean ≈ first.(o.trait_mean) && o.geno_var ≈ [g[1, 1] for g in o.gmatrix]
+    @test all(g -> g ≈ g' && all(>(-1e-12), eigvals(Symmetric(g))), o.gmatrix)
+    @test o.theta ≈ [o.trait_mean[i][1] + o.trait_lag[i][1] for i in eachindex(o.gen)]
+    @test o.gen[101] == 100 && o.trait_lag[101] ≈ -o.trait_mean[101] .+ 0.01 / sqrt(2) .* [1, 1]   # moved once along (1, 1)/√2
+    # the same seed, the same run; the one-trait records have no trait columns
+    @test simulate(p; seed = 5).gmatrix == simulate(p; seed = 5).gmatrix
+    @test !haskey(simulate(Params(base; NoGenerations = 5); seed = 1), :gmatrix)
+end
+
+@testset "several traits: the kernel lowering and metapopulations" begin
+    L = lifecycle(); g = L.generation
+    p = Params(PopSize = 200, NoQTL = 10, Ploidy = 2, NoGenerations = 100, MutationScalar = 0.01,
+               MutationRatePerGamete = 0.02, NoTraits = 2, MutCorr = 0.5, SelCorr = 0.3)
+    # the life cycle is unchanged: run_composed drives the same morphism over traits
+    a = simulate(p; seed = 11)
+    b = run_composed(World(p), MersenneTwister(11); cycle = g)
+    @test a.gmatrix == b.gmatrix && a.trait_mean == b.trait_mean
+    # two demes with migration: the traits move with the migrants
+    s = p ⊗ demes(2)
+    o = run_composed(s, MersenneTwister(1); cycle = g ⊗ g ⋅ L.migrate(2), migration_rate = 0.05)
+    @test !o.extinct && length(o.gmatrix) == length(o.gen) == 2 * p.NoGenerations
+    QTLSim.check_blocks(s.demes...)
+    w, v = World(p), World(p); init_env!(w, MersenneTwister(1)); init_env!(v, MersenneTwister(2))
+    e1, e2 = traitvalues(w; what = :env)[:, 3], traitvalues(v; what = :env)[:, 5]
+    Ext.swap_individuals!(w, 3, v, 5)
+    @test traitvalues(w; what = :env)[:, 3] == e2 && traitvalues(v; what = :env)[:, 5] == e1
+    @test_throws ArgumentError migrate!(Ext.Stratified([World(p), World(Params(p; NoTraits = 3))]), MersenneTwister(1))
+end
+
+@testset "several traits: the same ACSet schema, vector-valued attributes" begin
+    p = Params(PopSize = 30, NoQTL = 4, Ploidy = 2, NoGenerations = 20, MutationScalar = 0.05,
+               MutationRatePerGamete = 0.2, NoTraits = 3, MutCorr = 0.2)
+    w = World(p); rng = MersenneTwister(2); init_env!(w, rng)
+    for t in 0:19; w.gen = t; generation!(w, rng); end
+    develop!(w)
+    pop = lift(w)
+    @test pop isa Ext.TraitPopulation && Catlab.acset_schema(pop) == Catlab.acset_schema(lift(World(Params(p; NoTraits = 1, MutCorr = 0.0))))
+    @test reduce(hcat, genotypes(pop)) ≈ traitvalues(w; what = :genotype)
+    @test reduce(hcat, phenotypes(pop)) ≈ traitvalues(w)
+    v = World(p); lower!(pop, v)
+    @test genomes(v) == genomes(w) && traitvalues(v) ≈ traitvalues(w)
+end
+
+@testset "several traits: theory (Lande 1980; Schluter 1996)" begin
+    # the closed-form equilibrium solves G (A + G)⁻¹ G = M for M and A that do not commute
+    M = [0.004 0.0025; 0.0025 0.003]; A = [40.0 -12.0; -12.0 25.0]
+    G = gaussian_G(M, A)
+    @test G * ((A + G) \ G) ≈ M rtol = 1e-10
+    @test all(>(0), eigvals(Symmetric(G)))
+    @test G ≈ gaussian_G_iterate(M, A) rtol = 1e-8
+    # commuting M and A: the one-trait formula on each shared axis
+    Q = [cos(0.3) -sin(0.3); sin(0.3) cos(0.3)]
+    Mc, Ac = Q * [0.004 0; 0 0.001] * Q', Q * [30.0 0; 0 60.0] * Q'
+    one(m, a) = (m + sqrt(m^2 + 4m * a)) / 2
+    @test gaussian_G(Mc, Ac) ≈ Q * [one(0.004, 30.0) 0; 0 one(0.001, 60.0)] * Q' rtol = 1e-10
+    # one trait: gaussian_vg_exact
+    p1 = Params(PhenotypeVar = 0.02, Heritability = 0.4, MutationScalar = 0.004, InitFitnessSD = 2.0)
+    @test gaussian_G(p1)[1, 1] ≈ gaussian_vg_exact(p1) rtol = 1e-12
+    @test selection_variance_matrix(p1)[1, 1] ≈ selection_variance(p1)
+    # weak mutation: the matrix geometric mean A # M
+    Mw = M .* 1e-6
+    Ah = QTLSim.symsqrt(A); Aih = inv(Ah)
+    @test gaussian_G(Mw, A) ≈ Ah * QTLSim.symsqrt(Aih * Mw * Aih) * Ah rtol = 2e-3
+    # the steady lag: the response to it is the rate of change; one trait is steady_lag
+    k = [0.01, 0.0]
+    λ = steady_lag_vector(k; G, A)
+    @test trait_response(λ; G, A) ≈ k
+    @test steady_lag_vector([0.01]; G = fill(0.5, 1, 1), A = fill(1.5, 1, 1))[1] ≈ steady_lag(0.01; VG = 0.5, Vs = 1.5)
+    pc = Params(p1; NoTraits = 2, MutCorr = 0.5, MoveFitnessSDGen = 10, MoveType = :continuous, MoveFitnessSD = 0.001,
+                MoveDirection = [1.0, 1.0])
+    @test steady_lag_vector(pc; G) ≈ steady_lag_vector(0.001 .* [1, 1] ./ sqrt(2); G, A = selection_variance_matrix(pc))
+    @test_throws ArgumentError steady_lag_vector(Params(pc; MoveType = :phenotype); G)
+    # the line of least resistance: the response turns from β toward g_max
+    Gd = [1.0 0.8; 0.8 1.0]                 # g_max along (1, 1)/√2
+    @test gmax(Gd) ≈ [1, 1] ./ sqrt(2)
+    d = response_deflection([1.0, 0.0]; G = Gd, A = [10.0 0; 0 10.0])
+    @test d.angle_response_gmax < d.angle_gradient_gmax && d.angle_response_gradient > 0
+    @test d.response ≈ Gd * d.β && vector_angle([1.0, 0.0], [0.0, 2.0]) ≈ 90
+    for _ in 1:50                            # never away from the g_max axis
+        B = randn(3, 3); Gr = B * B'; β = randn(3)
+        g = gmax(Gr)
+        @test abs(QTLSim.dot(Gr * β, g)) / QTLSim.norm(Gr * β) >= abs(QTLSim.dot(β, g)) / QTLSim.norm(β) - 1e-12
+    end
+end
+
+@testset "several traits: the moments lowering, a second table for the same syntax" begin
+    L = lifecycle(); g = L.generation
+    p = Params(PopSize = 1000, NoQTL = 50, Ploidy = 2, NoGenerations = 4000, PhenotypeVar = 1.0, Heritability = 0.5,
+               MutationScalar = 0.01, MutationRatePerGamete = 0.01, NoTraits = 2, MutCorr = 0.5, SelCorr = -0.3)
+    o = run_moments(p)                       # dispatches to the trait table
+    @test o.gmatrix[end] ≈ gaussian_G(p) rtol = 1e-6
+    @test o.pmatrix[end] ≈ o.gmatrix[end] + envVar(p) * [1 0; 0 1]
+    @test all(0 .< o.mean_fitness .<= 1)
+    # a continuous move along (1, 2): the lag converges to the steady lag vector
+    pc = Params(p; NoGenerations = 8000, MoveFitnessSDGen = 4000, MoveType = :continuous, MoveFitnessSD = 0.002,
+                MoveDirection = [1.0, 2.0])
+    oc = run_moments(pc)
+    @test oc.trait_lag[end] ≈ steady_lag_vector(pc; G = oc.gmatrix[end]) rtol = 1e-6
+    @test oc.trait_mean[end] - oc.trait_mean[end-1] ≈ 0.002 .* QTLSim.move_direction(pc) rtol = 1e-6
+    # one trait: the multivariate recursion with 1×1 matrices is the one-trait table's
+    p1 = Params(PopSize = 1000, NoGenerations = 3000, PhenotypeVar = 0.02, MutationScalar = 0.02,
+                MutationRatePerGamete = 0.5, InitFitnessSD = 0.3, MoveFitnessSDGen = 1000, MoveFitnessSD = 0.001,
+                MoveType = :continuous, ChangeFitnessGen = 2000, ChangeFitnessSD = 0.4)
+    a, b = run_moments(p1), Ext.run_trait_moments(p1)
+    @test a.geno_var ≈ b.geno_var rtol = 1e-10
+    @test a.pheno_mean ≈ b.pheno_mean rtol = 1e-10
+    @test a.theta ≈ b.theta rtol = 1e-10
+    @test a.mean_fitness ≈ b.mean_fitness rtol = 1e-10
+    @test a.sel_diff ≈ b.sel_diff rtol = 1e-8
+    ae, be = run_moments(p1; erosion = true), Ext.run_trait_moments(p1; erosion = true)
+    @test ae.geno_var ≈ be.geno_var rtol = 1e-10
+    # it is a functor: the generation's image is the composite of the steps' images
+    steps = (:develop, :select, :reproduce, :record, :rescale, :mutate, :swap)
+    imgs = Ext.trait_moment_images()
+    m1 = Ext.TraitMoments(p; G = [0.1 0.02; 0.02 0.05]); m2 = deepcopy(m1)
+    lower(g, :moments; images = imgs)(m1, nothing)
+    foldl(Catlab.compose, (lower(getfield(L, s), :moments; images = imgs) for s in steps))(m2, nothing)
+    @test (m1.zbar, m1.G, m1.θ, m1.gen) == (m2.zbar, m2.G, m2.θ, m2.gen)
+    @test_throws ArgumentError run_moments(p; cycle = L.develop)
+end
+
+@testset "several traits: the Eidos lowering, a second table" begin
+    L = lifecycle(); g = L.generation
+    base = Params(PopSize = 100, NoQTL = 3, Ploidy = 2, NoGenerations = 50, PhenotypeVar = 0.02,
+                  MutationScalar = 0.02, MutationRatePerGamete = 0.5, InitFitnessSD = 0.3)
+    p = Params(base; NoTraits = 2, MutCorr = 0.4, SelCorr = -0.3, MoveDirection = [1.0, 2.0])
+    s = slim_script(g, p)
+    @test occursin("rmvnorm(sum(k0), rep(0.0, NT), MUTCOV)", s) && occursin("defineConstant(\"NT\", 2)", s)
+    @test occursin("matrixMult(matrix(SINV, nrow = NT, byrow = T), D)", s)
+    @test occursin("\\tz1\\tz2\\tG11\\tG12\\tG22\\ttheta1\\ttheta2", s)
+    @test occursin("rep(0.0, L * NT)", s) && occursin("pop.setValue(\"THETA\", rep(0.0, NT));", s)
+    @test occursin("MCORR", s) && occursin("MCOV", slim_script(g, Params(p; MutCorr = 0.0, MutCov = [2e-4 1e-4; 1e-4 2e-4])))
+    # the same syntax: each step's image comes from the trait table
+    imgs = Ext.eidos_trait_images()
+    @test Set(keys(imgs)) == Set(keys(Ext.eidos_images()))
+    @test occursin("for (r in 0:(NT - 1)) gsum = c(gsum,", s) && occursin("from0 = (loc <= repEach(cut, L))", s)
+    # one trait's model is untouched (the golden file test above), and has none of this
+    @test !occursin("NT", slim_script(g, base))
+    # fecundity selection splices into the trait table as into the one-trait table
+    sf = slim_script(g, Params(p; Selection = :fecundity))
+    @test occursin("weighted = (selection == \"fecundity\")", sf) && occursin("matrixMult", sf)
+    # several demes share the trait parameters; migration moves whole allele vectors
+    @test occursin("migRate", slim_script(g ⊗ g ⋅ L.migrate(2), p; migration_rate = 0.01))
+    @test_throws ArgumentError slim_script(g ⊗ g ⋅ L.migrate(2), [p, Params(p; SelCorr = 0.2)])
+    # what the Eidos lowering cannot do with several traits
+    @test_throws ArgumentError slim_script(g, Params(p; MutCorr = 1.0))                 # rmvnorm needs M ≻ 0
+    θstep = withparams(g; θ = 0.1)
+    @test_throws ArgumentError slim_script(θstep, p)
+    @test_throws ArgumentError run_composed(World(p), MersenneTwister(1); cycle = θstep)
+    @test_throws ArgumentError run_moments(p; cycle = θstep)
 end

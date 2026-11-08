@@ -27,7 +27,7 @@ function tutorial_pages()
 end
 
 pages = Any["Home" => "index.md", "Parameters" => "parameters.md", "Output" => "output.md",
-             "Running QTSim input files" => "reproducing.md"]
+             "Running QTSim input files" => "reproducing.md", "Several traits" => "traits_design.md"]
 tutorials = tutorial_pages()
 isempty(tutorials) || push!(pages, "Tutorials" => tutorials)
 push!(pages, "API reference" => "api.md")

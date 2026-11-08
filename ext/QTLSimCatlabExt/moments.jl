@@ -423,6 +423,7 @@ end
 moments_migrate_op(k, rate) = DemeOp(k, collect(1:k), (s, d, rng) -> moments_migrate!(s, d, rate))
 
 function run_moments(p::Params; cycle = lifecycle().generation, kw...)
+    p.NoTraits > 1 && return run_trait_moments(p; cycle, kw...)    # trait_moments.jl
     k = nfactors(dom(cycle))
     k > 1 ? run_moments(fill(p, k); cycle, kw...) : run_moments1(p; cycle, kw...)
 end

@@ -446,6 +446,19 @@ function slim_model(f, ps::Vector{Params}, images, migration_rate)
             throw(ArgumentError("in a SLiM model the demes have the same $fld; got $([getfield(q, fld) for q in ps])"))
     end
     migration_rate isa AbstractMatrix && QTLSim.check_migration(migration_rate, k)
+    # several traits: a second table of images (eidos_traits.jl), shared trait parameters
+    traits = p.NoTraits > 1
+    if traits
+        for fld in TRAIT_FIELDS
+            all(q -> getfield(q, fld) == getfield(p, fld), ps) ||
+                throw(ArgumentError("in a SLiM model of several traits the demes have the same $fld"))
+        end
+        QTLSim.mineigen(QTLSim.mutational_covariance(p)) > 0 ||
+            throw(ArgumentError("the lowering to Eidos draws mutations with rmvnorm, which needs a positive definite mutational covariance"))
+        any(g -> !(g isa ObExpr) && haskey(stepparams(g), :θ), stepsof(f)) &&
+            throw(ArgumentError("a step's own θ is a number; with several traits the optimum is a vector"))
+    end
+    table = traits ? eidos_trait_images() : eidos_images()
     # QTLSim's fluctuating moves: in the image of the plain select when a deme uses one, and
     # their constants when a deme or a step does
     fluctuating = any(q -> q.MoveType in FLUCTUATING_MOVES, ps)
@@ -456,9 +469,10 @@ function slim_model(f, ps::Vector{Params}, images, migration_rate)
     builtin = Dict{Any,Any}()
     fluctuating && (builtin[:select] = eidos_fluctuating_select())
     if fecund
-        builtin[:select] = eidos_fecundity_select(get(builtin, :select, eidos_images()[:select]).code)
-        builtin[:reproduce] = eidos_fecundity_reproduce()
+        builtin[:select] = eidos_fecundity_select(get(builtin, :select, table[:select]).code)
+        builtin[:reproduce] = eidos_fecundity_reproduce(table[:reproduce].code)
     end
+    traits && foreach(((s, c),) -> haskey(builtin, s) || (builtin[s] = c), table)
     isempty(builtin) || (images = merge(builtin, Dict{Any,Any}(images)))
     stepmoves = any(g -> !(g isa ObExpr) && get(stepparams(g), :MoveType, :none) in FLUCTUATING_MOVES, stepsof(f))
     # a constant whose value differs between demes is a vector, one value per deme, and deme state
@@ -473,10 +487,11 @@ function slim_model(f, ps::Vector{Params}, images, migration_rate)
                 (migration_rate isa AbstractMatrix ? "MIG" => vec(permutedims(Float64.(migration_rate))) :
                  "migRate" => Float64(migration_rate)))
     fecund && (defaults = (defaults..., "selection" => value(:Selection)))
+    traits && (defaults = (defaults..., eidos_trait_constants(p)...))
     (fluctuating || stepmoves) &&
         (defaults = (defaults..., "moveNoiseSD" => value(:MoveNoiseSD), "moveAutocorr" => value(:MoveAutocorr),
                      "moveAmplitude" => value(:MoveAmplitude), "movePeriod" => value(:MovePeriod)))
-    perdeme = [key for (key, v) in defaults if v isa AbstractVector && key != "MIG"]
+    perdeme = [key for (key, v) in defaults if v isa AbstractVector && !(key in VECTOR_CONSTANTS)]
     vary(names...) = any(in(perdeme), names)
     derived = [n for (n, on) in ("VG" => vary("VP", "h2"), "VE" => vary("VP", "h2"), "ESD" => vary("VP", "h2"),
                                  "MUTVAR" => vary("m", "rate", "VP", "h2"),
@@ -531,7 +546,7 @@ function slim_model(f, ps::Vector{Params}, images, migration_rate)
         defineConstant("ESD", sqrt(VE));
         defineConstant("MUTVAR", (m / (2 * L * rate)) * VE);       // m/(Ploidy·NoQTL·rate)·V_E
         defineConstant("OMEGA0", $omega0);
-
+    $(traits ? eidos_mutcov(p) : "")
         // vestigial genetics: SLiM supplies only the life cycle
         initializeMutationRate(0.0);
         initializeMutationType("m1", 0.5, "f", 0.0);
@@ -551,9 +566,9 @@ function slim_model(f, ps::Vector{Params}, images, migration_rate)
     1 first() {
         for (i in seqLen(DEMES)) {
             pop = sim.addSubpop(i + 1, $(at("N")));
-            pop.individuals.setValue("a0", rep(0.0, L));   // founders: allele values 0
-            pop.individuals.setValue("a1", rep(0.0, L));
-            pop.setValue("THETA", 0.0);
+            pop.individuals.setValue("a0", rep(0.0, $(traits ? "L * NT" : "L")));   // founders: allele values 0
+            pop.individuals.setValue("a1", rep(0.0, $(traits ? "L * NT" : "L")));
+            pop.setValue("THETA", $(traits ? "rep(0.0, NT)" : "0.0"));
             pop.setValue("OMEGA", $(at("OMEGA0")));
             pop.setValue("extinct", F);
     """)
@@ -568,7 +583,7 @@ function slim_model(f, ps::Vector{Params}, images, migration_rate)
     reproduction() {
         gen = sim.cycle - 1;                       // QTSim's generation index
         if (gen == 0) catn("gen\\tphenoMean\\tgenoVar\\tnSurv\\ttheta\\tomega" + ((DEMES > 1) ? "\\tdeme" else "") +
-                       ((demography != "fixed") ? "\\tpopsize" else ""));
+                       ((demography != "fixed") ? "\\tpopsize" else "")$(traits ? trait_header(p.NoTraits) : ""));
     """)
     for pop in pops
         println(io, "    kids_", pop, " = ", pop, ".individuals[integer(0)];")

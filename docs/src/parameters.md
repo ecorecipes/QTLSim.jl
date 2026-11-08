@@ -36,6 +36,12 @@ files.
 | `Demography` | `:fixed`: the survivors always produce `PopSize` offspring, as in QTSim; `:beverton_holt`: density-regulated (see below) | `:fixed` | — | — |
 | `GrowthRate` | R, offspring per survivor at low density, for `:beverton_holt` | 2.0 | — | — |
 | `Selection` | `:viability`: survive iff U < W, then mate at random, as in QTSim; `:fecundity`: all survive and mate in proportion to W (see below) | `:viability` | — | — |
+| `NoTraits` | n, the number of traits each locus affects (pleiotropy; see [Several traits](traits_design.md)) | 1 | — | — |
+| `MutCorr` | r_μ, the mutational correlation between every two traits (`NoTraits > 1`) | 0.0 | — | — |
+| `SelCorr` | the correlation of the fitness function between every two traits (`NoTraits > 1`) | 0.0 | — | — |
+| `MutCov` | M, the mutational covariance per generation, n×n, in place of m·V_E with `MutCorr` | empty | — | — |
+| `SelCov` | Ω, the initial fitness covariance, n×n, in place of ω² with `SelCorr` | empty | — | — |
+| `MoveDirection` | the direction the optimum moves in, normalised; trait 1 when empty | empty | — | — |
 | `Seed` | seed for [`simulate`](@ref); `nothing` draws one | `nothing` | `Seed` | `Seed` |
 
 ## What the parameters set, and what they don't

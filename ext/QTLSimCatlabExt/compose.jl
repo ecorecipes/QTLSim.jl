@@ -82,6 +82,8 @@ function with_step_params(s, op::Operator)
     θ === nothing || (fields = merge(fields, (MoveFitnessSDGen = -1,)))
     cache = IdDict{Params,Params}()          # the overridden Params, per deme's Params
     Operator(Symbol(string(s)), function (w, rng)
+        θ === nothing || !hastraits(w) ||
+            throw(ArgumentError("the step $s has its own θ, a number; with several traits the optimum is a vector"))
         p0, ω0, θ0 = w.p, w.ω, w.θ
         isempty(fields) || (w.p = get!(() -> QTLSim.checkparams(Params(p0; fields...)), cache, p0))
         ω === nothing || (w.ω = ω)
@@ -97,6 +99,10 @@ function with_step_params(s, op::Operator)
     end, op.scope)
 end
 
+"Whether a state carries several traits (a `World` with `traits`, or `TraitMoments`)."
+hastraits(w::World) = w.traits !== nothing
+hastraits(_) = false
+
 # --- a run driven by one lowered life cycle -------------------------------
 
 function run_composed(w::World, rng; record::Bool=true, cycle = lifecycle().generation,
@@ -104,7 +110,7 @@ function run_composed(w::World, rng; record::Bool=true, cycle = lifecycle().gene
     zygotes = LifeCycle[:Zygotes]
     dom(cycle) == zygotes && codom(cycle) == zygotes ||
         throw(ArgumentError("a run iterates a life cycle Zygotes → Zygotes; got $(dom(cycle)) → $(codom(cycle))"))
-    rec = records()
+    rec = records(; traits = w.p.NoTraits)
     step = lower(cycle, :kernel; images, record = record ? rec : nothing)
     p = w.p
     init_env!(w, rng)
@@ -136,7 +142,7 @@ end
 
 # The demes share one pool of blocks (see `World`), so that a migrant moves by swapping
 # block ids; demes with different numbers of loci cannot share one.
-⊗(p::Params, d::Demes) = (pool = QTLSim.BlockPool(p.NoQTL); Stratified([World(p; pool) for _ in 1:d.k]))
+⊗(p::Params, d::Demes) = (pool = QTLSim.BlockPool(p.NoQTL; traits = p.NoTraits); Stratified([World(p; pool) for _ in 1:d.k]))
 function ⊗(w::World, d::Demes)
     w1 = deepcopy(w)
     Stratified([w1; [QTLSim.shared_copy(w1) for _ in 2:d.k]])
@@ -145,8 +151,9 @@ function ⊗(ps::AbstractVector{Params}, d::Demes)
     length(ps) == d.k || throw(ArgumentError("$(length(ps)) parameter sets for $(d.k) demes"))
     all(q -> q.NoGenerations == ps[1].NoGenerations, ps) ||
         throw(ArgumentError("the demes of a metapopulation run for the same number of generations"))
-    pools = Dict{Int,QTLSim.BlockPool}()
-    Stratified([World(q; pool = get!(() -> QTLSim.BlockPool(q.NoQTL), pools, q.NoQTL)) for q in ps])
+    pools = Dict{Tuple{Int,Int},QTLSim.BlockPool}()
+    Stratified([World(q; pool = get!(() -> QTLSim.BlockPool(q.NoQTL; traits = q.NoTraits), pools, (q.NoQTL, q.NoTraits)))
+                for q in ps])
 end
 
 isextinct(s::Stratified) = all(w -> w.extinct, s.demes)
@@ -188,10 +195,10 @@ end
 
 # Exchange individual i of deme w and individual j of deme v: their genomes, by swapping
 # block ids when the demes share a pool, as demes made by ⊗ do (QTLSim.exchange_genomes!),
-# and their environments.
+# and their environments (every trait's, when there are several).
 function swap_individuals!(w::World, i, v::World, j)
     QTLSim.exchange_genomes!(w, i, v, j)
-    w.env[i], v.env[j] = v.env[j], w.env[i]
+    QTLSim.exchange_env!(w, i, v, j)
     1
 end
 
@@ -272,7 +279,7 @@ function run_composed(s::Stratified, rng; cycle, record::Bool=true, images = Dic
     dom(cycle) == zk && codom(cycle) == zk ||
         throw(ArgumentError("a run of $k demes iterates a life cycle on $k zygote stages, Zygotes⊗…⊗Zygotes; " *
                             "got $(dom(cycle)) → $(codom(cycle))"))
-    rec = records(demes = s.demes)
+    rec = records(demes = s.demes, traits = first(s.demes).p.NoTraits)
     step = demeop(lower(cycle, :kernel; images, record = record ? rec : nothing, migration_rate))
     foreach(w -> init_env!(w, rng), s.demes)
     p = first(s.demes).p
@@ -289,7 +296,8 @@ function run_composed(s::Stratified, rng; cycle, record::Bool=true, images = Dic
         d = d[step.perm]
         gen = max(gen + 1, maximum(w.gen for w in s.demes if !w.extinct))
     end
-    (extinct = isextinct(s), extinct_gen, gen = rec.gen, deme = rec.deme, pheno_mean = rec.pheno_mean,
-     pheno_var = rec.pheno_var, geno_var = rec.geno_var, nsurv = rec.nsurv, theta = rec.theta, omega = rec.omega,
-     mean_fitness = rec.mean_fitness, sel_diff = rec.sel_diff, popsize = rec.popsize)
+    out = (extinct = isextinct(s), extinct_gen, gen = rec.gen, deme = rec.deme, pheno_mean = rec.pheno_mean,
+           pheno_var = rec.pheno_var, geno_var = rec.geno_var, nsurv = rec.nsurv, theta = rec.theta, omega = rec.omega,
+           mean_fitness = rec.mean_fitness, sel_diff = rec.sel_diff, popsize = rec.popsize)
+    haskey(rec, :gmatrix) ? merge(out, NamedTuple(k => rec[k] for k in keys(QTLSim.trait_records()))) : out
 end

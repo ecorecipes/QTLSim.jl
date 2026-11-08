@@ -42,6 +42,18 @@ Some fields have no QTSim counterpart, or behave differently:
   `MoveAmplitude` and `MovePeriod`: QTSim's optimum moves by a rule; these two make it
   fluctuate, around a linear trend of `MoveFitnessSD` per generation, with stationary
   AR(1) noise or a sine wave (see [`moveoptimum!`](@ref)).
+- `NoTraits`, `MutCorr`, `SelCorr`, `MutCov`, `SelCov` and `MoveDirection`: QTSim has one
+  trait. With `NoTraits = n > 1` each locus has a vector of `n` effects (pleiotropy), a
+  mutation adds a draw from `N(0, M/(Ploidy·NoQTL·MutationRatePerGamete))`, so that `M`
+  ([`mutational_covariance`](@ref)) is injected per individual per generation, each trait
+  has environmental variance `V_E`, independently, and fitness is
+  `W(z) = c·exp(−½ (z−θ)ᵀ Ω⁻¹ (z−θ))` with QTSim's `c = 1/(0.4√(2π))`, so that one trait
+  is QTSim's fitness. `Ω = ω² S`, where `ω` is the width (`InitFitnessSD` or the
+  analytical width, changed by `ChangeFitnessSD`) and the shape `S` has unit diagonal
+  and correlation `SelCorr`, or is `SelCov/ω²` initially. The optimum moves along the
+  unit vector `u` ∝ `MoveDirection` ([`move_direction`](@ref)): by `d·u` per generation
+  (`:continuous`), to `z̄ + √V_P·d·u` (`:phenotype`) or to `z̄ + ω d u` (`:fitness`). See
+  the design note `traits_design.md`.
 """
 Base.@kwdef struct Params
     NoGenerations::Int          = 20000
@@ -70,8 +82,19 @@ Base.@kwdef struct Params
     Demography::Symbol          = :fixed   # :fixed (QTSim: refill to PopSize) | :beverton_holt — Julia-only
     GrowthRate::Float64         = 2.0      # R, offspring per survivor at low density (:beverton_holt)
     Selection::Symbol           = :viability  # :viability (QTSim: survive iff U < W) | :fecundity (mate ∝ W) — Julia-only
+    # several traits with pleiotropy — Julia-only; with NoTraits = 1 the rest are unused
+    NoTraits::Int               = 1        # n, traits each locus affects
+    MutCorr::Float64            = 0.0      # r_μ, mutational correlation between every two traits
+    SelCorr::Float64            = 0.0      # r_ω, correlation of the fitness function between every two traits
+    MutCov::Matrix{Float64}     = zeros(0, 0)   # M, mutational covariance per generation (n×n); empty ⇒ m·V_E with MutCorr
+    SelCov::Matrix{Float64}     = zeros(0, 0)   # Ω, initial fitness-function covariance (n×n); empty ⇒ ω² with SelCorr
+    MoveDirection::Vector{Float64} = Float64[]  # u, the direction the optimum moves in; empty ⇒ trait 1
     Seed::Union{Nothing,Int}    = nothing
 end
+
+# Params holds arrays, so equality is by field values rather than by identity.
+Base.:(==)(a::Params, b::Params) = all(f -> getfield(a, f) == getfield(b, f), fieldnames(Params))
+Base.hash(p::Params, h::UInt) = foldl((h, f) -> hash(getfield(p, f), h), fieldnames(Params); init = hash(:Params, h))
 
 "Additive genetic variance target V_G = h²·V_P (QTSim `OptVarTarget`)."
 geneticVar(p::Params) = p.Heritability * p.PhenotypeVar
@@ -158,6 +181,7 @@ function checkparams(p::Params)
         bad("ChangeFitnessGen must be -1 (no change) or a generation, got $(p.ChangeFitnessGen)")
     (p.ChangeFitnessGen == -1 || p.ChangeFitnessSD > 0) ||
         bad("ChangeFitnessSD must be positive when ChangeFitnessGen is set, got $(p.ChangeFitnessSD)")
+    checktraits(p, bad)
     if p.InitFitnessSD == -1
         envVar(p) > 0 && p.MutationScalar > 0 ||
             bad("the analytical fitness width (InitFitnessSD = -1) needs Heritability < 1 and MutationScalar > 0; set InitFitnessSD")
@@ -165,4 +189,95 @@ function checkparams(p::Params)
         p.InitFitnessSD > 0 || bad("InitFitnessSD must be -1 (analytical) or positive, got $(p.InitFitnessSD)")
     end
     p
+end
+
+# --- several traits ---------------------------------------------------------
+
+# the n×n matrix with unit diagonal and `r` off it
+equicorrelation(n::Integer, r::Real) = [i == j ? 1.0 : Float64(r) for i in 1:n, j in 1:n]
+
+issymmetric_approx(A) = size(A, 1) == size(A, 2) && all(isfinite, A) &&
+                        all(abs(A[i, j] - A[j, i]) <= 1e-12 * max(1.0, abs(A[i, j])) for i in axes(A, 1), j in axes(A, 2))
+
+mineigen(A) = minimum(eigvals(Symmetric(Matrix{Float64}(A))))
+
+# checkparams for the trait fields: what a multi-trait model needs, and that a one-trait
+# model does not silently ignore them
+function checktraits(p::Params, bad)
+    n = p.NoTraits
+    n >= 1 || bad("NoTraits must be at least 1, got $n")
+    if n == 1
+        p.MutCorr == 0 && p.SelCorr == 0 && isempty(p.MutCov) && isempty(p.SelCov) && isempty(p.MoveDirection) ||
+            bad("MutCorr, SelCorr, MutCov, SelCov and MoveDirection are for NoTraits > 1; with one trait leave them unset")
+        return p
+    end
+    -1 <= p.MutCorr <= 1 || bad("MutCorr must be in [-1, 1], got $(p.MutCorr)")
+    -1 < p.SelCorr < 1 || bad("SelCorr must be in (-1, 1), got $(p.SelCorr)")
+    if isempty(p.MutCov)
+        mineigen(equicorrelation(n, p.MutCorr)) >= -1e-12 ||
+            bad("MutCorr = $(p.MutCorr) is not a correlation of $n traits (it must be at least -1/(n-1))")
+    else
+        size(p.MutCov) == (n, n) && issymmetric_approx(p.MutCov) && mineigen(p.MutCov) >= -1e-12 ||
+            bad("MutCov must be a symmetric positive semidefinite $n×$n matrix")
+        p.MutCorr == 0 || bad("give MutCov or MutCorr, not both")
+    end
+    if isempty(p.SelCov)
+        mineigen(equicorrelation(n, p.SelCorr)) > 0 ||
+            bad("SelCorr = $(p.SelCorr) is not a correlation of $n traits (it must be above -1/(n-1))")
+    else
+        size(p.SelCov) == (n, n) && issymmetric_approx(p.SelCov) && mineigen(p.SelCov) > 0 ||
+            bad("SelCov must be a symmetric positive definite $n×$n matrix")
+        p.SelCorr == 0 || bad("give SelCov or SelCorr, not both")
+    end
+    isempty(p.MoveDirection) || (length(p.MoveDirection) == n && all(isfinite, p.MoveDirection) &&
+                                 any(!iszero, p.MoveDirection)) ||
+        bad("MoveDirection must be a nonzero vector of $n numbers, got $(p.MoveDirection)")
+    p.MoveType in (:phenotype, :fitness, :continuous) ||
+        bad("with several traits MoveType must be :phenotype, :fitness or :continuous, got :$(p.MoveType)")
+    p.StandardisePhenotype && bad("StandardisePhenotype is for one trait")
+    p
+end
+
+"""
+    mutational_covariance(p)
+
+The mutational covariance matrix `M` (n×n, n = `NoTraits`): the expected covariance of
+the effects mutation adds to an individual's genotype per generation. `MutCov` when
+given, otherwise `m·V_E` on the diagonal (as [`muteVar`](@ref) for one trait) and
+`MutCorr·m·V_E` off it. Each mutation draws its effect vector from
+`N(0, M/(Ploidy·NoQTL·MutationRatePerGamete))`, so the expected input is `M` (Lean
+`mutationalVarianceInput_eq`, trait by trait and for every linear combination).
+"""
+mutational_covariance(p::Params) =
+    isempty(p.MutCov) ? muteVar(p) .* equicorrelation(p.NoTraits, p.MutCorr) : Matrix{Float64}(p.MutCov)
+
+"""
+    selection_shape(p)
+
+The shape `S` of the fitness function, `Ω = ω² S` (see [`selection_covariance`](@ref)):
+unit diagonal and `SelCorr` off it, or `SelCov/ω₀²` with `ω₀` the initial width.
+"""
+selection_shape(p::Params) =
+    isempty(p.SelCov) ? equicorrelation(p.NoTraits, p.SelCorr) : Matrix{Float64}(p.SelCov) ./ initFitSD(p)^2
+
+"""
+    selection_covariance(p; ω = initFitSD(p))
+
+The covariance matrix `Ω` of the Gaussian fitness function `W(z) ∝ exp(−½ (z−θ)ᵀ Ω⁻¹ (z−θ))`
+at width `ω`: `ω² S` with `S` the [`selection_shape`](@ref); initially `SelCov` when it is
+given. For one trait it is `ω²`.
+"""
+selection_covariance(p::Params; ω::Real = initFitSD(p)) = ω^2 .* selection_shape(p)
+
+"""
+    move_direction(p)
+
+The unit vector along which the optimum moves: `MoveDirection` normalised, or the first
+trait's axis by default (so that one trait moves as in QTSim).
+"""
+function move_direction(p::Params)
+    n = p.NoTraits
+    isempty(p.MoveDirection) && return [i == 1 ? 1.0 : 0.0 for i in 1:n]
+    u = Float64.(p.MoveDirection)
+    u ./ sqrt(sum(abs2, u))
 end
