@@ -172,9 +172,9 @@ function run_composed end
 
 """
     run_moments(p::Params; cycle = lifecycle().generation, images = Dict(), zbar = 0.0, VG = 0.0,
-                optimum = nothing, erosion = false, migration_rate = 0.0)
+                optimum = nothing, erosion = false, migration_rate = 0.0, between = false, origins = :exchange)
     run_moments(ps::Vector{Params}; cycle, images = Dict(), zbar = 0.0, VG = 0.0, erosion = false,
-                migration_rate = 0.0)
+                migration_rate = 0.0, between = false, origins = :exchange)
 
 The life cycle `cycle` lowered to the moments of a Gaussian population (`lower(cycle, :moments)`)
 and iterated for `NoGenerations`: the deterministic, infinite-population predictions of
@@ -227,6 +227,52 @@ lowering carries the between-deme part as genic variance afterwards, as it does 
 reduction by selection. In the simulations, part of it is association within individuals,
 which segregation and recombination break up (at one locus, half of it goes at the next
 reproduction), so the kernel's variance falls below the moments' after mixing.
+
+**Drift among demes (`between = true`).** The lowering above is deterministic: deme means
+that start equal stay equal, and with `erosion` a deme's variance settles at an isolated
+deme's. With `between = true` it also carries the expected second moments of the genes
+across demes, and so predicts the within-deme genetic variance, the variance among deme
+means and Q_ST for any life cycle on diploid demes, with drift, mutation, migration and
+selection. The state is, about the demes' deterministic means and in units of a
+haplotype (half a genotype), the expected square `T[a]` of one haplotype of an adult of
+deme `a`, the covariance `R[a]` of an adult's two haplotypes and the covariance `Q[a, b]`
+of haplotypes of two distinct adults of demes `a` and `b` (`a == b` included), each in
+full and restricted to alleles at one locus (the genic parts; the difference is linkage
+disequilibrium). With `C_aa = (2(N−1)Q_aa + T_a + R_a)/(2N)` the expected square of a
+deme's mean haplotype deviation, the steps act as:
+- `select` (Gaussian, `β = V_G/s`): a deme's mean deviation shrinks by `1 − β`; within the
+  deme the genotypic variance falls by the factor `1 − β` and an adult's `h₁ − h₂` is
+  unchanged; each of the `NoQTL` loci responds with its share `β/NoQTL` (Lande's
+  multilocus Gaussian), the rest being negative linkage disequilibrium;
+- `reproduce` (`n` parents, the expected survivors, or under fecundity selection
+  `N W̄²/E[W²]`): `R_a ← Q_aa`, `Q_aa ← (T_a + R_a)/(2n) + (1 − 1/n) Q_aa`, and
+  recombination moves the linkage disequilibrium in `T` toward that in `R` at the rate
+  [`pair_recombination`](@ref) of the kernel's crossover;
+- `mutate`: `T_a += V_m/2`;
+- `migrate`: with backward matrix `P` ([`backward_migration`](@ref)) and the law `J` of the
+  origins of two distinct adults, `T′_a = Σ_c P_ac (T_c + Δ_ac²)`, likewise `R`, and
+  `Q′_ab = Σ_cd J[ab, cd] (Q_cd + Δ_ac Δ_bd)`, `Δ_ac` half the difference between deme `c`'s
+  mean and deme `a`'s new mean (in the genic parts weighted by `1/NoQTL`). `origins` is
+  `:exchange` (the default; [`exchange_origins`](@ref), the kernel's `migrate!`, which
+  exchanges individuals), `:pool` (independent origins, `kron(P, P)`, the textbook island
+  model) or a `k² × k²` matrix, as for [`deme_coalescence`](@ref).
+For a neutral trait (`Drift = true`) the composite is [`deme_coalescence`](@ref)'s
+recursion read forward, so the predictions are [`neutral_deme_variances`](@ref) at every
+generation, exactly: in the island model the within-deme variance settles at the metapopulation's 2NV_m(kN − 1)/(N − 1), not at an isolated deme's 2NV_m. With
+selection they are the Gaussian approximation; `validate/moments_demes.jl` compares them
+with the kernel (k = 5 and 10, a common optimum and an optimum per deme).
+With `between = true` the deme's `geno_var` is the expected within-deme sample variance
+(divisor n − 1, as the kernel records it), `erosion` is ignored (drift is always on), and
+the result has one more column, `metapop`, a named tuple with one entry per census
+generation (every `Sample`th, at the start of a generation, before any step): `gen`;
+`within`, the mean over demes of the within-deme sample variance V_W; `var_among`, the
+expected sample variance (k − 1) of the deme mean genotypes; `between`, `var_among` less
+the sampling variance of a deme mean (σ²_B); `qst`, `σ²/(σ² + 2V_W)` with
+`σ² = (k − 1)/k·between` (Wright's convention); `qst_demes`, the same with `σ² = between`;
+and `pairs`, the k × k matrices of half the expected squared differences of deme means
+(the deterministic differences included). These are the statistics of
+[`neutral_deme_variances`](@ref), with the same names. One deme: `var_among`, `between`
+and the Q_STs are 0. Generation 0's Q_ST is 0/0, NaN.
 """
 function run_moments end
 

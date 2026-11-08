@@ -40,7 +40,8 @@ export periodic_response, red_noise_lag_var, expected_lag2, lag_load
 # migration graphs among demes
 export island_migration, stepping_stone
 # neutral differentiation among demes (F_ST, Q_ST)
-export backward_migration, deme_coalescence, neutral_deme_variances, exchange_origins, qst_island, island_variances, fst_stepping_stone
+export backward_migration, deme_coalescence, neutral_deme_variances, exchange_origins, qst_island, island_variances, fst_stepping_stone,
+       pair_recombination
 # the categorical layer (implemented by QTLSimCatlabExt; load Catlab to use it)
 export lifecycle, withparams, lower, slim_script, operators, operator, demes, run_composed, migrate!,
        migration, totalpop, ndemes, population_schema, lift, lower!, genotypes, phenotypes,

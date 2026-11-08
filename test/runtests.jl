@@ -1400,6 +1400,77 @@ end
     @test m1 ≈ k1 rtol = 0.25          # the one-locus kernel has more variance than the Gaussian lowering
 end
 
+@testset "the moments of several demes with drift among them (between = true)" begin
+    L = lifecycle(); g = L.generation
+    p = Params(Ploidy = 2, NoQTL = 20, PhenotypeVar = 1.0, Heritability = 0.5, MutationScalar = 0.002,
+               MutationRatePerGamete = 0.05, Drift = true, PopSize = 30, NoGenerations = 300, Sample = 1)
+    Vm = muteVar(p)
+    relerr(a, b) = abs(a - b) / max(abs(b), 1e-300)
+    # neutral: the recursion is deme_coalescence's read forward, for both laws of origins,
+    # the island model, the ring and unequal demes with a migration matrix, at every generation
+    ts = [1, 2, 7, 50, 299]
+    for (ps, M) in ((fill(p, 4), island_migration(4, 0.02)), (fill(p, 5), stepping_stone(5, 0.05)),
+                    ([p, Params(p; PopSize = 20), Params(p; PopSize = 45)], [0 0.1 0.05; 0.2 0 0; 0.02 0.3 0]))
+        k = length(ps)
+        Nv = [q.PopSize for q in ps]
+        cyc = foldl(⊗, fill(g, k)) ⋅ L.migrate(k)
+        P = backward_migration(M, Nv)
+        for origins in (:exchange, :pool)
+            mo = run_moments(ps; cycle = cyc, migration_rate = M, between = true, origins)
+            th = neutral_deme_variances(P, Nv, Vm; t = ts, origins)
+            for (j, t) in enumerate(ts)
+                i = findfirst(==(t), mo.metapop.gen)
+                rows = findall(==(t), mo.gen)
+                @test all(relerr.(mo.geno_var[rows], th[j].within) .< 1e-10)
+                @test relerr(mo.metapop.var_among[i], th[j].among) < 1e-10
+                @test abs(mo.metapop.between[i] - th[j].between) < 1e-10 * th[j].among    # a small difference early on
+                @test abs(mo.metapop.qst[i] - th[j].qst) < 1e-9 && abs(mo.metapop.qst_demes[i] - th[j].qst_demes) < 1e-9
+                @test maximum(abs.(mo.metapop.pairs[i] .- th[j].pairs)) < 1e-10 * maximum(th[j].pairs)
+            end
+        end
+        # a law of origins as a matrix: kron(P, P) is :pool
+        a = run_moments(ps; cycle = cyc, migration_rate = M, between = true, origins = :pool).metapop.var_among
+        b = run_moments(ps; cycle = cyc, migration_rate = M, between = true, origins = kron(P, P)).metapop.var_among
+        @test a ≈ b rtol = 1e-12
+    end
+    # ... and its equilibrium
+    pe = Params(p; PopSize = 10, NoGenerations = 6000, Sample = 1000)
+    cyc = g ⊗ g ⊗ g ⋅ L.migrate(3)
+    mo = run_moments(pe; cycle = cyc, migration_rate = 0.05, between = true)
+    eq = neutral_deme_variances(backward_migration(3, 0.05, 10), 10, Vm; origins = :exchange)
+    @test mo.metapop.var_among[end] ≈ eq.among rtol = 1e-6
+    @test mo.metapop.within[end] ≈ sum(eq.within) / 3 rtol = 1e-6
+    @test mo.metapop.qst[end] ≈ eq.qst rtol = 1e-6
+    # one deme: within-deme drift exactly; no migration: the demes are independent copies
+    m1 = run_moments(p; between = true)
+    @test all(relerr(m1.geno_var[t + 1], neutral_deme_variances(ones(1, 1), 30, Vm; t).within[1]) < 1e-10 for t in (5, 299))
+    @test m1.metapop.var_among == zeros(300)
+    m0 = run_moments(p; cycle = g ⊗ g, between = true)
+    @test m0.geno_var[1:2:end] == m1.geno_var
+    @test m0.metapop.var_among[end] ≈ neutral_deme_variances([1.0 0.0; 0.0 1.0], 30, Vm; t = 299).among rtol = 1e-10
+    # off by default: results and columns unchanged
+    ps = fill(Params(p; Drift = false, InitFitnessSD = 2.0), 3)
+    cyc = g ⊗ g ⊗ g ⋅ L.migrate(3)
+    @test run_moments(ps; cycle = cyc, migration_rate = 0.02) == run_moments(ps; cycle = cyc, migration_rate = 0.02, between = false)
+    @test !haskey(run_moments(ps; cycle = cyc, migration_rate = 0.02), :metapop)
+    @test_throws ArgumentError run_moments(fill(Params(p; Ploidy = 1), 3); cycle = cyc, between = true)
+    @test_throws ArgumentError run_moments(ps; cycle = cyc, between = true, origins = :other)
+    # selection: a common optimum holds the demes together (Q_ST below the neutral F_ST),
+    # different optima pull them apart (above it); selection lowers the within-deme variance
+    pn = Params(p; NoGenerations = 1500, Sample = 100)
+    sel = Params(pn; Drift = false, InitFitnessSD = 3.0)
+    run3(q, θ) = run_moments(q; cycle = foldl(⊗, [withparams(g; θ = x) for x in θ]) ⋅ L.migrate(3), migration_rate = 0.01,
+                             between = true).metapop
+    neu, com, loc = run3(pn, zeros(3)), run3(sel, zeros(3)), run3(sel, [-1.0, 0.0, 1.0])
+    @test com.qst[end] < neu.qst[end] < loc.qst[end]
+    @test com.within[end] < neu.within[end]
+    # pair_recombination: none for one locus; for two loci only one crossover point can split them
+    @test pair_recombination(1, 2.0) == 0.0
+    @test pair_recombination(2, 0.7) ≈ 0.7 * exp(-0.7)
+    @test pair_recombination(2, 0.7; model = :all) ≈ 0.7 * exp(-0.7)
+    @test pair_recombination(Params(NoQTL = 50, RecombPoissonMean = 1.0)) ≈ 0.2157 atol = 1e-3
+end
+
 @testset "sweep and replicate: threads, cache, resumption, errors" begin
     p = Params(PopSize = 100, NoQTL = 1, NoGenerations = 50)
     summ(o) = (VG = o.geno_var[end], zbar = o.pheno_mean[end], ext = o.extinct)

@@ -694,3 +694,48 @@ function fst_stepping_stone(N::Real, m::Real, k::Integer, i::Integer)
     (i == 0 || i == k) && return 0.0
     1 / (1 + 8N * m * k / ((k - i) * i))
 end
+
+"""
+    pair_recombination(p::Params)
+    pair_recombination(L, mean; model = :qtsim)
+
+The probability `ρ` that a gamete's alleles at two distinct loci, drawn at random among
+the `L(L − 1)/2` pairs, come from different haplotypes of the parent, under the kernel's
+crossover (`gamete!`): `Poisson(mean)` distinct crossover points in `0:L−2` (none if
+the count is 0 or at least `L`), switching strands at the lowest point only
+(`model = :qtsim`, QTSim's) or at every point (`:all`). With `K` points and the lowest at
+`c`, `(c + 1)(L − 1 − c)` pairs are split, and `P(min ≥ c) = C(L−1−c, K)/C(L−1, K)`; under
+`:all` a pair `d` loci apart is split by an odd number of the points among its `d`
+positions, hypergeometric. The moments lowering's `between = true` uses `ρ` for the rate
+at which recombination breaks up linkage disequilibrium within haplotypes (`T ← Tg + (1 −
+ρ)(T − Tg) + ρ(R − Rg)`). `ρ = 0` for one locus.
+"""
+pair_recombination(p::Params) = pair_recombination(p.NoQTL, p.RecombPoissonMean; model = p.CrossoverModel)
+
+function pair_recombination(L::Integer, mean::Real; model::Symbol = :qtsim)
+    model in (:qtsim, :all) || throw(ArgumentError("model is :qtsim or :all; got :$model"))
+    L <= 1 && return 0.0
+    npairs = L * (L - 1) / 2
+    pois = Poisson(mean)
+    ρ = 0.0
+    for K in 1:L-1
+        w = pdf(pois, K)
+        (w < 1e-17 && K > mean) && break
+        w == 0 && continue
+        split = 0.0
+        if model === :qtsim
+            # P(min ≥ c) = Π_{i<K} (L−1−c−i)/(L−1−i)
+            surv(c) = (s = 1.0; for i in 0:K-1; s *= max(L - 1 - c - i, 0) / (L - 1 - i); end; s)
+            for c in 0:L-2
+                split += (surv(c) - surv(c + 1)) * (c + 1) * (L - 1 - c)      # P(min = c)·pairs split
+            end
+        else
+            for d in 1:L-1
+                h = Hypergeometric(d, L - 1 - d, K)
+                split += (L - d) * sum(pdf(h, x) for x in 1:2:min(d, K); init = 0.0)
+            end
+        end
+        ρ += w * split / npairs
+    end
+    ρ
+end
