@@ -109,6 +109,7 @@ on every change.
 9. [Replicating Pagel, Gardner and Meade (2025)](tutorials/09_replicating_pagel_2025.md)
 10. [Demography and evolutionary rescue](tutorials/10_demography_and_rescue.md)
 11. [Density regulation in the paper's populations](tutorials/11_demography_in_the_papers_populations.md)
+12. [Metapopulations and migration](tutorials/12_metapopulations.md)
 
 ## Licence
 

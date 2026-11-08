@@ -259,6 +259,10 @@ reproduces the paper’s results.
   populations](../11_demography_in_the_papers_populations/11_demography_in_the_papers_populations.qmd):
   a population whose size follows its fitness, instead of QTSim’s fixed
   size.
+- [Metapopulations and
+  migration](../12_metapopulations/12_metapopulations.qmd): demes
+  coupled by migration, their neutral differentiation against theory,
+  and local adaptation.
 
 <div id="refs" class="references csl-bib-body hanging-indent">
 

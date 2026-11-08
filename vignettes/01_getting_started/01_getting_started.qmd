@@ -195,3 +195,6 @@ reproduces the paper's results.
 - [Demography and evolutionary rescue](../10_demography_and_rescue/10_demography_and_rescue.qmd)
   and [Density regulation in the paper's populations](../11_demography_in_the_papers_populations/11_demography_in_the_papers_populations.qmd):
   a population whose size follows its fitness, instead of QTSim's fixed size.
+- [Metapopulations and migration](../12_metapopulations/12_metapopulations.qmd):
+  demes coupled by migration, their neutral differentiation against theory, and local
+  adaptation.

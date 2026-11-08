@@ -16,7 +16,7 @@
 
 const ROOT = normpath(joinpath(@__DIR__, ".."))
 const VIG = joinpath(ROOT, "vignettes")
-const DEFAULT = ["01", "02", "03", "04", "05", "06", "10"]
+const DEFAULT = ["01", "02", "03", "04", "05", "06", "10", "12"]
 
 """
     chunks(qmd) -> Vector{(line, options, code)}
