@@ -15,10 +15,16 @@ about 3% of a phenotypic standard deviation per generation.
 
 ## Installation
 
+QTLSim.jl is not registered in the Julia General registry; install it from GitHub
+(Julia 1.10 or later):
+
 ```julia
 using Pkg
 Pkg.add(url = "https://github.com/ecorecipes/QTLSim.jl")
 ```
+
+The categorical layer also needs Catlab (`Pkg.add("Catlab")`), loaded as a package
+extension.
 
 ## Quick start
 
@@ -36,10 +42,19 @@ out = simulate(p; seed = 1)
 out.extinct, out.extinct_gen
 ```
 
-`Params` has QTSim's defaults and follows its options, with a few renamings (see the
-README), and `simulate` returns the mean
-and variance of the phenotype, the genetic variance, the number of survivors and the
-optimum for every sampled generation.
+`Params` has QTSim's defaults and follows its options, with a few renamings (see
+[Parameters](parameters.md)), and `simulate` returns the mean and variance of the
+phenotype, the genetic variance, the number of survivors and the optimum for every
+sampled generation ([Output](output.md)).
+
+Beyond QTSim, and off by default, the kernel has Beverton–Holt density regulation
+(`Demography = :beverton_holt`), fecundity selection (`Selection = :fecundity`),
+periodic and red-noise optima, metapopulations with island and stepping-stone migration,
+and several traits with pleiotropy (`NoTraits`; see [Several traits](traits_design.md)).
+The package also has the theory the simulations are compared with: Gaussian, multilocus
+and rare-alleles equilibria of the genetic variance, house of cards, the lag behind a
+moving or fluctuating optimum, extinction and rescue, and neutral F_ST/Q_ST among demes
+(see the [API reference](api.md)).
 
 ## The categorical layer
 
@@ -47,7 +62,8 @@ Loading Catlab adds a categorical description of the same model, as the package
 extension `QTLSimCatlabExt`. The life cycle is written once, as a morphism of a free
 symmetric monoidal category whose objects are the stages of a generation and whose
 generators are its steps, and functors lower it to the simulation kernel and to a model
-for the population-genetics simulator SLiM, in its language Eidos:
+for the population-genetics simulator SLiM, in its language Eidos, and to the
+deterministic moments of the population (`run_moments`):
 
 ```julia
 import Catlab
@@ -86,9 +102,14 @@ The kernel reproduces QTSim at three strengths:
   distributions of genetic variance, survival and adaptation.
 - **Exactly**: a replica that draws its random numbers from QTSim's GSL routines in
   QTSim's order matches QTSim's output generation by generation.
-- **Against the published results**: on 589 of the paper's input files, the Julia
-  model's genetic variance before the move and its time to extinction are within about
-  1% of the published values.
+- **Against the published results**: on about 590 of the paper's input files, in two
+  runs with independent seeds, the Julia model's genetic variance before the move and its
+  time to extinction are within about 1% of the published values (95% intervals inside
+  0.98–1.03).
+
+The SLiM model generated from the life cycle agrees with QTSim in distribution (a
+pre-specified test of 40,000 runs per program found mean genetic variances within 0.6%),
+and with the kernel on the models QTSim does not have.
 
 The [validation tutorial](tutorials/08_validation_against_qtsim.md) shows all three,
 and the [replication](tutorials/09_replicating_pagel_2025.md) reproduces the paper's
@@ -112,9 +133,22 @@ on every change.
 12. [Metapopulations and migration](tutorials/12_metapopulations.md)
 13. [Several traits and pleiotropy](tutorials/13_multiple_traits.md)
 
+## Proofs in Lean
+
+The facts that justify the decomposition and the lowerings are proved in Lean 4 with
+Mathlib, in the library `CategoricalQuantGen` of the project this package comes from (not
+part of the package's repository); docstrings cite it as `lean/CategoricalQuantGen/…`.
+
 ## Licence
 
 QTLSim.jl is free software under the GNU General Public License, version 3 or (at your
 option) any later version. It reimplements the algorithm of QTSim (copyright 2023 Andrew
 Meade, University of Reading), which is distributed under the same licence, and includes
 QTSim's source, unmodified, for testing and verification.
+
+## Citing
+
+Please cite the paper whose model QTLSim.jl implements, Pagel, Gardner and Meade,
+*Scientific Reports* 15 (2025), [doi:10.1038/s41598-025-24445-2](https://doi.org/10.1038/s41598-025-24445-2),
+and the software, as its
+[`CITATION.cff`](https://github.com/ecorecipes/QTLSim.jl/blob/main/CITATION.cff) describes.

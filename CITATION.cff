@@ -1,0 +1,59 @@
+cff-version: 1.2.0
+message: >-
+  If you use QTLSim.jl, please cite the paper whose model it implements
+  (preferred-citation) and this software.
+title: "QTLSim.jl: a Julia port and categorical reformulation of QTSim"
+type: software
+version: 0.1.0
+# date-released: set when the release is made
+# doi: none yet; no software DOI has been minted
+license: GPL-3.0-or-later
+repository-code: "https://github.com/ecorecipes/QTLSim.jl"
+url: "https://ecorecipes.github.io/QTLSim.jl/"
+authors:
+  - family-names: Frost
+    given-names: Simon
+abstract: >-
+  A Julia port of QTSim, the quantitative-genetic simulation of Pagel, Gardner
+  and Meade (Scientific Reports, 2025), validated against it bit for bit and in
+  distribution, with a categorical description of its life cycle (a package
+  extension on Catlab) that lowers to the Julia kernel, to SLiM/Eidos and to
+  moment equations, and with density regulation, fecundity selection,
+  fluctuating optima, metapopulations and several traits.
+keywords:
+  - quantitative genetics
+  - simulation
+  - moving optimum
+  - stabilising selection
+  - category theory
+  - SLiM
+  - Julia
+references:
+  - type: software
+    title: "QTSim (QTLSim 1.0)"
+    notes: >-
+      The reference C implementation that QTLSim.jl ports, bundled unmodified in
+      reference/QTSim. Distributed under GPL-3.0-or-later.
+    authors:
+      - family-names: Meade
+        given-names: Andrew
+        affiliation: University of Reading
+    year: 2023
+    license: GPL-3.0-or-later
+    url: "http://www.evolution.reading.ac.uk/QuantitativeGenetic/Repository.zip"
+preferred-citation:
+  type: article
+  title: >-
+    Quantitative-genetic analysis of directional adaptation suggests low maximum
+    sustainable rates of change in agreement with data from field populations
+  authors:
+    - family-names: Pagel
+      given-names: Mark
+    - family-names: Gardner
+      given-names: Jacob D.
+    - family-names: Meade
+      given-names: Andrew
+  journal: Scientific Reports
+  volume: 15
+  year: 2025
+  doi: 10.1038/s41598-025-24445-2
