@@ -94,7 +94,9 @@ locus) recursion, `run_moments(p; loci = :aggregate)`. The rare-alleles closure
 (`loci = :rare_alleles`, src/rare_alleles.jl), within 15% of the kernel in 46 of 47
 weak-selection cells across the Gaussian, house-of-cards and drift regimes
 (`validate/moments_regimes.jl`), has the equilibrium `rare_alleles_vg`;
-`house_of_gauss_vg` is its closed form for loci in linkage equilibrium. The default,
+`house_of_gauss_vg` is its closed form for loci in linkage equilibrium. For several traits
+(src/rare_alleles_traits.jl) the equilibrium is `rare_alleles_G`, the linkage-equilibrium
+form `house_of_gauss_G` and the multivariate house of cards `house_of_cards_G`. The default,
 `loci = :auto`, is the rare-alleles closure for one diploid trait and the multilocus model
 for several traits and for haploids (`QTLSim.moments_loci`); `multilocus_equilibrium`
 takes the same default.
@@ -110,6 +112,13 @@ house_of_cards_vg
 house_of_gauss_vg
 rare_alleles_vg
 QTLSim.mutation_effect_variance
+house_of_cards_G
+house_of_gauss_G
+rare_alleles_G
+QTLSim.mutation_effect_covariance
+QTLSim.rare_alleles_rate
+QTLSim.rare_hc_matrix
+QTLSim.hap_clonal
 QTLSim.moments_loci
 steady_lag
 critical_rate

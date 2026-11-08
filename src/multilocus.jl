@@ -158,15 +158,18 @@ end
 hap_genic(st, N::Real, ploidy::Integer) = hap_vpop(([st[1][1]], [st[2][1]], [st[3][1]]), N, ploidy)
 
 """
-    QTLSim.hap_select(st, sinv, N, ω, ploidy; α2 = 0) -> (st′, B)
+    QTLSim.hap_select(st, sinv, N, ω, ploidy; α2 = 0, clonal = ploidy == 1) -> (st′, B)
 
 Gaussian selection of covariance `s` (`sinv` = s⁻¹) on the haplotype moments `st` of a
 population of `N` adults, with pair-class weights `ω` ([`pair_classes`](@ref)); `B = V_G s⁻¹`
 is the factor by which the deviation of the mean shrinks, for the moments with other
 populations. See src/multilocus.jl. With `α2 = α²` > 0 (one trait), the rare-alleles
-closure of src/rare_alleles.jl: the genic part also loses `α²/(2s)` of itself.
+closure of src/rare_alleles.jl: the genic part also loses `β²α²/(2s)` of itself; with
+`α2 = C`, a matrix (several traits), the closure of src/rare_alleles_traits.jl. With
+`clonal = true` (the default for haploids, whose offspring are clones) the closure acts
+on every class with `β = 1` ([`QTLSim.hap_clonal`](@ref)).
 """
-function hap_select(st, sinv, N::Real, ω::AbstractVector, ploidy::Integer; α2::Real = 0.0)
+function hap_select(st, sinv, N::Real, ω::AbstractVector, ploidy::Integer; α2 = 0.0, clonal::Bool = ploidy == 1)
     T, R, Q = st
     Tf, Rf, Qf = sum(T), sum(R), sum(Q)
     C = hap_cmean(Tf, Rf, Qf, N, ploidy)
@@ -183,10 +186,17 @@ function hap_select(st, sinv, N::Real, ω::AbstractVector, ploidy::Integer; α2:
         # cumulant α² times their variance, so the genic part also loses β²α²/(2s) of the
         # within-population genic variance, β = H/H_genic the regression of the genotype
         # on a locus's alleles (LD shrinks a mutant's effective effect; src/rare_alleles.jl)
-        if k == 1 && α2 > 0
-            Hg = ploidy == 2 ? T[k] + R[k] - 2Ck : T[k] - Ck      # the genic part of H
-            β2 = Hg > 0 ? (H / Hg)^2 : 1.0
-            σ2 -= min(β2 * α2 * sinv / 2, 1.0) * (T[k] - Ck)
+        # Several traits: α2 = C, the per-mutation effect covariance, and the loss is
+        # ½(𝓡 c + c 𝓡ᵀ) (src/rare_alleles_traits.jl). A genome that does not recombine
+        # (`clonal`: haploid clones) is one unit: every class loses the closure's share of
+        # its own variance, with β = 1.
+        if _rare(α2) && (clonal || k == 1)
+            if clonal
+                σ2 -= rare_loss(α2, sinv, T[k] - Ck)
+            else
+                Hg = ploidy == 2 ? T[k] + R[k] - 2Ck : T[k] - Ck      # the genic part of H
+                σ2 -= rare_loss(α2, rare_sinv(H, Hg, sinv), T[k] - Ck)
+            end
         end
         if ploidy == 2
             r = R[k] - Ck - ω[k] * D
@@ -314,7 +324,7 @@ function multilocus_equilibrium(p::Params; drift::Bool = false, loci::Symbol = :
             Wbar = c * sqrt(det(Ω) / det(s))
             W2 = c^2 * sqrt(det(Ω) / det(Ω + 2P))
         end
-        st, _ = hap_select(st, sinv, Nd, ω, h; α2)
+        st, _ = hap_select(st, sinv, Nd, ω, h; α2, clonal = hap_clonal(h, ρ))
         npar = p.Selection === :fecundity ? N * Wbar^2 / W2 : N * Wbar
         n = drift ? max(npar, 1.0) : Inf
         st = hap_reproduce(st, n, ρ, h)
@@ -348,3 +358,6 @@ covariance with drift ([`multilocus_equilibrium`](@ref)).
 """
 gaussian_G_loci(p::Params; drift::Bool = false) =
     drift ? multilocus_equilibrium(p; drift, loci = :multilocus).VG : gaussian_G(gaussian_units(p) .* mutational_covariance(p), selection_variance_matrix(p))
+
+_rare(α2::Real) = α2 > 0
+_rare(α2::AbstractMatrix) = any(!iszero, α2)

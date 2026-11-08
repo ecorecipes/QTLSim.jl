@@ -114,7 +114,7 @@ function rare_alleles_effect(p::Params, loci::Symbol)
     loci = moments_loci(p, loci)
     loci in (:multilocus, :rare_alleles) || throw(ArgumentError("loci is :auto, :multilocus, :rare_alleles or :aggregate; got :$loci"))
     loci === :multilocus && return 0.0
-    p.NoTraits == 1 || throw(ArgumentError("loci = :rare_alleles is for one trait; NoTraits = $(p.NoTraits)"))
+    p.NoTraits == 1 || return mutation_effect_covariance(p)      # several traits: src/rare_alleles_traits.jl
     mutation_effect_variance(p)
 end
 
@@ -131,7 +131,9 @@ house of Gauss", `V_G = Ploidy·L·c` with each gene's variance `c` the positive
 i.e. `c = 2μα²/(b + √(b² + 4μα²/V_s))`, `b = α²/(2V_s) + 1/(Ploidy·N_e)`, with `μ =
 MutationRatePerGamete`, `α²` = [`QTLSim.mutation_effect_variance`](@ref)`(p)`, `V_s` =
 [`selection_variance`](@ref)`(p)` and `N_e` from [`effective_size`](@ref) with `nsurv`
-survivors (`N_e = ∞` with `drift = false`). Its limits are Lynch and Hill's neutral
+survivors (`N_e = ∞` with `drift = false`). A haploid genome, inherited whole by its clones
+(or a diploid's haplotype when no pair of loci recombines), is one unit with `Lμ` in place
+of `μ` and `V_G = Ploidy·c` (src/rare_alleles_traits.jl). Its limits are Lynch and Hill's neutral
 `2N_e V_m` (`V_s → ∞`), Bürger's stochastic house of cards [`house_of_cards_vg`](@ref)
 (rare mutations, `μ → 0`), Turelli's house of cards `4Lμ V_s` (rare mutations, no drift)
 and the Gaussian `√(2L V_m V_s)` (many mutations, [`gaussian_vg_loci`](@ref)'s weak-mutation
@@ -140,11 +142,12 @@ form). It is the fixed point of the per-gene recursion behind the rare-alleles c
 model, with linkage disequilibrium and `s = V_s + V_G`.
 """
 function house_of_gauss_vg(p::Params; nsurv::Real = p.PopSize, drift::Bool = true)
-    μ, α2, Vs = p.MutationRatePerGamete, mutation_effect_variance(p), selection_variance(p)
+    α2, Vs = mutation_effect_variance(p), selection_variance(p)
+    nu, μ = rare_units(p)          # 2L genes at μ; a haploid clone (or a haplotype that never recombines) at Lμ
     ng = drift ? p.Ploidy * effective_size(p.PopSize, nsurv) : Inf
     b = α2 / (2Vs) + 1 / ng
     c = 2μ * α2 / (b + sqrt(b^2 + 4μ * α2 / Vs))
-    p.Ploidy * p.NoQTL * c
+    nu * c
 end
 
 """

@@ -75,9 +75,11 @@ mutable struct TraitCov
     ρ::Vector{Float64}
     origins::Any            # :exchange, :pool or a k² × k² matrix
     cache::Dict{Any,Any}    # (M, N, alive) => (P, J)
+    α2::Vector{Any}         # per deme: loci = :rare_alleles, the per-mutation effect covariance C; 0.0: Gaussian
+    clonal::Bool            # QTLSim.hap_clonal: the genome is inherited whole (haploid clones)
 end
 
-function TraitCov(p::Params, N::AbstractVector, G::AbstractVector; drift::Bool, origins = :exchange)
+function TraitCov(p::Params, N::AbstractVector, G::AbstractVector; drift::Bool, origins = :exchange, α2 = 0.0)
     k, n = length(N), p.NoTraits
     ω, ρ = QTLSim.pair_classes(p)
     nc = length(ω)
@@ -88,7 +90,9 @@ function TraitCov(p::Params, N::AbstractVector, G::AbstractVector; drift::Bool, 
         st = QTLSim.hap_init(Matrix{Float64}(G[a]), drift ? float(N[a]) : Inf, p.Ploidy, nc)
         T[a, :], R[a, :], Q[a, a, :] = st
     end
-    TraitCov(T, R, Q, p.Ploidy, drift, ω, ρ, origins, Dict{Any,Any}())
+    α2s = α2 isa AbstractVector ? Any[a for a in α2] : Any[α2 for _ in 1:k]
+    length(α2s) == k || throw(ArgumentError("α2 gives $(length(α2s)) values for $k demes"))
+    TraitCov(T, R, Q, p.Ploidy, drift, ω, ρ, origins, Dict{Any,Any}(), α2s, QTLSim.hap_clonal(p.Ploidy, ρ))
 end
 
 _nd(c::TraitCov, N) = c.drift ? max(N, 2.0) : Inf
@@ -101,7 +105,10 @@ function TraitMoments(p::Params; zbar = zeros(p.NoTraits), G = zeros(p.NoTraits,
                       loci::Symbol = :multilocus, cov = :new, idx = 1)
     n, VE = p.NoTraits, QTLSim.envVar(p)
     Id = Matrix{Float64}(I, n, n)
-    cov === :new && (cov = loci === :multilocus ? TraitCov(p, [float(p.PopSize)], [G]; drift = erosion) : nothing)
+    loci === :auto && (loci = QTLSim.moments_loci(p))
+    cov === :new && (cov = loci in (:multilocus, :rare_alleles) ?
+                     TraitCov(p, [float(p.PopSize)], [G]; drift = erosion,
+                              α2 = loci === :rare_alleles ? QTLSim.mutation_effect_covariance(p) : 0.0) : nothing)
     TraitMoments(p, 0, collect(Float64, zbar), Matrix{Float64}(G), G + VE * Id, zeros(n), QTLSim.initFitSD(p),
                  p.PopSize, 1.0, zeros(n), collect(Float64, zbar), Matrix{Float64}(G), collect(Float64, zbar),
                  Matrix{Float64}(G), false, p.PopSize, p.PopSize, erosion, VE, false, 1.0,
@@ -163,7 +170,7 @@ function trait_moments_select!(m::TraitMoments; θ = nothing)
     c = m.cov
     if c !== nothing && !p.Drift
         a = m.idx
-        st, B = QTLSim.hap_select(_state(c, a), m.sinv, _nd(c, m.N), c.ω, c.ploidy)
+        st, B = QTLSim.hap_select(_state(c, a), m.sinv, _nd(c, m.N), c.ω, c.ploidy; α2 = c.α2[a], clonal = c.clonal)
         # the deviation of this deme's mean shrinks by I − B, and with it its cross-moments
         for b in axes(c.Q, 1)
             b == a && continue
@@ -363,18 +370,43 @@ function record_trait_metapop!(mp, gen, ms)
     mp
 end
 
+# `loci` resolved for the demes `ps` of several traits and the life cycle `cycle`, with the
+# per-mutation effect covariance C of each deme (0.0 unless :rare_alleles), as moments.jl's
+# `resolve_loci`: the mutate steps of the life cycle must carry the same mutation fields
+# (MutationScalar, MutationRatePerGamete, MutCorr, MutCov), which then set C; otherwise
+# `:auto` is :multilocus and an explicit :rare_alleles an error.
+function resolve_trait_loci(ps::AbstractVector{Params}, cycle, loci::Symbol)
+    loci in (:multilocus, :aggregate) && return loci, Any[0.0 for _ in ps]
+    fields = (:MutationScalar, :MutationRatePerGamete, :MutCorr, :MutCov)
+    fs = unique([NamedTuple(k => v for (k, v) in pairs(stepparams(g)) if k in fields)
+                 for g in stepsof(cycle) if !(g isa ObExpr) && stepname(g) === :mutate])
+    if length(fs) > 1
+        loci === :auto && return :multilocus, Any[0.0 for _ in ps]
+        throw(ArgumentError("loci = :rare_alleles needs one law of mutation effects per deme; the mutate steps of the " *
+                            "life cycle carry different mutation fields"))
+    end
+    qs = isempty(fs) ? ps : [Params(q; only(fs)...) for q in ps]
+    if loci === :auto
+        all(q -> QTLSim.moments_loci(q) === :rare_alleles, qs) || return :multilocus, Any[0.0 for _ in ps]
+        loci = :rare_alleles
+    end
+    loci, Any[QTLSim.mutation_effect_covariance(q) for q in qs]
+end
+
 """
     run_trait_moments(p; cycle = lifecycle().generation, images, zbar, G, erosion = false, optimum = nothing,
-                      loci = :multilocus)
+                      loci = :auto)
     run_trait_moments(ps::Vector{Params}; cycle, images, zbar, G, erosion = false, migration_rate = 0.0,
-                      between = false, origins = :exchange, loci = :multilocus)
+                      between = false, origins = :exchange, loci = :auto)
 
 The moments lowering of a model of several traits: `cycle` lowered with the table of
 `TraitModel(n)` (`trait_moment_images`) and iterated `NoGenerations` times from mean `zbar`
 and genetic covariance `G` (zero by default; with several demes, one or one per deme).
 `run_moments(p)` calls it when `p.NoTraits > 1`; called directly with one trait it runs the
 multivariate recursion with 1×1 matrices, which is the one-trait recursion with `loci =
-:multilocus` (`loci = :rare_alleles` is for `run_moments` of one trait). By default the
+:multilocus`. `loci = :auto`, the default, resolves as `QTLSim.moments_loci` (the multilocus
+Gaussian model while that is its resolution for several traits; `loci = :rare_alleles` is the
+rare-alleles closure of src/rare_alleles_traits.jl, converging to `rare_alleles_G(p)`). The
 multilocus model (converging to `gaussian_G_loci(p)`, or with `erosion = true` to
 `gaussian_G_loci(p; drift = true)`); `loci = :aggregate` is the old recursion
 (`gaussian_G(p)`). `optimum`, a vector of optimum vectors, one per generation, replaces the
@@ -397,20 +429,19 @@ end
 
 function run_trait_moments(ps::AbstractVector{Params}; cycle = lifecycle().generation, images = Dict{Symbol,Any}(),
                            zbar = zeros(ps[1].NoTraits), G = zeros(ps[1].NoTraits, ps[1].NoTraits), erosion = false,
-                           optimum = nothing, loci::Symbol = :multilocus, migration_rate::Union{Real,AbstractMatrix} = 0.0,
+                           optimum = nothing, loci::Symbol = :auto, migration_rate::Union{Real,AbstractMatrix} = 0.0,
                            between = false, origins::Union{Symbol,AbstractMatrix} = :exchange)
     k = length(ps)
     foreach(QTLSim.checkparams, ps)
     check_loci(loci, between)
-    loci === :rare_alleles && throw(ArgumentError("loci = :rare_alleles is for one trait; NoTraits = $(ps[1].NoTraits)"))
-    loci === :auto && (loci = :multilocus)       # several traits: the multilocus Gaussian model (QTLSim.moments_loci)
+    loci, α2 = resolve_trait_loci(collect(Params, ps), cycle, loci)
     between && check_between(ps, origins)
     p = ps[1]
     n = p.NoTraits
     all(q -> q.NoTraits == n, ps) || throw(ArgumentError("the demes of a metapopulation have the same number of traits"))
     all(q -> q.NoGenerations == p.NoGenerations, ps) ||
         throw(ArgumentError("the demes of a metapopulation run for the same number of generations"))
-    loci === :multilocus && any(q -> (q.Ploidy, q.NoQTL, q.RecombPoissonMean, q.CrossoverModel) !=
+    loci !== :aggregate && any(q -> (q.Ploidy, q.NoQTL, q.RecombPoissonMean, q.CrossoverModel) !=
                                      (p.Ploidy, p.NoQTL, p.RecombPoissonMean, p.CrossoverModel), ps) &&
         throw(ArgumentError("the demes of a metapopulation share Ploidy, NoQTL, RecombPoissonMean and CrossoverModel"))
     zk = zygotes_word(k)
@@ -435,7 +466,7 @@ function run_trait_moments(ps::AbstractVector{Params}; cycle = lifecycle().gener
         (length(x) == k ? x : throw(ArgumentError("$name gives $(length(x)) values for $k demes"))) : fill(x, k)
     zs, Gs = perdeme(zbar, "zbar"), perdeme(G, "G")
     drift = between || erosion
-    cov = loci === :multilocus ? TraitCov(p, [float(q.PopSize) for q in ps], Gs; drift, origins) : nothing
+    cov = loci === :aggregate ? nothing : TraitCov(p, [float(q.PopSize) for q in ps], Gs; drift, origins, α2)
     s = TraitDemeMoments([TraitMoments(q; zbar = z, G = g, erosion, loci, cov, idx = i)
                           for (i, (q, z, g)) in enumerate(zip(ps, zs, Gs))])
     k > 1 && for (i, m) in enumerate(s.demes); rec.demeof[m] = i; end

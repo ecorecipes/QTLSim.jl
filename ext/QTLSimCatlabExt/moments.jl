@@ -144,7 +144,8 @@ _vpop(c::DemeCov, a, N) = QTLSim.hap_vpop(_state(c, a), _nd(c, N), c.ploidy)
 function cov_select!(m::Moments)
     c, a = m.cov, m.idx
     m.sinv == 0 && return m                 # neutral: the identity
-    st, β = QTLSim.hap_select(_state(c, a), m.sinv, _nd(c, m.N), c.ω, c.ploidy; α2 = c.α2[a])
+    st, β = QTLSim.hap_select(_state(c, a), m.sinv, _nd(c, m.N), c.ω, c.ploidy; α2 = c.α2[a],
+                              clonal = QTLSim.hap_clonal(c.ploidy, c.ρ))
     for b in axes(c.Q, 1)
         b == a && continue
         Qab = sum(c.Q[a, b, :])
@@ -487,10 +488,7 @@ function resolve_loci(ps::AbstractVector{Params}, cycle, loci::Symbol)
 end
 
 function run_moments(p::Params; cycle = lifecycle().generation, kw...)
-    loci = get(kw, :loci, :auto)
-    p.NoTraits > 1 && loci === :rare_alleles &&
-        throw(ArgumentError("loci = :rare_alleles is for one trait; NoTraits = $(p.NoTraits)"))
-    p.NoTraits > 1 && return run_trait_moments(p; cycle, kw..., loci = loci === :auto ? :multilocus : loci)    # trait_moments.jl
+    p.NoTraits > 1 && return run_trait_moments(p; cycle, kw...)    # trait_moments.jl
     k = nfactors(dom(cycle))
     k > 1 ? run_moments(fill(p, k); cycle, kw...) : run_moments1(p; cycle, kw...)
 end
@@ -498,10 +496,8 @@ end
 function run_moments(ps::AbstractVector{Params}; cycle, images = Dict{Symbol,Any}(), zbar = 0.0, VG = 0.0,
                      erosion = false, migration_rate::Union{Real,AbstractMatrix} = 0.0, between = false,
                      origins::Union{Symbol,AbstractMatrix} = :exchange, loci::Symbol = :auto)
-    ps[1].NoTraits > 1 && loci === :rare_alleles &&
-        throw(ArgumentError("loci = :rare_alleles is for one trait; NoTraits = $(ps[1].NoTraits)"))
     ps[1].NoTraits > 1 && return run_trait_moments(collect(Params, ps); cycle, images, erosion, migration_rate, between, origins,
-                                                   loci = loci === :auto ? :multilocus : loci, (zbar isa Real ? (;) : (; zbar))..., (VG isa Real ? (;) : (; G = VG))...)  # trait_moments.jl
+                                                   loci,(zbar isa Real ? (;) : (; zbar))..., (VG isa Real ? (;) : (; G = VG))...)  # trait_moments.jl
     k = length(ps)
     k == 1 && return between ? run_moments1(ps[1]; cycle, images, zbar = only(vcat(zbar)), VG = only(vcat(VG)), erosion, between, origins, loci) :
                                run_moments1(ps[1]; cycle, images, zbar, VG, erosion, loci)
