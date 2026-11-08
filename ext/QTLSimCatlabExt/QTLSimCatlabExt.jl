@@ -24,6 +24,7 @@ using Catlab: @present, @acset_type, FreeSchema, FreeSymmetricMonoidalCategory, 
               GATExpr, ObExpr
 import Catlab: ⋅, ⊗, compose, id, otimes, braid, munit
 using Statistics: mean, var
+using LinearAlgebra: I, det, dot
 using Random: randperm, Xoshiro
 
 include("schema.jl")
@@ -31,5 +32,6 @@ include("compose.jl")
 include("eidos.jl")
 include("lifecycle.jl")
 include("moments.jl")
+include("trait_moments.jl")
 
 end # module

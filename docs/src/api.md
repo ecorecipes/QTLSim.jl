@@ -101,6 +101,7 @@ Several traits with pleiotropy (Lande 1979, 1980; Schluter 1996):
 selection_variance_matrix
 gaussian_G
 gaussian_G_iterate
+gaussian_G_loci
 selection_gradient
 trait_response
 steady_lag_vector

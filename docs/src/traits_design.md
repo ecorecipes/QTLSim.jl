@@ -115,6 +115,13 @@ These are the places where the generalisation was not free:
 - **Records**: `trait_mean`, `gmatrix`, `pmatrix`, `trait_lag` (θ − z̄),
   `trait_sel_diff`, one vector or matrix per recorded generation.
 - **Theory** (`src/traits_theory.jl`): see the next section.
+- **Moments lowering** (`ext/QTLSimCatlabExt/trait_moments.jl`): `trait_moment_images`,
+  a second table for the seven steps on a `TraitMoments` state (mean vector, `G`, `P`,
+  optimum vector), lowered from the unchanged `lifecycle()` by `lower(f, :moments; images
+  = trait_moment_images(rec))`. `run_moments(p)` uses it when `NoTraits > 1`; with
+  `NoTraits = 1` the table runs 1×1 matrices and reproduces moments.jl's one-trait
+  recursion to 1e-10, with and without drift's erosion, with a move and a width change.
+  One deme only: the moments of several demes (moments.jl) are not generalised.
 
 ## The theory
 
@@ -140,6 +147,33 @@ and with mutation `G' = G − G (A + G)⁻¹ G + M`. One trait is the scalar rec
   from the gradient `β` toward `g_max` (Schluter 1996): in `G`'s eigenbasis each
   component of `β` is scaled by its eigenvalue, so the angle to the `g_max` axis can only
   shrink.
+
+## Validation
+
+`validate/traits_kernel_vs_moments.jl` (log `traits_kernel_vs_moments.log`) runs the kernel
+against the moments lowering where the Gaussian recursion is exact, one haploid locus
+with a continuum of alleles (2000 individuals, μ = 0.5, μV_s/α² ≈ 125), with `M` and `Ω`
+that do not share eigenvectors, 12 replicates per scenario. Criteria fixed before the
+first run, all passed:
+
+| | kernel | moments (with drift) | criterion |
+|---|---|---|---|
+| G₁₁, G₁₂, G₂₂ (×10⁻³) | 4.09, 0.64, 2.80 | 4.19, 0.65, 2.86 | each within 0.10·√(G_ii G_jj): ratios 0.976–0.979 |
+| genetic correlation | 0.188 | 0.187 | within 0.05 |
+| g_max | | | 0.09° apart (≤ 10°) |
+| steady lag, move 0.001 along (1, 2) | (−0.0018, 0.0306) | (−0.0016, 0.0292); `steady_lag_vector` with the kernel's G (−0.0016, 0.0298) | within 10% and 5° |
+
+The kernel's G is 2.4% below the moments', and the one-trait kernel in the same regime is
+1.4% below the one-trait moments: the trait model misses the Gaussian approximation by
+about as much as the scalar one. The lag shows Lande's deflection: the optimum moves at
+63° from trait 1, the lag points at 93°, away from `g_max` (22°).
+
+Informational: with 50 diploid loci (N = 1000) the aggregate recursion does not apply,
+for one trait as for two. The one-trait kernel's V_G is 7.0× `gaussian_vg_exact` and the
+two-trait kernel's variances 6.5×; Lande's per-locus sum (`gaussian_G_loci`, 10× the
+aggregate here) overshoots, since drift is not in it. The moments lowering is a
+prediction for one locus or for the infinitesimal limit with lasting reduction, not for
+QTSim's many-locus runs; that was already so for one trait.
 
 ## For Lean
 

@@ -42,7 +42,7 @@ export selection_variance, gaussian_vg, gaussian_vg_exact, effective_size, house
 export periodic_response, red_noise_lag_var, expected_lag2, lag_load
 # several traits (Lande 1979, 1980)
 export selection_variance_matrix, gaussian_G, gaussian_G_iterate, selection_gradient, trait_response,
-       steady_lag_vector, gmax, vector_angle, response_deflection
+       steady_lag_vector, gmax, vector_angle, response_deflection, gaussian_G_loci
 # migration graphs among demes
 export island_migration, stepping_stone
 # neutral differentiation among demes (F_ST, Q_ST)

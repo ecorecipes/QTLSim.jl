@@ -1549,3 +1549,81 @@ end
     v = World(p); lower!(pop, v)
     @test genomes(v) == genomes(w) && traitvalues(v) ≈ traitvalues(w)
 end
+
+@testset "several traits: theory (Lande 1980; Schluter 1996)" begin
+    # the closed-form equilibrium solves G (A + G)⁻¹ G = M for M and A that do not commute
+    M = [0.004 0.0025; 0.0025 0.003]; A = [40.0 -12.0; -12.0 25.0]
+    G = gaussian_G(M, A)
+    @test G * ((A + G) \ G) ≈ M rtol = 1e-10
+    @test all(>(0), eigvals(Symmetric(G)))
+    @test G ≈ gaussian_G_iterate(M, A) rtol = 1e-8
+    # commuting M and A: the one-trait formula on each shared axis
+    Q = [cos(0.3) -sin(0.3); sin(0.3) cos(0.3)]
+    Mc, Ac = Q * [0.004 0; 0 0.001] * Q', Q * [30.0 0; 0 60.0] * Q'
+    one(m, a) = (m + sqrt(m^2 + 4m * a)) / 2
+    @test gaussian_G(Mc, Ac) ≈ Q * [one(0.004, 30.0) 0; 0 one(0.001, 60.0)] * Q' rtol = 1e-10
+    # one trait: gaussian_vg_exact
+    p1 = Params(PhenotypeVar = 0.02, Heritability = 0.4, MutationScalar = 0.004, InitFitnessSD = 2.0)
+    @test gaussian_G(p1)[1, 1] ≈ gaussian_vg_exact(p1) rtol = 1e-12
+    @test selection_variance_matrix(p1)[1, 1] ≈ selection_variance(p1)
+    # weak mutation: the matrix geometric mean A # M
+    Mw = M .* 1e-6
+    Ah = QTLSim.symsqrt(A); Aih = inv(Ah)
+    @test gaussian_G(Mw, A) ≈ Ah * QTLSim.symsqrt(Aih * Mw * Aih) * Ah rtol = 2e-3
+    # the steady lag: the response to it is the rate of change; one trait is steady_lag
+    k = [0.01, 0.0]
+    λ = steady_lag_vector(k; G, A)
+    @test trait_response(λ; G, A) ≈ k
+    @test steady_lag_vector([0.01]; G = fill(0.5, 1, 1), A = fill(1.5, 1, 1))[1] ≈ steady_lag(0.01; VG = 0.5, Vs = 1.5)
+    pc = Params(p1; NoTraits = 2, MutCorr = 0.5, MoveFitnessSDGen = 10, MoveType = :continuous, MoveFitnessSD = 0.001,
+                MoveDirection = [1.0, 1.0])
+    @test steady_lag_vector(pc; G) ≈ steady_lag_vector(0.001 .* [1, 1] ./ sqrt(2); G, A = selection_variance_matrix(pc))
+    @test_throws ArgumentError steady_lag_vector(Params(pc; MoveType = :phenotype); G)
+    # the line of least resistance: the response turns from β toward g_max
+    Gd = [1.0 0.8; 0.8 1.0]                 # g_max along (1, 1)/√2
+    @test gmax(Gd) ≈ [1, 1] ./ sqrt(2)
+    d = response_deflection([1.0, 0.0]; G = Gd, A = [10.0 0; 0 10.0])
+    @test d.angle_response_gmax < d.angle_gradient_gmax && d.angle_response_gradient > 0
+    @test d.response ≈ Gd * d.β && vector_angle([1.0, 0.0], [0.0, 2.0]) ≈ 90
+    for _ in 1:50                            # never away from the g_max axis
+        B = randn(3, 3); Gr = B * B'; β = randn(3)
+        g = gmax(Gr)
+        @test abs(QTLSim.dot(Gr * β, g)) / QTLSim.norm(Gr * β) >= abs(QTLSim.dot(β, g)) / QTLSim.norm(β) - 1e-12
+    end
+end
+
+@testset "several traits: the moments lowering, a second table for the same syntax" begin
+    L = lifecycle(); g = L.generation
+    p = Params(PopSize = 1000, NoQTL = 50, Ploidy = 2, NoGenerations = 4000, PhenotypeVar = 1.0, Heritability = 0.5,
+               MutationScalar = 0.01, MutationRatePerGamete = 0.01, NoTraits = 2, MutCorr = 0.5, SelCorr = -0.3)
+    o = run_moments(p)                       # dispatches to the trait table
+    @test o.gmatrix[end] ≈ gaussian_G(p) rtol = 1e-6
+    @test o.pmatrix[end] ≈ o.gmatrix[end] + envVar(p) * [1 0; 0 1]
+    @test all(0 .< o.mean_fitness .<= 1)
+    # a continuous move along (1, 2): the lag converges to the steady lag vector
+    pc = Params(p; NoGenerations = 8000, MoveFitnessSDGen = 4000, MoveType = :continuous, MoveFitnessSD = 0.002,
+                MoveDirection = [1.0, 2.0])
+    oc = run_moments(pc)
+    @test oc.trait_lag[end] ≈ steady_lag_vector(pc; G = oc.gmatrix[end]) rtol = 1e-6
+    @test oc.trait_mean[end] - oc.trait_mean[end-1] ≈ 0.002 .* QTLSim.move_direction(pc) rtol = 1e-6
+    # one trait: the multivariate recursion with 1×1 matrices is the one-trait table's
+    p1 = Params(PopSize = 1000, NoGenerations = 3000, PhenotypeVar = 0.02, MutationScalar = 0.02,
+                MutationRatePerGamete = 0.5, InitFitnessSD = 0.3, MoveFitnessSDGen = 1000, MoveFitnessSD = 0.001,
+                MoveType = :continuous, ChangeFitnessGen = 2000, ChangeFitnessSD = 0.4)
+    a, b = run_moments(p1), Ext.run_trait_moments(p1)
+    @test a.geno_var ≈ b.geno_var rtol = 1e-10
+    @test a.pheno_mean ≈ b.pheno_mean rtol = 1e-10
+    @test a.theta ≈ b.theta rtol = 1e-10
+    @test a.mean_fitness ≈ b.mean_fitness rtol = 1e-10
+    @test a.sel_diff ≈ b.sel_diff rtol = 1e-8
+    ae, be = run_moments(p1; erosion = true), Ext.run_trait_moments(p1; erosion = true)
+    @test ae.geno_var ≈ be.geno_var rtol = 1e-10
+    # it is a functor: the generation's image is the composite of the steps' images
+    steps = (:develop, :select, :reproduce, :record, :rescale, :mutate, :swap)
+    imgs = Ext.trait_moment_images()
+    m1 = Ext.TraitMoments(p; G = [0.1 0.02; 0.02 0.05]); m2 = deepcopy(m1)
+    lower(g, :moments; images = imgs)(m1, nothing)
+    foldl(Catlab.compose, (lower(getfield(L, s), :moments; images = imgs) for s in steps))(m2, nothing)
+    @test (m1.zbar, m1.G, m1.θ, m1.gen) == (m2.zbar, m2.G, m2.θ, m2.gen)
+    @test_throws ArgumentError run_moments(p; cycle = L.develop)
+end

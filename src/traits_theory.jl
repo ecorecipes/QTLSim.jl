@@ -146,3 +146,21 @@ function response_deflection(λ::AbstractVector; G::AbstractMatrix, A::AbstractM
     (β = β, response = r, angle_response_gradient = vector_angle(r, β),
      angle_response_gmax = axis(r), angle_gradient_gmax = axis(β))
 end
+
+"""
+    gaussian_G_loci(p)
+
+Lande's (1975, 1980) Gaussian equilibrium summed over loci in linkage equilibrium: each of
+the `Ploidy·NoQTL` allele positions balances mutation, at covariance
+`μΣ_α = M/(Ploidy·NoQTL)` per generation, against selection of covariance `A`, so
+`G = Ploidy·NoQTL·C` with `C (A + C)⁻¹ C = M/(Ploidy·NoQTL)` ([`gaussian_G`](@ref) per
+position). For one trait and weak mutation it is `√(Ploidy·NoQTL·V_m·V_s)`, `√(Ploidy·NoQTL)`
+times [`gaussian_vg_exact`](@ref)'s `√(V_m V_s)`: the aggregate recursion of the moments
+lowering treats all of selection's reduction of the variance as lasting, which is exact
+for one haploid locus (`Ploidy·NoQTL = 1`) and an underestimate for many loci, where
+recombination restores most of it. Drift, which this ignores, pulls the kernel below it.
+"""
+function gaussian_G_loci(p::Params)
+    k = p.Ploidy * p.NoQTL
+    k .* gaussian_G(mutational_covariance(p) ./ k, selection_variance_matrix(p))
+end
