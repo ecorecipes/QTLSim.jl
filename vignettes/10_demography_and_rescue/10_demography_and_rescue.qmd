@@ -92,7 +92,10 @@ generation in which fewer than two individuals are expected to survive, or, unde
 density regulation, the population is expected to fall below one. Its default
 population is infinite, and these are not: with 100 loci and rare mutations an infinite
 population would hold several times their genetic variance (the section on drift below),
-so the prediction here is the moments lowering with drift, `erosion = true`.
+so the prediction here is the moments lowering with drift, `erosion = true`. For one
+diploid trait the lowering is by default the rare-alleles closure of the multilocus
+Gaussian model (`loci = :rare_alleles`), which allows for loci that carry a few rare
+mutants rather than many small ones.
 
 ```{julia}
 #| output: asis
@@ -162,10 +165,11 @@ A population that cannot grow fast enough to make good its losses cannot sustain
 rates a population of fixed size can.
 
 The moments lowering with drift predicts the time to extinction closely at fast rates,
-where the outcome is decided by the lag: within 6% at 0.1 and 0.2 per generation for
-every demography. At slow rates its populations live too long: at a fixed size it
-predicts 1389 generations at 0.03, against 846 simulated, and survival at 0.02, which
-none of the six managed; with $R = 1.5$ it predicts survival at 0.01, where all six died.
+where the outcome is decided by the lag: within 5% at 0.2 per generation for every
+demography, and at 0.1 within 4% under density regulation and 12% at a fixed size. At
+slow rates its populations live too long: at a fixed size it predicts 1267 generations
+at 0.03, against 846 simulated, and survival at 0.02, which none of the six managed; with
+$R = 1.5$ it predicts survival at 0.01, where all six died.
 The section on demographic noise and drift below shows that the error lies in the
 genetic variance, not in the population size.
 
@@ -302,12 +306,13 @@ as the longest-lived), and the predicted median time to extinction.
 
 ```{julia}
 #| output: asis
-println("| demography | V_G before the move, simulated | Gaussian (moments lowering) | with drift |")
-println("|:--|--:|--:|--:|")
+println("| demography | V_G before the move, simulated | rare alleles (moments lowering) | with drift | multilocus Gaussian | with drift |")
+println("|:--|--:|--:|--:|--:|--:|")
 for (i, (name, kw)) in enumerate(demog)
     p = Params(base; kw..., MoveFitnessSD = 0.01)
-    @printf("| %s | %.4f | %.4f | %.4f |\n", name, theory[(i, 0.01)].vg,
-            run_moments(p).geno_var[5000], run_moments(p; erosion = true).geno_var[5000])
+    @printf("| %s | %.4f | %.4f | %.4f | %.4f | %.4f |\n", name, theory[(i, 0.01)].vg,
+            run_moments(p).geno_var[5000], run_moments(p; erosion = true).geno_var[5000],
+            run_moments(p; loci = :multilocus).geno_var[5000], run_moments(p; erosion = true, loci = :multilocus).geno_var[5000])
 end
 ```
 
@@ -333,26 +338,28 @@ fig
 ```
 
 Demographic noise alone changes nothing here: along the deterministic trajectory no
-population is ever close to extinction at these rates. The deterministic multilocus
-model predicts that every population survives every slow rate, while all 100 died at
+population is ever close to extinction at these rates. The deterministic moments
+lowering predicts that every population survives every slow rate, while all 100 died at
 0.02 and 0.03 with every demography, and all or nearly all (98 with $R = 5$) at 0.015
 under density regulation. Nor can the
 noise explain the spread: the predicted distributions of the time to extinction are much
-narrower than the simulated ones, and no rate gives a probability of survival between 0
-and 1, while with $R = 2$ at 0.01, 56 of 100 populations survived. The variation among
-populations is genetic.
+narrower than the simulated ones, and only one prediction gives a probability of
+survival between 0 and 1 (91% with $R = 1.5$ at 0.01, from the simulated variance, where
+none of the 100 survived), while with $R = 2$ at 0.01, 56 of 100 populations survived.
+The variation among populations is genetic.
 
 The genetic variance is where the theory fails. With weak stabilising selection
 ($V_s = \omega^2 + V_E \approx 25$) and rare mutations (0.01 per gamete), the variance
 is held by a few alleles at a time, closer to the house-of-cards balance than to an
-infinite Gaussian population (vignette 02). Without drift the multilocus Gaussian model
-holds 2.8 times the simulated variance at the move (0.255 against about 0.092, and still
-rising toward its equilibrium, 0.55), so its populations keep up with rates that kill
-the simulated ones. With drift it holds 12% more than the simulations (0.103), close
-before the move. After the move the simulated variance falls, as directional selection
-fixes the alleles that carried it and drift erodes it among the few survivors, while the
-Gaussian model, in which selection moves the mean without using up variance, keeps it
-(the deterministic model's variance even grows, still converging):
+infinite Gaussian population (vignette 02). Without drift the rare-alleles closure
+holds 2.5 times the simulated variance at the move (0.227 against about 0.092, and still
+rising toward its equilibrium, 0.44; the multilocus Gaussian model, 0.255 and 0.55), so
+its populations keep up with rates that kill the simulated ones. With drift it holds 4%
+more than the simulations (0.095; the Gaussian model 12%, 0.103), close before the move.
+After the move the simulated variance falls, as directional selection fixes the alleles
+that carried it and drift erodes it among the few survivors, while the moments lowering,
+in which selection moves the mean without using up much variance, keeps most of it (the
+deterministic model's variance even grows, still converging):
 
 ```{julia}
 #| output: asis
@@ -383,22 +390,23 @@ end
 The simulated values are means over 12 populations, of the genetic variance averaged
 over the preceding 20 generations; in parentheses, the number still alive. The
 simulated variance falls by a half to two thirds within 1000 generations of the move;
-the moments with drift lose about 10%.
+the moments with drift lose about 15%.
 
 With drift the theory predicts deaths at 0.03 with every demography, at 0.02 under
 density regulation and at 0.015 with $R = 2$ and 1.5, but late, more so the slower the rate and the higher the
-growth rate: at a fixed size 1348 generations at 0.03 against 830 simulated, with
-$R = 5$ 1840 at 0.02 against 913, with $R = 1.5$ 258 at 0.03 against 240. Starting the
-recursion with drift from the simulated variance at the move is a little better (1202,
-1566 and 244 generations), since that variance is a little lower than the theory's, but
-it is still late, and it too predicts survival at 0.02 at a fixed size, at 0.015 with
-$R = 5$ and at 0.01 with $R = 1.5$, where the simulated populations died. No version
+growth rate: at a fixed size 1226 generations at 0.03 against 830 simulated, with
+$R = 5$ 1565 at 0.02 against 913, with $R = 1.5$ 249 at 0.03 against 240 (the
+multilocus Gaussian model, 1348, 1840 and 258). Starting the recursion with drift from
+the simulated variance at the move is a little better (1171, 1473 and 243 generations),
+since that variance is a little lower than the theory's, but it is still late, and it
+too predicts survival at 0.02 at a fixed size and at 0.015 with $R = 5$, and 91%
+survival at 0.01 with $R = 1.5$, where the simulated populations died. No version
 reproduces the survival of about half the populations with $R = 2$ at 0.01. The
 remaining error lies in how the genetic variance, carried by a few alleles of large
-effect, changes under directional selection, which the Gaussian model, with or without
-drift, does not describe. At the fast rates, where the outcome is decided within a few
-hundred generations by the lag, the variance has little time to change and the
-prediction with drift holds.
+effect, changes under directional selection, which neither the Gaussian model nor its
+rare-alleles closure, with or without drift, describes. At the fast rates, where the outcome is decided
+within a few hundred generations by the lag, the variance has little time to change and
+the prediction with drift holds.
 
 ## Summary
 
@@ -411,10 +419,11 @@ at a fixed size. The paper's estimate of about 3% of a phenotypic standard devia
 generation is therefore an upper bound that holds for populations able to make good
 their losses.
 
-The moments lowering with drift (`run_moments(p; erosion = true)`, the multilocus
-Gaussian model in a population of the expected size) predicts the time to extinction at
-fast rates, and the genetic variance before the move to within about 12%; without drift
-an infinite population would hold several times that variance. At slow rates its error
+The moments lowering with drift (`run_moments(p; erosion = true)`, by default the
+rare-alleles closure of the multilocus Gaussian model in a population of the expected
+size) predicts the time to extinction at fast rates, and the genetic variance before the
+move to within about 4% (the multilocus Gaussian model, 12%); without drift an infinite
+population would hold several times that variance. At slow rates its error
 is genetic, not demographic: adding the chance in survival and reproduction along its
 trajectory (`extinction_distribution`) leaves the spread among populations unexplained,
 and the theory's variance does not collapse after the move as the simulated variance

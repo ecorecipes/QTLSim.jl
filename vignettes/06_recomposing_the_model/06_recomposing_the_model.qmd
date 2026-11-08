@@ -272,13 +272,14 @@ fig
 ```
 
 The moments get the means right and the direction of every effect, and without migration
-the genetic variance to within 3%: by default the lowering is the multilocus Gaussian
-model, in which, for this one diploid locus, the part of selection's reduction of the
-variance that lies between an individual's two alleles is lost at the next reproduction
-(the older aggregate recursion, `loci = :aggregate`, inherits all of it and predicts 30%
-too little variance here). Under migration they predict 5–6% less divergence than the
-kernel shows; a deme that has received migrants is a mixture, not the Gaussian population
-the next selection assumes. With
+the genetic variance to within 1%. For one diploid trait the lowering is by default the
+rare-alleles closure of the multilocus Gaussian model (the multilocus model itself,
+`loci = :multilocus`, is within 3% here), in which, for this one diploid locus, the part
+of selection's reduction of the variance that lies between an individual's two alleles is
+lost at the next reproduction (the older aggregate recursion, `loci = :aggregate`,
+inherits all of it and predicts 30% too little variance here). Under migration they
+predict 6–7% less divergence than the kernel shows; a deme that has received migrants is
+a mixture, not the Gaussian population the next selection assumes. With
 the moments lowering covering several demes, any metapopulation built from these steps has
 a deterministic prediction, and each deme can have its own parameters there, in the
 kernel (`[p1, p2] ⊗ demes(2)`) and in SLiM (`slim_script(cycle, [p1, p2])`).

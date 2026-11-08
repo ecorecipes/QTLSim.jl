@@ -32,22 +32,23 @@ of a mutation's effect and $N_e$ for the effective population size.
   share; the rest is linkage disequilibrium, which recombination breaks up. At
   equilibrium $V_G^2/(V_s + V_G) = 2n V_m$, so $V_G \approx \sqrt{2n V_m V_s}$ when
   mutation is weak (`gaussian_vg_loci`; with drift, `gaussian_vg_loci(p; drift = true)`),
-  the fixed point of the moments lowering. For a single haploid locus it is
-  $\sqrt{V_m V_s}$ (`gaussian_vg`), the form behind QTSim's analytical fitness width
-  (below).
+  the fixed point of the moments lowering with `loci = :multilocus`. For a single
+  haploid locus it is $\sqrt{V_m V_s}$ (`gaussian_vg`), the form behind QTSim's
+  analytical fitness width (below).
 - The stochastic house-of-cards approximation [@Burger1989] allows for rare mutations
   of large effect and for drift:
   $V_G \approx 4 n \mu V_s \,/\, \left(1 + V_s / (N_e \alpha^2)\right)$.
   This is the approximation the paper compares its simulations with (its Supplementary
   Figure S1, labelled equation 21a in its results table).
-- The rare-alleles closure (`rare_alleles_vg`, `run_moments(p; loci = :rare_alleles)`)
-  bridges the two. The Gaussian model takes the fourth moment of the allelic values at a
-  locus to be Gaussian; when a locus is mostly one allele with a few rare mutants, that
-  moment is instead dominated by the mutants, lpha^2 the variance, so selection
-  removes each rare mutant at its own rate besides the Gaussian loss. For loci in linkage
+- The rare-alleles closure (`rare_alleles_vg`, `run_moments(p; loci = :rare_alleles)`,
+  the moments lowering's default for one diploid trait) bridges the two. The Gaussian
+  model takes the fourth moment of the allelic values at a locus to be Gaussian; when
+  a locus is mostly one allele with a few rare mutants, that moment is instead
+  dominated by the mutants, $\alpha^2$ times the variance, so selection removes each
+  rare mutant at its own rate besides the Gaussian loss. For loci in linkage
   equilibrium its equilibrium is the "stochastic house of Gauss" of
   @HermissonWagner2004 (`house_of_gauss_vg`), which is the house of cards when mutations
-  are rare, the Gaussian when they are many, and N_e V_m drift dominates; in the
+  are rare, the Gaussian when they are many, and $2N_e V_m$ when drift dominates; in the
   multilocus model it keeps linkage disequilibrium and recombination. Its comparison with
   the kernel across regimes is `validate/moments_regimes.jl`.
 

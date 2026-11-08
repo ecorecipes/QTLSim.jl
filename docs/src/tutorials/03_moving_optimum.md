@@ -327,8 +327,9 @@ fig
 
 Figure 4: The optimum (gray) and the mean phenotype (colour) under three
 moves that share a trend of 0.001 per generation from generation 1000.
-Dashed: the Gaussian prediction of the moments lowering (`run_moments`),
-given the run’s own optimum for red noise.
+Dashed: the prediction of the moments lowering (`run_moments`; by
+default the rare-alleles closure, whose variance here is within 2% of
+the Gaussian model’s), given the run’s own optimum for red noise.
 
 ```@raw html
 </div>
