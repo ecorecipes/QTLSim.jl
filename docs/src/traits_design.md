@@ -122,6 +122,19 @@ These are the places where the generalisation was not free:
   `NoTraits = 1` the table runs 1×1 matrices and reproduces moments.jl's one-trait
   recursion to 1e-10, with and without drift's erosion, with a move and a width change.
   One deme only: the moments of several demes (moments.jl) are not generalised.
+- **Eidos lowering** (`ext/QTLSimCatlabExt/eidos_traits.jl`): `eidos_trait_images`, a
+  second table of Eidos for the seven steps. An individual's `a0`/`a1` hold `L·n` values
+  (the kernel's layout), `THETA` is a vector on the deme's subpopulation, genotypes and
+  phenotypes are `n × N` matrices, fitness uses `matrixMult` with the constant `SINV`,
+  mutation draws with `rmvnorm` from `MUTCOV = M/(2L·rate)`, and `record` appends the trait
+  means, `G`'s upper triangle and the optimum to QTSim's columns. `slim_script` picks the
+  table when `NoTraits > 1`; the one-trait model is byte-identical (golden file) and
+  `check_generated.jl` still passes. Migration's image is unchanged (it swaps whole allele
+  vectors), and the fecundity splice applies to the trait table unchanged, because the
+  spliced segments are verbatim the one-trait ones. Limits: the demes of a SLiM model share
+  the trait parameters, `M` must be positive definite (`rmvnorm`), and a step's own `θ` is
+  rejected (as in the kernel and moments lowerings, where it would otherwise be a scalar
+  for a vector).
 
 ## The theory
 
@@ -167,6 +180,14 @@ The kernel's G is 2.4% below the moments', and the one-trait kernel in the same 
 1.4% below the one-trait moments: the trait model misses the Gaussian approximation by
 about as much as the scalar one. The lag shows Lande's deflection: the optimum moves at
 63° from trait 1, the lag points at 93°, away from `g_max` (22°).
+
+`validate/slim/compare_traits.jl` (log `valid_traits.log`, 40 runs per backend, KS tests,
+fail if any p < 0.001, fixed beforehand) compares the kernel with the generated SLiM model
+on two traits (`M = m·V_E·[1 0.4; 0.4 0.5]`, fitness correlation −0.3). A, one diploid
+locus at equilibrium: G₁₁, G₁₂, G₂₂, genetic correlation and survivors, p = 0.26, 0.91,
+0.26, 0.57, 0.76. B, ten loci with the optimum moving 0.001 per generation along (1, 2):
+both lag components, the three entries of G and the final mean of trait 2, p = 0.57,
+0.99, 0.91, 0.76, 0.26, 0.99. The smallest p is 0.26, so no discrepancy was found.
 
 Informational: with 50 diploid loci (N = 1000) the aggregate recursion does not apply,
 for one trait as for two. The one-trait kernel's V_G is 7.0× `gaussian_vg_exact` and the

@@ -149,3 +149,4 @@ function run_trait_moments(p::Params; cycle = lifecycle().generation, images = D
     end
     (extinct = false, extinct_gen = -1, rec...)
 end
+hastraits(::TraitMoments) = true

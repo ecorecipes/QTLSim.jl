@@ -1,0 +1,21 @@
+QTLSim kernel vs generated SLiM model, two traits, R = 40 runs each, 3 threads
+M = m·V_E·[1 0.4; 0.4 0.5], Ω = ω²·[1 -0.3; -0.3 1], ω = 0.30, V_E = 0.01
+
+── A: one diploid locus, stabilising selection, generations 1000-1999 ──
+  G11                                    kernel   0.005877 ± 0.00019   SLiM    0.00579 ± 0.00019   KS p = 0.263
+  G12                                    kernel  0.0009395 ± 0.00014   SLiM  0.0009304 ± 0.00011   KS p = 0.913
+  G22                                    kernel   0.003924 ± 0.00018   SLiM   0.003975 ± 0.00019   KS p = 0.263
+  genetic correlation                    kernel      0.201 ± 0.033     SLiM     0.1993 ± 0.026     KS p = 0.573
+  survivors                              kernel      420.8 ± 0.63      SLiM      420.9 ± 0.57      KS p = 0.759
+  (38 s; theory: gaussian_G for one locus, per-locus sum gaussian_G_loci G11 = 0.005904)
+
+── B: ten loci, the optimum moving 0.001 per generation along (1, 2) from 1000, generations 1500-1999 ──
+  lag, trait 1                           kernel -0.0002521 ± 0.0026    SLiM  -0.000133 ± 0.0025    KS p = 0.573
+  lag, trait 2                           kernel      0.008 ± 0.0035    SLiM   0.008057 ± 0.0033    KS p = 0.988
+  G11                                    kernel    0.01766 ± 0.0009    SLiM    0.01773 ± 0.0012    KS p = 0.913
+  G12                                    kernel   0.003617 ± 0.0006    SLiM    0.00353 ± 0.00067   KS p = 0.759
+  G22                                    kernel    0.01138 ± 0.00078   SLiM    0.01156 ± 0.00075   KS p = 0.263
+  mean of trait 2, last generation       kernel     0.8854 ± 0.012     SLiM     0.8847 ± 0.015     KS p = 0.988
+  (781 s; steady_lag_vector with the kernel's G: (-0.0006, 0.0082))
+
+smallest p = 0.263: no discrepancy

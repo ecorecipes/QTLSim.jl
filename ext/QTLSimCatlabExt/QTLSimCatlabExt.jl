@@ -30,6 +30,7 @@ using Random: randperm, Xoshiro
 include("schema.jl")
 include("compose.jl")
 include("eidos.jl")
+include("eidos_traits.jl")
 include("lifecycle.jl")
 include("moments.jl")
 include("trait_moments.jl")

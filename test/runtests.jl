@@ -1627,3 +1627,34 @@ end
     @test (m1.zbar, m1.G, m1.θ, m1.gen) == (m2.zbar, m2.G, m2.θ, m2.gen)
     @test_throws ArgumentError run_moments(p; cycle = L.develop)
 end
+
+@testset "several traits: the Eidos lowering, a second table" begin
+    L = lifecycle(); g = L.generation
+    base = Params(PopSize = 100, NoQTL = 3, Ploidy = 2, NoGenerations = 50, PhenotypeVar = 0.02,
+                  MutationScalar = 0.02, MutationRatePerGamete = 0.5, InitFitnessSD = 0.3)
+    p = Params(base; NoTraits = 2, MutCorr = 0.4, SelCorr = -0.3, MoveDirection = [1.0, 2.0])
+    s = slim_script(g, p)
+    @test occursin("rmvnorm(sum(k0), rep(0.0, NT), MUTCOV)", s) && occursin("defineConstant(\"NT\", 2)", s)
+    @test occursin("matrixMult(matrix(SINV, nrow = NT, byrow = T), D)", s)
+    @test occursin("\\tz1\\tz2\\tG11\\tG12\\tG22\\ttheta1\\ttheta2", s)
+    @test occursin("rep(0.0, L * NT)", s) && occursin("pop.setValue(\"THETA\", rep(0.0, NT));", s)
+    @test occursin("MCORR", s) && occursin("MCOV", slim_script(g, Params(p; MutCorr = 0.0, MutCov = [2e-4 1e-4; 1e-4 2e-4])))
+    # the same syntax: each step's image comes from the trait table
+    imgs = Ext.eidos_trait_images()
+    @test Set(keys(imgs)) == Set(keys(Ext.eidos_images()))
+    @test occursin("for (r in 0:(NT - 1)) gsum = c(gsum,", s) && occursin("from0 = (loc <= repEach(cut, L))", s)
+    # one trait's model is untouched (the golden file test above), and has none of this
+    @test !occursin("NT", slim_script(g, base))
+    # fecundity selection splices into the trait table as into the one-trait table
+    sf = slim_script(g, Params(p; Selection = :fecundity))
+    @test occursin("weighted = (selection == \"fecundity\")", sf) && occursin("matrixMult", sf)
+    # several demes share the trait parameters; migration moves whole allele vectors
+    @test occursin("migRate", slim_script(g ⊗ g ⋅ L.migrate(2), p; migration_rate = 0.01))
+    @test_throws ArgumentError slim_script(g ⊗ g ⋅ L.migrate(2), [p, Params(p; SelCorr = 0.2)])
+    # what the Eidos lowering cannot do with several traits
+    @test_throws ArgumentError slim_script(g, Params(p; MutCorr = 1.0))                 # rmvnorm needs M ≻ 0
+    θstep = withparams(g; θ = 0.1)
+    @test_throws ArgumentError slim_script(θstep, p)
+    @test_throws ArgumentError run_composed(World(p), MersenneTwister(1); cycle = θstep)
+    @test_throws ArgumentError run_moments(p; cycle = θstep)
+end

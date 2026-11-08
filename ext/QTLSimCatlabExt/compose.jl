@@ -82,6 +82,8 @@ function with_step_params(s, op::Operator)
     θ === nothing || (fields = merge(fields, (MoveFitnessSDGen = -1,)))
     cache = IdDict{Params,Params}()          # the overridden Params, per deme's Params
     Operator(Symbol(string(s)), function (w, rng)
+        θ === nothing || !hastraits(w) ||
+            throw(ArgumentError("the step $s has its own θ, a number; with several traits the optimum is a vector"))
         p0, ω0, θ0 = w.p, w.ω, w.θ
         isempty(fields) || (w.p = get!(() -> QTLSim.checkparams(Params(p0; fields...)), cache, p0))
         ω === nothing || (w.ω = ω)
@@ -96,6 +98,10 @@ function with_step_params(s, op::Operator)
         w
     end, op.scope)
 end
+
+"Whether a state carries several traits (a `World` with `traits`, or `TraitMoments`)."
+hastraits(w::World) = w.traits !== nothing
+hastraits(_) = false
 
 # --- a run driven by one lowered life cycle -------------------------------
 
