@@ -110,6 +110,7 @@ on every change.
 10. [Demography and evolutionary rescue](tutorials/10_demography_and_rescue.md)
 11. [Density regulation in the paper's populations](tutorials/11_demography_in_the_papers_populations.md)
 12. [Metapopulations and migration](tutorials/12_metapopulations.md)
+13. [Several traits and pleiotropy](tutorials/13_multiple_traits.md)
 
 ## Licence
 

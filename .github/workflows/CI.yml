@@ -43,7 +43,7 @@ jobs:
     # Runs the vignettes' code (not Quarto) in the vignettes' environment, whose
     # Manifest is committed (Julia 1.12). These need neither QTSim, SLiM nor the
     # paper's data; 04, the slowest (about 6 minutes on three threads locally), runs
-    # in vignettes-slow. 12 takes about 2 minutes on three threads.
+    # in vignettes-slow. 12 takes about 2 minutes on three threads, 13 about 1.5 minutes.
     name: Vignettes (code)
     runs-on: ubuntu-latest
     steps:
@@ -54,8 +54,8 @@ jobs:
       - uses: julia-actions/cache@v2
       - name: Install the vignettes' environment
         run: julia --project=vignettes -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
-      - name: Run vignettes 01-03, 05, 06, 10 and 12
-        run: julia -t auto --project=vignettes scripts/run_vignettes.jl 01 02 03 05 06 10 12
+      - name: Run vignettes 01-03, 05, 06, 10, 12 and 13
+        run: julia -t auto --project=vignettes scripts/run_vignettes.jl 01 02 03 05 06 10 12 13
   vignettes-slow:
     name: Vignettes (code, slow)
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

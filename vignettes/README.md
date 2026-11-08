@@ -19,6 +19,7 @@ Each vignette lives in its own directory `NN_name/NN_name.qmd` and is rendered w
 | `10_demography_and_rescue` | a density-regulated population instead of QTSim's fixed size: how much faster populations die, and how the sustainable rate falls, with the moments lowering's predictions |
 | `11_demography_in_the_papers_populations` | vignette 09's 710 populations rerun with density regulation (R = 5, 2, 1.5): how survival, time to extinction and the sustainable rate move from the paper's fixed-size estimates |
 | `12_metapopulations` | demes and migration: building metapopulations, how the kernel's migration exchanges individuals, neutral Q_ST among demes against exact island and stepping-stone theory, local adaptation (Q_ST > F_ST), and the moments lowering's prediction of the variance among demes |
+| `13_multiple_traits` | several traits with pleiotropy: the model as a second family of lowerings of the same life cycle, the G matrix at equilibrium against theory, correlated response and the line of least resistance, the mutational correlation, local adaptation of demes in two traits, a fluctuating optimum vector, and the kernel against SLiM |
 
 ## Rendering
 
@@ -33,19 +34,19 @@ The script renders each vignette twice, HTML first: in a single render of both f
 the self-contained HTML step can delete the figure files that the Markdown needs. Make
 sure the package is precompiled before rendering, otherwise Julia's precompilation output
 is captured into the first cell of the rendered file. Vignettes 02, 03, 04, 07, 08, 09, 10,
-11 and 12 run their simulations on all threads (`julia: exeflags: ["--threads=auto"]`).
+11, 12 and 13 run their simulations on all threads (`julia: exeflags: ["--threads=auto"]`).
 
 `scripts/run_vignettes.jl` runs the vignettes' code without Quarto, each vignette in its
 own Julia process, and fails if any chunk throws; it does not write the rendered files.
 From the package root:
 
 ```sh
-julia -t 3 --project=vignettes scripts/run_vignettes.jl          # 01-06, 10 and 12
+julia -t 3 --project=vignettes scripts/run_vignettes.jl          # 01-06, 10, 12 and 13
 julia -t 3 --project=vignettes scripts/run_vignettes.jl 03 10    # by number or name
 ```
 
 Its default set is the vignettes that need neither QTSim, SLiM nor the paper's data. CI
-runs 01, 02, 03, 05, 06, 10 and 12 on every push (about 7 minutes on three threads locally) and
+runs 01, 02, 03, 05, 06, 10, 12 and 13 on every push (about 7 minutes on three threads locally) and
 04, which takes about 6 minutes on its own, on a weekly schedule and on manual runs.
 
 `julia ../scripts/sync_vignettes.jl` copies the rendered Markdown and figures into

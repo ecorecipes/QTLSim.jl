@@ -263,6 +263,10 @@ reproduces the paper’s results.
   migration](../12_metapopulations/12_metapopulations.qmd): demes
   coupled by migration, their neutral differentiation against theory,
   and local adaptation.
+- [Several traits and
+  pleiotropy](../13_multiple_traits/13_multiple_traits.qmd): traits that
+  share loci, the G matrix, correlated responses and local adaptation in
+  two dimensions.
 
 <div id="refs" class="references csl-bib-body hanging-indent">
 
