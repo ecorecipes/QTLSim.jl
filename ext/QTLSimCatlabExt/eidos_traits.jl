@@ -119,7 +119,7 @@ eidos_trait_images() = Dict{Symbol,Any}(
 """))
 
 "The fields of `Params` for several traits, which the demes of a SLiM model share."
-const TRAIT_FIELDS = (:NoTraits, :MutCorr, :SelCorr, :MutCov, :SelCov, :MoveDirection)
+const TRAIT_FIELDS = (:NoTraits, :MutCorr, :SelCorr, :MutCov, :SelCov, :MoveDirection, :FluctDirection, :MoveNoiseCov, :MoveNoiseSD)
 
 """
 The constants a SLiM model of several traits adds, as `slim_script`'s `defaults` pairs:
@@ -143,7 +143,7 @@ trait_header(n) = " + \"" * join(vcat(["\\tz$r" for r in 1:n], ["\\tG$r$s" for r
                                       ["\\ttheta$r" for r in 1:n])) * "\""
 
 "The constants of `slim_script` whose values are vectors in every deme, not one value per deme."
-const VECTOR_CONSTANTS = ("MIG", "SINV", "UDIR", "MCORR", "MCOV")
+const VECTOR_CONSTANTS = ("MIG", "SINV", "UDIR", "MCORR", "MCOV", "FDIR", "NOISEL")
 
 eidos_images(::TraitModel) = eidos_trait_images()
 
@@ -156,6 +156,14 @@ function eidos_with_params(m::TraitModel, s, c::EidosCode)
         throw(ArgumentError("the lowering to Eidos recombines as QTSim does (CrossoverModel = :qtsim); the step $s does not"))
     code = c.code
     n = m.n
+    s.name === :select && get(pr, :MoveType, :none) in (:red_noise, :periodic) &&
+        (code = eidos_fluctuating_select(m, code).code)
+    # the noise's square root, from the step's covariance, or from its σ and direction
+    if haskey(pr, :MoveNoiseCov)
+        code = substitute_identifiers(code, ["NOISEROOT" => eidos_matrix(QTLSim.psd_sqrt(pr.MoveNoiseCov))])
+    elseif haskey(pr, :MoveNoiseSD) || haskey(pr, :FluctDirection)
+        code = substitute_identifiers(code, ["NOISEROOT" => EIDOS_NOISEROOT_DEFAULT])
+    end
     θ, Ω = get(pr, :θ, nothing), get(pr, :Ω, nothing)
     ω = Ω === nothing ? get(pr, :ω, nothing) : 1.0
     ω === nothing || (code = replace(code, "@POP@.getValue(\"OMEGA\")" => eidos_literal(ω)))
@@ -167,6 +175,7 @@ function eidos_with_params(m::TraitModel, s, c::EidosCode)
     Ω === nothing || (subs1["SINV"] = eidos_literal(rowwise(inv(QTLSim.Symmetric(Ω)))))
     haskey(pr, :SelCorr) && (subs1["SINV"] = eidos_literal(rowwise(inv(QTLSim.Symmetric(QTLSim.equicorrelation(n, pr.SelCorr))))))
     haskey(pr, :MoveDirection) && (subs1["UDIR"] = eidos_literal(pr.MoveDirection ./ sqrt(sum(abs2, pr.MoveDirection))))
+    haskey(pr, :FluctDirection) && (subs1["FDIR"] = eidos_literal(pr.FluctDirection ./ sqrt(sum(abs2, pr.FluctDirection))))
     if haskey(pr, :MutCov)
         subs1["MUTCOV"] = "(" * eidos_matrix(pr.MutCov) * " / (2 * L * rate))"
     elseif haskey(pr, :MutCorr)
@@ -187,3 +196,43 @@ function eidos_with_params(m::TraitModel, s, c::EidosCode)
     end
     EidosCode(Symbol(string(s)), code)
 end
+
+# The fluctuating moves with several traits (QTLSim `moveoptimum_fluct!`): the trend moveSD
+# per generation along UDIR from THETA0, the optimum at the move's start, and AR(1) noise
+# EPS (a vector, deme state) with stationary covariance NOISEROOT·NOISEROOTᵀ, or a cycle of
+# amplitude moveAmplitude along FDIR. Spliced into the trait table's select only when a
+# deme or a step uses one, so that models without them are unchanged.
+const EIDOS_TRAIT_CONTINUOUS_MOVE = "        else THETA = THETA + moveSD * UDIR;\n"
+const EIDOS_TRAIT_FLUCTUATING_MOVE = """
+        else if (moveType == "red_noise" | moveType == "periodic") {
+            // θ = θ0 + d t UDIR + ε, ε a vector AR(1) with stationary covariance NOISEROOT NOISEROOTᵀ; or + A sin(2π t/P) FDIR
+            t = gen - moveGen;
+            if (t == 0) @POP@.setValue("THETA0", THETA);
+            THETA = @POP@.getValue("THETA0") + moveSD * t * UDIR;
+            if (moveType == "red_noise") {
+                xi = drop(matrixMult(NOISEROOT, matrix(rnorm(NT), ncol = 1)));
+                EPS = (t == 0) ? xi else moveAutocorr * @POP@.getValue("EPS") + sqrt(1 - moveAutocorr^2) * xi;
+                @POP@.setValue("EPS", EPS);
+                THETA = THETA + EPS;
+            } else THETA = THETA + moveAmplitude * sin(2 * PI * t / movePeriod) * FDIR;
+        }
+"""
+
+eidos_fluctuating_select(::OneTraitModel, code::AbstractString) = eidos_fluctuating_select(code)
+function eidos_fluctuating_select(::TraitModel, code::AbstractString)
+    occursin(EIDOS_TRAIT_FLUCTUATING_MOVE, code) && return EidosCode(:select, code)
+    occursin(EIDOS_TRAIT_CONTINUOUS_MOVE, code) ||
+        error("the Eidos image of select for several traits has changed; update EIDOS_TRAIT_CONTINUOUS_MOVE")
+    EidosCode(:select, replace(code, EIDOS_TRAIT_CONTINUOUS_MOVE => EIDOS_TRAIT_FLUCTUATING_MOVE * EIDOS_TRAIT_CONTINUOUS_MOVE))
+end
+
+"The constants of a fluctuating optimum of several traits: the cycle's direction FDIR, and NOISEL, a square root of MoveNoiseCov (row by row), when it is given."
+eidos_trait_fluct_constants(p::Params) =
+    isempty(p.MoveNoiseCov) ? ("FDIR" => QTLSim.fluct_direction(p),) :
+    ("FDIR" => QTLSim.fluct_direction(p), "NOISEL" => rowwise(QTLSim.psd_sqrt(p.MoveNoiseCov)))
+
+# NOISEROOT, a square root of the noise's covariance: moveNoiseSD·FDIR FDIRᵀ by default
+const EIDOS_NOISEROOT_DEFAULT = "(moveNoiseSD * matrixMult(matrix(FDIR, ncol = 1), matrix(FDIR, nrow = 1)))"
+eidos_noiseroot(p::Params) = isempty(p.MoveNoiseCov) ?
+    "    defineConstant(\"NOISEROOT\", $EIDOS_NOISEROOT_DEFAULT);   // Σ^½ = σ f fᵀ\n" :
+    "    defineConstant(\"NOISEROOT\", matrix(NOISEL, nrow = NT, byrow = T));   // Σ^½, MoveNoiseCov\n"

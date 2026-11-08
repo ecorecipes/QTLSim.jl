@@ -116,8 +116,8 @@ schema it does not fit. The parameters each step takes in the one-trait model:
 
 In the model of `n` traits ([`TraitModel`](@ref)`(n)`), `select`'s `θ` is a vector of `n`, and
 `select` also takes `Ω`, a fitness covariance matrix in place of `ω² S` (so not with `ω` or
-`SelCorr`), `SelCorr` and `MoveDirection`, but not `StandardisePhenotype`; `mutate` also
-takes `MutCorr` and `MutCov`. `withparams(g, p; θ = [0.1, 0.0]) ⊗ withparams(g, p; θ = [0.0,
+`SelCorr`), `SelCorr`, `MoveDirection`, `MoveNoiseCov` and `FluctDirection`, but not
+`StandardisePhenotype`; `mutate` also takes `MutCorr` and `MutCov`. `withparams(g, p; θ = [0.1, 0.0]) ⊗ withparams(g, p; θ = [0.0,
 0.1])` is two demes with optima along different traits.
 
 So `withparams(L.select; ω = 0.3)` is a selection step of width 0.3, and
@@ -310,9 +310,13 @@ expected squared differences of deme means (the deterministic differences includ
 These are the statistics of [`neutral_deme_variances`](@ref), with the same names. One
 deme: `var_among`, `between` and the Q_STs are 0. Generation 0's Q_ST is 0/0, NaN.
 
-**Several traits** (`NoTraits > 1`, one deme): the same models with matrices,
+**Several traits** (`NoTraits > 1`): the same models with matrices,
 `run_trait_moments` (ext/QTLSimCatlabExt/trait_moments.jl); the fixed point is
-[`gaussian_G_loci`](@ref) (with `loci = :aggregate`, [`gaussian_G`](@ref)).
+[`gaussian_G_loci`](@ref) (with `loci = :aggregate`, [`gaussian_G`](@ref)). On a life cycle of
+`k` demes too, with `migration_rate`, `between` and `origins` as above: `metapop` then holds
+matrices (`within`, `var_among`, `between`), `qst` a vector per trait, and `pairs` a matrix of
+matrices. `optimum` (one deme) is a vector of optimum vectors. A fluctuating move lowers to
+its expected optimum, as for one trait.
 """
 function run_moments end
 

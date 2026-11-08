@@ -65,6 +65,8 @@ mutational_covariance
 selection_shape
 selection_covariance
 move_direction
+fluct_direction
+move_noise_covariance
 traitvalues
 ```
 
@@ -127,6 +129,10 @@ steady_lag_vector
 gmax
 vector_angle
 response_deflection
+red_noise_lag_cov
+periodic_lag_cov
+expected_lag_cov
+trait_lag_load
 ```
 
 Neutral differentiation among demes (F_ST and Q_ST, `validate/fst.jl`):
@@ -216,4 +222,9 @@ QTLSimCatlabExt.Stratified
 QTLSimCatlabExt.Population
 QTLSimCatlabExt.Moments
 QTLSimCatlabExt.DemeMoments
+QTLSimCatlabExt.TraitMoments
+QTLSimCatlabExt.TraitCov
+QTLSimCatlabExt.TraitDemeMoments
+QTLSimCatlabExt.trait_moment_images
+QTLSimCatlabExt.run_trait_moments
 ```

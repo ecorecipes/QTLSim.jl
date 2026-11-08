@@ -453,6 +453,8 @@ end
 function run_moments(ps::AbstractVector{Params}; cycle, images = Dict{Symbol,Any}(), zbar = 0.0, VG = 0.0,
                      erosion = false, migration_rate::Union{Real,AbstractMatrix} = 0.0, between = false,
                      origins::Union{Symbol,AbstractMatrix} = :exchange, loci::Symbol = :multilocus)
+    ps[1].NoTraits > 1 && return run_trait_moments(collect(Params, ps); cycle, images, erosion, migration_rate, between, origins,
+                                                   loci, (zbar isa Real ? (;) : (; zbar))..., (VG isa Real ? (;) : (; G = VG))...)  # trait_moments.jl
     k = length(ps)
     k == 1 && return between ? run_moments1(ps[1]; cycle, images, zbar = only(vcat(zbar)), VG = only(vcat(VG)), erosion, between, origins, loci) :
                                run_moments1(ps[1]; cycle, images, zbar, VG, erosion, loci)

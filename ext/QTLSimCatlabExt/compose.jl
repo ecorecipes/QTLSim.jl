@@ -113,7 +113,8 @@ For one trait the step's `ω` and `θ` (numbers) replace the deme's width and op
 `n` traits `θ` is a vector, `Ω` a fitness covariance (in place of `ω² S`, so the width is
 1 for that step), and the fields that define the state's derived matrices replace them:
 `SelCorr` the fitness shape, `MutationScalar`, `MutationRatePerGamete`,
-`MutCorr`/`MutCov` the mutational covariance, `MoveDirection` the move's direction.
+`MutCorr`/`MutCov` the mutational covariance, `MoveDirection` the move's direction,
+`MoveNoiseSD`, `MoveNoiseCov` and `FluctDirection` the fluctuation's noise and direction.
 """
 function with_step_params(::OneTraitModel, s, op::Operator)
     fields = paramfields(s)
@@ -151,60 +152,56 @@ end
     0
 end
 
-const SELECTION_FIELDS = (:SelCorr,)
-const MUTATION_FIELDS = (:MutationScalar, :MutationRatePerGamete, :MutCorr, :MutCov)
-
 function with_step_params(::TraitModel, s, op::Operator)
     θ = get(s.params, :θ, nothing)
     Ω = get(s.params, :Ω, nothing)
     fields = θ === nothing ? paramfields(s) : merge(paramfields(s), (MoveFitnessSDGen = -1,))
     ω = Ω === nothing ? get(s.params, :ω, nothing) : 1.0      # Ω is the whole covariance: Ω = 1² Ω
-    sel = Ω !== nothing || any(k -> haskey(fields, k), SELECTION_FIELDS)
-    mut = any(k -> haskey(fields, k), MUTATION_FIELDS)
-    dir = haskey(fields, :MoveDirection)
-    # per deme's Params: the overridden Params and the state's matrices for the step, the
-    # step's where it overrides them and otherwise the deme's (the same values as its state)
-    cache = Tuple{Params,Params,Matrix{Float64},Matrix{Float64},Vector{Float64}}[]
+    # per deme's Params: the overridden Params and the state's matrices for the step, all
+    # derived from them (where the step overrides none of their fields, the deme's values)
+    cache = Tuple{Params,Params,Tuple{Matrix{Float64},Matrix{Float64},Vector{Float64},Matrix{Float64},Vector{Float64}}}[]
     Operator(Symbol(string(s)), function (w, rng)
         p0, ω0 = w.p, w.ω
         i = cacheindex(cache, p0)
         if i == 0
             q = isempty(fields) ? p0 : QTLSim.checkparams(Params(p0; fields...))
-            push!(cache, (p0, q, sel ? selection_slot(w, q, Ω) : selection_slot(w, p0, nothing),
-                          mut ? mutation_slot(w, q) : mutation_slot(w, p0), QTLSim.move_direction(dir ? q : p0)))
+            push!(cache, (p0, q, derived_slots(w, q, Ω)))
             i = length(cache)
         end
-        _, q, S, M, u = cache[i]
-        saved = trait_slots(w)               # (θ, selection, mutation, direction)
+        _, q, d = cache[i]
+        saved = trait_slots(w)               # (θ, selection, mutation, direction, noise, cycle direction)
         w.p = q
         ω === nothing || (w.ω = ω)
-        set_trait_slots!(w, (θ === nothing ? saved[1] : θ, S, M, u))
+        set_trait_slots!(w, (θ === nothing ? saved[1] : θ, d...))
         try
             op(w, rng)
         finally
             w.p = p0
             ω === nothing || (w.ω = ω0)
             # the optimum stays where the step's own move put it, unless the step fixed it
-            set_trait_slots!(w, (θ === nothing ? trait_slots(w)[1] : saved[1], saved[2], saved[3], saved[4]))
+            set_trait_slots!(w, (θ === nothing ? trait_slots(w)[1] : saved[1], Base.tail(saved)...))
         end
         w
     end, op.scope)
 end
 
 # The state of n traits that a step's parameters replace, in the kernel: the optimum
-# vector, the inverse of the fitness shape, a square root of one mutation's covariance and
-# the move's direction (fields of the World's TraitState). w.θ holds the optimum's trait 1.
-trait_slots(w::World) = (t = w.traits; (t.θ, t.Sinv, t.Lmut, t.u))
-function set_trait_slots!(w::World, (θ, Sinv, Lmut, u))
+# vector, the inverse of the fitness shape, a square root of one mutation's covariance, the
+# move's direction, a square root of the fluctuation's noise covariance and the cycle's
+# direction (fields of the World's TraitState). w.θ holds the optimum's trait 1.
+trait_slots(w::World) = (t = w.traits; (t.θ, t.Sinv, t.Lmut, t.u, t.Lnoise, t.f))
+function set_trait_slots!(w::World, (θ, Sinv, Lmut, u, Lnoise, f))
     t = w.traits
-    t.θ, t.Sinv, t.Lmut, t.u = θ, Sinv, Lmut, u
+    t.θ, t.Sinv, t.Lmut, t.u, t.Lnoise, t.f = θ, Sinv, Lmut, u, Lnoise, f
     w.θ = θ[1]
     w
 end
-# the step's fitness shape (Ω with width 1, or Params' shape) and mutation, as the kernel holds them
-selection_slot(::World, q::Params, Ω) = Matrix(inv(QTLSim.Symmetric(Ω === nothing ? QTLSim.selection_shape(q) : Ω)))
-mutation_slot(::World, q::Params) =
-    QTLSim.psd_sqrt(QTLSim.mutational_covariance(q) ./ (q.Ploidy * q.NoQTL * q.MutationRatePerGamete))
+# the matrices of the step's Params (with Ω, width 1 and shape Ω) as the kernel holds them,
+# computed as TraitState computes them
+derived_slots(::World, q::Params, Ω) =
+    (Matrix(inv(QTLSim.Symmetric(Ω === nothing ? QTLSim.selection_shape(q) : Ω))),
+     QTLSim.psd_sqrt(QTLSim.mutational_covariance(q) ./ (q.Ploidy * q.NoQTL * q.MutationRatePerGamete)),
+     QTLSim.move_direction(q), QTLSim.psd_sqrt(QTLSim.move_noise_covariance(q)), QTLSim.fluct_direction(q))
 
 # --- a run driven by one lowered life cycle -------------------------------
 

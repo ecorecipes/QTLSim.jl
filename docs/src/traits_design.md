@@ -86,7 +86,9 @@ the original finding.
    scalar; with several traits they need a direction, a new parameter of `select`'s image.
    The fluctuating moves (`:red_noise`, `:periodic`) are not generalised (a direction for
    the trend and a covariance for the noise would be needed) and `checkparams` rejects
-   them with `NoTraits > 1`, as it does `StandardisePhenotype`.
+   them with `NoTraits > 1`, as it does `StandardisePhenotype`. *Now addressed*: the
+   fluctuating moves have a trend along `u` and fluctuate along `f` (`FluctDirection`) or with
+   a noise covariance `Σ` (`MoveNoiseCov`); see "Fluctuating optima" below.
 3. **The kernel's images are one table with a branch, not two tables.** In the kernel the
    object image is a `World`, and a `World` with `traits` set is the ℝⁿ image; the operators
    `develop!`, `select!` and `mutate!` branch on it (and call `develop_traits!` etc.). So
@@ -197,7 +199,7 @@ parameters. A general framework would let a model own its `Params`.
   = trait_moment_images(rec))`. `run_moments(p)` uses it when `NoTraits > 1`; with
   `NoTraits = 1` the table runs 1×1 matrices and reproduces moments.jl's one-trait
   recursion to 1e-10, with and without drift's erosion, with a move and a width change.
-  One deme only: the moments of several demes (moments.jl) are not generalised.
+  Several demes too (`run_trait_moments(ps; cycle)`, see "The moments of several demes" below).
 - **Eidos lowering** (`ext/QTLSimCatlabExt/eidos_traits.jl`): `eidos_trait_images`, a
   second table of Eidos for the seven steps. An individual's `a0`/`a1` hold `L·n` values
   (the kernel's layout), `THETA` is a vector on the deme's subpopulation, genotypes and
@@ -240,6 +242,73 @@ selection to the haplotype moments of src/multilocus.jl, as matrices.
   from the gradient `β` toward `g_max` (Schluter 1996): in `G`'s eigenbasis each
   component of `β` is scaled by its eigenvalue, so the angle to the `g_max` axis can only
   shrink.
+
+## Fluctuating optima
+
+`MoveType = :red_noise` and `:periodic` with several traits (`checkparams` no longer rejects
+them): with `t` the generations since the move's start, `θ_t = θ0 + d t u + ε_t`, `ε` a
+vector AR(1) process with stationary covariance `Σ` (`MoveNoiseCov`, by default
+`MoveNoiseSD²·f fᵀ`, noise along one direction) and autocorrelation `ρ`, or
+`θ_t = θ0 + d t u + A sin(2π t/P)·f`, with `f` the unit vector of `FluctDirection` (`u` by
+default; `fluct_direction`, `move_noise_covariance`). The kernel (`moveoptimum_fluct!`)
+draws `n` normals per generation for red noise and allocates nothing; the moments lower a
+fluctuating move to its expectation (the cycle exactly, red noise as its trend) and take a
+realised optimum sequence (`optimum`, a vector per generation); the Eidos images splice the
+move into the trait table's `select` only when a deme or a step uses it (`FDIR`,
+`NOISEROOT` = Σ^½, `EPS` as deme state), so other trait models are byte-identical. A
+step's own `MoveNoiseCov`, `MoveNoiseSD` and `FluctDirection` act as the other step
+parameters do. In a SLiM model the demes share `FluctDirection`, `MoveNoiseCov` and
+`MoveNoiseSD` (vary them through steps). One gap: a step that sets `MoveDirection` but not
+`FluctDirection` cycles along the step's `u` in the kernel and the moments, and along the
+deme's `f` in Eidos.
+
+Theory (`src/traits_theory.jl`): with the mean following `z̄' = z̄ + B (θ − z̄)`,
+`B = G (A + G)⁻¹`, the lag and the AR(1) noise form the linear system
+`λ' = (I − B) λ + (ρ − 1) θ + √(1 − ρ²) η`, `θ' = ρ θ + √(1 − ρ²) η`, whose stationary
+covariance solves a discrete Lyapunov equation; `red_noise_lag_cov(Σ, ρ; G, A)` is the lag
+block, exactly `red_noise_lag_var` for one trait. A cycle gives the lag
+`Re(l e^{iνt})` with `l = (I − e^{−iν}(I − B))⁻¹ (1 − e^{−iν}) f`, so `periodic_lag_cov(P, f;
+G, A) = Re(l l*)/2`, exactly `periodic_response`'s `lag_amplitude²/2` for one trait.
+`expected_lag_cov(p; G)` adds the trend's steady lag outer product, and
+`trait_lag_load(p; G) = tr((Ω + P)⁻¹ E[λλᵀ])/2`. Both formulas are tested against the
+iterated (periodic, to 1e-3) and simulated (red noise, 400,000 steps, to 3%) recursion.
+
+Validation, `validate/slim/compare_traits_fluctuating.jl` (log
+`valid_traits_fluctuating.log`, criteria fixed before the run, 40 runs per backend): two
+traits, red noise with `Σ = [0.2 0.05; 0.05 0.1]`, `ρ = 0.7`, and a cycle of amplitude 0.6
+and period 25 along (1, −1)/√2. Kernel against SLiM, KS tests on the lag's covariance and G:
+smallest p = 0.263. Kernel against theory with the kernel's G, each entry within 10% of
+`sqrt(Λ_ii Λ_jj)`: largest deviation +8.5% (red noise, `L22`) and +7.8% (cycle, `L11`),
+all passing. The diagonals are systematically 4–8% above the theory while the off-diagonals
+are within 2%: an isotropic excess of about 0.005, consistent with what the deterministic
+theory leaves out (drift of the mean, restrained by selection, and the sampling error of
+the recorded mean phenotype, `P/N`).
+
+## The moments of several demes
+
+`run_trait_moments(ps; cycle, migration_rate, between, erosion, loci)` (and `run_moments`
+for `NoTraits > 1` on a life cycle of `k` demes) is moments.jl's k-deme lowering with every
+moment a matrix: `TraitCov` holds each deme's haplotype moments `T`, `R`, `Q_aa` by pair
+class, and the cross-moments `Q_ab = E[(h − z̄_a/2)(h′ − z̄_b/2)ᵀ]`. Selection in deme `a`
+shrinks its mean's deviation by `I − B_a`, `B_a = G_a s_a⁻¹`, so `Q_ab ← (I − B_a) Q_ab`;
+migration mixes means, haplotype moments and cross-moments with the outer products
+`Δ_ac Δ_bdᵀ` of the differences of the means in place of their squares (the cross-moment
+mixing is one `(n², k²) × (k², k²)` product per pair class). With `between = true` it
+returns `metapop`: the mean within-deme G, the covariance matrix of the deme means, its part
+beyond sampling, and `Q_ST` per trait. With one trait it reproduces moments.jl's k-deme
+moments to 1e-15 (`between = true`, `erosion`, `loci = :aggregate`; tested). The code is in
+`trait_moments.jl`; moments.jl gains one line, the dispatch.
+
+Validation, `validate/trait_moments_demes.jl` (log `trait_moments_demes.log`, criteria fixed
+before the run, 200 kernel runs per scenario, passed on the first run): four demes of 100
+diploids, 50 loci, two traits (`MutCorr` 0.3, `SelCorr` 0.2), island migration at forward
+rate 0.01. Neutral (T0): every |z| ≤ 2.13 for G, the among-deme covariance and both Q_ST.
+Local optima at distance 2 along 0°, 60°, 120° and 180° (T1): within-deme G within 6.8% of
+scale, among-deme covariance within 8.6%, Q_ST 0.349/0.164 against 0.323/0.151 (+8%), every
+deme mean within 1.5% of `|θ|`, and the deflection of the deme means from their optima
+(21°, 67°, 113°, 160° for optima at 0°, 60°, 120°, 180°, by migration and through G) within
+0.5° of the moments'. As for one trait (`moments_demes.log`), the moments underestimate the
+differentiation by a few percent under local adaptation.
 
 ## Validation
 
@@ -302,3 +371,15 @@ New identities the Julia code relies on, for the Lean layer:
    with `n = 1`, `steady_lag_response`.
 5. *Deflection*: for `G` symmetric positive definite with eigenvalues `g_1 ≥ … ≥ g_n` and
    leading eigenvector `e_1`, `|cos∠(Gβ, e_1)| ≥ |cos∠(β, e_1)|`.
+6. *Lag under AR(1) forcing*: the stationary covariance of the linear system
+   `x' = F x + w` (`F` stable, `w` of covariance `Q`) is the unique solution of
+   `X = F X Fᵀ + Q`; with `n = 1` and the system of `red_noise_lag_cov`, its lag entry is
+   `2σ²(1 − ρ)/((2 − β)(1 − ρ(1 − β)))` (`red_noise_lag_var`). A finite-dimensional,
+   purely algebraic statement (the Lyapunov equation's solution as the series `Σ Fᵏ Q Fᵀᵏ`).
+7. *Periodic lag*: `l = (I − e^{−iν}(I − B))⁻¹ (1 − e^{−iν}) f` solves the steady recursion
+   of a sinusoidal optimum, and for `n = 1` `|l|² = (2 sin(ν/2)/D)²`.
+8. *Model-typed step parameters*: a functor out of the free category on the stages and
+   steps, extended by parametrised generators `Step(name, params)`, is fixed by its images on
+   all generators, so two models (two tables) that agree on the plain steps differ only
+   through their parameter spaces; `Lowering.lean`'s `lower_unique` covers this once the
+   parametrised generators are generators of the quiver.

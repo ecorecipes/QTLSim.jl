@@ -52,8 +52,13 @@ Some fields have no QTSim counterpart, or behave differently:
   analytical width, changed by `ChangeFitnessSD`) and the shape `S` has unit diagonal
   and correlation `SelCorr`, or is `SelCov/ω²` initially. The optimum moves along the
   unit vector `u` ∝ `MoveDirection` ([`move_direction`](@ref)): by `d·u` per generation
-  (`:continuous`), to `z̄ + √V_P·d·u` (`:phenotype`) or to `z̄ + ω d u` (`:fitness`). See
-  the design note `traits_design.md`.
+  (`:continuous`), to `z̄ + √V_P·d·u` (`:phenotype`) or to `z̄ + ω d u` (`:fitness`). The
+  fluctuating moves have the trend `d·u` per generation and fluctuate along the unit vector
+  `f` ∝ `FluctDirection` (`u` by default, [`fluct_direction`](@ref)): `A sin(2π t/P)·f`
+  (`:periodic`), or AR(1) noise with stationary covariance `MoveNoiseCov`, by default
+  `MoveNoiseSD²·f fᵀ` ([`move_noise_covariance`](@ref)). `FluctDirection` and
+  `MoveNoiseCov` are Julia-only, for several traits. See the design note
+  `traits_design.md`.
 """
 Base.@kwdef struct Params
     NoGenerations::Int          = 20000
@@ -89,6 +94,8 @@ Base.@kwdef struct Params
     MutCov::Matrix{Float64}     = zeros(0, 0)   # M, mutational covariance per generation (n×n); empty ⇒ m·V_E with MutCorr
     SelCov::Matrix{Float64}     = zeros(0, 0)   # Ω, initial fitness-function covariance (n×n); empty ⇒ ω² with SelCorr
     MoveDirection::Vector{Float64} = Float64[]  # u, the direction the optimum moves in; empty ⇒ trait 1
+    FluctDirection::Vector{Float64} = Float64[] # f, the direction it fluctuates in (:periodic, default :red_noise); empty ⇒ u
+    MoveNoiseCov::Matrix{Float64} = zeros(0, 0) # Σ, stationary covariance of the optimum's AR(1) noise (n×n); empty ⇒ MoveNoiseSD² f fᵀ
     Seed::Union{Nothing,Int}    = nothing
 end
 
@@ -207,8 +214,9 @@ function checktraits(p::Params, bad)
     n = p.NoTraits
     n >= 1 || bad("NoTraits must be at least 1, got $n")
     if n == 1
-        p.MutCorr == 0 && p.SelCorr == 0 && isempty(p.MutCov) && isempty(p.SelCov) && isempty(p.MoveDirection) ||
-            bad("MutCorr, SelCorr, MutCov, SelCov and MoveDirection are for NoTraits > 1; with one trait leave them unset")
+        p.MutCorr == 0 && p.SelCorr == 0 && isempty(p.MutCov) && isempty(p.SelCov) && isempty(p.MoveDirection) &&
+            isempty(p.FluctDirection) && isempty(p.MoveNoiseCov) ||
+            bad("MutCorr, SelCorr, MutCov, SelCov, MoveDirection, FluctDirection and MoveNoiseCov are for NoTraits > 1; with one trait leave them unset")
         return p
     end
     -1 <= p.MutCorr <= 1 || bad("MutCorr must be in [-1, 1], got $(p.MutCorr)")
@@ -232,8 +240,14 @@ function checktraits(p::Params, bad)
     isempty(p.MoveDirection) || (length(p.MoveDirection) == n && all(isfinite, p.MoveDirection) &&
                                  any(!iszero, p.MoveDirection)) ||
         bad("MoveDirection must be a nonzero vector of $n numbers, got $(p.MoveDirection)")
-    p.MoveType in (:phenotype, :fitness, :continuous) ||
-        bad("with several traits MoveType must be :phenotype, :fitness or :continuous, got :$(p.MoveType)")
+    isempty(p.FluctDirection) || (length(p.FluctDirection) == n && all(isfinite, p.FluctDirection) &&
+                                  any(!iszero, p.FluctDirection)) ||
+        bad("FluctDirection must be a nonzero vector of $n numbers, got $(p.FluctDirection)")
+    if !isempty(p.MoveNoiseCov)
+        size(p.MoveNoiseCov) == (n, n) && issymmetric_approx(p.MoveNoiseCov) && mineigen(p.MoveNoiseCov) >= -1e-12 ||
+            bad("MoveNoiseCov must be a symmetric positive semidefinite $n×$n matrix")
+        p.MoveNoiseSD == 0 || bad("give MoveNoiseCov or MoveNoiseSD, not both")
+    end
     p.StandardisePhenotype && bad("StandardisePhenotype is for one trait")
     p
 end
@@ -280,4 +294,31 @@ function move_direction(p::Params)
     isempty(p.MoveDirection) && return [i == 1 ? 1.0 : 0.0 for i in 1:n]
     u = Float64.(p.MoveDirection)
     u ./ sqrt(sum(abs2, u))
+end
+
+"""
+    fluct_direction(p)
+
+The unit vector along which a fluctuating optimum of several traits cycles (`:periodic`)
+and, by default, wanders (`:red_noise`): `FluctDirection` normalised, or the move's
+direction [`move_direction`](@ref) by default. For one trait, `[1.0]`.
+"""
+function fluct_direction(p::Params)
+    isempty(p.FluctDirection) && return move_direction(p)
+    f = Float64.(p.FluctDirection)
+    f ./ sqrt(sum(abs2, f))
+end
+
+"""
+    move_noise_covariance(p)
+
+The stationary covariance `Σ` (n×n) of the AR(1) noise of a `:red_noise` optimum:
+`MoveNoiseCov` when given, otherwise `MoveNoiseSD²·f fᵀ` with `f` the
+[`fluct_direction`](@ref), noise along one direction. For one trait, `MoveNoiseSD²` as a
+1×1 matrix.
+"""
+function move_noise_covariance(p::Params)
+    isempty(p.MoveNoiseCov) || return Matrix{Float64}(p.MoveNoiseCov)
+    f = fluct_direction(p)
+    p.MoveNoiseSD^2 .* (f * f')
 end

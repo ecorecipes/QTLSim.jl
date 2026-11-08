@@ -149,3 +149,92 @@ function response_deflection(λ::AbstractVector; G::AbstractMatrix, A::AbstractM
      angle_response_gmax = axis(r), angle_gradient_gmax = axis(β))
 end
 
+
+# --- fluctuating optima with several traits ----------------------------------------
+
+"""
+    red_noise_lag_cov(Σ, ρ; G, A)
+
+The stationary covariance matrix of the lag `λ = θ − z̄` when the optimum vector is AR(1)
+noise with stationary covariance `Σ` and autocorrelation `ρ`,
+`θ_t = ρ θ_{t−1} + √(1 − ρ²) η_t`, `η_t ~ N(0, Σ)`, and the mean follows Lande's
+`z̄_{t+1} = z̄_t + B (θ_t − z̄_t)` with `B = G (A + G)⁻¹`. The lag and the optimum form the
+linear system
+
+    λ_{t+1} = (I − B) λ_t + (ρ − 1) θ_t + √(1 − ρ²) η_{t+1},
+    θ_{t+1} = ρ θ_t + √(1 − ρ²) η_{t+1},
+
+whose stationary covariance `X` solves the discrete Lyapunov equation `X = F X Fᵀ + Q`;
+the lag's is its upper-left block. For one trait it is [`red_noise_lag_var`](@ref),
+`2σ²(1 − ρ)/((2 − β)(1 − ρ(1 − β)))`. When `Σ` and `B` share eigenvectors each axis has the
+one-trait value with its own `β`; otherwise noise along a direction of little genetic
+variance is tracked worst, and the lag's covariance turns away from `g_max`.
+"""
+function red_noise_lag_cov(Σ::AbstractMatrix, ρ::Real; G::AbstractMatrix, A::AbstractMatrix)
+    n = size(G, 1)
+    B = G / (A + G)
+    Id = Matrix{Float64}(I, n, n)
+    F = [Id-B (ρ - 1) .* Id; zeros(n, n) ρ .* Id]
+    Q = (1 - ρ^2) .* [Σ Σ; Σ Σ]
+    X = reshape((Matrix{Float64}(I, 4n^2, 4n^2) - kron(F, F)) \ vec(Q), 2n, 2n)
+    Λ = X[1:n, 1:n]
+    (Λ + Λ') / 2
+end
+
+"""
+    periodic_lag_cov(P, f; G, A)
+
+The covariance matrix of the lag `λ = θ − z̄`, averaged over a cycle, once the response is
+steady, when the optimum cycles as `θ_t = sin(2π t/P)·f` (amplitude 1 along the vector `f`;
+multiply by `A²` for amplitude `A`) and the mean follows `z̄_{t+1} = z̄_t + B (θ_t − z̄_t)`,
+`B = G (A + G)⁻¹`. With `ν = 2π/P` the lag is the real part of `l e^{iνt}` with
+`l = (I − e^{−iν}(I − B))⁻¹ (1 − e^{−iν}) f`, so its mean outer product is `Re(l l*)/2`.
+For one trait it is `lag_amplitude²/2` of [`periodic_response`](@ref).
+"""
+function periodic_lag_cov(P::Real, f::AbstractVector; G::AbstractMatrix, A::AbstractMatrix)
+    n = size(G, 1)
+    B = G / (A + G)
+    ν = 2π / P
+    e = exp(-im * ν)
+    l = (Matrix{ComplexF64}(I, n, n) - e .* (I - B)) \ ((1 - e) .* f)
+    Λ = real(l * l') ./ 2
+    (Λ + Λ') / 2
+end
+
+"""
+    expected_lag_cov(p; G)
+
+The expected outer product of the lag `E[λλᵀ]`, `λ = θ − z̄`, of a population of several
+traits with genetic covariance `G` under the move of `p`, once the response is steady, with
+`A` = [`selection_variance_matrix`](@ref)`(p)`: the outer product of the
+[`steady_lag_vector`](@ref) of the trend `d·u` (`MoveFitnessSD` along
+[`move_direction`](@ref)), plus, for `MoveType = :red_noise`, [`red_noise_lag_cov`](@ref)
+with `Σ` = [`move_noise_covariance`](@ref)`(p)`, or, for `:periodic`, `A²` times
+[`periodic_lag_cov`](@ref) along [`fluct_direction`](@ref). The trend and the fluctuation add
+because the response is linear and the fluctuation has mean zero. The matrix version of
+[`expected_lag2`](@ref).
+"""
+function expected_lag_cov(p::Params; G::AbstractMatrix)
+    p.MoveType in (:continuous, :red_noise, :periodic) ||
+        throw(ArgumentError("expected_lag_cov is for an exogenous optimum (:continuous, :red_noise, :periodic), got :$(p.MoveType)"))
+    A = selection_variance_matrix(p)
+    λ = steady_lag_vector(p.MoveFitnessSD .* move_direction(p); G, A)
+    trend = λ * λ'
+    p.MoveType === :red_noise && return trend + red_noise_lag_cov(move_noise_covariance(p), p.MoveAutocorr; G, A)
+    p.MoveType === :periodic && return trend + p.MoveAmplitude^2 .* periodic_lag_cov(p.MovePeriod, fluct_direction(p); G, A)
+    trend
+end
+
+"""
+    trait_lag_load(p; G)
+
+The expected lag load of several traits on the log scale, `tr((Ω + P)⁻¹ E[λλᵀ])/2`, with
+`P = G + V_E I`, `Ω` the initial fitness covariance and `E[λλᵀ]` from
+[`expected_lag_cov`](@ref): Gaussian selection gives `ln W̄(λ) = ln W̄(0) − λᵀ(Ω + P)⁻¹λ/2`.
+For one trait it is [`lag_load`](@ref).
+"""
+function trait_lag_load(p::Params; G::AbstractMatrix)
+    n = size(G, 1)
+    s = selection_covariance(p) + G + envVar(p) * Matrix{Float64}(I, n, n)
+    tr(s \ expected_lag_cov(p; G)) / 2
+end

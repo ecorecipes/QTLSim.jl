@@ -42,6 +42,8 @@ files.
 | `MutCov` | M, the mutational covariance per generation, n×n, in place of m·V_E with `MutCorr` | empty | — | — |
 | `SelCov` | Ω, the initial fitness covariance, n×n, in place of ω² with `SelCorr` | empty | — | — |
 | `MoveDirection` | the direction the optimum moves in, normalised; trait 1 when empty | empty | — | — |
+| `FluctDirection` | the direction a fluctuating optimum cycles in (`:periodic`) and, by default, wanders in (`:red_noise`), normalised; `MoveDirection` when empty | empty | — | — |
+| `MoveNoiseCov` | Σ, the stationary covariance of a `:red_noise` optimum's noise, n×n, in place of `MoveNoiseSD²·f fᵀ` | empty | — | — |
 | `Seed` | seed for [`simulate`](@ref); `nothing` draws one | `nothing` | `Seed` | `Seed` |
 
 ## What the parameters set, and what they don't

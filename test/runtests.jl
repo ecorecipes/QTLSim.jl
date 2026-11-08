@@ -1607,7 +1607,7 @@ end
     bad(NoTraits = 2, SelCorr = 1.0); bad(NoTraits = 3, MutCorr = -0.6)   # not a correlation of 3 traits
     bad(NoTraits = 2, MutCov = [1.0 2.0; 2.0 1.0]); bad(NoTraits = 2, SelCov = ones(3, 3))
     bad(NoTraits = 2, MutCov = [1.0 0.0; 0.0 1.0], MutCorr = 0.1); bad(NoTraits = 2, MoveDirection = [1.0])
-    bad(NoTraits = 2, MoveDirection = [0.0, 0.0]); bad(NoTraits = 2, MoveType = :red_noise)
+    bad(NoTraits = 2, MoveDirection = [0.0, 0.0]); bad(NoTraits = 2, MoveNoiseCov = ones(3, 3))
     bad(NoTraits = 2, StandardisePhenotype = true)
     @test World(Params(base; NoTraits = 3, MutCorr = -0.5)) isa World       # -1/(n-1) is singular but allowed
     @test_throws ArgumentError write_qtsim_options(IOBuffer(), p)
@@ -1884,4 +1884,120 @@ end
     # a step's m alone rescales the deme's MUTCOV, unless the deme gives M itself
     e = lower(withparams(L.mutate, pt; MutationScalar = 0.04), :eidos; model = TraitModel(2)).code
     @test occursin("(MUTCOV * (1.0 * (exists(\"MCOV\") ? 1.0 else 0.04 / m)))", e)
+end
+
+@testset "several traits: fluctuating optima (kernel, moments, Eidos, theory)" begin
+    L = lifecycle(); g = L.generation
+    base = Params(PopSize = 200, NoQTL = 10, Ploidy = 2, NoGenerations = 300, PhenotypeVar = 1.0, Heritability = 0.5,
+                  MutationScalar = 0.01, MutationRatePerGamete = 0.02, InitFitnessSD = 1.5, NoTraits = 2, MutCorr = 0.4,
+                  SelCorr = -0.3, MoveFitnessSDGen = 100, MoveFitnessSD = 0.001, MoveDirection = [1.0, 2.0])
+    pr = Params(base; MoveType = :red_noise, MoveNoiseCov = [0.2 0.05; 0.05 0.1], MoveAutocorr = 0.6)
+    pp = Params(base; MoveType = :periodic, MoveAmplitude = 0.5, MovePeriod = 20.0, FluctDirection = [1.0, -1.0])
+    # parameters: defaults and checks
+    @test fluct_direction(base) ≈ [1, 2] ./ sqrt(5) && fluct_direction(pp) ≈ [1, -1] ./ sqrt(2)
+    @test move_noise_covariance(Params(base; MoveNoiseSD = 0.3)) ≈ 0.09 .* (fluct_direction(base) * fluct_direction(base)')
+    @test move_noise_covariance(pr) == [0.2 0.05; 0.05 0.1]
+    bad(; kw...) = @test_throws ArgumentError World(Params(base; kw...))
+    bad(MoveNoiseCov = [1.0 2.0; 2.0 1.0]); bad(MoveNoiseCov = [0.1 0; 0 0.1], MoveNoiseSD = 0.1)
+    bad(FluctDirection = [0.0, 0.0]); bad(FluctDirection = [1.0])
+    @test_throws ArgumentError World(Params(PopSize = 10, FluctDirection = [1.0]))      # one trait: leave unset
+    # the kernel: the periodic optimum is exactly the trend plus the cycle along f
+    o = simulate(pp; seed = 1)
+    θ = [o.trait_mean[i] + o.trait_lag[i] for i in eachindex(o.gen)]
+    t = 150 - 100
+    @test θ[151] ≈ 0.001 * t .* QTLSim.move_direction(pp) .+ 0.5 * sin(2π * t / 20) .* fluct_direction(pp)
+    # red noise: reproducible, nonzero fluctuation, no allocation per generation
+    @test simulate(pr; seed = 2).trait_lag == simulate(pr; seed = 2).trait_lag
+    w = World(pr); rng = MersenneTwister(3); init_env!(w, rng)
+    for s in 0:149; w.gen = s; generation!(w, rng); end
+    alloc(w, rng) = @allocated generation!(w, rng)
+    alloc(w, rng); @test alloc(w, rng) == 0
+    # the moments: the periodic optimum exactly, red noise as its trend, a realised sequence
+    mp = run_moments(pp)
+    @test mp.trait_mean[151] + mp.trait_lag[151] ≈ θ[151]
+    mr = run_moments(pr)
+    @test mr.trait_mean[201] + mr.trait_lag[201] ≈ 0.001 * 100 .* QTLSim.move_direction(pr) atol = 1e-12
+    seq = [o.trait_mean[i] + o.trait_lag[i] for i in eachindex(o.gen)]
+    ms = run_moments(Params(pp; MoveType = :phenotype, MoveFitnessSDGen = -1); optimum = seq)
+    @test ms.trait_mean[200] + ms.trait_lag[200] ≈ seq[200]
+    @test_throws ArgumentError run_moments(pp; optimum = seq[1:10])
+    # a step's own fluctuating move, in the kernel: the run of Params with that move
+    q = Params(base; MoveType = :continuous)
+    over = (MoveType = :periodic, MoveAmplitude = 0.5, MovePeriod = 20.0, FluctDirection = [1.0, -1.0])
+    a = run!(World(Params(q; over...)), MersenneTwister(4))
+    b = run_composed(World(q), MersenneTwister(4); cycle = withparams(g, q; over...))
+    @test a.trait_lag == b.trait_lag && a.gmatrix == b.gmatrix
+    # Eidos: the fluctuating code, its constants, and a step's own noise
+    s = slim_script(g, pr)
+    @test occursin("xi = drop(matrixMult(NOISEROOT", s) && occursin("defineConstant(\"NOISEL\"", s) &&
+          occursin("defineConstant(\"NOISEROOT\", matrix(NOISEL", s)
+    s = slim_script(g, pp)
+    @test occursin("* FDIR;", s) && occursin("defineConstant(\"NOISEROOT\", (moveNoiseSD *", s)
+    @test !occursin("NOISEROOT", slim_script(g, base))          # no fluctuating move, no fluctuating code
+    e = lower(withparams(L.select, q; MoveType = :red_noise, MoveNoiseCov = [0.1 0.0; 0.0 0.05]), :eidos;
+              model = TraitModel(2)).code
+    @test occursin("drop(matrixMult(matrix(c(", e)
+    # theory: one trait is red_noise_lag_var and periodic_response
+    @test red_noise_lag_cov(fill(0.49, 1, 1), 0.6; G = fill(0.3, 1, 1), A = fill(0.7, 1, 1))[1] ≈
+          red_noise_lag_var(0.7, 0.6; VG = 0.3, Vs = 0.7) rtol = 1e-12
+    @test periodic_lag_cov(15.0, [1.0]; G = fill(0.3, 1, 1), A = fill(0.7, 1, 1))[1] ≈
+          periodic_response(15.0; VG = 0.3, Vs = 0.7).lag_amplitude^2 / 2 rtol = 1e-12
+    # two traits: against the linear recursion iterated (periodic, exactly) and simulated (red noise)
+    G = [0.3 0.1; 0.1 0.2]; A = [1.0 -0.2; -0.2 0.8]; f = [0.6, 0.8]
+    B = G / (A + G)
+    z = zeros(2); acc = zeros(2, 2)
+    for t in 0:20_000
+        λ = sin(2π * t / 15) .* f - z
+        t >= 10_000 && (acc .+= λ * λ')
+        z = z + B * λ
+    end
+    @test acc ./ 10_001 ≈ periodic_lag_cov(15.0, f; G, A) rtol = 1e-3
+    Σ = [0.5 0.2; 0.2 0.3]; Lc = QTLSim.cholesky(Σ).L; r = MersenneTwister(5)
+    z = zeros(2); ε = Lc * randn(r, 2); acc = zeros(2, 2); T = 400_000
+    for t in 1:T
+        λ = ε - z; acc .+= λ * λ'
+        z = z + B * λ
+        ε = 0.6 .* ε + sqrt(1 - 0.36) .* (Lc * randn(r, 2))
+    end
+    @test acc ./ T ≈ red_noise_lag_cov(Σ, 0.6; G, A) rtol = 0.03
+    # expected_lag_cov: the trend's outer product plus the fluctuation; the load
+    Gp = gaussian_G_loci(pr)
+    λs = steady_lag_vector(0.001 .* QTLSim.move_direction(pr); G = Gp, A = selection_variance_matrix(pr))
+    @test expected_lag_cov(pr; G = Gp) ≈ λs * λs' + red_noise_lag_cov(move_noise_covariance(pr), 0.6; G = Gp,
+                                                                     A = selection_variance_matrix(pr))
+    @test trait_lag_load(pr; G = Gp) > 0
+    @test_throws ArgumentError expected_lag_cov(Params(base; MoveType = :phenotype); G = Gp)
+end
+
+@testset "several traits: the moments of several demes" begin
+    L = lifecycle(); g = L.generation
+    p = Params(Ploidy = 2, NoQTL = 10, PhenotypeVar = 2.0, Heritability = 0.5, MutationScalar = 1e-3,
+               MutationRatePerGamete = 0.02, PopSize = 100, NoGenerations = 400, Sample = 10, InitFitnessSD = 5.0)
+    # one trait through the trait table of k demes is the one-trait k-deme moments
+    θs = [-1.0, 0.0, 0.5, 2.0]
+    cyc = foldl(⊗, [withparams(g; θ = t) for t in θs]) ⋅ L.migrate(4)
+    imgs = Dict{Any,Any}(first(Catlab.args(withparams(L.select; θ = t))) =>
+                Ext.Operator(:sel, (m, rng) -> (θ0 = m.θ; Ext.trait_moments_select!(m; θ = [t]); m.θ = θ0; m)) for t in θs)
+    for (between, loci) in ((true, :multilocus), (false, :multilocus), (false, :aggregate))
+        a = run_moments(p; cycle = cyc, migration_rate = 0.01, between, loci, erosion = !between)
+        b = Ext.run_trait_moments(fill(p, 4); cycle = cyc, images = imgs, migration_rate = 0.01, between, loci,
+                                  erosion = !between)
+        @test a.geno_var ≈ b.geno_var rtol = 1e-10
+        @test a.pheno_mean ≈ b.pheno_mean rtol = 1e-10 atol = 1e-14
+        between && @test a.metapop.var_among ≈ [x[1, 1] for x in b.metapop.var_among] rtol = 1e-10
+    end
+    # two traits, local optima along different directions
+    p2 = Params(p; NoTraits = 2, MutCorr = 0.3, SelCorr = 0.2)
+    θ2 = [[2.0, 0.0], [0.0, 2.0], [-2.0, 0.0]]
+    c2 = foldl(⊗, [withparams(g, p2; θ = t) for t in θ2]) ⋅ L.migrate(3)
+    r = run_moments(p2; cycle = c2, migration_rate = 0.01, between = true)
+    @test !r.extinct && length(r.trait_mean) == 3 * p2.NoGenerations ÷ p2.Sample && r.deme[1:3] == 1:3
+    @test all(X -> X ≈ X' && all(>(0), eigvals(Symmetric(X))), r.metapop.within[2:end])
+    @test all(q -> all(0 .<= q .< 1), r.metapop.qst[2:end])
+    # deme 1 is pulled toward its optimum along trait 1, deme 2 along trait 2
+    @test r.trait_mean[end-2][1] > 0.1 && r.trait_mean[end-1][2] > 0.1
+    # without drift the demes are infinite: no Q, and the same means from :aggregate's start
+    r0 = run_moments(p2; cycle = c2, migration_rate = 0.01)
+    @test length(r0.gmatrix) == length(r.gmatrix) && !haskey(r0, :metapop)
+    @test_throws ArgumentError run_moments(p2; cycle = c2, between = true, loci = :aggregate)
 end

@@ -89,7 +89,7 @@ step_fields(::OneTraitModel) =
     merge(STEP_FIELDS_SHARED, Dict{Symbol,Tuple}(:select => (STEP_FIELDS_SHARED[:select]..., :StandardisePhenotype)))
 step_fields(::TraitModel) =
     merge(STEP_FIELDS_SHARED, Dict{Symbol,Tuple}(
-        :select => (STEP_FIELDS_SHARED[:select]..., :SelCorr, :MoveDirection),
+        :select => (STEP_FIELDS_SHARED[:select]..., :SelCorr, :MoveDirection, :MoveNoiseCov, :FluctDirection),
         :mutate => (STEP_FIELDS_SHARED[:mutate]..., :MutCorr, :MutCov)))
 
 # checkers of a step's own parameters (not fields of Params): each normalises a value or
@@ -144,7 +144,7 @@ end
 
 # the fields of Params that make up the optimum's move (a fixed θ replaces them)
 const MOVE_FIELDS = (:MoveType, :MoveFitnessSD, :MoveFitnessSDGen, :MoveNoiseSD, :MoveAutocorr,
-                     :MoveAmplitude, :MovePeriod)
+                     :MoveAmplitude, :MovePeriod, :MoveNoiseCov, :FluctDirection)
 
 """
     QTLSim.checkstep(model, name, params) -> NamedTuple

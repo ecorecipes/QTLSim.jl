@@ -48,9 +48,12 @@ function mean_traits!(t::TraitState, N::Int)
 end
 
 # moveoptimum! with several traits (called from the move's first generation on): along
-# the unit direction u, θ = z̄ + √V_P·d·u (:phenotype), z̄ + ω·d·u (:fitness), or θ += d·u
+# the unit direction u, θ = z̄ + √V_P·d·u (:phenotype), z̄ + ω·d·u (:fitness), or θ += d·u;
+# or a trend d·u per generation from θ0, the optimum at the move's start, with a
+# fluctuation (moveoptimum_fluct!)
 function moveoptimum_traits!(w::World, rng = nothing)
     p, t = w.p, w.traits::TraitState
+    (p.MoveType === :red_noise || p.MoveType === :periodic) && return moveoptimum_fluct!(w, rng)
     d = p.MoveFitnessSD
     if p.MoveType === :continuous
         t.θ .+= d .* t.u
@@ -58,6 +61,44 @@ function moveoptimum_traits!(w::World, rng = nothing)
         zbar = mean_traits!(t, w.N)
         lead = p.MoveType === :phenotype ? sqrt(p.PhenotypeVar) * d : w.ω * d
         t.θ .= zbar .+ lead .* t.u
+    end
+    w.θ = t.θ[1]
+    w
+end
+
+# The fluctuating moves with several traits, as for one trait (moveoptimum!) along the
+# directions of the traits: with t the generations since the move's start,
+# θ_t = θ0 + d t u + ε_t (:red_noise), ε a stationary vector AR(1) process with covariance Σ,
+# ε_0 = Σ^½ ξ_0 and ε_t = ρ ε_{t−1} + √(1 − ρ²) Σ^½ ξ_t with ξ_t ~ N(0, I_n) (n normal draws
+# per generation, from rng); or θ_t = θ0 + d t u + A sin(2π t/P) f (:periodic, no draws).
+function moveoptimum_fluct!(w::World, rng)
+    p, t = w.p, w.traits::TraitState
+    n = t.n
+    s = w.gen - p.MoveFitnessSDGen
+    s == 0 && (t.θ0 .= t.θ)
+    trend = p.MoveFitnessSD * s
+    if p.MoveType === :red_noise
+        rng === nothing && throw(ArgumentError("MoveType = :red_noise draws from a random number generator"))
+        ρ = p.MoveAutocorr
+        a, b = s == 0 ? (0.0, 1.0) : (ρ, sqrt(1 - ρ^2))
+        @inbounds for r in 1:n
+            t.ξ[r] = randn(rng)
+        end
+        @inbounds for r in 1:n
+            x = 0.0
+            for q in 1:n
+                x += t.Lnoise[r, q] * t.ξ[q]
+            end
+            t.ε[r] = a * t.ε[r] + b * x
+        end
+        @inbounds for r in 1:n
+            t.θ[r] = t.θ0[r] + trend * t.u[r] + t.ε[r]
+        end
+    else
+        c = p.MoveAmplitude * sin(2π * s / p.MovePeriod)
+        @inbounds for r in 1:n
+            t.θ[r] = t.θ0[r] + trend * t.u[r] + c * t.f[r]
+        end
     end
     w.θ = t.θ[1]
     w

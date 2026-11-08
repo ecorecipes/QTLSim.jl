@@ -1,0 +1,31 @@
+QTLSim kernel vs theory vs generated SLiM model: fluctuating optima with two traits, R = 40 runs each, 3 threads
+N = 500, 10 loci, V_E = 0.5, M = [0.005 0.002; 0.002 0.005], Ω = [2.25 -0.675; -0.675 2.25]; windows 1500-2499
+
+── F1 red noise, Σ = [0.2 0.05; 0.05 0.1], ρ = 0.7 ──
+  L11        kernel     0.1648 ± 0.009     SLiM     0.1655 ± 0.0092    KS p = 1.000
+  L12        kernel    0.03186 ± 0.0052    SLiM    0.03469 ± 0.006     KS p = 0.263
+  L22        kernel    0.08716 ± 0.0049    SLiM     0.0867 ± 0.0058    KS p = 0.573
+  G11        kernel     0.4223 ± 0.02      SLiM     0.4236 ± 0.019     KS p = 0.913
+  G12        kernel      0.059 ± 0.017     SLiM    0.06033 ± 0.016     KS p = 0.573
+  G22        kernel      0.423 ± 0.02      SLiM     0.4179 ± 0.021     KS p = 0.573
+  kernel against theory (with the kernel's mean G), tolerance 10% of sqrt(Λ_ii Λ_jj):
+    L11  theory    0.1589  kernel    0.1648 ± 0.0028   (dev   +3.7% of scale)  ok
+    L12  theory   0.03377  kernel   0.03186 ± 0.0016   (dev   -1.7% of scale)  ok
+    L22  theory    0.0803  kernel   0.08716 ± 0.0015   (dev   +8.5% of scale)  ok
+  (99 s; the kernel's mean G = [0.4223 0.059; 0.059 0.423])
+
+── F2 periodic, amplitude 0.6, period 25, along (1, -1)/√2 ──
+  L11        kernel    0.09233 ± 0.0027    SLiM    0.09191 ± 0.0028    KS p = 0.400
+  L12        kernel   -0.08649 ± 0.0018    SLiM   -0.08602 ± 0.0017    KS p = 0.400
+  L22        kernel    0.09166 ± 0.0029    SLiM    0.09156 ± 0.0027    KS p = 0.759
+  G11        kernel     0.4195 ± 0.019     SLiM     0.4244 ± 0.027     KS p = 0.400
+  G12        kernel    0.05514 ± 0.017     SLiM    0.05533 ± 0.015     KS p = 0.913
+  G22        kernel     0.4234 ± 0.022     SLiM     0.4247 ± 0.025     KS p = 0.913
+  kernel against theory (with the kernel's mean G), tolerance 10% of sqrt(Λ_ii Λ_jj):
+    L11  theory   0.08568  kernel   0.09233 ± 0.00082  (dev   +7.8% of scale)  ok
+    L12  theory  -0.08556  kernel  -0.08649 ± 0.00056  (dev   -1.1% of scale)  ok
+    L22  theory   0.08543  kernel   0.09166 ± 0.0009   (dev   +7.3% of scale)  ok
+  (96 s; the kernel's mean G = [0.4195 0.05514; 0.05514 0.4234])
+
+smallest KS p = 0.263: no discrepancy between kernel and SLiM
+theory: every pre-specified criterion holds

@@ -472,7 +472,7 @@ function slim_model(f, ps::Vector{Params}, images, migration_rate)
     fecund = any(q -> q.Selection === :fecundity, ps) ||
              any(g -> !(g isa ObExpr) && haskey(stepparams(g), :Selection), stepsof(f))
     builtin = Dict{Any,Any}()
-    fluctuating && (builtin[:select] = eidos_fluctuating_select(table[:select].code))
+    fluctuating && (builtin[:select] = eidos_fluctuating_select(model, table[:select].code))
     if fecund
         builtin[:select] = eidos_fecundity_select(get(builtin, :select, table[:select]).code)
         builtin[:reproduce] = eidos_fecundity_reproduce(table[:reproduce].code)
@@ -495,6 +495,7 @@ function slim_model(f, ps::Vector{Params}, images, migration_rate)
     (fluctuating || stepmoves) &&
         (defaults = (defaults..., "moveNoiseSD" => value(:MoveNoiseSD), "moveAutocorr" => value(:MoveAutocorr),
                      "moveAmplitude" => value(:MoveAmplitude), "movePeriod" => value(:MovePeriod)))
+    traits && (fluctuating || stepmoves) && (defaults = (defaults..., eidos_trait_fluct_constants(p)...))
     perdeme = [key for (key, v) in defaults if v isa AbstractVector && !(key in VECTOR_CONSTANTS)]
     vary(names...) = any(in(perdeme), names)
     derived = [n for (n, on) in ("VG" => vary("VP", "h2"), "VE" => vary("VP", "h2"), "ESD" => vary("VP", "h2"),
@@ -550,7 +551,7 @@ function slim_model(f, ps::Vector{Params}, images, migration_rate)
         defineConstant("ESD", sqrt(VE));
         defineConstant("MUTVAR", (m / (2 * L * rate)) * VE);       // m/(Ploidy·NoQTL·rate)·V_E
         defineConstant("OMEGA0", $omega0);
-    $(traits ? eidos_mutcov(p) : "")
+    $(traits ? eidos_mutcov(p) : "")$(traits && (fluctuating || stepmoves) ? eidos_noiseroot(p) : "")
         // vestigial genetics: SLiM supplies only the life cycle
         initializeMutationRate(0.0);
         initializeMutationType("m1", 0.5, "f", 0.0);

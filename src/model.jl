@@ -19,10 +19,12 @@
 The state of a population with `n > 1` traits (`Params` `NoTraits`), which a `World`
 carries in `traits` (`nothing` for one trait): genotypes `G`, phenotypes `Z` and the
 parents' and offspring's environmental deviations `E` and `SE`, `n × PopSize` each
-(column `i` is individual `i`), the optimum vector `θ` (and `θ0`, the optimum when a
-fluctuating move would start; unused), the inverse `Sinv` of the fitness function's shape
-(`Ω = ω² S`), a square root `Lmut` of the covariance of one mutation's effects
-(`Lmut·Lmutᵀ = M/(Ploidy·NoQTL·rate)`), the unit move direction `u`, and scratch vectors.
+(column `i` is individual `i`), the optimum vector `θ`, the inverse `Sinv` of the fitness
+function's shape (`Ω = ω² S`), a square root `Lmut` of the covariance of one mutation's
+effects (`Lmut·Lmutᵀ = M/(Ploidy·NoQTL·rate)`), the unit move direction `u`, scratch
+vectors `ξ` and `d`, and for a fluctuating move the optimum `θ0` when it starts, the AR(1)
+noise `ε`, a square root `Lnoise` of its stationary covariance and the unit direction `f`
+of the cycle.
 """
 mutable struct TraitState
     n::Int
@@ -36,6 +38,10 @@ mutable struct TraitState
     u::Vector{Float64}
     ξ::Vector{Float64}
     d::Vector{Float64}
+    θ0::Vector{Float64}
+    ε::Vector{Float64}
+    Lnoise::Matrix{Float64}
+    f::Vector{Float64}
 end
 
 # a symmetric square root of a positive semidefinite matrix, which may be singular
@@ -49,7 +55,7 @@ function TraitState(p::Params, N::Integer)
     Mper = mutational_covariance(p) ./ (p.Ploidy * p.NoQTL * p.MutationRatePerGamete)
     TraitState(n, zeros(n, N), zeros(n, N), zeros(n, N), zeros(n, N), zeros(n),
                inv(Symmetric(selection_shape(p))) |> Matrix, psd_sqrt(Mper), move_direction(p),
-               zeros(n), zeros(n))
+               zeros(n), zeros(n), zeros(n), zeros(n), psd_sqrt(move_noise_covariance(p)), fluct_direction(p))
 end
 
 """
