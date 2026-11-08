@@ -29,6 +29,7 @@ include("traits_theory.jl")
 include("multilocus.jl")
 include("rare_alleles.jl")
 include("rare_alleles_traits.jl")
+include("spectrum.jl")
 include("migration.jl")
 include("categorical.jl")
 include("sweep.jl")
@@ -44,6 +45,7 @@ export OneTraitModel, TraitModel, model_of, step_schema
 # analytical predictions
 export selection_variance, gaussian_vg, gaussian_vg_exact, gaussian_vg_loci, multilocus_equilibrium, effective_size, house_of_cards_vg,
        house_of_gauss_vg, rare_alleles_vg, house_of_cards_G, house_of_gauss_G, rare_alleles_G,
+       spectrum_equilibrium, spectrum_vg,
        steady_lag, critical_rate, mutation_adjusted, extinction_distribution, rescue_probability
 # fluctuating optima
 export periodic_response, red_noise_lag_var, expected_lag2, lag_load

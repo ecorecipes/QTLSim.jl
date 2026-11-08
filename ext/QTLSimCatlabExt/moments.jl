@@ -141,8 +141,9 @@ _cmean(c::DemeCov, a, N) = QTLSim.hap_cmean(sum(c.T[a, :]), sum(c.R[a, :]), sum(
 # the expected within-deme population variance (divisor N) of genotypes
 _vpop(c::DemeCov, a, N) = QTLSim.hap_vpop(_state(c, a), _nd(c, N), c.ploidy)
 
-function cov_select!(m::Moments)
-    c, a = m.cov, m.idx
+cov_select!(m::Moments) = cov_select!(m, m.cov)
+function cov_select!(m::Moments, c::DemeCov)
+    a = m.idx
     m.sinv == 0 && return m                 # neutral: the identity
     st, β = QTLSim.hap_select(_state(c, a), m.sinv, _nd(c, m.N), c.ω, c.ploidy; α2 = c.α2[a],
                               clonal = QTLSim.hap_clonal(c.ploidy, c.ρ))
@@ -157,20 +158,25 @@ function cov_select!(m::Moments)
     m
 end
 
-cov_reproduce!(m::Moments, npar) =
+cov_reproduce!(m::Moments, npar) = cov_reproduce!(m, m.cov, npar)
+cov_reproduce!(m::Moments, ::DemeCov, npar) =
     (_setstate!(m.cov, m.idx, QTLSim.hap_reproduce(_state(m.cov, m.idx), _np(m.cov, npar), m.cov.ρ, m.cov.ploidy)); m)
 
 function moments_mutate!(m::Moments)
     Vm = QTLSim.muteVar(m.p)
     m.VGoff += Vm
     c = m.cov
-    c === nothing || _setstate!(c, m.idx, QTLSim.hap_mutate(_state(c, m.idx), Vm, c.ploidy))
+    c === nothing || cov_mutate!(m, c, Vm)
     m
 end
 
+cov_mutate!(m::Moments, c::DemeCov, Vm) = _setstate!(c, m.idx, QTLSim.hap_mutate(_state(c, m.idx), Vm, c.ploidy))
+cov_vpop(m::Moments, c::DemeCov) = _vpop(c, m.idx, m.N)
+cov_drift(c::DemeCov) = c.drift
+
 function moments_swap!(m::Moments)
     m.zbar = m.zoff; m.VG = m.VGoff; m.VE = QTLSim.envVar(m.p); m.N = m.Noff; m.gen += 1
-    m.cov === nothing || m.extinct || (m.VG = _vpop(m.cov, m.idx, m.N))
+    m.cov === nothing || m.extinct || (m.VG = cov_vpop(m, m.cov))
     m
 end
 
@@ -249,7 +255,7 @@ function moments_record!(rec, m::Moments)
     (rec === nothing || m.gen % m.p.Sample != 0) && return m
     push!(rec.gen, m.gen); haskey(rec, :deme) && push!(rec.deme, rec.demeof[m])
     push!(rec.pheno_mean, m.zbar); push!(rec.pheno_var, m.VP)
-    push!(rec.geno_var, m.cov === nothing || !m.cov.drift ? m.VG : m.VG * m.N / (m.N - 1)); push!(rec.nsurv, round(Int, m.nsurv)); push!(rec.theta, m.θ)
+    push!(rec.geno_var, m.cov === nothing || !cov_drift(m.cov) ? m.VG : m.VG * m.N / (m.N - 1)); push!(rec.nsurv, round(Int, m.nsurv)); push!(rec.theta, m.θ)
     push!(rec.omega, m.ω); push!(rec.mean_fitness, m.Wbar); push!(rec.sel_diff, m.S)
     push!(rec.popsize, round(Int, m.N))
     m
@@ -274,7 +280,7 @@ moment_images(::OneTraitModel, rec = nothing) = Dict{Symbol,Any}(
 
 function run_moments1(p::Params; cycle = lifecycle().generation, images = Dict{Symbol,Any}(),
                       zbar = 0.0, VG = 0.0, optimum = nothing, erosion = false, between = false, origins = :exchange,
-                      loci::Symbol = :auto)
+                      loci::Symbol = :auto, spectrum = (;))
     QTLSim.checkparams(p)
     check_loci(loci, between)
     loci, α2 = resolve_loci([p], cycle, loci)
@@ -290,7 +296,8 @@ function run_moments1(p::Params; cycle = lifecycle().generation, images = Dict{S
         throw(ArgumentError("the moments lowering iterates a life cycle Zygotes → Zygotes; got $(dom(cycle)) → $(codom(cycle))"))
     rec = records()
     step = lower(cycle, :moments; images, record = rec)
-    cov = loci === :aggregate ? nothing : DemeCov(p, [float(p.PopSize)], [float(VG)]; α2, origins, drift = between || erosion)
+    cov = loci === :aggregate ? nothing : loci === :spectrum ? spectrum_state(p, cycle, VG; spectrum...) :
+          DemeCov(p, [float(p.PopSize)], [float(VG)]; α2, origins, drift = between || erosion)
     m = Moments(p; zbar, VG, erosion, cov)
     mp = metapop_records()
     m.gen = 0                    # whole cycles, as in run_composed
@@ -448,8 +455,10 @@ function check_between(ps, origins)
 end
 
 function check_loci(loci, between)
-    loci in (:auto, :multilocus, :rare_alleles, :aggregate) ||
-        throw(ArgumentError("loci is :auto, :multilocus, :rare_alleles or :aggregate; got :$loci"))
+    loci in (:auto, :multilocus, :rare_alleles, :aggregate, :spectrum) ||
+        throw(ArgumentError("loci is :auto, :multilocus, :rare_alleles, :spectrum or :aggregate; got :$loci"))
+    loci === :spectrum && between &&
+        throw(ArgumentError("loci = :spectrum is for one deme; it has no between = true"))
     loci === :aggregate && between &&
         throw(ArgumentError("between = true tracks the haplotype moments of the multilocus model; it has no loci = :aggregate"))
 end
@@ -473,6 +482,7 @@ end
 # one α² describes the mutations; an explicit :rare_alleles is an error there).
 function resolve_loci(ps::AbstractVector{Params}, cycle, loci::Symbol)
     loci in (:multilocus, :aggregate) && return loci, zeros(length(ps))
+    loci === :spectrum && return loci, zeros(length(ps))         # the spectrum takes α² from Params (spectrum.jl)
     mf = mutate_fields(cycle)
     if mf === nothing
         loci === :auto && return :multilocus, zeros(length(ps))
@@ -488,6 +498,8 @@ function resolve_loci(ps::AbstractVector{Params}, cycle, loci::Symbol)
 end
 
 function run_moments(p::Params; cycle = lifecycle().generation, kw...)
+    loci = get(kw, :loci, :auto)
+    p.NoTraits > 1 && loci === :spectrum && throw(ArgumentError("loci = :spectrum is for one trait; NoTraits = $(p.NoTraits)"))
     p.NoTraits > 1 && return run_trait_moments(p; cycle, kw...)    # trait_moments.jl
     k = nfactors(dom(cycle))
     k > 1 ? run_moments(fill(p, k); cycle, kw...) : run_moments1(p; cycle, kw...)
@@ -495,16 +507,17 @@ end
 
 function run_moments(ps::AbstractVector{Params}; cycle, images = Dict{Symbol,Any}(), zbar = 0.0, VG = 0.0,
                      erosion = false, migration_rate::Union{Real,AbstractMatrix} = 0.0, between = false,
-                     origins::Union{Symbol,AbstractMatrix} = :exchange, loci::Symbol = :auto)
+                     origins::Union{Symbol,AbstractMatrix} = :exchange, loci::Symbol = :auto, spectrum = (;))
     ps[1].NoTraits > 1 && return run_trait_moments(collect(Params, ps); cycle, images, erosion, migration_rate, between, origins,
                                                    loci,(zbar isa Real ? (;) : (; zbar))..., (VG isa Real ? (;) : (; G = VG))...)  # trait_moments.jl
     k = length(ps)
-    k == 1 && return between ? run_moments1(ps[1]; cycle, images, zbar = only(vcat(zbar)), VG = only(vcat(VG)), erosion, between, origins, loci) :
-                               run_moments1(ps[1]; cycle, images, zbar, VG, erosion, loci)
+    k == 1 && return between ? run_moments1(ps[1]; cycle, images, zbar = only(vcat(zbar)), VG = only(vcat(VG)), erosion, between, origins, loci, spectrum) :
+                               run_moments1(ps[1]; cycle, images, zbar, VG, erosion, loci, spectrum)
     foreach(QTLSim.checkparams, ps)
     check_loci(loci, between)
     between && check_between(ps, origins)
     loci, α2 = resolve_loci(collect(Params, ps), cycle, loci)
+    loci === :spectrum && throw(ArgumentError("loci = :spectrum is for one deme; got $k"))
     loci !== :aggregate && any(q -> (q.Ploidy, q.NoQTL, q.RecombPoissonMean, q.CrossoverModel) !=
                                      (ps[1].Ploidy, ps[1].NoQTL, ps[1].RecombPoissonMean, ps[1].CrossoverModel), ps) &&
         throw(ArgumentError("the demes of a metapopulation share Ploidy, NoQTL, RecombPoissonMean and CrossoverModel"))

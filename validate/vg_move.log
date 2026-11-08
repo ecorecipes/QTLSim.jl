@@ -1,0 +1,455 @@
+QTLSim validate/vg_move.jl: V_G, lag and extinction under a moving optimum (spectrum model vs kernel)
+Julia threads: 3; SEED_OFFSET = 0; full
+
+A/H: 4Nμ = 0.4, V_s = 50.5, spectrum V_G at the move 1.6240, k_die 0.7915; 20 replicates (31 s)
+A/G: 4Nμ = 10, V_s = 50.5, spectrum V_G at the move 5.9314, k_die 2.7695; 20 replicates (24 s)
+A/H2: 4Nμ = 0.4, V_s = 50.5, spectrum V_G at the move 1.6187, k_die 0.7890; 20 replicates (28 s)
+B/fixed: vignette 10's population, 40 replicates (53 s)
+B/R = 5: vignette 10's population, 40 replicates (42 s)
+B/R = 2: vignette 10's population, 40 replicates (35 s)
+B/R = 1.5: vignette 10's population, 40 replicates (31 s)
+
+V_G by window: kernel (alive replicates) / spectrum / rare; columns pre, +100, +250, +500, +1000, +2000
+H   fixed    rate 0.0100  kernel 1.698(20) 1.743(20) 1.817(20) 2.126(20) 2.44(20) 2.536(20)
+                             spectrum 1.624 1.65 1.813 2.177 2.535 2.561
+                             rare     1.809 1.809 1.809 1.809 1.809 1.809
+H   fixed    rate 0.0594  kernel 1.698(20) 2.126(20) 3.197(20) 3.679(20) 3.933(20) 3.952(20)
+                             spectrum 1.624 2.509 4.468 4.913 4.926 4.927
+                             rare     1.809 1.808 1.805 1.802 1.799 1.797
+H   fixed    rate 0.1187  kernel 1.698(20) 3.036(20) 4.082(20) 4.202(20) 4.205(20) 4.263(20)
+                             spectrum 1.624 4.122 5.674 5.991 6.065 6.067
+                             rare     1.809 1.804 1.793 1.78 1.766 1.758
+H   fixed    rate 0.2375  kernel 1.698(20) 3.518(20) 4.053(20) 3.81(20) 4.348(20) 4.243(20)
+                             spectrum 1.624 5.396 6.18 6.652 6.725 6.73
+                             rare     1.809 1.784 1.73 1.662 1.581 1.516
+H   fixed    rate 0.4749  kernel 1.698(20) 2.683(20) 1.92(7) NaN(0) NaN(0) NaN(0)
+                             spectrum 1.624 4.091 3.294 NaN NaN NaN
+                             rare     1.809 1.613 NaN NaN NaN NaN
+H   fixed    rate 0.9498  kernel 1.698(20) NaN(0) NaN(0) NaN(0) NaN(0) NaN(0)
+                             spectrum 1.624 NaN NaN NaN NaN NaN
+                             rare     1.809 NaN NaN NaN NaN NaN
+G   fixed    rate 0.0100  kernel 4.006(20) 4.082(20) 4.001(20) 4.016(20) 3.984(20) 3.995(20)
+                             spectrum 5.931 5.932 5.933 5.936 5.945 5.959
+                             rare     4.135 4.136 4.136 4.136 4.136 4.136
+G   fixed    rate 0.2077  kernel 4.006(20) 3.736(20) 2.223(20) 1.22(20) 0.502(8) NaN(0)
+                             spectrum 5.931 6.008 6.356 6.871 7.218 7.3
+                             rare     4.135 4.126 4.11 4.089 4.059 4.028
+G   fixed    rate 0.4154  kernel 4.006(20) 2.432(20) NaN(0) NaN(0) NaN(0) NaN(0)
+                             spectrum 5.931 6.168 6.666 6.661 6.501 6.389
+                             rare     4.135 4.092 4.022 3.923 3.774 3.603
+G   fixed    rate 0.8308  kernel 4.006(20) NaN(0) NaN(0) NaN(0) NaN(0) NaN(0)
+                             spectrum 5.931 5.875 2.294 NaN NaN NaN
+                             rare     4.135 3.854 3.216 NaN NaN NaN
+G   fixed    rate 1.6617  kernel 4.006(20) NaN(0) NaN(0) NaN(0) NaN(0) NaN(0)
+                             spectrum 5.931 NaN NaN NaN NaN NaN
+                             rare     4.135 NaN NaN NaN NaN NaN
+G   fixed    rate 3.3234  kernel 4.006(20) NaN(0) NaN(0) NaN(0) NaN(0) NaN(0)
+                             spectrum 5.931 NaN NaN NaN NaN NaN
+                             rare     4.135 NaN NaN NaN NaN NaN
+H2  R = 2.0  rate 0.0100  kernel 1.782(20) 1.8(20) 1.971(20) 2.077(20) 2.334(20) 2.459(20)
+                             spectrum 1.619 1.645 1.807 2.165 2.507 2.528
+                             rare     1.798 1.798 1.798 1.797 1.797 1.797
+H2  R = 2.0  rate 0.0592  kernel 1.782(20) 2.203(20) 3.363(20) 4.036(20) 3.92(20) 3.664(20)
+                             spectrum 1.619 2.488 4.371 4.759 4.752 4.75
+                             rare     1.798 1.795 1.789 1.783 1.776 1.772
+H2  R = 2.0  rate 0.1183  kernel 1.782(20) 2.964(20) 3.913(20) 4.261(20) 3.857(20) 3.986(20)
+                             spectrum 1.619 4.02 5.387 5.672 5.728 5.726
+                             rare     1.798 1.785 1.759 1.727 1.692 1.669
+H2  R = 2.0  rate 0.2367  kernel 1.782(20) 3.38(20) 3.237(20) 3.554(20) 3.29(20) 3.397(18)
+                             spectrum 1.619 4.835 5.429 5.9 5.989 5.995
+                             rare     1.798 1.7 NaN NaN NaN NaN
+H2  R = 2.0  rate 0.4734  kernel 1.782(20) NaN(0) NaN(0) NaN(0) NaN(0) NaN(0)
+                             spectrum 1.619 NaN NaN NaN NaN NaN
+                             rare     1.798 NaN NaN NaN NaN NaN
+H2  R = 2.0  rate 0.9468  kernel 1.782(20) NaN(0) NaN(0) NaN(0) NaN(0) NaN(0)
+                             spectrum 1.619 NaN NaN NaN NaN NaN
+                             rare     1.798 NaN NaN NaN NaN NaN
+D   fixed    rate 0.0050  kernel 0.09729(40) 0.0977(40) 0.09854(40) 0.09789(40) 0.09348(40) 0.08706(40)
+                             spectrum 0.09795 0.0987 0.09942 0.1018 0.1055 0.1053
+                             rare     0.09497 0.09558 0.09594 0.09634 0.09677 0.0972
+D   fixed    rate 0.0100  kernel 0.09729(40) 0.09801(40) 0.1011(40) 0.0922(40) 0.07871(40) 0.06954(40)
+                             spectrum 0.09795 0.09869 0.09989 0.1019 0.09026 0.07295
+                             rare     0.09497 0.09556 0.09575 0.09549 0.09416 0.09177
+D   fixed    rate 0.0150  kernel 0.09729(40) 0.09503(40) 0.09233(40) 0.08147(40) 0.05767(40) 0.02151(40)
+                             spectrum 0.09795 0.09868 0.1001 0.09337 0.0556 0.006975
+                             rare     0.09497 0.09553 0.09542 0.09399 0.08925 0.08037
+D   fixed    rate 0.0200  kernel 0.09729(40) 0.09771(40) 0.09263(40) 0.06605(40) 0.02991(40) 0.001167(1)
+                             spectrum 0.09795 0.09866 0.09946 0.07572 0.01853 NaN
+                             rare     0.09497 0.09548 0.09494 0.09164 0.08082 0.05345
+D   fixed    rate 0.0300  kernel 0.09729(40) 0.09849(40) 0.08412(40) 0.03942(40) NaN(0) NaN(0)
+                             spectrum 0.09795 0.09856 0.09278 0.0321 NaN NaN
+                             rare     0.09497 0.09535 0.0934 0.083 0.03401 NaN
+D   fixed    rate 0.0500  kernel 0.09729(40) 0.09526(40) 0.05441(40) NaN(0) NaN(0) NaN(0)
+                             spectrum 0.09795 0.09778 0.05462 NaN NaN NaN
+                             rare     0.09497 0.09489 0.08619 0.01381 NaN NaN
+D   fixed    rate 0.1000  kernel 0.09729(40) 0.08545(40) NaN(0) NaN(0) NaN(0) NaN(0)
+                             spectrum 0.09795 0.08452 NaN NaN NaN NaN
+                             rare     0.09497 0.09141 NaN NaN NaN NaN
+D   R = 5    rate 0.0050  kernel 0.09288(40) 0.09605(40) 0.09358(40) 0.09279(40) 0.09153(40) 0.08368(40)
+                             spectrum 0.09787 0.09861 0.09932 0.1017 0.105 0.1044
+                             rare     0.0949 0.0955 0.09584 0.09618 0.09647 0.09667
+D   R = 5    rate 0.0100  kernel 0.09288(40) 0.09625(40) 0.09402(40) 0.084(40) 0.07509(40) 0.05964(40)
+                             spectrum 0.09787 0.0986 0.09972 0.1013 0.08785 0.06676
+                             rare     0.0949 0.09548 0.0956 0.0951 0.09308 0.08945
+D   R = 5    rate 0.0150  kernel 0.09288(40) 0.09421(40) 0.08813(40) 0.07786(40) 0.04812(40) NaN(0)
+                             spectrum 0.09787 0.09859 0.09981 0.09143 0.04828 NaN
+                             rare     0.0949 0.09544 0.09518 0.09309 0.08615 0.07135
+D   R = 5    rate 0.0200  kernel 0.09288(40) 0.09144(40) 0.08336(40) 0.06111(40) 0.02214(3) NaN(0)
+                             spectrum 0.09787 0.09855 0.09884 0.07147 NaN NaN
+                             rare     0.0949 0.09538 0.09454 0.08972 0.07159 NaN
+D   R = 5    rate 0.0300  kernel 0.09288(40) 0.09266(40) 0.07634(40) 0.03086(12) NaN(0) NaN(0)
+                             spectrum 0.09787 0.09841 0.09059 0.01658 NaN NaN
+                             rare     0.0949 0.09521 0.09232 0.07261 NaN NaN
+D   R = 5    rate 0.0500  kernel 0.09288(40) 0.09046(40) 0.04879(12) NaN(0) NaN(0) NaN(0)
+                             spectrum 0.09787 0.09733 0.03701 NaN NaN NaN
+                             rare     0.0949 0.09457 0.07242 NaN NaN NaN
+D   R = 5    rate 0.1000  kernel 0.09288(40) 0.09322(12) NaN(0) NaN(0) NaN(0) NaN(0)
+                             spectrum 0.09787 0.0735 NaN NaN NaN NaN
+                             rare     0.0949 0.08111 NaN NaN NaN NaN
+D   R = 2    rate 0.0050  kernel 0.09278(40) 0.09367(40) 0.09168(40) 0.09164(40) 0.08935(40) 0.08171(40)
+                             spectrum 0.09763 0.09836 0.09901 0.1011 0.1036 0.1017
+                             rare     0.09467 0.09526 0.09555 0.09572 0.09554 0.09501
+D   R = 2    rate 0.0100  kernel 0.09278(40) 0.09313(40) 0.08964(40) 0.08376(40) 0.06495(40) 0.04408(24)
+                             spectrum 0.09763 0.09834 0.09922 0.0992 0.07993 0.03904
+                             rare     0.09467 0.09522 0.09516 0.09386 0.08932 0.0805
+D   R = 2    rate 0.0150  kernel 0.09278(40) 0.0912(40) 0.0858(40) 0.06879(40) 0.03576(5) NaN(0)
+                             spectrum 0.09763 0.0983 0.09882 0.08492 0.004131 NaN
+                             rare     0.09467 0.09516 0.09442 0.08983 0.07068 NaN
+D   R = 2    rate 0.0200  kernel 0.09278(40) 0.09017(40) 0.08393(40) 0.04879(27) NaN(0) NaN(0)
+                             spectrum 0.09763 0.09822 0.09676 0.05475 NaN NaN
+                             rare     0.09467 0.09507 0.09318 0.08014 NaN NaN
+D   R = 2    rate 0.0300  kernel 0.09278(40) 0.09083(40) 0.0705(40) NaN(0) NaN(0) NaN(0)
+                             spectrum 0.09763 0.09792 0.08118 NaN NaN NaN
+                             rare     0.09467 0.09477 0.08688 NaN NaN NaN
+D   R = 2    rate 0.0500  kernel 0.09278(40) 0.08674(40) NaN(0) NaN(0) NaN(0) NaN(0)
+                             spectrum 0.09763 0.09567 NaN NaN NaN NaN
+                             rare     0.09467 0.09338 NaN NaN NaN NaN
+D   R = 2    rate 0.1000  kernel 0.09278(40) NaN(0) NaN(0) NaN(0) NaN(0) NaN(0)
+                             spectrum 0.09763 0.06147 NaN NaN NaN NaN
+                             rare     0.09467 0.05696 NaN NaN NaN NaN
+D   R = 1.5  rate 0.0050  kernel 0.09465(40) 0.09343(40) 0.09503(40) 0.09345(40) 0.08932(40) 0.08057(40)
+                             spectrum 0.09731 0.09802 0.0986 0.1004 0.1015 0.09794
+                             rare     0.09436 0.09494 0.09517 0.0951 0.09424 0.09261
+D   R = 1.5  rate 0.0100  kernel 0.09465(40) 0.09665(40) 0.09429(40) 0.07801(40) 0.04671(38) NaN(0)
+                             spectrum 0.09731 0.09798 0.09853 0.09615 0.06701 NaN
+                             rare     0.09436 0.09488 0.09455 0.09196 0.08257 0.05219
+D   R = 1.5  rate 0.0150  kernel 0.09465(40) 0.09945(40) 0.08994(40) 0.06229(37) NaN(0) NaN(0)
+                             spectrum 0.09731 0.09791 0.09736 0.07358 NaN NaN
+                             rare     0.09436 0.09479 0.09329 0.08294 NaN NaN
+D   R = 1.5  rate 0.0200  kernel 0.09465(40) 0.09601(40) 0.08144(40) 0.06544(2) NaN(0) NaN(0)
+                             spectrum 0.09731 0.09778 0.09325 NaN NaN NaN
+                             rare     0.09436 0.09464 0.09077 NaN NaN NaN
+D   R = 1.5  rate 0.0300  kernel 0.09465(40) 0.09432(40) 0.08108(1) NaN(0) NaN(0) NaN(0)
+                             spectrum 0.09731 0.09723 0.04607 NaN NaN NaN
+                             rare     0.09436 0.09415 0.0469 NaN NaN NaN
+D   R = 1.5  rate 0.0500  kernel 0.09465(40) 0.08605(39) NaN(0) NaN(0) NaN(0) NaN(0)
+                             spectrum 0.09731 0.0919 NaN NaN NaN NaN
+                             rare     0.09436 0.09031 NaN NaN NaN NaN
+D   R = 1.5  rate 0.1000  kernel 0.09465(40) NaN(0) NaN(0) NaN(0) NaN(0) NaN(0)
+                             spectrum 0.09731 NaN NaN NaN NaN NaN
+                             rare     0.09436 NaN NaN NaN NaN NaN
+
+Lag θ − z̄ by window: kernel / spectrum / rare
+H   fixed    rate 0.0100  kernel 0.0131 0.346 0.372 0.289 0.307 0.244 | spectrum 2.42e-15 0.329 0.372 0.349 0.297 0.283 | rare 0 0.28 0.289 0.289 0.289 0.289
+H   fixed    rate 0.0594  kernel 0.0131 1.61 1.06 0.956 0.831 0.889 | spectrum 2.42e-15 1.55 0.854 0.744 0.738 0.738 | rare 0 1.66 1.72 1.72 1.73 1.73
+H   fixed    rate 0.1187  kernel 0.0131 2.49 1.7 1.51 1.56 1.57 | spectrum 2.42e-15 1.98 1.24 1.17 1.16 1.16 | rare 0 3.33 3.46 3.49 3.52 3.53
+H   fixed    rate 0.2375  kernel 0.0131 4.11 3.23 3.37 3.1 3.1 | spectrum 2.42e-15 2.63 2.23 2.07 2.05 2.05 | rare 0 6.71 7.13 7.43 7.81 8.15
+H   fixed    rate 0.4749  kernel 0.0131 9.33 12.7 NaN NaN NaN | spectrum 2.42e-15 6.22 7.51 NaN NaN NaN | rare 0 14.1 NaN NaN NaN NaN
+H   fixed    rate 0.9498  kernel 0.0131 NaN NaN NaN NaN NaN | spectrum 2.42e-15 NaN NaN NaN NaN NaN | rare 0 NaN NaN NaN NaN NaN
+G   fixed    rate 0.0100  kernel 0.00682 0.163 0.126 0.131 0.108 0.247 | spectrum 8.93e-16 0.0958 0.0967 0.0978 0.0988 0.0993 | rare 0 0.132 0.132 0.132 0.132 0.132
+G   fixed    rate 0.2077  kernel 0.00682 3 4.64 8.46 15.9 NaN | spectrum 8.93e-16 1.97 1.89 1.76 1.68 1.66 | rare 0 2.75 2.76 2.77 2.79 2.81
+G   fixed    rate 0.4154  kernel 0.00682 7.75 NaN NaN NaN NaN | spectrum 8.93e-16 3.86 3.58 3.57 3.65 3.71 | rare 0 5.54 5.63 5.76 5.97 6.24
+G   fixed    rate 0.8308  kernel 0.00682 NaN NaN NaN NaN NaN | spectrum 8.93e-16 7.92 15.2 NaN NaN NaN | rare 0 11.6 13.6 NaN NaN NaN
+G   fixed    rate 1.6617  kernel 0.00682 NaN NaN NaN NaN NaN | spectrum 8.93e-16 NaN NaN NaN NaN NaN | rare 0 NaN NaN NaN NaN NaN
+G   fixed    rate 3.3234  kernel 0.00682 NaN NaN NaN NaN NaN | spectrum 8.93e-16 NaN NaN NaN NaN NaN | rare 0 NaN NaN NaN NaN NaN
+H2  R = 2.0  rate 0.0100  kernel -0.000388 0.331 0.323 0.314 0.243 0.271 | spectrum 2.33e-15 0.33 0.373 0.349 0.297 0.285 | rare 0 0.282 0.291 0.291 0.291 0.291
+H2  R = 2.0  rate 0.0592  kernel -0.000388 1.56 1.07 0.812 0.867 0.912 | spectrum 2.33e-15 1.55 0.862 0.759 0.756 0.756 | rare 0 1.67 1.73 1.74 1.74 1.75
+H2  R = 2.0  rate 0.1183  kernel -0.000388 2.49 1.7 1.65 1.73 1.62 | spectrum 2.33e-15 2 1.29 1.22 1.21 1.21 | rare 0 3.35 3.51 3.58 3.65 3.7
+H2  R = 2.0  rate 0.2367  kernel -0.000388 4.13 4.04 3.84 3.96 3.87 | spectrum 2.33e-15 2.86 2.49 2.29 2.26 2.26 | rare 0 6.87 NaN NaN NaN NaN
+H2  R = 2.0  rate 0.4734  kernel -0.000388 NaN NaN NaN NaN NaN | spectrum 2.33e-15 NaN NaN NaN NaN NaN | rare 0 NaN NaN NaN NaN NaN
+H2  R = 2.0  rate 0.9468  kernel -0.000388 NaN NaN NaN NaN NaN | spectrum 2.33e-15 NaN NaN NaN NaN NaN | rare 0 NaN NaN NaN NaN NaN
+D   fixed    rate 0.0050  kernel 0.00022 0.371 0.778 1.1 1.33 1.42 | spectrum 2.18e-16 0.415 0.797 1.08 1.19 1.19 | rare 0 0.417 0.807 1.12 1.27 1.29
+D   fixed    rate 0.0100  kernel 0.00022 0.789 1.58 2.26 2.92 3.61 | spectrum 2.18e-16 0.83 1.59 2.16 2.58 3.23 | rare 0 0.835 1.62 2.24 2.59 2.72
+D   fixed    rate 0.0150  kernel 0.00022 1.2 2.44 3.59 5.35 9.6 | spectrum 2.18e-16 1.25 2.39 3.3 4.93 12.1 | rare 0 1.25 2.42 3.38 4.02 4.54
+D   fixed    rate 0.0200  kernel 0.00022 1.6 3.23 5.03 8.74 16.4 | spectrum 2.18e-16 1.66 3.18 4.65 9.28 NaN | rare 0 1.67 3.24 4.54 5.67 7.84
+D   fixed    rate 0.0300  kernel 0.00022 2.39 4.88 8.61 NaN NaN | spectrum 2.18e-16 2.49 4.82 8.44 NaN NaN | rare 0 2.51 4.87 7.03 11.3 NaN
+D   fixed    rate 0.0500  kernel 0.00022 4 8.65 NaN NaN NaN | spectrum 2.18e-16 4.15 8.56 NaN NaN NaN | rare 0 4.18 8.22 14.7 NaN NaN
+D   fixed    rate 0.1000  kernel 0.00022 8.08 NaN NaN NaN NaN | spectrum 2.18e-16 8.38 NaN NaN NaN NaN | rare 0 8.38 NaN NaN NaN NaN
+D   R = 5    rate 0.0050  kernel 0.000509 0.406 0.843 1.15 1.39 1.52 | spectrum 2.23e-16 0.415 0.797 1.08 1.19 1.2 | rare 0 0.418 0.808 1.12 1.28 1.3
+D   R = 5    rate 0.0100  kernel 0.000509 0.797 1.62 2.38 3.09 3.89 | spectrum 2.23e-16 0.83 1.59 2.16 2.62 3.44 | rare 0 0.835 1.62 2.24 2.61 2.78
+D   R = 5    rate 0.0150  kernel 0.000509 1.21 2.43 3.65 5.53 NaN | spectrum 2.23e-16 1.25 2.39 3.32 5.19 NaN | rare 0 1.25 2.43 3.39 4.1 4.95
+D   R = 5    rate 0.0200  kernel 0.000509 1.6 3.31 5.27 7.89 NaN | spectrum 2.23e-16 1.66 3.19 4.73 NaN NaN | rare 0 1.67 3.24 4.58 6 NaN
+D   R = 5    rate 0.0300  kernel 0.000509 2.41 5 8.2 NaN NaN | spectrum 2.23e-16 2.49 4.83 8.9 NaN NaN | rare 0 2.51 4.88 7.26 NaN NaN
+D   R = 5    rate 0.0500  kernel 0.000509 4.03 8.28 NaN NaN NaN | spectrum 2.23e-16 4.16 8.79 NaN NaN NaN | rare 0 4.18 8.36 NaN NaN NaN
+D   R = 5    rate 0.1000  kernel 0.000509 7.87 NaN NaN NaN NaN | spectrum 2.23e-16 8.39 NaN NaN NaN NaN | rare 0 8.41 NaN NaN NaN NaN
+D   R = 2    rate 0.0050  kernel -0.0135 0.412 0.822 1.15 1.37 1.51 | spectrum 2.22e-16 0.415 0.798 1.09 1.2 1.23 | rare 0 0.418 0.809 1.12 1.29 1.32
+D   R = 2    rate 0.0100  kernel -0.0135 0.805 1.6 2.37 3.23 4.57 | spectrum 2.22e-16 0.831 1.6 2.18 2.76 4.5 | rare 0 0.835 1.62 2.25 2.68 3.02
+D   R = 2    rate 0.0150  kernel -0.0135 1.22 2.49 3.78 5.26 NaN | spectrum 2.22e-16 1.25 2.39 3.4 6.33 NaN | rare 0 1.25 2.43 3.43 4.51 NaN
+D   R = 2    rate 0.0200  kernel -0.0135 1.64 3.32 5.27 NaN NaN | spectrum 2.22e-16 1.66 3.2 5.01 NaN NaN | rare 0 1.67 3.25 4.72 NaN NaN
+D   R = 2    rate 0.0300  kernel -0.0135 2.44 5.08 NaN NaN NaN | spectrum 2.22e-16 2.49 4.91 NaN NaN NaN | rare 0 2.51 4.92 NaN NaN NaN
+D   R = 2    rate 0.0500  kernel -0.0135 4.06 NaN NaN NaN NaN | spectrum 2.22e-16 4.16 NaN NaN NaN NaN | rare 0 4.18 NaN NaN NaN NaN
+D   R = 2    rate 0.1000  kernel -0.0135 NaN NaN NaN NaN NaN | spectrum 2.22e-16 7.15 NaN NaN NaN NaN | rare 0 7.13 NaN NaN NaN NaN
+D   R = 1.5  rate 0.0050  kernel 0.012 0.417 0.799 1.11 1.4 1.51 | spectrum 2.19e-16 0.416 0.799 1.09 1.22 1.27 | rare 0 0.418 0.81 1.12 1.3 1.35
+D   R = 1.5  rate 0.0100  kernel 0.012 0.79 1.6 2.36 3.6 NaN | spectrum 2.19e-16 0.831 1.6 2.2 3 NaN | rare 0 0.836 1.62 2.27 2.8 3.86
+D   R = 1.5  rate 0.0150  kernel 0.012 1.21 2.41 3.84 NaN NaN | spectrum 2.19e-16 1.25 2.4 3.53 NaN NaN | rare 0 1.25 2.44 3.52 NaN NaN
+D   R = 1.5  rate 0.0200  kernel 0.012 1.6 3.3 4.18 NaN NaN | spectrum 2.19e-16 1.66 3.22 NaN NaN NaN | rare 0 1.67 3.27 NaN NaN NaN
+D   R = 1.5  rate 0.0300  kernel 0.012 2.41 4.61 NaN NaN NaN | spectrum 2.19e-16 2.5 5 NaN NaN NaN | rare 0 2.51 5 NaN NaN NaN
+D   R = 1.5  rate 0.0500  kernel 0.012 4.03 NaN NaN NaN NaN | spectrum 2.19e-16 4.17 NaN NaN NaN NaN | rare 0 4.19 NaN NaN NaN NaN
+D   R = 1.5  rate 0.1000  kernel 0.012 NaN NaN NaN NaN NaN | spectrum 2.19e-16 NaN NaN NaN NaN NaN | rare 0 NaN NaN NaN NaN NaN
+
+Extinction: kernel alive at +2000 and median time after the move; predictions: median (P survive), deterministic death
+H   fixed    rate 0.0100  kernel 100% alive, median  surv | spectrum  surv (1.00) det    -1 | rare  surv (1.00) det    -1
+H   fixed    rate 0.0594  kernel 100% alive, median  surv | spectrum  surv (1.00) det    -1 | rare  surv (1.00) det    -1
+H   fixed    rate 0.1187  kernel 100% alive, median  surv | spectrum  surv (1.00) det    -1 | rare  surv (1.00) det    -1
+H   fixed    rate 0.2375  kernel 100% alive, median  surv | spectrum  surv (1.00) det    -1 | rare  surv (1.00) det    -1
+H   fixed    rate 0.4749  kernel   0% alive, median   232 | spectrum   405 (0.00) det   406 | rare   220 (0.00) det   222
+H   fixed    rate 0.9498  kernel   0% alive, median    49 | spectrum    54 (0.00) det    54 | rare    46 (0.00) det    47
+G   fixed    rate 0.0100  kernel 100% alive, median  surv | spectrum  surv (1.00) det    -1 | rare  surv (1.00) det    -1
+G   fixed    rate 0.2077  kernel   0% alive, median   942 | spectrum  surv (1.00) det    -1 | rare  surv (1.00) det    -1
+G   fixed    rate 0.4154  kernel   0% alive, median   209 | spectrum  surv (1.00) det    -1 | rare  surv (1.00) det    -1
+G   fixed    rate 0.8308  kernel   0% alive, median    74 | spectrum   278 (0.00) det   278 | rare   404 (0.00) det   405
+G   fixed    rate 1.6617  kernel   0% alive, median    26 | spectrum    44 (0.00) det    44 | rare    39 (0.00) det    39
+G   fixed    rate 3.3234  kernel   0% alive, median    10 | spectrum    12 (0.00) det    12 | rare    10 (0.00) det    10
+H2  R = 2.0  rate 0.0100  kernel 100% alive, median  surv | spectrum  surv (1.00) det    -1 | rare  surv (1.00) det    -1
+H2  R = 2.0  rate 0.0592  kernel 100% alive, median  surv | spectrum  surv (1.00) det    -1 | rare  surv (1.00) det    -1
+H2  R = 2.0  rate 0.1183  kernel 100% alive, median  surv | spectrum  surv (1.00) det    -1 | rare  surv (1.00) det    -1
+H2  R = 2.0  rate 0.2367  kernel  90% alive, median  surv | spectrum  surv (1.00) det    -1 | rare   222 (0.00) det   225
+H2  R = 2.0  rate 0.4734  kernel   0% alive, median    48 | spectrum    61 (0.00) det    62 | rare    40 (0.00) det    41
+H2  R = 2.0  rate 0.9468  kernel   0% alive, median    18 | spectrum    18 (0.00) det    18 | rare    18 (0.00) det    18
+D   fixed    rate 0.0050  kernel 100% alive, median  surv | spectrum  surv (1.00) det    -1 | rare  surv (1.00) det    -1
+D   fixed    rate 0.0100  kernel 100% alive, median  surv | spectrum  surv (1.00) det    -1 | rare  surv (1.00) det    -1
+D   fixed    rate 0.0150  kernel 100% alive, median  surv | spectrum  surv (1.00) det    -1 | rare  surv (1.00) det    -1
+D   fixed    rate 0.0200  kernel   2% alive, median  1509 | spectrum  1424 (0.00) det  1492 | rare  surv (1.00) det    -1
+D   fixed    rate 0.0300  kernel   0% alive, median   829 | spectrum   820 (0.00) det   861 | rare  1226 (0.00) det  1267
+D   fixed    rate 0.0500  kernel   0% alive, median   445 | spectrum   443 (0.00) det   464 | rare   542 (0.00) det   563
+D   fixed    rate 0.1000  kernel   0% alive, median   205 | spectrum   203 (0.00) det   211 | rare   218 (0.00) det   227
+D   R = 5    rate 0.0050  kernel 100% alive, median  surv | spectrum  surv (1.00) det    -1 | rare  surv (1.00) det    -1
+D   R = 5    rate 0.0100  kernel 100% alive, median  surv | spectrum  surv (1.00) det    -1 | rare  surv (1.00) det    -1
+D   R = 5    rate 0.0150  kernel   0% alive, median  1491 | spectrum  1501 (0.00) det  1514 | rare  surv (1.00) det    -1
+D   R = 5    rate 0.0200  kernel   0% alive, median   891 | spectrum   919 (0.00) det   929 | rare  1565 (0.00) det  1576
+D   R = 5    rate 0.0300  kernel   0% alive, median   492 | spectrum   515 (0.00) det   521 | rare   655 (0.00) det   663
+D   R = 5    rate 0.0500  kernel   0% alive, median   256 | spectrum   267 (0.00) det   270 | rare   285 (0.00) det   289
+D   R = 5    rate 0.1000  kernel   0% alive, median   116 | spectrum   118 (0.00) det   119 | rare   119 (0.00) det   120
+D   R = 2    rate 0.0050  kernel 100% alive, median  surv | spectrum  surv (1.00) det    -1 | rare  surv (1.00) det    -1
+D   R = 2    rate 0.0100  kernel  60% alive, median  surv | spectrum  surv (1.00) det    -1 | rare  surv (1.00) det    -1
+D   R = 2    rate 0.0150  kernel   0% alive, median   869 | spectrum   971 (0.00) det   984 | rare  1389 (0.00) det  1406
+D   R = 2    rate 0.0200  kernel   0% alive, median   554 | spectrum   608 (0.00) det   618 | rare   715 (0.00) det   727
+D   R = 2    rate 0.0300  kernel   0% alive, median   316 | spectrum   338 (0.00) det   345 | rare   349 (0.00) det   357
+D   R = 2    rate 0.0500  kernel   0% alive, median   170 | spectrum   176 (0.00) det   179 | rare   176 (0.00) det   179
+D   R = 2    rate 0.1000  kernel   0% alive, median    82 | spectrum    83 (0.00) det    84 | rare    82 (0.00) det    83
+D   R = 1.5  rate 0.0050  kernel 100% alive, median  surv | spectrum  surv (1.00) det    -1 | rare  surv (1.00) det    -1
+D   R = 1.5  rate 0.0100  kernel   0% alive, median  1261 | spectrum  1508 (0.00) det  1532 | rare  surv (1.00) det    -1
+D   R = 1.5  rate 0.0150  kernel   0% alive, median   621 | spectrum   697 (0.00) det   712 | rare   777 (0.00) det   795
+D   R = 1.5  rate 0.0200  kernel   0% alive, median   407 | spectrum   441 (0.00) det   453 | rare   452 (0.00) det   465
+D   R = 1.5  rate 0.0300  kernel   0% alive, median   244 | spectrum   250 (0.00) det   257 | rare   249 (0.00) det   256
+D   R = 1.5  rate 0.0500  kernel   0% alive, median   135 | spectrum   137 (0.00) det   141 | rare   137 (0.00) det   140
+D   R = 1.5  rate 0.1000  kernel   0% alive, median    69 | spectrum    69 (0.00) det    70 | rare    69 (0.00) det    70
+
+Criteria, regimes and demography
+  PASS  V1: H fixed pre-move V_G: kernel 1.698 within 15% of spectrum 1.624 (ratio 1.046)
+  PASS  V1: H2 R = 2.0 pre-move V_G: kernel 1.782 within 15% of spectrum 1.619 (ratio 1.101)
+  PASS  V1: D fixed pre-move V_G: kernel 0.09729 within 15% of spectrum 0.09795 (ratio 0.993)
+  PASS  V1: D R = 5 pre-move V_G: kernel 0.09288 within 15% of spectrum 0.09787 (ratio 0.949)
+  PASS  V1: D R = 2 pre-move V_G: kernel 0.09278 within 15% of spectrum 0.09763 (ratio 0.950)
+  PASS  V1: D R = 1.5 pre-move V_G: kernel 0.09465 within 15% of spectrum 0.09731 (ratio 0.973)
+  PASS  V2: H fixed rate 0.0100 at +500: kernel V_G 2.126 within 25% of spectrum 2.177 (ratio 0.976; rare 1.175)
+  PASS  V2: H fixed rate 0.0100 at +1000: kernel V_G 2.44 within 25% of spectrum 2.535 (ratio 0.963; rare 1.349)
+  PASS  V2: H fixed rate 0.0594 at +500: kernel V_G 3.679 within 25% of spectrum 4.913 (ratio 0.749; rare 2.042)
+  PASS  V2: H fixed rate 0.0594 at +1000: kernel V_G 3.933 within 25% of spectrum 4.926 (ratio 0.798; rare 2.186)
+  FAIL  V2: H fixed rate 0.1187 at +500: kernel V_G 4.202 within 25% of spectrum 5.991 (ratio 0.701; rare 2.361)
+  FAIL  V2: H fixed rate 0.1187 at +1000: kernel V_G 4.205 within 25% of spectrum 6.065 (ratio 0.693; rare 2.381)
+  FAIL  V2: H fixed rate 0.2375 at +500: kernel V_G 3.81 within 25% of spectrum 6.652 (ratio 0.573; rare 2.292)
+  FAIL  V2: H fixed rate 0.2375 at +1000: kernel V_G 4.348 within 25% of spectrum 6.725 (ratio 0.647; rare 2.751)
+  PASS  V2: H2 R = 2.0 rate 0.0100 at +500: kernel V_G 2.077 within 25% of spectrum 2.165 (ratio 0.959; rare 1.155)
+  PASS  V2: H2 R = 2.0 rate 0.0100 at +1000: kernel V_G 2.334 within 25% of spectrum 2.507 (ratio 0.931; rare 1.299)
+  PASS  V2: H2 R = 2.0 rate 0.0592 at +500: kernel V_G 4.036 within 25% of spectrum 4.759 (ratio 0.848; rare 2.264)
+  PASS  V2: H2 R = 2.0 rate 0.0592 at +1000: kernel V_G 3.92 within 25% of spectrum 4.752 (ratio 0.825; rare 2.207)
+  PASS  V2: H2 R = 2.0 rate 0.1183 at +500: kernel V_G 4.261 within 25% of spectrum 5.672 (ratio 0.751; rare 2.467)
+  FAIL  V2: H2 R = 2.0 rate 0.1183 at +1000: kernel V_G 3.857 within 25% of spectrum 5.728 (ratio 0.673; rare 2.280)
+  FAIL  V2: H2 R = 2.0 rate 0.2367 at +500: kernel V_G 3.554 within 25% of spectrum 5.9 (ratio 0.602; rare NaN)
+  FAIL  V2: H2 R = 2.0 rate 0.2367 at +1000: kernel V_G 3.29 within 25% of spectrum 5.989 (ratio 0.549; rare NaN)
+  PASS  V2: D fixed rate 0.0050 at +500: kernel V_G 0.09789 within 25% of spectrum 0.1018 (ratio 0.961; rare 1.016)
+  PASS  V2: D fixed rate 0.0050 at +1000: kernel V_G 0.09348 within 25% of spectrum 0.1055 (ratio 0.886; rare 0.966)
+  PASS  V2: D fixed rate 0.0100 at +500: kernel V_G 0.0922 within 25% of spectrum 0.1019 (ratio 0.904; rare 0.965)
+  PASS  V2: D fixed rate 0.0100 at +1000: kernel V_G 0.07871 within 25% of spectrum 0.09026 (ratio 0.872; rare 0.836)
+  PASS  V2: D fixed rate 0.0150 at +500: kernel V_G 0.08147 within 25% of spectrum 0.09337 (ratio 0.873; rare 0.867)
+  PASS  V2: D fixed rate 0.0150 at +1000: kernel V_G 0.05767 within 25% of spectrum 0.0556 (ratio 1.037; rare 0.646)
+  PASS  V2: D fixed rate 0.0200 at +500: kernel V_G 0.06605 within 25% of spectrum 0.07572 (ratio 0.872; rare 0.721)
+  FAIL  V2: D fixed rate 0.0200 at +1000: kernel V_G 0.02991 within 25% of spectrum 0.01853 (ratio 1.614; rare 0.370)
+  PASS  V2: D fixed rate 0.0300 at +500: kernel V_G 0.03942 within 25% of spectrum 0.0321 (ratio 1.228; rare 0.475)
+  PASS  V2: D R = 5 rate 0.0050 at +500: kernel V_G 0.09279 within 25% of spectrum 0.1017 (ratio 0.913; rare 0.965)
+  PASS  V2: D R = 5 rate 0.0050 at +1000: kernel V_G 0.09153 within 25% of spectrum 0.105 (ratio 0.871; rare 0.949)
+  PASS  V2: D R = 5 rate 0.0100 at +500: kernel V_G 0.084 within 25% of spectrum 0.1013 (ratio 0.829; rare 0.883)
+  PASS  V2: D R = 5 rate 0.0100 at +1000: kernel V_G 0.07509 within 25% of spectrum 0.08785 (ratio 0.855; rare 0.807)
+  PASS  V2: D R = 5 rate 0.0150 at +500: kernel V_G 0.07786 within 25% of spectrum 0.09143 (ratio 0.852; rare 0.836)
+  PASS  V2: D R = 5 rate 0.0150 at +1000: kernel V_G 0.04812 within 25% of spectrum 0.04828 (ratio 0.997; rare 0.559)
+  PASS  V2: D R = 5 rate 0.0200 at +500: kernel V_G 0.06111 within 25% of spectrum 0.07147 (ratio 0.855; rare 0.681)
+  PASS  V2: D R = 2 rate 0.0050 at +500: kernel V_G 0.09164 within 25% of spectrum 0.1011 (ratio 0.906; rare 0.957)
+  PASS  V2: D R = 2 rate 0.0050 at +1000: kernel V_G 0.08935 within 25% of spectrum 0.1036 (ratio 0.863; rare 0.935)
+  PASS  V2: D R = 2 rate 0.0100 at +500: kernel V_G 0.08376 within 25% of spectrum 0.0992 (ratio 0.844; rare 0.892)
+  PASS  V2: D R = 2 rate 0.0100 at +1000: kernel V_G 0.06495 within 25% of spectrum 0.07993 (ratio 0.813; rare 0.727)
+  PASS  V2: D R = 2 rate 0.0150 at +500: kernel V_G 0.06879 within 25% of spectrum 0.08492 (ratio 0.810; rare 0.766)
+  PASS  V2: D R = 2 rate 0.0200 at +500: kernel V_G 0.04879 within 25% of spectrum 0.05475 (ratio 0.891; rare 0.609)
+  PASS  V2: D R = 1.5 rate 0.0050 at +500: kernel V_G 0.09345 within 25% of spectrum 0.1004 (ratio 0.931; rare 0.983)
+  PASS  V2: D R = 1.5 rate 0.0050 at +1000: kernel V_G 0.08932 within 25% of spectrum 0.1015 (ratio 0.880; rare 0.948)
+  PASS  V2: D R = 1.5 rate 0.0100 at +500: kernel V_G 0.07801 within 25% of spectrum 0.09615 (ratio 0.811; rare 0.848)
+  PASS  V2: D R = 1.5 rate 0.0100 at +1000: kernel V_G 0.04671 within 25% of spectrum 0.06701 (ratio 0.697; rare 0.566)
+  PASS  V2: D R = 1.5 rate 0.0150 at +500: kernel V_G 0.06229 within 25% of spectrum 0.07358 (ratio 0.847; rare 0.751)
+  PASS  V3: median |log(kernel/pred)| of V_G under the move: spectrum 0.161 < rare 0.286 (43 comparisons)
+  PASS  V4: the rise in H at 0.01: kernel V_G +2000/pre 1.493 (> 1.1), spectrum 1.577 (within 15%: ratio 1.056); rare 1.000
+  PASS  L1: H fixed rate 0.0100 at +500: kernel lag 0.289 within 20% of spectrum 0.3494 (ratio 0.827; rare 0.998)
+  PASS  L1: H fixed rate 0.0100 at +1000: kernel lag 0.3067 within 20% of spectrum 0.2966 (ratio 1.034; rare 1.059)
+  PASS  L1: H fixed rate 0.0594 at +500: kernel lag 0.9558 within 20% of spectrum 0.7444 (ratio 1.284; rare 0.554)
+  PASS  L1: H fixed rate 0.0594 at +1000: kernel lag 0.8309 within 20% of spectrum 0.7382 (ratio 1.126; rare 0.481)
+  PASS  L1: H fixed rate 0.1187 at +500: kernel lag 1.507 within 20% of spectrum 1.174 (ratio 1.283; rare 0.432)
+  FAIL  L1: H fixed rate 0.1187 at +1000: kernel lag 1.556 within 20% of spectrum 1.159 (ratio 1.342; rare 0.443)
+  FAIL  L1: H fixed rate 0.2375 at +500: kernel lag 3.369 within 20% of spectrum 2.073 (ratio 1.625; rare 0.454)
+  FAIL  L1: H fixed rate 0.2375 at +1000: kernel lag 3.102 within 20% of spectrum 2.051 (ratio 1.512; rare 0.397)
+  PASS  L1: H2 R = 2.0 rate 0.0100 at +500: kernel lag 0.3144 within 20% of spectrum 0.3494 (ratio 0.900; rare 1.080)
+  PASS  L1: H2 R = 2.0 rate 0.0100 at +1000: kernel lag 0.2435 within 20% of spectrum 0.2973 (ratio 0.819; rare 0.836)
+  PASS  L1: H2 R = 2.0 rate 0.0592 at +500: kernel lag 0.8119 within 20% of spectrum 0.7588 (ratio 1.070; rare 0.468)
+  PASS  L1: H2 R = 2.0 rate 0.0592 at +1000: kernel lag 0.8669 within 20% of spectrum 0.7559 (ratio 1.147; rare 0.497)
+  FAIL  L1: H2 R = 2.0 rate 0.1183 at +500: kernel lag 1.647 within 20% of spectrum 1.224 (ratio 1.345; rare 0.460)
+  FAIL  L1: H2 R = 2.0 rate 0.1183 at +1000: kernel lag 1.732 within 20% of spectrum 1.211 (ratio 1.431; rare 0.474)
+  FAIL  L1: H2 R = 2.0 rate 0.2367 at +500: kernel lag 3.837 within 20% of spectrum 2.292 (ratio 1.674; rare NaN)
+  FAIL  L1: H2 R = 2.0 rate 0.2367 at +1000: kernel lag 3.958 within 20% of spectrum 2.259 (ratio 1.752; rare NaN)
+  PASS  L1: D fixed rate 0.0050 at +500: kernel lag 1.101 within 20% of spectrum 1.083 (ratio 1.017; rare 0.987)
+  PASS  L1: D fixed rate 0.0050 at +1000: kernel lag 1.331 within 20% of spectrum 1.187 (ratio 1.121; rare 1.045)
+  PASS  L1: D fixed rate 0.0100 at +500: kernel lag 2.264 within 20% of spectrum 2.155 (ratio 1.050; rare 1.012)
+  PASS  L1: D fixed rate 0.0100 at +1000: kernel lag 2.918 within 20% of spectrum 2.576 (ratio 1.133; rare 1.126)
+  PASS  L1: D fixed rate 0.0150 at +500: kernel lag 3.587 within 20% of spectrum 3.299 (ratio 1.087; rare 1.062)
+  PASS  L1: D fixed rate 0.0150 at +1000: kernel lag 5.352 within 20% of spectrum 4.934 (ratio 1.085; rare 1.332)
+  PASS  L1: D fixed rate 0.0200 at +500: kernel lag 5.027 within 20% of spectrum 4.653 (ratio 1.080; rare 1.107)
+  PASS  L1: D fixed rate 0.0200 at +1000: kernel lag 8.743 within 20% of spectrum 9.285 (ratio 0.942; rare 1.543)
+  PASS  L1: D fixed rate 0.0300 at +500: kernel lag 8.607 within 20% of spectrum 8.443 (ratio 1.019; rare 1.224)
+  PASS  L1: D R = 5 rate 0.0050 at +500: kernel lag 1.154 within 20% of spectrum 1.084 (ratio 1.065; rare 1.034)
+  PASS  L1: D R = 5 rate 0.0050 at +1000: kernel lag 1.385 within 20% of spectrum 1.191 (ratio 1.163; rare 1.085)
+  PASS  L1: D R = 5 rate 0.0100 at +500: kernel lag 2.376 within 20% of spectrum 2.161 (ratio 1.099; rare 1.060)
+  PASS  L1: D R = 5 rate 0.0100 at +1000: kernel lag 3.088 within 20% of spectrum 2.618 (ratio 1.180; rare 1.182)
+  PASS  L1: D R = 5 rate 0.0150 at +500: kernel lag 3.651 within 20% of spectrum 3.322 (ratio 1.099; rare 1.077)
+  PASS  L1: D R = 5 rate 0.0150 at +1000: kernel lag 5.532 within 20% of spectrum 5.194 (ratio 1.065; rare 1.348)
+  PASS  L1: D R = 5 rate 0.0200 at +500: kernel lag 5.274 within 20% of spectrum 4.726 (ratio 1.116; rare 1.153)
+  PASS  L1: D R = 2 rate 0.0050 at +500: kernel lag 1.149 within 20% of spectrum 1.087 (ratio 1.057; rare 1.027)
+  PASS  L1: D R = 2 rate 0.0050 at +1000: kernel lag 1.366 within 20% of spectrum 1.202 (ratio 1.136; rare 1.063)
+  PASS  L1: D R = 2 rate 0.0100 at +500: kernel lag 2.372 within 20% of spectrum 2.178 (ratio 1.089; rare 1.052)
+  PASS  L1: D R = 2 rate 0.0100 at +1000: kernel lag 3.226 within 20% of spectrum 2.757 (ratio 1.170; rare 1.204)
+  PASS  L1: D R = 2 rate 0.0150 at +500: kernel lag 3.784 within 20% of spectrum 3.399 (ratio 1.113; rare 1.103)
+  PASS  L1: D R = 2 rate 0.0200 at +500: kernel lag 5.267 within 20% of spectrum 5.009 (ratio 1.052; rare 1.115)
+  PASS  L1: D R = 1.5 rate 0.0050 at +500: kernel lag 1.113 within 20% of spectrum 1.091 (ratio 1.020; rare 0.991)
+  PASS  L1: D R = 1.5 rate 0.0050 at +1000: kernel lag 1.396 within 20% of spectrum 1.219 (ratio 1.146; rare 1.076)
+  PASS  L1: D R = 1.5 rate 0.0100 at +500: kernel lag 2.358 within 20% of spectrum 2.203 (ratio 1.070; rare 1.038)
+  PASS  L1: D R = 1.5 rate 0.0100 at +1000: kernel lag 3.596 within 20% of spectrum 2.998 (ratio 1.200; rare 1.283)
+  PASS  L1: D R = 1.5 rate 0.0150 at +500: kernel lag 3.835 within 20% of spectrum 3.531 (ratio 1.086; rare 1.091)
+  PASS  L2: median |log(kernel/pred)| of the lag: spectrum 0.107 < rare 0.109
+  FAIL  E1: H fixed rate 0.4749: kernel median 232 within 20% of spectrum 405 (rare 220)
+  PASS  E1: H fixed rate 0.9498: kernel median 49 within 20% of spectrum 54 (rare 46)
+  FAIL  E1: H2 R = 2.0 rate 0.4734: kernel median 48 within 20% of spectrum 61 (rare 40)
+  PASS  E1: H2 R = 2.0 rate 0.9468: kernel median 18 within 20% of spectrum 18 (rare 18)
+  PASS  E1: D fixed rate 0.0200: kernel median 1509 within 20% of spectrum 1424 (rare surv)
+  PASS  E1: D fixed rate 0.0300: kernel median 829 within 20% of spectrum 820 (rare 1226)
+  PASS  E1: D fixed rate 0.0500: kernel median 445 within 20% of spectrum 443 (rare 542)
+  PASS  E1: D fixed rate 0.1000: kernel median 205 within 20% of spectrum 203 (rare 218)
+  PASS  E1: D R = 5 rate 0.0150: kernel median 1491 within 20% of spectrum 1501 (rare surv)
+  PASS  E1: D R = 5 rate 0.0200: kernel median 891 within 20% of spectrum 919 (rare 1565)
+  PASS  E1: D R = 5 rate 0.0300: kernel median 492 within 20% of spectrum 515 (rare 655)
+  PASS  E1: D R = 5 rate 0.0500: kernel median 256 within 20% of spectrum 267 (rare 285)
+  PASS  E1: D R = 5 rate 0.1000: kernel median 116 within 20% of spectrum 118 (rare 119)
+  PASS  E1: D R = 2 rate 0.0150: kernel median 869 within 20% of spectrum 971 (rare 1389)
+  PASS  E1: D R = 2 rate 0.0200: kernel median 554 within 20% of spectrum 608 (rare 715)
+  PASS  E1: D R = 2 rate 0.0300: kernel median 316 within 20% of spectrum 338 (rare 349)
+  PASS  E1: D R = 2 rate 0.0500: kernel median 170 within 20% of spectrum 176 (rare 176)
+  PASS  E1: D R = 2 rate 0.1000: kernel median 82 within 20% of spectrum 83 (rare 82)
+  PASS  E1: D R = 1.5 rate 0.0100: kernel median 1261 within 20% of spectrum 1508 (rare surv)
+  PASS  E1: D R = 1.5 rate 0.0150: kernel median 621 within 20% of spectrum 697 (rare 777)
+  PASS  E1: D R = 1.5 rate 0.0200: kernel median 407 within 20% of spectrum 441 (rare 452)
+  PASS  E1: D R = 1.5 rate 0.0300: kernel median 244 within 20% of spectrum 250 (rare 249)
+  PASS  E1: D R = 1.5 rate 0.0500: kernel median 135 within 20% of spectrum 137 (rare 137)
+  PASS  E1: D R = 1.5 rate 0.1000: kernel median 69 within 20% of spectrum 69 (rare 69)
+  PASS  E2: H fixed rate 0.0100: kernel 100% alive, spectrum P(survive) 1.00 ≥ 0.5
+  PASS  E2: H fixed rate 0.0594: kernel 100% alive, spectrum P(survive) 1.00 ≥ 0.5
+  PASS  E2: H fixed rate 0.1187: kernel 100% alive, spectrum P(survive) 1.00 ≥ 0.5
+  PASS  E2: H fixed rate 0.2375: kernel 100% alive, spectrum P(survive) 1.00 ≥ 0.5
+  PASS  E2: H fixed rate 0.4749: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: H fixed rate 0.9498: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: H2 R = 2.0 rate 0.0100: kernel 100% alive, spectrum P(survive) 1.00 ≥ 0.5
+  PASS  E2: H2 R = 2.0 rate 0.0592: kernel 100% alive, spectrum P(survive) 1.00 ≥ 0.5
+  PASS  E2: H2 R = 2.0 rate 0.1183: kernel 100% alive, spectrum P(survive) 1.00 ≥ 0.5
+  PASS  E2: H2 R = 2.0 rate 0.2367: kernel 90% alive, spectrum P(survive) 1.00 ≥ 0.5
+  PASS  E2: H2 R = 2.0 rate 0.4734: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: H2 R = 2.0 rate 0.9468: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: D fixed rate 0.0050: kernel 100% alive, spectrum P(survive) 1.00 ≥ 0.5
+  PASS  E2: D fixed rate 0.0100: kernel 100% alive, spectrum P(survive) 1.00 ≥ 0.5
+  PASS  E2: D fixed rate 0.0150: kernel 100% alive, spectrum P(survive) 1.00 ≥ 0.5
+  PASS  E2: D fixed rate 0.0200: kernel 2% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: D fixed rate 0.0300: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: D fixed rate 0.0500: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: D fixed rate 0.1000: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: D R = 5 rate 0.0050: kernel 100% alive, spectrum P(survive) 1.00 ≥ 0.5
+  PASS  E2: D R = 5 rate 0.0100: kernel 100% alive, spectrum P(survive) 1.00 ≥ 0.5
+  PASS  E2: D R = 5 rate 0.0150: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: D R = 5 rate 0.0200: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: D R = 5 rate 0.0300: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: D R = 5 rate 0.0500: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: D R = 5 rate 0.1000: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: D R = 2 rate 0.0050: kernel 100% alive, spectrum P(survive) 1.00 ≥ 0.5
+  PASS  E2: D R = 2 rate 0.0150: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: D R = 2 rate 0.0200: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: D R = 2 rate 0.0300: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: D R = 2 rate 0.0500: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: D R = 2 rate 0.1000: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: D R = 1.5 rate 0.0050: kernel 100% alive, spectrum P(survive) 1.00 ≥ 0.5
+  PASS  E2: D R = 1.5 rate 0.0100: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: D R = 1.5 rate 0.0150: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: D R = 1.5 rate 0.0200: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: D R = 1.5 rate 0.0300: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: D R = 1.5 rate 0.0500: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E2: D R = 1.5 rate 0.1000: kernel 0% alive, spectrum P(survive) 0.00 ≤ 0.5
+  PASS  E3: median |log(T_kernel/T_pred)|: spectrum 0.038 < rare 0.106 (24 cells)
+  expectations (not criteria), G: pre-move kernel/spectrum V_G 0.675; G extinction medians kernel/spectrum/rare: surv/surv/surv, 942/surv/surv, 209/surv/surv, 74/278/404, 26/44/39, 10/12/10
+  expectations (not criteria), mixed cells (10–90% alive): D R = 2 rate 0.0100: kernel 60%, spectrum P 1.00
+  PASS  N1: H fixed rate 0.1187: grid 480, 40 classes changes V_G by at most 0.27% (< 2%)
+  PASS  N1: G fixed rate 0.4154: grid 480, 40 classes changes V_G by at most 0.13% (< 2%)
+  PASS  N1: D fixed rate 0.0200: grid 480, 40 classes changes V_G by at most 0.12% (< 2%)
+
+P, the paper's inputs: 240 matched to the table (1154 s); times capped at 2001 generations after the move
+  stratum               n  table died  spec died  rare died  median log(table/spec)  log(table/rare)  |log| spec  |log| rare
+  QT0100-Possion3.0   30          27         27         28                 -0.006           -0.047       0.036      0.066
+  QT0100-Possion5.0   30          27         27         27                  0.013           -0.032       0.018      0.043
+  QT0500-Possion3.0   30          27         26         25                  0.000           -0.024       0.035      0.050
+  QT0500-Possion5.0   30          26         26         24                  0.018           -0.003       0.030      0.028
+  QT1000-Possion3.0   30          25         25         24                  0.000            0.000       0.027      0.034
+  QT1000-Possion5.0   30          28         28         26                 -0.047           -0.086       0.050      0.086
+  QT5000-Possion3.0   30          29         29         27                  0.004           -0.006       0.037      0.036
+  QT5000-Possion5.0   30          25         25         23                  0.000           -0.037       0.042      0.057
+  all                240         214        213        204                  0.000           -0.026       0.036      0.048
+  PASS  P1: median log(T_table/T_spectrum) 0.000 within ±log 1.15 (ratio 1.000)
+  PASS  P2: median |log(T_table/T_pred)|: spectrum 0.036 < rare 0.048
+  P3: kernel on 24 inputs × 3 replicates (90 s)
+    QT0100-Possion3.0/Input-00211.txt  kernel 128  table 129  spectrum 122  rare 125
+    QT0100-Possion3.0/Input-00518.txt  kernel 80  table 73  spectrum 76  rare 78
+    QT0100-Possion3.0/Input-01008.txt  kernel 615  table 653  spectrum 618  rare 922
+    QT0100-Possion3.0/Input-02182.txt  kernel 156  table 145  spectrum 156  rare 193
+    QT0100-Possion5.0/Input-01579.txt  kernel 234  table 225  spectrum 227  rare 245
+    QT0100-Possion5.0/Input-02160.txt  kernel 348  table 334  spectrum 323  rare 568
+    QT0100-Possion5.0/Input-02208.txt  kernel 310  table 300  spectrum 300  rare 321
+    QT0100-Possion5.0/Input-02215.txt  kernel 214  table 209  spectrum 208  rare 248
+    QT0500-Possion3.0/Input-00148.txt  kernel 243  table 255  spectrum 254  rare 264
+    QT0500-Possion3.0/Input-00684.txt  kernel 498  table 487  spectrum 486  rare 568
+    QT0500-Possion3.0/Input-00908.txt  kernel surv  table surv  spectrum surv  rare surv
+    QT0500-Possion3.0/Input-00909.txt  kernel 375  table 390  spectrum 375  rare 380
+    QT0500-Possion5.0/Input-00116.txt  kernel 98  table 100  spectrum 97  rare 98
+    QT0500-Possion5.0/Input-00321.txt  kernel 123  table 128  spectrum 122  rare 126
+    QT0500-Possion5.0/Input-00955.txt  kernel 84  table 84  spectrum 82  rare 82
+    QT0500-Possion5.0/Input-01041.txt  kernel 128  table 116  spectrum 147  rare 218
+    QT1000-Possion3.0/Input-00062.txt  kernel surv  table surv  spectrum surv  rare surv
+    QT1000-Possion3.0/Input-00439.txt  kernel 230  table 222  spectrum 217  rare 236
+    QT1000-Possion3.0/Input-00701.txt  kernel surv  table surv  spectrum surv  rare surv
+    QT1000-Possion3.0/Input-01181.txt  kernel 28  table 27  spectrum 27  rare 27
+    QT1000-Possion5.0/Input-00677.txt  kernel 264  table 268  spectrum 735  rare surv
+    QT1000-Possion5.0/Input-01272.txt  kernel 205  table 213  spectrum 201  rare 233
+    QT1000-Possion5.0/Input-01670.txt  kernel 29  table 30  spectrum 55  rare 38
+    QT1000-Possion5.0/Input-01974.txt  kernel 43  table 40  spectrum 42  rare 44
+  P3 (rare, not a criterion): median log(T_kernel/T_rare) -0.030
+  PASS  P3: median log(T_kernel/T_spectrum) 0.015 within ±log 1.2 (ratio 1.015)
+
+FAILED (17): V2: H fixed rate 0.1187 at +500: kernel V_G 4.202 within 25% of spectrum 5.991 (ratio 0.701; rare 2.361); V2: H fixed rate 0.1187 at +1000: kernel V_G 4.205 within 25% of spectrum 6.065 (ratio 0.693; rare 2.381); V2: H fixed rate 0.2375 at +500: kernel V_G 3.81 within 25% of spectrum 6.652 (ratio 0.573; rare 2.292); V2: H fixed rate 0.2375 at +1000: kernel V_G 4.348 within 25% of spectrum 6.725 (ratio 0.647; rare 2.751); V2: H2 R = 2.0 rate 0.1183 at +1000: kernel V_G 3.857 within 25% of spectrum 5.728 (ratio 0.673; rare 2.280); V2: H2 R = 2.0 rate 0.2367 at +500: kernel V_G 3.554 within 25% of spectrum 5.9 (ratio 0.602; rare NaN); V2: H2 R = 2.0 rate 0.2367 at +1000: kernel V_G 3.29 within 25% of spectrum 5.989 (ratio 0.549; rare NaN); V2: D fixed rate 0.0200 at +1000: kernel V_G 0.02991 within 25% of spectrum 0.01853 (ratio 1.614; rare 0.370); L1: H fixed rate 0.1187 at +1000: kernel lag 1.556 within 20% of spectrum 1.159 (ratio 1.342; rare 0.443); L1: H fixed rate 0.2375 at +500: kernel lag 3.369 within 20% of spectrum 2.073 (ratio 1.625; rare 0.454); L1: H fixed rate 0.2375 at +1000: kernel lag 3.102 within 20% of spectrum 2.051 (ratio 1.512; rare 0.397); L1: H2 R = 2.0 rate 0.1183 at +500: kernel lag 1.647 within 20% of spectrum 1.224 (ratio 1.345; rare 0.460); L1: H2 R = 2.0 rate 0.1183 at +1000: kernel lag 1.732 within 20% of spectrum 1.211 (ratio 1.431; rare 0.474); L1: H2 R = 2.0 rate 0.2367 at +500: kernel lag 3.837 within 20% of spectrum 2.292 (ratio 1.674; rare NaN); L1: H2 R = 2.0 rate 0.2367 at +1000: kernel lag 3.958 within 20% of spectrum 2.259 (ratio 1.752; rare NaN); E1: H fixed rate 0.4749: kernel median 232 within 20% of spectrum 405 (rare 220); E1: H2 R = 2.0 rate 0.4734: kernel median 48 within 20% of spectrum 61 (rare 40)

@@ -34,5 +34,6 @@ include("eidos_traits.jl")
 include("lifecycle.jl")
 include("moments.jl")
 include("trait_moments.jl")
+include("spectrum.jl")
 
 end # module

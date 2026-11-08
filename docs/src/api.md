@@ -100,6 +100,9 @@ form `house_of_gauss_G` and the multivariate house of cards `house_of_cards_G`. 
 `loci = :auto`, is the rare-alleles closure for one trait (diploid, or haploid clones) and
 the multilocus model for several traits (`QTLSim.moments_loci`); `multilocus_equilibrium`
 takes the same default.
+Under a moving optimum, the allele-frequency spectrum (`loci = :spectrum`,
+src/spectrum.jl, `validate/vg_move.jl`) follows how sweeps, drift and linked selection
+change the variance; `spectrum_equilibrium` and `spectrum_vg` are its stationary state.
 
 ```@docs
 selection_variance
@@ -119,6 +122,13 @@ QTLSim.mutation_effect_covariance
 QTLSim.rare_alleles_rate
 QTLSim.rare_hc_matrix
 QTLSim.hap_clonal
+spectrum_equilibrium
+spectrum_vg
+QTLSim.AlleleSpectrum
+QTLSim.spectrum_select
+QTLSim.spectrum_step!
+QTLSim.spectrum_linked
+QTLSim.spectrum_mutate!
 QTLSim.moments_loci
 steady_lag
 critical_rate

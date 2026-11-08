@@ -192,7 +192,7 @@ function run_composed end
 """
     run_moments(p::Params; cycle = lifecycle().generation, images = Dict(), zbar = 0.0, VG = 0.0,
                 optimum = nothing, erosion = false, migration_rate = 0.0, between = false, origins = :exchange,
-                loci = :auto)
+                loci = :auto, spectrum = (;))
     run_moments(ps::Vector{Params}; cycle, images = Dict(), zbar = 0.0, VG = 0.0, erosion = false,
                 migration_rate = 0.0, between = false, origins = :exchange, loci = :auto)
 
@@ -272,6 +272,27 @@ balance, `α²/(2s)` for one trait ([`QTLSim.rare_alleles_rate`](@ref)). Its equ
 stabilising solution of an algebraic Riccati equation. Haploid offspring are clones, so a
 haploid genome is one unit of inheritance: the closure then acts on a haplotype's whole
 variance (`β = 1`, [`QTLSim.hap_clonal`](@ref)), with `L μ` mutations per genome.
+
+**The allele-frequency spectrum (`loci = :spectrum`, one diploid trait, one deme).** A
+model of how the variance changes under a moving optimum (src/spectrum.jl): instead of
+haplotype moments, the expected numbers of segregating mutations by effect and frequency
+(Sawyer and Hartl's Poisson random field, infinite sites), each moved by
+`E[Δp] = pq[aλ/S − (1 − λ²/S)(a² + 2c)(1 − 2p)/(2S)]` (Hayward and Sella 2022, eq. 7,
+with the rare-alleles closure's Gaussian term `2c`, `c = V_G/(2L)`) and drift among the
+parents, which linked selection under directional selection lowers by
+`N/N_e = 1 + b²V_G Σ_c ω_c/(2(ρ_c + δ)²)` (Barton 1995; `b = λ/S`, the crossover's pair
+classes, `δ = 1/(2n) + V_G/S`); `2NLμ` mutations of effect `N(0, α²)` enter at frequency
+`1/(2N)` each generation. `V_G = Σ 2a²pq`, and selection moves the mean by `Σ 2a E[Δp]`,
+which includes the alleles' skew. Drift is always on (`erosion` does not matter); a
+population started with `VG > 0` takes the stationary spectrum's shape. At a fixed optimum
+it converges to [`spectrum_vg`](@ref), close to [`house_of_gauss_vg`](@ref) for rare mutations;
+it is meant for 4Nμ ≲ 1 per locus (in the Gaussian regime, many mutations per locus, its
+V_G is too high). Under a move it captures both the rise of V_G when rare alleles of large
+effect sweep (house of cards; Barton and Turelli 1987) and its collapse at slow rates in
+small or declining populations (fast turnover by sweeps, falling N_e, linked selection);
+`validate/vg_move.jl`. `spectrum` passes options to `QTLSim.AlleleSpectrum`: `grid`
+(frequencies, 240), `classes` (effects, 20) and `linkage` (`:barton`, or `:none` for
+linkage equilibrium).
 
 **The aggregate recursion (`loci = :aggregate`).** QTLSim's moments lowering before the
 multilocus model: the offspring inherit the survivors' variance, `V ← V − V²/(V_s + V) +
