@@ -24,7 +24,13 @@
 #      the Gaussian approximation misses (no criterion; the trait model should miss by as
 #      much).
 # Informational, no criterion: 50 diploid loci, where the aggregate recursion does not
-# apply (for one trait as for two), against Lande's per-locus sum gaussian_G_loci.
+# apply (for one trait as for two), against the multilocus model with drift
+# (gaussian_G_loci(p; drift = true), run_moments' default with erosion = true; the
+# pre-specified test of it is validate/moments_loci.jl, criterion T).
+#
+# History: since the multilocus model became run_moments' default (branch gauss), the
+# moments with drift of these haploid one-locus scenarios erode V_G by 1/n per generation,
+# as clonal reproduction does, instead of 1/(2n); the criteria are unchanged.
 
 using QTLSim, Statistics, Printf, Random
 import Catlab
@@ -118,13 +124,15 @@ Rm = max(3, R ÷ 4)
 t = @elapsed (rM = runs(pM, Rm, 3000:5999; seed0 = 4000); rM1 = runs(pM1, Rm, 3000:5999; seed0 = 5000))
 GM = mean(r.G for r in rM)
 say("Informational: 50 diploid loci, N = 1000, $Rm replicates ($(round(t; digits = 1)) s)")
-say("  two traits: kernel ", fmt(GM), ", aggregate gaussian_G ", fmt(gaussian_G(pM)),
-    ", per-locus gaussian_G_loci ", fmt(gaussian_G_loci(pM)))
-say(@sprintf("  one trait:  kernel V_G %.4f, gaussian_vg_exact %.4f, per-locus %.4f",
-             mean(r.vg for r in rM1), gaussian_vg_exact(pM1), gaussian_G_loci(pM1)[1, 1]))
-say(@sprintf("  kernel/aggregate: one trait %.2f, two traits %.2f and %.2f; genetic correlation kernel %.3f, theory %.3f",
-             mean(r.vg for r in rM1) / gaussian_vg_exact(pM1), GM[1, 1] / gaussian_G(pM)[1, 1],
-             GM[2, 2] / gaussian_G(pM)[2, 2], corr(GM), corr(gaussian_G(pM))))
+GL, VL = gaussian_G_loci(pM; drift = true), gaussian_vg_loci(pM1; drift = true)
+say("  two traits: kernel ", fmt(GM), ", multilocus with drift gaussian_G_loci(p; drift = true) ", fmt(GL),
+    ", aggregate gaussian_G ", fmt(gaussian_G(pM)))
+say(@sprintf("  one trait:  kernel V_G %.4f, multilocus with drift %.4f, aggregate gaussian_vg_exact %.4f",
+             mean(r.vg for r in rM1), VL, gaussian_vg_exact(pM1)))
+say(@sprintf("  kernel/multilocus: one trait %.3f, two traits %.3f and %.3f; kernel/aggregate: one trait %.2f, two traits %.2f",
+             mean(r.vg for r in rM1) / VL, GM[1, 1] / GL[1, 1], GM[2, 2] / GL[2, 2],
+             mean(r.vg for r in rM1) / gaussian_vg_exact(pM1), GM[1, 1] / gaussian_G(pM)[1, 1]))
+say(@sprintf("  genetic correlation: kernel %.3f, multilocus %.3f, aggregate %.3f", corr(GM), corr(GL), corr(gaussian_G(pM))))
 say()
 
 say(isempty(fails) ? "All pre-specified criteria pass." : "FAILED: " * join(fails, "; "))

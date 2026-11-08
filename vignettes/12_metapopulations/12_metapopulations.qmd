@@ -544,9 +544,9 @@ Quantitatively it is a few percent off:
 #| echo: false
 #| output: asis
 let tr = traj[2], ml = tr.mo.gen .>= 1500
-    @printf("over generations 1500–2980 it overpredicts the variance within demes by %.0f%% and underpredicts Q<sub>ST</sub> by %.0f%%, ",
-            100(mean(tr.mo.within[ml]) / mean(tr.VW[late]) - 1), 100(1 - mean(tr.mo.qst[ml]) / mean(tr.qst[late])))
-    println("in the direction `validate/moments_demes.jl` finds under weak selection with five and ten demes (4–5% and 5–8%, `validate/moments_demes.log`).")
+    @printf("over generations 1500–2980 its variance within demes is within %.0f%% of the kernel's and it underpredicts Q<sub>ST</sub> by %.0f%%, ",
+            max(1, round(Int, 100abs(mean(tr.mo.within[ml]) / mean(tr.VW[late]) - 1))), 100(1 - mean(tr.mo.qst[ml]) / mean(tr.qst[late])))
+    println("as `validate/moments_demes.jl` finds under weak selection with five and ten demes: the variance within demes within 4% and Q<sub>ST</sub> 2–7% low (`validate/moments_demes.log`).")
 end
 ```
 

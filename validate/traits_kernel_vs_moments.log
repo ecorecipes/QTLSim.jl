@@ -1,28 +1,29 @@
 Several traits: kernel against the trait moments lowering, 12 replicates per scenario, 3 threads
 M = [0.00020 0.00008; 0.00008 0.00010], Ω = [0.09000 -0.02700; -0.02700 0.09000], V_E = 0.01
 
-E, equilibrium G (8.4 s)
+E, equilibrium G (4.9 s)
   kernel        [0.00409 0.00064; 0.00064 0.00280]   (SE of entries [0.00001 0.00001; 0.00001 0.00001])
-  moments+drift [0.00419 0.00065; 0.00065 0.00286]
+  moments+drift [0.00418 0.00065; 0.00065 0.00285]
   gaussian_G    [0.00420 0.00065; 0.00065 0.00288]   (no drift)
-  kernel/moments: G11 0.976, G12 0.979, G22 0.977; correlation 0.188 vs 0.187; g_max angle 0.09°
+  kernel/moments: G11 0.979, G12 0.973, G22 0.982; correlation 0.188 vs 0.189; g_max angle 0.01°
   PASS  E: every entry of G within 0.10·√(G_ii G_jj)
   PASS  E: genetic correlation within 0.05
   PASS  E: g_max within 10°
-C, one trait in the same regime: kernel V_G 0.004494 ± 0.000009, moments+drift 0.004559, ratio 0.986 (two traits: 0.976, 0.977)
+C, one trait in the same regime: kernel V_G 0.004494 ± 0.000009, moments+drift 0.004547, ratio 0.988 (two traits: 0.979, 0.982)
 
-L, steady lag behind an optimum moving by 0.001 along (1, 2)/√5 (8.1 s)
+L, steady lag behind an optimum moving by 0.001 along (1, 2)/√5 (4.4 s)
   kernel lag              (-0.00176, 0.03061) ± (0.00025, 0.00034)
   steady_lag_vector(G_k)  (-0.00162, 0.02979)   G_k = [0.00410 0.00064; 0.00064 0.00280]
-  moments+drift           (-0.00158, 0.02915)
+  moments+drift           (-0.00165, 0.02932)
   the move's direction is 63.4° from trait 1; the lag's 93.3° (deflected away from g_max, 22.2°)
   PASS  L: lag within 10% of steady_lag_vector with the kernel's G
   PASS  L: lag within 10% of the moments lowering's
   PASS  L: lag direction within 5° of both
 
-Informational: 50 diploid loci, N = 1000, 3 replicates (4.9 s)
-  two traits: kernel [3.00232 0.74803; 0.74803 2.98430], aggregate gaussian_G [0.46284 0.05692; 0.05692 0.46284], per-locus gaussian_G_loci [4.60577 0.55792; 0.55792 4.60577]
-  one trait:  kernel V_G 3.5557, gaussian_vg_exact 0.5050, per-locus 5.0274
-  kernel/aggregate: one trait 7.04, two traits 6.49 and 6.45; genetic correlation kernel 0.250, theory 0.123
+Informational: 50 diploid loci, N = 1000, 3 replicates (3.0 s)
+  two traits: kernel [3.00232 0.74803; 0.74803 2.98430], multilocus with drift gaussian_G_loci(p; drift = true) [3.23153 0.77497; 0.77497 3.23153], aggregate gaussian_G [0.46284 0.05692; 0.05692 0.46284]
+  one trait:  kernel V_G 3.5557, multilocus with drift 3.6082, aggregate gaussian_vg_exact 0.5050
+  kernel/multilocus: one trait 0.985, two traits 0.929 and 0.923; kernel/aggregate: one trait 7.04, two traits 6.49
+  genetic correlation: kernel 0.250, multilocus 0.240, aggregate 0.123
 
 All pre-specified criteria pass.

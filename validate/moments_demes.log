@@ -2,7 +2,7 @@ QTLSim validate/moments_demes.jl
 Julia threads: 3; replicates per scenario R = 300
 N = 100 per deme, 50 loci, V_E = 1, V_m = 0.001, ω = 5, forward rate 0.01 (backward m = 0.0198 at k = 5)
 census generations 2000:10:3990 of 4000
-1800 kernel runs in 498 s
+1800 kernel runs in 435 s
 
 A neutral k=5 (Drift = true); optima all 0; 300 replicates
   statistic               moments     kernel        SE                95% CI        z        old  verdict
@@ -12,16 +12,16 @@ A neutral k=5 (Drift = true); optima all 0; 300 replicates
 
 B common optimum k=5; optima all 0; 300 replicates
   statistic               moments     kernel        SE                95% CI  rel.err        old  verdict
-  V_W (within demes)      0.68984    0.65281    0.0029 [   0.6471,    0.6585]    -5.4%    0.10817       ok
-  var of deme means      0.073551   0.072827   0.00036 [  0.07211,   0.07354]    -1.0%          0       ok
-  Q_ST                    0.03721   0.039038    0.0002 [  0.03865,   0.03942]    +4.9% -0.0040161       ok
+  V_W (within demes)      0.65649    0.65281    0.0029 [   0.6471,    0.6585]    -0.6%    0.10817       ok
+  var of deme means       0.07161   0.072827   0.00036 [  0.07211,   0.07354]    +1.7%          0       ok
+  Q_ST                   0.038121   0.039038    0.0002 [  0.03865,   0.03942]    +2.4% -0.0040161       ok
 
 C local optima k=5; optima range(-2, 2, 5); 300 replicates
   statistic               moments     kernel        SE                95% CI  rel.err        old  verdict
-  V_W (within demes)       0.9399    0.89976    0.0042 [   0.8915,     0.908]    -4.3%     0.9562       ok
-  var of deme means        0.9418      1.003    0.0049 [   0.9935,     1.013]    +6.5%    0.94277       ok
-  Q_ST                    0.28408    0.30647   0.00055 [   0.3054,    0.3075]    +7.9%    0.28077       ok
-  moments: deterministic deme means [-1.177, -0.57, 0.0, 0.57, 1.177] (optima [-2.0, -1.0, 0.0, 1.0, 2.0])
+  V_W (within demes)      0.93278    0.89976    0.0042 [   0.8915,     0.908]    -3.5%     0.9562       ok
+  var of deme means       0.94379      1.003    0.0049 [   0.9935,     1.013]    +6.3%    0.94277       ok
+  Q_ST                    0.28608    0.30647   0.00055 [   0.3054,    0.3075]    +7.1%    0.28077       ok
+  moments: deterministic deme means [-1.181, -0.566, 0.0, 0.566, 1.181] (optima [-2.0, -1.0, 0.0, 1.0, 2.0])
 
 D0 neutral k=10 (Drift = true); optima all 0; 300 replicates
   statistic               moments     kernel        SE                95% CI        z        old  verdict
@@ -31,21 +31,21 @@ D0 neutral k=10 (Drift = true); optima all 0; 300 replicates
 
 D common optimum k=10; optima all 0; 300 replicates
   statistic               moments     kernel        SE                95% CI  rel.err        old  verdict
-  V_W (within demes)      0.93414    0.89888    0.0032 [   0.8926,    0.9052]    -3.8%        NaN       ok
-  var of deme means      0.089595    0.09096   0.00029 [  0.09038,   0.09154]    +1.5%        NaN       ok
-  Q_ST                   0.037221   0.039419   0.00013 [  0.03916,   0.03968]    +5.9%        NaN       ok
+  V_W (within demes)      0.89174    0.89888    0.0032 [   0.8926,    0.9052]    +0.8%        NaN       ok
+  var of deme means       0.08772    0.09096   0.00029 [  0.09038,   0.09154]    +3.7%        NaN       ok
+  Q_ST                   0.038245   0.039419   0.00013 [  0.03916,   0.03968]    +3.1%        NaN       ok
 
 E local optima k=10; optima range(-2, 2, 10); 300 replicates
   statistic               moments     kernel        SE                95% CI  rel.err        old  verdict
-  V_W (within demes)       1.1853     1.1255     0.004 [    1.118,     1.133]    -5.0%        NaN       ok
-  var of deme means       0.89572    0.94263    0.0027 [   0.9373,     0.948]    +5.2%        NaN       ok
-  Q_ST                    0.25124    0.27134   0.00041 [   0.2705,    0.2721]    +8.0%        NaN       ok
-  moments: deterministic deme means [-1.337, -1.028, -0.727, -0.434, -0.144, 0.144, 0.434, 0.727, 1.028, 1.337] (optima [-2.0, -1.5555555555555556, -1.1111111111111112, -0.6666666666666666, -0.2222222222222222, 0.2222222222222222, 0.6666666666666666, 1.1111111111111112, 1.5555555555555556, 2.0])
+  V_W (within demes)       1.1486     1.1255     0.004 [    1.118,     1.133]    -2.0%        NaN       ok
+  var of deme means       0.88271    0.94263    0.0027 [   0.9373,     0.948]    +6.8%        NaN       ok
+  Q_ST                    0.25448    0.27134   0.00041 [   0.2705,    0.2721]    +6.6%        NaN       ok
+  moments: deterministic deme means [-1.331, -1.019, -0.719, -0.428, -0.142, 0.142, 0.428, 0.719, 1.019, 1.331] (optima [-2.0, -1.5555555555555556, -1.1111111111111112, -0.6666666666666666, -0.2222222222222222, 0.2222222222222222, 0.6666666666666666, 1.1111111111111112, 1.5555555555555556, 2.0])
 
 == signatures: Q_ST against the neutral F_ST of the same metapopulation ==
-  common     Q_ST < F_ST: kernel 0.0390 ± 0.0004 vs 0.0726 ± 0.0009; moments 0.0372 vs 0.0722  ok
-  local      Q_ST > F_ST: kernel 0.3065 ± 0.0011 vs 0.0726 ± 0.0009; moments 0.2841 vs 0.0722  ok
-  common10   Q_ST < F_ST: kernel 0.0394 ± 0.0003 vs 0.0899 ± 0.0007; moments 0.0372 vs 0.0896  ok
-  local10    Q_ST > F_ST: kernel 0.2713 ± 0.0008 vs 0.0899 ± 0.0007; moments 0.2512 vs 0.0896  ok
+  common     Q_ST < F_ST: kernel 0.0390 ± 0.0004 vs 0.0726 ± 0.0009; moments 0.0381 vs 0.0722  ok
+  local      Q_ST > F_ST: kernel 0.3065 ± 0.0011 vs 0.0726 ± 0.0009; moments 0.2861 vs 0.0722  ok
+  common10   Q_ST < F_ST: kernel 0.0394 ± 0.0003 vs 0.0899 ± 0.0007; moments 0.0382 vs 0.0896  ok
+  local10    Q_ST > F_ST: kernel 0.2713 ± 0.0008 vs 0.0899 ± 0.0007; moments 0.2545 vs 0.0896  ok
 
 PASS: every pre-specified criterion holds

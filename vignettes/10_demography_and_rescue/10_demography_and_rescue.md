@@ -88,9 +88,9 @@ end
 | demography | population size | predicted from W̄ | moments lowering | mean fitness | V_G | phenotypic SD |
 |:---|---:|---:|---:|---:|---:|---:|
 | fixed (QTSim) | 1000 | 1000 | 1000 | 0.9949 | 0.0935 | 0.329 |
-| R = 5 | 986 | 999 | 999 | 0.9951 | 0.0841 | 0.314 |
-| R = 2 | 979 | 994 | 996 | 0.9940 | 0.1204 | 0.367 |
-| R = 1.5 | 972 | 990 | 993 | 0.9952 | 0.0820 | 0.311 |
+| R = 5 | 986 | 999 | 998 | 0.9951 | 0.0841 | 0.314 |
+| R = 2 | 979 | 994 | 992 | 0.9940 | 0.1204 | 0.367 |
+| R = 1.5 | 972 | 990 | 984 | 0.9952 | 0.0820 | 0.311 |
 
 At equilibrium every population is within 3% of its carrying capacity, a
 little below the value predicted from its mean fitness: random
@@ -103,9 +103,13 @@ rates below, is about a third.
 Each demography faces seven rates of change, from 0.005 to 0.2 per
 generation (about 1.5% to 60% of a phenotypic standard deviation), six
 populations each, for up to 2000 generations after the move. The moments
-lowering gives each rate a deterministic prediction: the generation in
-which fewer than two individuals are expected to survive, or, under
-density regulation, the population is expected to fall below one.
+lowering gives each rate a prediction: the generation in which fewer
+than two individuals are expected to survive, or, under density
+regulation, the population is expected to fall below one. Its default
+population is infinite, and these are not: with 100 loci and rare
+mutations an infinite population would hold several times their genetic
+variance (the section on drift below), so the prediction here is the
+moments lowering with drift, `erosion = true`.
 
 ``` julia
 rates = [0.005, 0.01, 0.02, 0.03, 0.05, 0.1, 0.2]
@@ -116,7 +120,7 @@ Threads.@threads :greedy for k in eachindex(jobs)
     o = simulate(Params(base; demog[i][2]..., MoveFitnessSD = d); seed = 1000k + rep)
     res[k] = (; i, d, extinct = o.extinct, T = o.extinct ? o.extinct_gen - 5000 : missing)
 end
-predicted = Dict((i, d) => run_moments(Params(base; demog[i][2]..., MoveFitnessSD = d))
+predicted = Dict((i, d) => run_moments(Params(base; demog[i][2]..., MoveFitnessSD = d); erosion = true)
                  for i in eachindex(demog) for d in rates)
 Tpred(i, d) = (m = predicted[(i, d)]; m.extinct ? m.extinct_gen - 5000 : missing)
 
@@ -137,12 +141,12 @@ end
 | rate | fixed (QTSim) | R = 5 | R = 2 | R = 1.5 |
 |:---|---:|---:|---:|---:|
 | 0.005 | survive (6/6) \[survives\] | survive (6/6) \[survives\] | survive (6/6) \[survives\] | survive (6/6) \[survives\] |
-| 0.010 | survive (6/6) \[survives\] | survive (6/6) \[survives\] | survive (4/6) \[1650\] | 1266 (0/6) \[855\] |
-| 0.020 | 1519 (0/6) \[survives\] | 867 (0/6) \[792\] | 548 (0/6) \[433\] | 427 (0/6) \[324\] |
-| 0.030 | 846 (0/6) \[1548\] | 522 (0/6) \[422\] | 326 (0/6) \[265\] | 224 (0/6) \[208\] |
-| 0.050 | 450 (0/6) \[509\] | 250 (0/6) \[225\] | 171 (0/6) \[153\] | 138 (0/6) \[125\] |
-| 0.100 | 203 (0/6) \[205\] | 116 (0/6) \[107\] | 84 (0/6) \[78\] | 68 (0/6) \[66\] |
-| 0.200 | 96 (0/6) \[94\] | 57 (0/6) \[54\] | 43 (0/6) \[41\] | 37 (0/6) \[36\] |
+| 0.010 | survive (6/6) \[survives\] | survive (6/6) \[survives\] | survive (4/6) \[survives\] | 1266 (0/6) \[survives\] |
+| 0.020 | 1519 (0/6) \[survives\] | 867 (0/6) \[1852\] | 548 (0/6) \[811\] | 427 (0/6) \[499\] |
+| 0.030 | 846 (0/6) \[1389\] | 522 (0/6) \[727\] | 326 (0/6) \[377\] | 224 (0/6) \[266\] |
+| 0.050 | 450 (0/6) \[592\] | 250 (0/6) \[302\] | 171 (0/6) \[184\] | 138 (0/6) \[142\] |
+| 0.100 | 203 (0/6) \[232\] | 116 (0/6) \[122\] | 84 (0/6) \[84\] | 68 (0/6) \[70\] |
+| 0.200 | 96 (0/6) \[102\] | 57 (0/6) \[57\] | 43 (0/6) \[43\] | 37 (0/6) \[37\] |
 
 Each cell is the median time to extinction after the move, the number of
 the six populations alive 2000 generations after it (in parentheses),
@@ -175,8 +179,8 @@ width="720" height="430" />
 
 Figure 1: Time to extinction after the optimum starts moving, against
 the rate of change (medians of six populations; populations alive after
-2000 generations are not shown). Lines: the deterministic prediction of
-the moments lowering.
+2000 generations are not shown). Lines: the prediction of the moments
+lowering with drift.
 
 </div>
 
@@ -196,13 +200,14 @@ six died at that rate, and with $R = 1.5$ all six did; only 0.005, about
 population that cannot grow fast enough to make good its losses cannot
 sustain the rates a population of fixed size can.
 
-The moments lowering predicts the time to extinction closely at fast
-rates, where the outcome is decided by the lag. At slow rates it is less
-accurate: under density regulation the populations outlive its
-prediction, and at a fixed size it predicts that the population survives
-0.02 per generation, which none of the six did. The section on
-demographic noise and drift below shows that the error lies in the
-genetic variance, not in the deterministic population size.
+The moments lowering with drift predicts the time to extinction closely
+at fast rates, where the outcome is decided by the lag: within 6% at 0.1
+and 0.2 per generation for every demography. At slow rates its
+populations live too long: at a fixed size it predicts 1389 generations
+at 0.03, against 846 simulated, and survival at 0.02, which none of the
+six managed; with $R = 1.5$ it predicts survival at 0.01, where all six
+died. The section on demographic noise and drift below shows that the
+error lies in the genetic variance, not in the population size.
 
 ## A population in decline
 
@@ -254,10 +259,12 @@ functions. Near $K$ that process lacks the regulation that holds the
 size to the trajectory, so it spreads the sizes too widely and brings
 extinction forward; the chain does not.)
 
-The second is genetic drift. With `erosion = true`, `run_moments` takes
-$V_G/(2N_e)$ from the genetic variance each generation, with $N_e$ the
-expected number of survivors. Drift then matters most when few survive,
-which is when the population is far behind the optimum.
+The second is genetic drift. With `erosion = true`, `run_moments`
+follows the expected haplotype moments of a population of its expected
+size whose parents are the expected survivors, so that the genic
+variance loses about $1/(2N_e)$ of itself each generation, with $N_e$
+the expected number of survivors. Drift then matters most when few
+survive, which is when the population is far behind the optimum.
 
 The simulations are 100 populations of each demography at five slow
 rates, the rates at which the deterministic prediction failed. Each run
@@ -350,24 +357,24 @@ end
 |:---|---:|---:|---:|---:|---:|---:|---:|
 | fixed (QTSim) | 0.005 | 100 | survive | survives | survives | survives | survives |
 | fixed (QTSim) | 0.010 | 100 | survive | survives | survives | survives | survives |
-| fixed (QTSim) | 0.015 | 100 | survive | survives | survives | 1735 | 1874 |
-| fixed (QTSim) | 0.020 | 0 | 1492 (1425–1568) | survives | survives | 1154 | 1269 |
-| fixed (QTSim) | 0.030 | 0 | 830 (806–863) | 1548 | 1118 | 694 | 775 |
+| fixed (QTSim) | 0.015 | 100 | survive | survives | survives | survives | survives |
+| fixed (QTSim) | 0.020 | 0 | 1492 (1425–1568) | survives | survives | survives | survives |
+| fixed (QTSim) | 0.030 | 0 | 830 (806–863) | survives | survives | 1348 | 1202 |
 | R = 5 | 0.005 | 100 | survive | survives | survives | survives | survives |
-| R = 5 | 0.010 | 100 | survive | survives | survives | 1812 | 1969 |
-| R = 5 | 0.015 | 2 | 1498 (1370–1636) | 1704 | 1514 | 926 | 1047 |
-| R = 5 | 0.020 | 0 | 913 (850–983) | 792 | 761 | 624 | 718 |
-| R = 5 | 0.030 | 0 | 500 (478–525) | 422 | 412 | 379 | 438 |
+| R = 5 | 0.010 | 100 | survive | survives | survives | survives | survives |
+| R = 5 | 0.015 | 2 | 1498 (1370–1636) | survives | survives | survives | survives |
+| R = 5 | 0.020 | 0 | 913 (850–983) | survives | survives | 1840 | 1566 |
+| R = 5 | 0.030 | 0 | 500 (478–525) | survives | survives | 720 | 639 |
 | R = 2 | 0.005 | 100 | survive | survives | survives | survives | survives |
-| R = 2 | 0.010 | 56 | survive | 1650 | 1455 | 962 | 1088 |
-| R = 2 | 0.015 | 0 | 876 (806–931) | 655 | 627 | 552 | 637 |
-| R = 2 | 0.020 | 0 | 549 (521–593) | 433 | 419 | 390 | 450 |
-| R = 2 | 0.030 | 0 | 323 (308–337) | 265 | 259 | 249 | 283 |
+| R = 2 | 0.010 | 56 | survive | survives | survives | survives | survives |
+| R = 2 | 0.015 | 0 | 876 (806–931) | survives | survives | 1652 | 1342 |
+| R = 2 | 0.020 | 0 | 549 (521–593) | survives | survives | 799 | 680 |
+| R = 2 | 0.030 | 0 | 323 (308–337) | survives | survives | 370 | 337 |
 | R = 1.5 | 0.005 | 100 | survive | survives | survives | survives | survives |
-| R = 1.5 | 0.010 | 0 | 1264 (1148–1423) | 855 | 799 | 676 | 777 |
-| R = 1.5 | 0.015 | 0 | 633 (585–709) | 461 | 442 | 412 | 475 |
-| R = 1.5 | 0.020 | 0 | 399 (368–434) | 324 | 313 | 299 | 342 |
-| R = 1.5 | 0.030 | 0 | 240 (229–254) | 208 | 202 | 197 | 220 |
+| R = 1.5 | 0.010 | 0 | 1264 (1148–1423) | survives | survives | survives | survives |
+| R = 1.5 | 0.015 | 0 | 633 (585–709) | survives | survives | 876 | 745 |
+| R = 1.5 | 0.020 | 0 | 399 (368–434) | survives | survives | 486 | 436 |
+| R = 1.5 | 0.030 | 0 | 240 (229–254) | survives | survives | 258 | 244 |
 
 Times are generations after the move: the simulated median and
 interquartile range (when at least half the populations died within 2000
@@ -386,10 +393,10 @@ end
 
 | demography | V_G before the move, simulated | Gaussian (moments lowering) | with drift |
 |:---|---:|---:|---:|
-| fixed (QTSim) | 0.0917 | 0.0387 | 0.0329 |
-| R = 5 | 0.0924 | 0.0387 | 0.0329 |
-| R = 2 | 0.0900 | 0.0387 | 0.0329 |
-| R = 1.5 | 0.0905 | 0.0387 | 0.0329 |
+| fixed (QTSim) | 0.0917 | 0.2550 | 0.1032 |
+| R = 5 | 0.0924 | 0.2550 | 0.1031 |
+| R = 2 | 0.0900 | 0.2550 | 0.1028 |
+| R = 1.5 | 0.0905 | 0.2550 | 0.1025 |
 
 ``` julia
 fig = Figure(size = (760, 560))
@@ -426,33 +433,31 @@ prediction.
 
 </div>
 
-Demographic noise alone changes little. Along the deterministic
-trajectory it brings extinction forward, by 2–12% under density
-regulation and by more at a fixed size (from 1548 to 1118 generations at
-0.03), where the population is lost in the first generation in which
-fewer than two of 1000 survive, and the expected number of survivors
-approaches two only slowly. But it cannot explain the simulations. The
-predicted distributions of the time to extinction are much narrower than
-the simulated ones; no rate gives a probability of survival between 0
-and 1, while with $R = 2$ at 0.01, 56 of 100 populations survived; and
-under density regulation the simulated populations outlive the
-deterministic prediction at every lethal rate but one ($R = 5$ at 0.015,
-where the noise brings the prediction to the simulated median), so the
-noise, which shortens lives, moves the prediction the wrong way. The
+Demographic noise alone changes nothing here: along the deterministic
+trajectory no population is ever close to extinction at these rates. The
+deterministic multilocus model predicts that every population survives
+every slow rate, while all 100 died at 0.02 and 0.03 with every
+demography, and all or nearly all (98 with $R = 5$) at 0.015 under
+density regulation. Nor can the noise explain the spread: the predicted
+distributions of the time to extinction are much narrower than the
+simulated ones, and no rate gives a probability of survival between 0
+and 1, while with $R = 2$ at 0.01, 56 of 100 populations survived. The
 variation among populations is genetic.
 
-The genetic variance is where the theory fails. Before the move the
-simulated populations have more than twice the Gaussian approximation’s
-genetic variance. With weak stabilising selection
-($V_s = \omega^2 + V_E \approx 25$) and rare mutations (0.01 per
-gamete), the variance is held by a few alleles at a time, closer to the
-house-of-cards balance than to the Gaussian $\sqrt{V_mV_s}$ (vignette
-02). With less variance the theory’s populations fall further behind, so
-under density regulation they die too early. After the move the
+The genetic variance is where the theory fails. With weak stabilising
+selection ($V_s = \omega^2 + V_E \approx 25$) and rare mutations (0.01
+per gamete), the variance is held by a few alleles at a time, closer to
+the house-of-cards balance than to an infinite Gaussian population
+(vignette 02). Without drift the multilocus Gaussian model holds 2.8
+times the simulated variance at the move (0.255 against about 0.092, and
+still rising toward its equilibrium, 0.55), so its populations keep up
+with rates that kill the simulated ones. With drift it holds 12% more
+than the simulations (0.103), close before the move. After the move the
 simulated variance falls, as directional selection fixes the alleles
 that carried it and drift erodes it among the few survivors, while the
-Gaussian recursion, in which selection moves the mean without using up
-variance, keeps it:
+Gaussian model, in which selection moves the mean without using up
+variance, keeps it (the deterministic model’s variance even grows, still
+converging):
 
 ``` julia
 vgcases = [(1, 0.02), (4, 0.01)]
@@ -482,37 +487,35 @@ end
 | demography, rate |  | at the move | 500 generations after | 1000 after |
 |:---|:---|---:|---:|---:|
 | fixed (QTSim), 0.020 | simulated | 0.0916 (12) | 0.0713 (12) | 0.0299 (12) |
-|  | moments | 0.0387 | 0.0387 | 0.0387 |
-|  | with drift | 0.0329 | 0.0295 | 0.0066 |
+|  | moments | 0.2550 | 0.2746 | 0.2931 |
+|  | with drift | 0.1032 | 0.1000 | 0.0905 |
 | R = 1.5, 0.010 | simulated | 0.0924 (12) | 0.0779 (12) | 0.0508 (11) |
-|  | moments | 0.0387 | 0.0387 | extinct |
-|  | with drift | 0.0329 | 0.0294 | extinct |
+|  | moments | 0.2550 | 0.2746 | 0.2931 |
+|  | with drift | 0.1025 | 0.1002 | 0.0923 |
 
 The simulated values are means over 12 populations, of the genetic
 variance averaged over the preceding 20 generations; in parentheses, the
-number still alive. That is why at a fixed size the deterministic
-prediction survives 0.02 per generation, which none of the populations
-did.
+number still alive. The simulated variance falls by a half to two thirds
+within 1000 generations of the move; the moments with drift lose about
+10%.
 
-Drift, with $N_e$ the number of survivors, makes the theory’s variance
-collapse once survival falls, and so predicts that fixed-size
-populations die at 0.02 and 0.03 per generation, though about a fifth
-too early. But it also lowers the variance before the move, further
-below the simulated one, so it makes the density-regulated predictions
-worse, and it predicts deaths at 0.015 at a fixed size and at 0.01 with
-$R = 5$, where all 100 populations survived. Starting the recursion with
-drift from the simulated variance at the move gives the best predictions
-at a fixed size (775 generations at 0.03, against 830 simulated), but
-under density regulation it is no better than the deterministic
-prediction, and all four are early at the slowest lethal rates (with
-$R = 1.5$ at 0.01, 676 to 855 generations, against 1264). No version
-reproduces the survival of about half the populations with $R = 2$ at
-0.01. The remaining error lies in how the genetic variance, carried by a
-few alleles of large effect, changes under directional selection, which
-neither the Gaussian recursion nor a drift correction to it describes.
-At the fast rates, where the outcome is decided within a few hundred
-generations by the lag, the variance has little time to change and the
-deterministic prediction holds.
+With drift the theory predicts deaths at 0.03 with every demography, at
+0.02 under density regulation and at 0.015 with $R = 2$ and 1.5, but
+late, more so the slower the rate and the higher the growth rate: at a
+fixed size 1348 generations at 0.03 against 830 simulated, with $R = 5$
+1840 at 0.02 against 913, with $R = 1.5$ 258 at 0.03 against 240.
+Starting the recursion with drift from the simulated variance at the
+move is a little better (1202, 1566 and 244 generations), since that
+variance is a little lower than the theory’s, but it is still late, and
+it too predicts survival at 0.02 at a fixed size, at 0.015 with $R = 5$
+and at 0.01 with $R = 1.5$, where the simulated populations died. No
+version reproduces the survival of about half the populations with
+$R = 2$ at 0.01. The remaining error lies in how the genetic variance,
+carried by a few alleles of large effect, changes under directional
+selection, which the Gaussian model, with or without drift, does not
+describe. At the fast rates, where the outcome is decided within a few
+hundred generations by the lag, the variance has little time to change
+and the prediction with drift holds.
 
 ## Summary
 
@@ -526,16 +529,18 @@ rate at a fixed size. The paper’s estimate of about 3% of a phenotypic
 standard deviation per generation is therefore an upper bound that holds
 for populations able to make good their losses.
 
-The deterministic theory of the moments lowering predicts the time to
-extinction at fast rates. At slow rates its error is genetic, not
-demographic: adding the chance in survival and reproduction along its
-trajectory (`extinction_distribution`) changes its predictions by a few
-percent and leaves the spread among populations unexplained, and adding
-drift to its genetic variance (`run_moments(p; erosion = true)`)
-captures the collapse of the variance at a fixed size but not the
-variance these populations hold before the move. Predicting extinction
-at slow rates needs a theory of the genetic variance under directional
-selection with few segregating alleles.
+The moments lowering with drift (`run_moments(p; erosion = true)`, the
+multilocus Gaussian model in a population of the expected size) predicts
+the time to extinction at fast rates, and the genetic variance before
+the move to within about 12%; without drift an infinite population would
+hold several times that variance. At slow rates its error is genetic,
+not demographic: adding the chance in survival and reproduction along
+its trajectory (`extinction_distribution`) leaves the spread among
+populations unexplained, and the theory’s variance does not collapse
+after the move as the simulated variance does, so its populations live
+too long. Predicting extinction at slow rates needs a theory of the
+genetic variance under directional selection with few segregating
+alleles.
 
 The density-regulated model is QTLSim’s, not QTSim’s, so QTSim cannot
 check it, but SLiM can: the model `slim_script` generates from the same

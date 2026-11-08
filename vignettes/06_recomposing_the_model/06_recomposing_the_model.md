@@ -319,8 +319,8 @@ end
 ```
 
     rate 0.000: deme means differ by 0.199 in the kernel, 0.200 in the moments
-    rate 0.005: deme means differ by 0.175 in the kernel, 0.161 in the moments
-    rate 0.020: deme means differ by 0.122 in the kernel, 0.108 in the moments
+    rate 0.005: deme means differ by 0.175 in the kernel, 0.166 in the moments
+    rate 0.020: deme means differ by 0.122 in the kernel, 0.115 in the moments
 
 ``` julia
 fig = Figure(size = (900, 360))
@@ -352,13 +352,19 @@ Right: genetic variance, which migration raises in both demes.
 
 </div>
 
-The moments get the means right and the direction of every effect. They
-predict a little less divergence under migration than the kernel shows,
-because this one-locus kernel holds more genetic variance than the
-Gaussian approximation, as it does without migration. With the moments
-lowering covering several demes, any metapopulation built from these
-steps has a deterministic prediction, and each deme can have its own
-parameters there, in the kernel (`[p1, p2] ⊗ demes(2)`) and in SLiM
+The moments get the means right and the direction of every effect, and
+without migration the genetic variance to within 3%: by default the
+lowering is the multilocus Gaussian model, in which, for this one
+diploid locus, the part of selection’s reduction of the variance that
+lies between an individual’s two alleles is lost at the next
+reproduction (the older aggregate recursion, `loci = :aggregate`,
+inherits all of it and predicts 30% too little variance here). Under
+migration they predict 5–6% less divergence than the kernel shows; a
+deme that has received migrants is a mixture, not the Gaussian
+population the next selection assumes. With the moments lowering
+covering several demes, any metapopulation built from these steps has a
+deterministic prediction, and each deme can have its own parameters
+there, in the kernel (`[p1, p2] ⊗ demes(2)`) and in SLiM
 (`slim_script(cycle, [p1, p2])`).
 
 Every variant here is a line of composition rather than a change to the

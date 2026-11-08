@@ -144,9 +144,12 @@ on a Gaussian population gives (Lande 1979)
     Δz̄ = G (A + G)⁻¹ λ = G β,        G_survivors = G − G (A + G)⁻¹ G,
 
 and with mutation `G' = G − G (A + G)⁻¹ G + M`. One trait is the scalar recursion of
-`theory.jl` (`A + G = V_s + V_G`).
+`theory.jl` (`A + G = V_s + V_G`). This is the aggregate (one haploid locus) recursion,
+`run_moments(p; loci = :aggregate)`; the default multilocus model applies the same
+selection to the haplotype moments of src/multilocus.jl, as matrices.
 
-- **Equilibrium G** (`gaussian_G`): the unique positive semidefinite solution of
+- **Equilibrium G** (`gaussian_G`, of the aggregate recursion; `gaussian_G_loci` for
+  `L` recombining diploid loci is `gaussian_G(2L·M, A)`): the unique positive semidefinite solution of
   `G (A + G)⁻¹ G = M` is `G = A^{1/2} X A^{1/2}` with `X = ½ (M̃ + (M̃² + 4M̃)^{1/2})`,
   `M̃ = A^{-1/2} M A^{-1/2}`, for any `M` and `A`, not only when they share eigenvectors.
   When they do, `G` has their eigenvectors and the one-trait formula on each axis. For
@@ -171,13 +174,13 @@ first run, all passed:
 
 | | kernel | moments (with drift) | criterion |
 |---|---|---|---|
-| G₁₁, G₁₂, G₂₂ (×10⁻³) | 4.09, 0.64, 2.80 | 4.19, 0.65, 2.86 | each within 0.10·√(G_ii G_jj): ratios 0.976–0.979 |
-| genetic correlation | 0.188 | 0.187 | within 0.05 |
-| g_max | | | 0.09° apart (≤ 10°) |
-| steady lag, move 0.001 along (1, 2) | (−0.0018, 0.0306) | (−0.0016, 0.0292); `steady_lag_vector` with the kernel's G (−0.0016, 0.0298) | within 10% and 5° |
+| G₁₁, G₁₂, G₂₂ (×10⁻³) | 4.09, 0.64, 2.80 | 4.18, 0.65, 2.85 | each within 0.10·√(G_ii G_jj): ratios 0.973–0.982 |
+| genetic correlation | 0.188 | 0.189 | within 0.05 |
+| g_max | | | 0.01° apart (≤ 10°) |
+| steady lag, move 0.001 along (1, 2) | (−0.0018, 0.0306) | (−0.0017, 0.0293); `steady_lag_vector` with the kernel's G (−0.0016, 0.0298) | within 10% and 5° |
 
-The kernel's G is 2.4% below the moments', and the one-trait kernel in the same regime is
-1.4% below the one-trait moments: the trait model misses the Gaussian approximation by
+The kernel's G is about 2% below the moments', and the one-trait kernel in the same regime is
+1.2% below the one-trait moments: the trait model misses the Gaussian approximation by
 about as much as the scalar one. The lag shows Lande's deflection: the optimum moves at
 63° from trait 1, the lag points at 93°, away from `g_max` (22°).
 
@@ -189,12 +192,19 @@ locus at equilibrium: G₁₁, G₁₂, G₂₂, genetic correlation and survivo
 both lag components, the three entries of G and the final mean of trait 2, p = 0.57,
 0.99, 0.91, 0.76, 0.26, 0.99. The smallest p is 0.26, so no discrepancy was found.
 
-Informational: with 50 diploid loci (N = 1000) the aggregate recursion does not apply,
-for one trait as for two. The one-trait kernel's V_G is 7.0× `gaussian_vg_exact` and the
-two-trait kernel's variances 6.5×; Lande's per-locus sum (`gaussian_G_loci`, 10× the
-aggregate here) overshoots, since drift is not in it. The moments lowering is a
-prediction for one locus or for the infinitesimal limit with lasting reduction, not for
-QTSim's many-locus runs; that was already so for one trait.
+Many loci: with 50 diploid loci (N = 1000) the aggregate recursion `G' = G − G (A + G)⁻¹ G + M`
+does not apply, for one trait as for two: the kernel's V_G is 7.0× `gaussian_vg_exact`
+and its two-trait variances 6.5× `gaussian_G`. It treats all of selection's reduction of
+G as inherited, which is right for one haploid locus only. The moments lowering's
+default is now the multilocus model (src/multilocus.jl): each locus keeps only its share
+of the reduction, the rest is linkage disequilibrium that recombination breaks up (by
+class of pairs of loci), and drift enters with `erosion = true`. Its equilibrium is
+`gaussian_G_loci(p)`, `gaussian_G(2L·M, A)` without drift, and
+`gaussian_G_loci(p; drift = true)` with it. In the informational case of
+`traits_kernel_vs_moments.log` the kernel is 0.985× the one-trait prediction with drift
+and 0.93× the two-trait one, with genetic correlation 0.250 against 0.240. The
+pre-specified test is criterion T of `validate/moments_loci.jl`: G₁₁ 0.940, G₁₂ 1.003,
+G₂₂ 0.935, correlation 0.258 against 0.241, all within tolerance.
 
 ## For Lean
 

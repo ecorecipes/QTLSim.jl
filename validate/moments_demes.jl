@@ -44,6 +44,13 @@
 # difference between the full and the genic moments and broken up at the rate
 # `pair_recombination(p)` of the kernel's crossover). It has no fitted constant. The
 # tolerances above were not changed, and the run below uses fresh seeds (7_000_000 + …).
+#
+# Rerun on branch gauss (same seeds and criteria) after two changes to the model, which
+# is now also the one-deme default (src/multilocus.jl): the genic part of selection's
+# reduction uses each locus's share of the full covariance of a haplotype with the
+# genotype (LD included), where the first version used its genic part, and LD is resolved
+# by class of pairs of loci, each recombining at its own rate (`QTLSim.pair_classes`),
+# not at the mean rate. The "old" column is `loci = :aggregate` with `erosion = true`.
 
 using QTLSim, Random, Statistics, Printf
 import Catlab
@@ -108,7 +115,7 @@ function predict(s)
     new = [w, a, qst_of(w, a, s.k, s.N)]
     old = fill(NaN, 3)
     if s.k <= 5
-        mo2 = run_moments(p; cycle = cycle(s), migration_rate = RATE, erosion = true)
+        mo2 = run_moments(p; cycle = cycle(s), migration_rate = RATE, erosion = true, loci = :aggregate)
         ws, as = Float64[], Float64[]
         for t in CENSUS
             rows = findall(==(t), mo2.gen)

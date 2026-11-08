@@ -185,7 +185,7 @@ The house-of-cards regime is the relevant one here because mutation is rare: wit
 loci and a rate of $10^{-4}$ there is only about one new mutation per hundred gametes,
 each with an effect large compared with the standing variation at its locus. The
 Gaussian approximation assumes the opposite, many small effects at every locus, yet with
-the loci counted and drift included its median is within 12% of the simulations; it
+the loci counted and drift included its median is within 10% of the simulations; it
 scatters more than the house of cards because it misses how the variance depends on the
 size of a mutation's effect. The one-locus form, which counts all of selection's
 reduction of the variance as inherited, is not a model of these populations at all. One
@@ -243,7 +243,7 @@ The equilibrium variance grows with the number of loci, as the house of cards pr
 In these single runs the house of cards overestimates the level by about 30% at 100 loci
 and above. The Gaussian approximation over the loci is four times too high at 10 loci,
 where mutations are largest compared with the variance at a locus, and approaches the
-simulations as the loci multiply and the effects shrink; at 1000 loci it is as close as
-the house of cards. The one-locus form misses the trend entirely. The
+simulations as the loci multiply and the effects shrink; at 300 and 1000 loci it is closer
+than the house of cards (22% and 12% high, against 27% and 30%). The one-locus form misses the trend entirely. The
 [replication vignette](../09_replicating_pagel_2025/09_replicating_pagel_2025.qmd)
 makes the same comparison for the paper's own parameter sets.

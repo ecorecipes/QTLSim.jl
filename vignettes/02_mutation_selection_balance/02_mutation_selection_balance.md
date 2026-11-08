@@ -27,7 +27,16 @@ loci, $\mu$ for the mutation rate per locus, $\alpha^2$ for the variance
 of a mutation’s effect and $N_e$ for the effective population size.
 
 - Lande’s Gaussian approximation ([Lande 1975](#ref-Lande1975)) assumes
-  many alleles of small effect: $V_G \approx \sqrt{V_m V_s}$.
+  many alleles of small effect at every locus, so that each locus is
+  Gaussian. Each of the $2n$ allele positions of a diploid keeps the
+  part of selection’s reduction of the variance that falls on its own
+  share; the rest is linkage disequilibrium, which recombination breaks
+  up. At equilibrium $V_G^2/(V_s + V_G) = 2n V_m$, so
+  $V_G \approx \sqrt{2n V_m V_s}$ when mutation is weak
+  (`gaussian_vg_loci`; with drift, `gaussian_vg_loci(p; drift = true)`),
+  the fixed point of the moments lowering. For a single haploid locus it
+  is $\sqrt{V_m V_s}$ (`gaussian_vg`), the form behind QTSim’s
+  analytical fitness width (below).
 - The stochastic house-of-cards approximation ([Bürger et al.
   1989](#ref-Burger1989)) allows for rare mutations of large effect and
   for drift:
@@ -91,15 +100,16 @@ hundred-fold between the rows.
 ## Where the “analytical” fitness width comes from
 
 When `InitFitnessSD` is not given, QTSim and this package use
-$\omega = V_G / \sqrt{m V_E}$ with $V_G = h^2 V_P$. That is the Gaussian
-approximation solved for $\omega$, with $V_s \approx \omega^2$: if
-$V_G = \sqrt{V_m \omega^2}$ and $V_m = m V_E$, then
-$\omega = V_G / \sqrt{m V_E}$. The algebra is proved in
-`lean/CategoricalQuantGen/Heritability.lean` (`analyticalFitSD_eq`). The
-width is therefore exactly the one that would hold the population at the
-target $h^2 V_P$ if the Gaussian approximation were right, which makes
-it a direct test of that approximation. The paper itself does not use
-it: it draws $\omega$ at random for each population.
+$\omega = V_G / \sqrt{m V_E}$ with $V_G = h^2 V_P$. That is the
+one-locus Gaussian approximation solved for $\omega$, with
+$V_s \approx \omega^2$: if $V_G = \sqrt{V_m \omega^2}$ and
+$V_m = m V_E$, then $\omega = V_G / \sqrt{m V_E}$. The algebra is proved
+in `lean/CategoricalQuantGen/Heritability.lean` (`analyticalFitSD_eq`).
+The width is therefore exactly the one that would hold the population at
+the target $h^2 V_P$ if the one-locus Gaussian approximation were right.
+For $n$ diploid loci the Gaussian approximation would hold about
+$\sqrt{2n}$ times more variance at that width. The paper itself does not
+use it: it draws $\omega$ at random for each population.
 
 ## Equilibrium across the paper’s parameter space
 
@@ -142,16 +152,19 @@ length(eq)
 
     24
 
-The two approximations, written for a `Params` value. For $N_e$ we use
-the number of survivors: each of the $2N$ gametes of the next generation
-comes from a survivor chosen at random, so the number a survivor
-contributes is binomial with variance $V_k = 2N (n_s - 1)/n_s^2$ when
-$n_s$ individuals survive, and $N_e = 4N/(V_k + 2)$ ([Falconer and
-Mackay 1996](#ref-FalconerMackay1996)). This is how the paper’s results
-table computes it.
+The approximations, written for a `Params` value: the house of cards,
+the Gaussian approximation summed over the loci with drift, and its
+one-locus form. For $N_e$ we use the number of survivors: each of the
+$2N$ gametes of the next generation comes from a survivor chosen at
+random, so the number a survivor contributes is binomial with variance
+$V_k = 2N (n_s - 1)/n_s^2$ when $n_s$ individuals survive, and
+$N_e = 4N/(V_k + 2)$ ([Falconer and Mackay
+1996](#ref-FalconerMackay1996)). This is how the paper’s results table
+computes it.
 
 ``` julia
-gaussian(p) = sqrt(muteVar(p) * (initFitSD(p)^2 + envVar(p)))
+gaussian(p) = gaussian_vg_loci(p; drift = true)           # n loci, linkage disequilibrium, drift
+one_locus(p) = sqrt(muteVar(p) * (initFitSD(p)^2 + envVar(p)))   # gaussian_vg(p)
 
 function house_of_cards(p, ns)
     N, n, μ = p.PopSize, p.NoQTL, p.MutationRatePerGamete
@@ -164,19 +177,24 @@ end
 
 shc = [house_of_cards(r.p, r.ns) for r in eq]
 gau = [gaussian(r.p) for r in eq]
+one = [one_locus(r.p) for r in eq]
 sim = [r.VG for r in eq]
 @printf("simulated / house of cards: median %.2f (range %.2f–%.2f)\n",
         median(sim ./ shc), extrema(sim ./ shc)...)
-@printf("simulated / Gaussian:       median %.2f (range %.2f–%.2f)\n",
+@printf("simulated / Gaussian, n loci: median %.2f (range %.2f–%.2f)\n",
         median(sim ./ gau), extrema(sim ./ gau)...)
+@printf("simulated / one locus:       median %.2f (range %.2f–%.2f)\n",
+        median(sim ./ one), extrema(sim ./ one)...)
 ```
 
     simulated / house of cards: median 0.95 (range 0.69–1.50)
-    simulated / Gaussian:       median 1.28 (range 0.19–4.57)
+    simulated / Gaussian, n loci: median 0.90 (range 0.49–1.48)
+    simulated / one locus:       median 1.28 (range 0.19–4.57)
 
 ``` julia
-fig = Figure(size = (820, 380))
-for (k, (pred, name)) in enumerate(((shc, "stochastic house of cards"), (gau, "Gaussian (Lande)")))
+fig = Figure(size = (1020, 360))
+for (k, (pred, name)) in enumerate(((shc, "stochastic house of cards"), (gau, "Gaussian, 100 loci, drift"),
+                                     (one, "Gaussian, one locus")))
     ax = Axis(fig[1, k], xscale = log10, yscale = log10, title = name,
               xlabel = "predicted V_G", ylabel = "simulated V_G")
     lo, hi = extrema(vcat(pred, sim))
@@ -190,20 +208,28 @@ fig
 
 <img
 src="02_mutation_selection_balance_files/figure-commonmark/fig-balance-output-1.png"
-width="820" height="380" />
+width="1020" height="360" />
 
 Figure 1: Equilibrium genetic variance of 24 simulated populations
-against the two approximations (the line is equality). The stochastic
+against three approximations (the line is equality). The stochastic
 house of cards tracks the simulations across nearly three orders of
-magnitude; the Gaussian approximation scatters widely, missing by up to
-a factor of about five in either direction.
+magnitude, within a factor of 1.5. The Gaussian approximation summed
+over the 100 loci, with drift, is right on average but scatters more
+widely. Its one-locus form misses by up to a factor of about five in
+either direction.
 
 </div>
 
 The house-of-cards regime is the relevant one here because mutation is
 rare: with 100 loci and a rate of $10^{-4}$ there is only about one new
 mutation per hundred gametes, each with an effect large compared with
-the standing variation at its locus. One consequence is that the
+the standing variation at its locus. The Gaussian approximation assumes
+the opposite, many small effects at every locus, yet with the loci
+counted and drift included its median is within 10% of the simulations;
+it scatters more than the house of cards because it misses how the
+variance depends on the size of a mutation’s effect. The one-locus form,
+which counts all of selection’s reduction of the variance as inherited,
+is not a model of these populations at all. One consequence is that the
 heritability in `Params` is not the heritability the population ends up
 with. It only sets the environmental variance, $V_E = (1-h^2)V_P$; the
 genetic variance is whatever mutation, selection and drift balance at.
@@ -233,9 +259,10 @@ the nominal heritability that set the environmental variance.
 The paper simulated 100, 500, 1000 and 5000 loci. With the mutational
 input held fixed, more loci means more frequent mutations of smaller
 effect, which selection removes less efficiently, so the house of cards
-predicts more variance; the Gaussian approximation does not depend on
-the number of loci at all. Here one parameter set is run with 10 to 1000
-loci.
+predicts more variance. The Gaussian approximation grows too, as about
+$\sqrt{n}$ until drift limits it, while its one-locus form does not
+depend on the number of loci. Here one parameter set is run with 10 to
+1000 loci.
 
 ``` julia
 θ = (VP = 0.02, h2 = 0.4, m = 0.004, ω = 2.0)
@@ -245,22 +272,23 @@ Threads.@threads for k in eachindex(Ls)
     byL[k] = equilibrium(θ; L = Ls[k], seed = 100 + k)
 end
 for (L, r) in zip(Ls, byL)
-    @printf("NoQTL = %4d:  simulated %.4f   house of cards %.4f   Gaussian %.4f\n",
+    @printf("NoQTL = %4d:  simulated %.4f   house of cards %.4f   Gaussian, n loci %.4f\n",
             L, r.VG, house_of_cards(r.p, r.ns), gaussian(r.p))
 end
 ```
 
-    NoQTL =   10:  simulated 0.0106   house of cards 0.0137   Gaussian 0.0139
-    NoQTL =   30:  simulated 0.0365   house of cards 0.0320   Gaussian 0.0139
-    NoQTL =  100:  simulated 0.0465   house of cards 0.0599   Gaussian 0.0139
-    NoQTL =  300:  simulated 0.0626   house of cards 0.0797   Gaussian 0.0139
-    NoQTL = 1000:  simulated 0.0694   house of cards 0.0901   Gaussian 0.0139
+    NoQTL =   10:  simulated 0.0106   house of cards 0.0137   Gaussian, n loci 0.0446
+    NoQTL =   30:  simulated 0.0365   house of cards 0.0320   Gaussian, n loci 0.0604
+    NoQTL =  100:  simulated 0.0465   house of cards 0.0599   Gaussian, n loci 0.0722
+    NoQTL =  300:  simulated 0.0626   house of cards 0.0797   Gaussian, n loci 0.0766
+    NoQTL = 1000:  simulated 0.0694   house of cards 0.0901   Gaussian, n loci 0.0779
 
 ``` julia
 fig = Figure(size = (520, 380))
 ax = Axis(fig[1, 1], xscale = log10, xlabel = "number of loci", ylabel = "equilibrium V_G")
 lines!(ax, Ls, [house_of_cards(r.p, r.ns) for r in byL], color = :teal, label = "house of cards")
-hlines!(ax, [gaussian(byL[1].p)], color = :gray, linestyle = :dash, label = "Gaussian")
+lines!(ax, Ls, [gaussian(r.p) for r in byL], color = :gray, label = "Gaussian, n loci")
+hlines!(ax, [one_locus(byL[1].p)], color = :gray, linestyle = :dash, label = "Gaussian, one locus")
 scatter!(ax, Ls, [r.VG for r in byL], color = :crimson, label = "simulated")
 axislegend(ax, position = :lt)
 fig
@@ -273,16 +301,20 @@ src="02_mutation_selection_balance_files/figure-commonmark/fig-loci-output-1.png
 width="520" height="380" />
 
 Figure 3: Equilibrium genetic variance against the number of loci for
-one parameter set (points), with the house-of-cards prediction (solid)
-and the Gaussian prediction, which does not depend on the number of loci
-(dashed).
+one parameter set (points), with the house-of-cards prediction (teal),
+the Gaussian prediction summed over the loci with drift (gray) and its
+one-locus form, which does not depend on the number of loci (dashed).
 
 </div>
 
 The equilibrium variance grows with the number of loci, as the house of
-cards predicts, while the Gaussian approximation misses the trend
-entirely. In these single runs the house of cards overestimates the
-level by about 30% at 100 loci and above. The [replication
+cards predicts. In these single runs the house of cards overestimates
+the level by about 30% at 100 loci and above. The Gaussian approximation
+over the loci is four times too high at 10 loci, where mutations are
+largest compared with the variance at a locus, and approaches the
+simulations as the loci multiply and the effects shrink; at 300 and 1000
+loci it is closer than the house of cards (22% and 12% high, against 27%
+and 30%). The one-locus form misses the trend entirely. The [replication
 vignette](../09_replicating_pagel_2025/09_replicating_pagel_2025.qmd)
 makes the same comparison for the paper’s own parameter sets.
 

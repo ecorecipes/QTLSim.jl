@@ -319,7 +319,7 @@ end
 @printf("%d runs in %.0f s on %d threads\n", length(jobs), elapsed, Threads.nthreads())
 ```
 
-    600 runs in 89 s on 3 threads
+    600 runs in 47 s on 6 threads
 
 ``` julia
 ringdist(a, b, k) = min(mod(a - b, k), mod(b - a, k))
@@ -652,7 +652,7 @@ end
 | trait        | V_W, kernel | V_W, moments | Q_ST, kernel | Q_ST, moments |
 |:-------------|------------:|-------------:|-------------:|--------------:|
 | neutral      |      0.3902 |       0.4014 |       0.1204 |        0.1206 |
-| local optima |      0.1703 |       0.1729 |       0.3081 |        0.2842 |
+| local optima |      0.1703 |       0.1704 |       0.3081 |        0.2864 |
 
 ``` julia
 fig = Figure(size = (820, 340))
@@ -692,10 +692,11 @@ variance within demes at less than half the neutral value and keeps
 $Q_{ST}$ well above the neutral expectation. Quantitatively it is a few
 percent off:
 
-over generations 1500–2980 it overpredicts the variance within demes by
-2% and underpredicts Q<sub>ST</sub> by 8%, in the direction
+over generations 1500–2980 its variance within demes is within 1% of the
+kernel’s and it underpredicts Q<sub>ST</sub> by 7%, as
 `validate/moments_demes.jl` finds under weak selection with five and ten
-demes (4–5% and 5–8%, `validate/moments_demes.log`).
+demes: the variance within demes within 4% and Q<sub>ST</sub> 2–7% low
+(`validate/moments_demes.log`).
 
 ## Summary
 
