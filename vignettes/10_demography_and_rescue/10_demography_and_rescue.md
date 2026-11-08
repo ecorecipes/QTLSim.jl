@@ -9,6 +9,8 @@ Simon Frost
 - [A population in decline](#a-population-in-decline)
 - [Demographic noise and drift in the
   theory](#demographic-noise-and-drift-in-the-theory)
+- [The genetic variance under the move: an allele-frequency
+  spectrum](#the-genetic-variance-under-the-move-an-allele-frequency-spectrum)
 - [Summary](#summary)
 
 ## Overview
@@ -125,7 +127,10 @@ Threads.@threads :greedy for k in eachindex(jobs)
 end
 predicted = Dict((i, d) => run_moments(Params(base; demog[i][2]..., MoveFitnessSD = d); erosion = true)
                  for i in eachindex(demog) for d in rates)
+spectrum = Dict((i, d) => run_moments(Params(base; demog[i][2]..., MoveFitnessSD = d); loci = :spectrum)
+                for i in eachindex(demog) for d in rates)
 Tpred(i, d) = (m = predicted[(i, d)]; m.extinct ? m.extinct_gen - 5000 : missing)
+Tspec(i, d) = (m = spectrum[(i, d)]; m.extinct ? m.extinct_gen - 5000 : missing)
 
 println("| rate | ", join(first.(demog), " | "), " |")
 println("|:--|", repeat("--:|", length(demog)))
@@ -133,9 +138,10 @@ for d in rates
     cells = map(eachindex(demog)) do i
         rs = filter(r -> r.i == i && r.d == d, res)
         died = filter(r -> r.extinct, rs)
-        tp = Tpred(i, d)
+        tp, ts = Tpred(i, d), Tspec(i, d)
         s = length(died) >= 3 ? @sprintf("%d", round(Int, median(r.T for r in died))) : "survive"
-        @sprintf("%s (%d/6) [%s]", s, length(rs) - length(died), ismissing(tp) ? "survives" : string(tp))
+        @sprintf("%s (%d/6) [%s; %s]", s, length(rs) - length(died), ismissing(tp) ? "survives" : string(tp),
+                 ismissing(ts) ? "survives" : string(ts))
     end
     @printf("| %.3f | %s |\n", d, join(cells, " | "))
 end
@@ -143,17 +149,19 @@ end
 
 | rate | fixed (QTSim) | R = 5 | R = 2 | R = 1.5 |
 |:---|---:|---:|---:|---:|
-| 0.005 | survive (6/6) \[survives\] | survive (6/6) \[survives\] | survive (6/6) \[survives\] | survive (6/6) \[survives\] |
-| 0.010 | survive (6/6) \[survives\] | survive (6/6) \[survives\] | survive (4/6) \[survives\] | 1266 (0/6) \[survives\] |
-| 0.020 | 1519 (0/6) \[survives\] | 867 (0/6) \[1576\] | 548 (0/6) \[727\] | 427 (0/6) \[465\] |
-| 0.030 | 846 (0/6) \[1267\] | 522 (0/6) \[663\] | 326 (0/6) \[357\] | 224 (0/6) \[256\] |
-| 0.050 | 450 (0/6) \[563\] | 250 (0/6) \[289\] | 171 (0/6) \[179\] | 138 (0/6) \[140\] |
-| 0.100 | 203 (0/6) \[227\] | 116 (0/6) \[120\] | 84 (0/6) \[83\] | 68 (0/6) \[70\] |
-| 0.200 | 96 (0/6) \[101\] | 57 (0/6) \[57\] | 43 (0/6) \[43\] | 37 (0/6) \[37\] |
+| 0.005 | survive (6/6) \[survives; survives\] | survive (6/6) \[survives; survives\] | survive (6/6) \[survives; survives\] | survive (6/6) \[survives; survives\] |
+| 0.010 | survive (6/6) \[survives; survives\] | survive (6/6) \[survives; survives\] | survive (4/6) \[survives; survives\] | 1266 (0/6) \[survives; 1532\] |
+| 0.020 | 1519 (0/6) \[survives; 1492\] | 867 (0/6) \[1576; 929\] | 548 (0/6) \[727; 618\] | 427 (0/6) \[465; 453\] |
+| 0.030 | 846 (0/6) \[1267; 861\] | 522 (0/6) \[663; 521\] | 326 (0/6) \[357; 345\] | 224 (0/6) \[256; 257\] |
+| 0.050 | 450 (0/6) \[563; 464\] | 250 (0/6) \[289; 270\] | 171 (0/6) \[179; 179\] | 138 (0/6) \[140; 141\] |
+| 0.100 | 203 (0/6) \[227; 211\] | 116 (0/6) \[120; 119\] | 84 (0/6) \[83; 84\] | 68 (0/6) \[70; 70\] |
+| 0.200 | 96 (0/6) \[101; 98\] | 57 (0/6) \[57; 57\] | 43 (0/6) \[43; 43\] | 37 (0/6) \[37; 37\] |
 
 Each cell is the median time to extinction after the move, the number of
 the six populations alive 2000 generations after it (in parentheses),
-and the moments lowering’s prediction \[in brackets\].
+and two predictions of the moments lowering \[in brackets\]: the
+rare-alleles closure with drift (the default model, `erosion = true`),
+then the allele-frequency spectrum (`loci = :spectrum`, below).
 
 ``` julia
 fig = Figure(size = (720, 430))
@@ -168,7 +176,9 @@ for (i, (name, _)) in enumerate(demog)
     end
     scatter!(ax, ds, Ts, color = colors[i], label = name)
     pd = [d for d in rates if !ismissing(Tpred(i, d))]
-    lines!(ax, pd, [Tpred(i, d) for d in pd], color = colors[i])
+    lines!(ax, pd, [Tpred(i, d) for d in pd], color = colors[i], linestyle = :dash)
+    ps = [d for d in rates if !ismissing(Tspec(i, d))]
+    lines!(ax, ps, [Tspec(i, d) for d in ps], color = colors[i])
 end
 axislegend(ax, position = :rt)
 fig
@@ -182,8 +192,9 @@ width="720" height="430" />
 
 Figure 1: Time to extinction after the optimum starts moving, against
 the rate of change (medians of six populations; populations alive after
-2000 generations are not shown). Lines: the prediction of the moments
-lowering with drift.
+2000 generations are not shown). Dashed lines: the prediction of the
+rare-alleles closure with drift; solid lines: the allele-frequency
+spectrum.
 
 </div>
 
@@ -211,7 +222,11 @@ too long: at a fixed size it predicts 1267 generations at 0.03, against
 846 simulated, and survival at 0.02, which none of the six managed; with
 $R = 1.5$ it predicts survival at 0.01, where all six died. The section
 on demographic noise and drift below shows that the error lies in the
-genetic variance, not in the population size.
+genetic variance, not in the population size, and introduces the second
+prediction, the allele-frequency spectrum, which follows how the
+variance changes under the move: it predicts 861 generations at 0.03 at
+a fixed size, death at 0.02 (1492 against 1519 simulated), and with
+$R = 1.5$ death at 0.01 (1532 against 1266).
 
 ## A population in decline
 
@@ -318,11 +333,12 @@ size(runs, 1)
     400
 
 For each demography and rate the table gives the simulated outcome and
-four predictions: the deterministic one of the moments lowering, the
-same trajectory with demographic noise, the trajectory with drift (and
-demographic noise), and the last started at the move from the genetic
+six predictions: the deterministic one of the moments lowering, the same
+trajectory with demographic noise, the trajectory with drift (and
+demographic noise), the same started at the move from the genetic
 variance the simulated populations had then, rather than the theory’s
-own.
+own, and the last two the same for the allele-frequency spectrum
+(`loci = :spectrum`, with demographic noise; introduced below).
 
 ``` julia
 gT(m) = m.extinct ? m.extinct_gen - 5000 : missing
@@ -334,51 +350,53 @@ preds = Vector{Any}(undef, length(cells))
 Threads.@threads :greedy for k in eachindex(cells)
     i, d = cells[k]
     p = Params(base; demog[i][2]..., MoveFitnessSD = d)
-    m, me = run_moments(p), run_moments(p; erosion = true)
+    m, me, ms = run_moments(p), run_moments(p; erosion = true), run_moments(p; loci = :spectrum)
     q = Params(p; MoveFitnessSDGen = 0, NoGenerations = 2000)       # from the move on
     vg = mean(runs[runs[:, 1] .== i, 3])
     mc = run_moments(q; VG = vg, erosion = true)
+    msc = run_moments(q; VG = vg, loci = :spectrum)
     preds[k] = (; det = gT(m), noise = extinction_distribution(p, m; from = 5000),
                 drift = extinction_distribution(p, me; from = 5000),
-                calib = extinction_distribution(q, mc), vg)
+                calib = extinction_distribution(q, mc), spec = extinction_distribution(p, ms; from = 5000),
+                speccalib = extinction_distribution(q, msc), vg)
 end
 theory = Dict(zip(cells, preds))
 simT(i, j) = [t < 0 ? missing : t for t in runs[runs[:, 1] .== i, 3+j]]
 fmtT(x) = isinf(x) ? ">2000" : string(round(Int, x))
-println("| demography | rate | alive (of 100) | simulated median (IQR) | deterministic | + demographic noise | + drift | + drift, simulated V_G |")
-println("|:--|--:|--:|--:|--:|--:|--:|--:|")
+println("| demography | rate | alive (of 100) | simulated median (IQR) | deterministic | + demographic noise | + drift | + drift, simulated V_G | allele spectrum | spectrum, simulated V_G |")
+println("|:--|--:|--:|--:|--:|--:|--:|--:|--:|--:|")
 for (i, (name, _)) in enumerate(demog), (j, d) in enumerate(slow)
     T = simT(i, j); th = theory[(i, d)]
     srt = sort([ismissing(t) ? Inf : float(t) for t in T])     # survivors outlive everything
     q = [srt[ceil(Int, f * length(srt))] for f in (0.25, 0.5, 0.75)]
     s = isinf(q[2]) ? "survive" : @sprintf("%s (%s–%s)", fmtT(q[2]), fmtT(q[1]), fmtT(q[3]))
-    @printf("| %s | %.3f | %d | %s | %s | %s | %s | %s |\n", name, d, count(ismissing, T), s,
-            cell(th.det), dcell(th.noise, 5000), dcell(th.drift, 5000), dcell(th.calib, 0))
+    @printf("| %s | %.3f | %d | %s | %s | %s | %s | %s | %s | %s |\n", name, d, count(ismissing, T), s,
+            cell(th.det), dcell(th.noise, 5000), dcell(th.drift, 5000), dcell(th.calib, 0), dcell(th.spec, 5000), dcell(th.speccalib, 0))
 end
 ```
 
-| demography | rate | alive (of 100) | simulated median (IQR) | deterministic | \+ demographic noise | \+ drift | \+ drift, simulated V_G |
-|:---|---:|---:|---:|---:|---:|---:|---:|
-| fixed (QTSim) | 0.005 | 100 | survive | survives | survives | survives | survives |
-| fixed (QTSim) | 0.010 | 100 | survive | survives | survives | survives | survives |
-| fixed (QTSim) | 0.015 | 100 | survive | survives | survives | survives | survives |
-| fixed (QTSim) | 0.020 | 0 | 1492 (1425–1568) | survives | survives | survives | survives |
-| fixed (QTSim) | 0.030 | 0 | 830 (806–863) | survives | survives | 1226 | 1171 |
-| R = 5 | 0.005 | 100 | survive | survives | survives | survives | survives |
-| R = 5 | 0.010 | 100 | survive | survives | survives | survives | survives |
-| R = 5 | 0.015 | 2 | 1498 (1370–1636) | survives | survives | survives | survives |
-| R = 5 | 0.020 | 0 | 913 (850–983) | survives | survives | 1565 | 1473 |
-| R = 5 | 0.030 | 0 | 500 (478–525) | survives | survives | 655 | 627 |
-| R = 2 | 0.005 | 100 | survive | survives | survives | survives | survives |
-| R = 2 | 0.010 | 56 | survive | survives | survives | survives | survives |
-| R = 2 | 0.015 | 0 | 876 (806–931) | survives | survives | 1389 | 1265 |
-| R = 2 | 0.020 | 0 | 549 (521–593) | survives | survives | 715 | 665 |
-| R = 2 | 0.030 | 0 | 323 (308–337) | survives | survives | 349 | 335 |
-| R = 1.5 | 0.005 | 100 | survive | survives | survives | survives | survives |
-| R = 1.5 | 0.010 | 0 | 1264 (1148–1423) | survives | survives | survives | 91% survive |
-| R = 1.5 | 0.015 | 0 | 633 (585–709) | survives | survives | 777 | 726 |
-| R = 1.5 | 0.020 | 0 | 399 (368–434) | survives | survives | 452 | 432 |
-| R = 1.5 | 0.030 | 0 | 240 (229–254) | survives | survives | 249 | 243 |
+| demography | rate | alive (of 100) | simulated median (IQR) | deterministic | \+ demographic noise | \+ drift | \+ drift, simulated V_G | allele spectrum | spectrum, simulated V_G |
+|:---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| fixed (QTSim) | 0.005 | 100 | survive | survives | survives | survives | survives | survives | survives |
+| fixed (QTSim) | 0.010 | 100 | survive | survives | survives | survives | survives | survives | survives |
+| fixed (QTSim) | 0.015 | 100 | survive | survives | survives | survives | survives | survives | survives |
+| fixed (QTSim) | 0.020 | 0 | 1492 (1425–1568) | survives | survives | survives | survives | 1424 | 1396 |
+| fixed (QTSim) | 0.030 | 0 | 830 (806–863) | survives | survives | 1226 | 1171 | 820 | 805 |
+| R = 5 | 0.005 | 100 | survive | survives | survives | survives | survives | survives | survives |
+| R = 5 | 0.010 | 100 | survive | survives | survives | survives | survives | survives | survives |
+| R = 5 | 0.015 | 2 | 1498 (1370–1636) | survives | survives | survives | survives | 1501 | 1462 |
+| R = 5 | 0.020 | 0 | 913 (850–983) | survives | survives | 1565 | 1473 | 919 | 896 |
+| R = 5 | 0.030 | 0 | 500 (478–525) | survives | survives | 655 | 627 | 515 | 503 |
+| R = 2 | 0.005 | 100 | survive | survives | survives | survives | survives | survives | survives |
+| R = 2 | 0.010 | 56 | survive | survives | survives | survives | survives | survives | survives |
+| R = 2 | 0.015 | 0 | 876 (806–931) | survives | survives | 1389 | 1265 | 971 | 927 |
+| R = 2 | 0.020 | 0 | 549 (521–593) | survives | survives | 715 | 665 | 608 | 582 |
+| R = 2 | 0.030 | 0 | 323 (308–337) | survives | survives | 349 | 335 | 338 | 326 |
+| R = 1.5 | 0.005 | 100 | survive | survives | survives | survives | survives | survives | survives |
+| R = 1.5 | 0.010 | 0 | 1264 (1148–1423) | survives | survives | survives | 91% survive | 1508 | 1436 |
+| R = 1.5 | 0.015 | 0 | 633 (585–709) | survives | survives | 777 | 726 | 697 | 665 |
+| R = 1.5 | 0.020 | 0 | 399 (368–434) | survives | survives | 452 | 432 | 441 | 423 |
+| R = 1.5 | 0.030 | 0 | 240 (229–254) | survives | survives | 249 | 243 | 250 | 243 |
 
 Times are generations after the move: the simulated median and
 interquartile range (when at least half the populations died within 2000
@@ -386,22 +404,23 @@ generations; the survivors count as the longest-lived), and the
 predicted median time to extinction.
 
 ``` julia
-println("| demography | V_G before the move, simulated | rare alleles (moments lowering) | with drift | multilocus Gaussian | with drift |")
-println("|:--|--:|--:|--:|--:|--:|")
+println("| demography | V_G before the move, simulated | rare alleles (moments lowering) | with drift | multilocus Gaussian | with drift | allele spectrum |")
+println("|:--|--:|--:|--:|--:|--:|--:|")
 for (i, (name, kw)) in enumerate(demog)
     p = Params(base; kw..., MoveFitnessSD = 0.01)
-    @printf("| %s | %.4f | %.4f | %.4f | %.4f | %.4f |\n", name, theory[(i, 0.01)].vg,
+    @printf("| %s | %.4f | %.4f | %.4f | %.4f | %.4f | %.4f |\n", name, theory[(i, 0.01)].vg,
             run_moments(p).geno_var[5000], run_moments(p; erosion = true).geno_var[5000],
-            run_moments(p; loci = :multilocus).geno_var[5000], run_moments(p; erosion = true, loci = :multilocus).geno_var[5000])
+            run_moments(p; loci = :multilocus).geno_var[5000], run_moments(p; erosion = true, loci = :multilocus).geno_var[5000],
+            run_moments(p; loci = :spectrum).geno_var[5000])
 end
 ```
 
-| demography | V_G before the move, simulated | rare alleles (moments lowering) | with drift | multilocus Gaussian | with drift |
-|:---|---:|---:|---:|---:|---:|
-| fixed (QTSim) | 0.0917 | 0.2274 | 0.0953 | 0.2550 | 0.1032 |
-| R = 5 | 0.0924 | 0.2274 | 0.0952 | 0.2550 | 0.1031 |
-| R = 2 | 0.0900 | 0.2274 | 0.0950 | 0.2550 | 0.1028 |
-| R = 1.5 | 0.0905 | 0.2274 | 0.0947 | 0.2550 | 0.1025 |
+| demography | V_G before the move, simulated | rare alleles (moments lowering) | with drift | multilocus Gaussian | with drift | allele spectrum |
+|:---|---:|---:|---:|---:|---:|---:|
+| fixed (QTSim) | 0.0917 | 0.2274 | 0.0953 | 0.2550 | 0.1032 | 0.0983 |
+| R = 5 | 0.0924 | 0.2274 | 0.0952 | 0.2550 | 0.1031 | 0.0983 |
+| R = 2 | 0.0900 | 0.2274 | 0.0950 | 0.2550 | 0.1028 | 0.0980 |
+| R = 1.5 | 0.0905 | 0.2274 | 0.0947 | 0.2550 | 0.1025 | 0.0977 |
 
 ``` julia
 fig = Figure(size = (760, 560))
@@ -416,6 +435,7 @@ for (k, (i, d)) in enumerate(cases)
     lines!(ax, th.noise.gen .- 5000, th.noise.pext, color = :steelblue, label = "demographic noise")
     lines!(ax, th.drift.gen .- 5000, th.drift.pext, color = :darkorange, label = "+ drift")
     lines!(ax, th.calib.gen, th.calib.pext, color = :crimson, label = "+ drift, simulated V_G")
+    lines!(ax, th.spec.gen .- 5000, th.spec.pext, color = :seagreen, linewidth = 2.5, label = "allele spectrum")
     k == 2 && axislegend(ax, position = :rb, labelsize = 11)
     ismissing(th.det) || vlines!(ax, th.det, color = :steelblue, linestyle = :dash)
 end
@@ -432,9 +452,9 @@ Figure 3: The distribution of the time to extinction at one slow rate
 for each demography: the fraction of the 100 simulated populations
 extinct by each generation after the move (black), and the predicted
 probability of extinction with demographic noise along the deterministic
-trajectory (blue), with drift (orange), and with drift from the
-simulated genetic variance at the move (red). Dashed: the deterministic
-prediction.
+trajectory (blue), with drift (orange), with drift from the simulated
+genetic variance at the move (red), and along the trajectory of the
+allele-frequency spectrum (green). Dashed: the deterministic prediction.
 
 </div>
 
@@ -484,7 +504,8 @@ for (ci, c) in enumerate(vgcases)
     @printf("| %s, %.3f | simulated | %s |\n", demog[c[1]][1], c[2],
             join((@sprintf("%.4f (%d)", mean(x), length(x)) for x in v), " | "))
     p = Params(base; demog[c[1]][2]..., MoveFitnessSD = c[2])
-    for (label, m) in (("moments", run_moments(p)), ("with drift", run_moments(p; erosion = true)))
+    for (label, m) in (("moments", run_moments(p)), ("with drift", run_moments(p; erosion = true)),
+                       ("allele spectrum", run_moments(p; loci = :spectrum)))
         vals = [(j = findfirst(==(t), m.gen); j === nothing ? "extinct" : @sprintf("%.4f", m.geno_var[j]))
                 for t in (4999, 5500, 6000)]
         @printf("| | %s | %s |\n", label, join(vals, " | "))
@@ -497,34 +518,80 @@ end
 | fixed (QTSim), 0.020 | simulated | 0.0916 (12) | 0.0713 (12) | 0.0299 (12) |
 |  | moments | 0.2274 | 0.2430 | 0.2575 |
 |  | with drift | 0.0953 | 0.0916 | 0.0808 |
+|  | allele spectrum | 0.0983 | 0.0756 | 0.0185 |
 | R = 1.5, 0.010 | simulated | 0.0924 (12) | 0.0779 (12) | 0.0508 (11) |
 |  | moments | 0.2274 | 0.2430 | 0.2575 |
 |  | with drift | 0.0947 | 0.0920 | 0.0826 |
+|  | allele spectrum | 0.0977 | 0.0961 | 0.0670 |
 
 The simulated values are means over 12 populations, of the genetic
 variance averaged over the preceding 20 generations; in parentheses, the
 number still alive. The simulated variance falls by a half to two thirds
 within 1000 generations of the move; the moments with drift lose about
-15%.
+15%, and the allele-frequency spectrum (below) about a third at
+$R = 1.5$ and four fifths at a fixed size.
 
-With drift the theory predicts deaths at 0.03 with every demography, at
-0.02 under density regulation and at 0.015 with $R = 2$ and 1.5, but
-late, more so the slower the rate and the higher the growth rate: at a
-fixed size 1226 generations at 0.03 against 830 simulated, with $R = 5$
-1565 at 0.02 against 913, with $R = 1.5$ 249 at 0.03 against 240 (the
-multilocus Gaussian model, 1348, 1840 and 258). Starting the recursion
-with drift from the simulated variance at the move is a little better
-(1171, 1473 and 243 generations), since that variance is a little lower
-than the theory’s, but it is still late, and it too predicts survival at
-0.02 at a fixed size and at 0.015 with $R = 5$, and 91% survival at 0.01
-with $R = 1.5$, where the simulated populations died. No version
-reproduces the survival of about half the populations with $R = 2$ at
-0.01. The remaining error lies in how the genetic variance, carried by a
-few alleles of large effect, changes under directional selection, which
-neither the Gaussian model nor its rare-alleles closure, with or without
-drift, describes. At the fast rates, where the outcome is decided within
+With drift the haplotype moments predict deaths at 0.03 with every
+demography, at 0.02 under density regulation and at 0.015 with $R = 2$
+and 1.5, but late, more so the slower the rate and the higher the growth
+rate: at a fixed size 1226 generations at 0.03 against 830 simulated,
+with $R = 5$ 1565 at 0.02 against 913, with $R = 1.5$ 249 at 0.03
+against 240 (the multilocus Gaussian model, 1348, 1840 and 258).
+Starting the recursion with drift from the simulated variance at the
+move is a little better (1171, 1473 and 243 generations), since that
+variance is a little lower than the theory’s, but it is still late, and
+it too predicts survival at 0.02 at a fixed size and at 0.015 with
+$R = 5$, and 91% survival at 0.01 with $R = 1.5$, where the simulated
+populations died. At the fast rates, where the outcome is decided within
 a few hundred generations by the lag, the variance has little time to
 change and the prediction with drift holds.
+
+## The genetic variance under the move: an allele-frequency spectrum
+
+What the haplotype moments miss is how the variance itself changes once
+the optimum moves. Here a mutation’s effect is small against the width
+of selection ($a^2/2V_s \approx 10^{-4}$), so before the move the
+variance is nearly neutral, about $2N_eV_m$, held by alleles drifting at
+every frequency. Behind a moving optimum each allele of effect $a$ is
+under directional selection of coefficient $a\lambda/S$ (Kopp and
+Hermisson 2009), and with $4N_e a\lambda/S$ of 20 or more the alleles
+that carry the variance are swept to fixation or purged in a few hundred
+generations, not lost by drift over $2N_e$. The variance that sweeps
+keep up is again about $2N_eV_m$ (Hill 1982), but $N_e$ is now the
+number of survivors, which falls as the lag grows; and with QTSim’s
+single crossover per gamete the selected loci are linked, which lowers
+$N_e$ further (Robertson 1961; Barton 1995). A falling variance raises
+the lag, which lowers $N_e$, which lowers the variance: the collapse in
+the table above.
+
+`run_moments(p; loci = :spectrum)` follows the expected spectrum of
+segregating mutations by effect and frequency (Sawyer and Hartl’s
+Poisson random field) through the same life cycle: each allele’s
+frequency moves by
+$E[\Delta p] = pq\,[a\lambda/S - (1-\lambda^2/S)(a^2+2c)(1-2p)/2S]$
+(Hayward and Sella 2022, with the rare-alleles closure’s Gaussian term
+$2c$), drifts among the expected parents with
+$N/N_e = 1 + b^2V_G\sum_c \omega_c/2(\rho_c+\delta)^2$ for linked
+selection of gradient $b = \lambda/S$ over the crossover’s pairs of
+loci, and new mutations enter at frequency $1/2N$; nothing is fitted to
+the simulations (src/spectrum.jl). Before the move it holds 0.098, 6–9%
+more than the simulations; after it, its variance falls with the
+simulated one (at a fixed size and 0.02, 0.076 and 0.019 at 500 and 1000
+generations, against 0.071 and 0.030), and its times to extinction, with
+demographic noise, follow the simulations at every slow rate: at a fixed
+size 1424 at 0.02 (simulated 1492) and 820 at 0.03 (830), with $R = 5$
+1501 at 0.015 (1498) and 919 at 0.02 (913), with $R = 2$ 971 at 0.015
+(876), and with $R = 1.5$ 1508 at 0.01 (1264) and 697 at 0.015 (633). It
+classifies survival right in every cell where nearly all or nearly none
+of the 100 populations survived, and it is late by at most a fifth, at
+the lowest growth rates. As a deterministic trajectory it cannot give
+the 56 of 100 survivors with $R = 2$ at 0.01 (it predicts survival).
+`validate/vg_move.jl` compares it with the kernel over these and other
+regimes and rates: it also predicts the rise of the variance under a
+slow move when rare alleles of large effect sweep (the house of cards),
+but over-predicts that rise at intermediate rates, and it misses a
+collapse of the variance in the Gaussian regime (many mutations per
+locus), which neither model captures.
 
 ## Summary
 
@@ -546,11 +613,14 @@ multilocus Gaussian model, 12%); without drift an infinite population
 would hold several times that variance. At slow rates its error is
 genetic, not demographic: adding the chance in survival and reproduction
 along its trajectory (`extinction_distribution`) leaves the spread among
-populations unexplained, and the theory’s variance does not collapse
-after the move as the simulated variance does, so its populations live
-too long. Predicting extinction at slow rates needs a theory of the
-genetic variance under directional selection with few segregating
-alleles.
+populations unexplained, and its variance does not collapse after the
+move as the simulated variance does, so its populations live too long.
+The allele-frequency spectrum (`loci = :spectrum`), in which sweeps turn
+the variance over in a few hundred generations while the survivors, and
+with them $N_e$, fall and linked selection lowers $N_e$ further,
+reproduces that collapse and predicts the time to extinction at slow
+rates too, within a fifth of the simulations and mostly much closer, for
+every demography.
 
 The density-regulated model is QTLSim’s, not QTSim’s, so QTSim cannot
 check it, but SLiM can: the model `slim_script` generates from the same
