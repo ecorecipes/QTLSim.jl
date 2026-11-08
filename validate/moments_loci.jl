@@ -73,14 +73,17 @@
 # the equilibrium LD of a pair is proportional to 1/ρ, so the mean ρ underestimates it
 # (Jensen). The model now resolves LD by class of pairs (`QTLSim.pair_classes`, each with
 # its own exact ρ from the crossover model; no fitted constant). The criteria, seeds and
-# tolerances are unchanged; this log is the second run.
+# tolerances are unchanged; this log is the second run. An independent confirmation with
+# fresh seeds (`SEED_OFFSET=7000000`, `moments_loci_seed7000000.log`, 2026-11-07) passed every
+# criterion too (40 of 40).
 
 using QTLSim, Statistics, Printf, Random
 import Catlab
 
 const SMOKE = get(ENV, "SMOKE", "") == "1"     # a check of the code paths: short runs, no log
 R = length(ARGS) >= 1 ? parse(Int, ARGS[1]) : 12
-logpath = SMOKE ? tempname() : joinpath(@__DIR__, "moments_loci.log")
+const SEED_OFFSET = parse(Int, get(ENV, "SEED_OFFSET", "0"))   # nonzero: an independent confirmation run with fresh seeds
+logpath = SMOKE ? tempname() : joinpath(@__DIR__, SEED_OFFSET == 0 ? "moments_loci.log" : "moments_loci_seed$(SEED_OFFSET).log")
 io = open(logpath, "w")
 say(s...) = (println(stdout, s...); println(io, s...); flush(io))
 se(x) = std(x) / sqrt(length(x))
@@ -115,7 +118,7 @@ end
 function replicates(p, R, seed0; kw...)
     out = Vector{Any}(undef, R)
     Threads.@threads :greedy for r in 1:R
-        out[r] = kernel_run(p, seed0 + r; kw...)
+        out[r] = kernel_run(p, SEED_OFFSET + seed0 + r; kw...)
     end
     out
 end
