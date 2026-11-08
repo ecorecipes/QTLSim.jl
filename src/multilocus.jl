@@ -158,14 +158,15 @@ end
 hap_genic(st, N::Real, ploidy::Integer) = hap_vpop(([st[1][1]], [st[2][1]], [st[3][1]]), N, ploidy)
 
 """
-    QTLSim.hap_select(st, sinv, N, ω, ploidy) -> (st′, B)
+    QTLSim.hap_select(st, sinv, N, ω, ploidy; α2 = 0) -> (st′, B)
 
 Gaussian selection of covariance `s` (`sinv` = s⁻¹) on the haplotype moments `st` of a
 population of `N` adults, with pair-class weights `ω` ([`pair_classes`](@ref)); `B = V_G s⁻¹`
 is the factor by which the deviation of the mean shrinks, for the moments with other
-populations. See src/multilocus.jl.
+populations. See src/multilocus.jl. With `α2 = α²` > 0 (one trait), the rare-alleles
+closure of src/rare_alleles.jl: the genic part also loses `α²/(2s)` of itself.
 """
-function hap_select(st, sinv, N::Real, ω::AbstractVector, ploidy::Integer)
+function hap_select(st, sinv, N::Real, ω::AbstractVector, ploidy::Integer; α2::Real = 0.0)
     T, R, Q = st
     Tf, Rf, Qf = sum(T), sum(R), sum(Q)
     C = hap_cmean(Tf, Rf, Qf, N, ploidy)
@@ -178,6 +179,15 @@ function hap_select(st, sinv, N::Real, ω::AbstractVector, ploidy::Integer)
         Ck = hap_cmean(T[k], R[k], Q[k], N, ploidy)
         Cn = Ck - ω[k] * ΔC
         σ2 = T[k] - Ck - ω[k] * D
+        # rare alleles (α2 = α², `loci = :rare_alleles`): a locus's alleles have fourth
+        # cumulant α² times their variance, so the genic part also loses β²α²/(2s) of the
+        # within-population genic variance, β = H/H_genic the regression of the genotype
+        # on a locus's alleles (LD shrinks a mutant's effective effect; src/rare_alleles.jl)
+        if k == 1 && α2 > 0
+            Hg = ploidy == 2 ? T[k] + R[k] - 2Ck : T[k] - Ck      # the genic part of H
+            β2 = Hg > 0 ? (H / Hg)^2 : 1.0
+            σ2 -= min(β2 * α2 * sinv / 2, 1.0) * (T[k] - Ck)
+        end
         if ploidy == 2
             r = R[k] - Ck - ω[k] * D
             Tn[k], Rn[k], Qn[k] = Cn + σ2, Cn + r, Cn - (σ2 + r) / (2N - 2)
@@ -250,7 +260,7 @@ gaussian_vg_loci(p::Params; drift::Bool = false) =
 gaussian_vg_closed(Vm, Vs) = (Vm + sqrt(Vm^2 + 4Vm * Vs)) / 2
 
 """
-    multilocus_equilibrium(p; drift = false, tol = 1e-14, maxiter = 10^7)
+    multilocus_equilibrium(p; drift = false, loci = :multilocus, tol = 1e-14, maxiter = 10^7)
 
 The equilibrium of the multilocus Gaussian recursion of the moments lowering, found by
 iterating one generation (selection, reproduction, mutation; see src/multilocus.jl) from
@@ -261,11 +271,14 @@ and `n` parents, `N W̄` survivors (`N W̄²/E[W²]` under fecundity selection).
 traits the variances are matrices. Returns `(; VG, genic, ld, N, nparents, Wbar)`: `VG`
 the within-population genetic variance (the expected sample variance, divisor `N − 1`,
 with drift), `genic` its genic part and `ld = VG − genic` the contribution of linkage
-disequilibrium.
+disequilibrium. With `loci = :rare_alleles` (one trait), the recursion of
+`run_moments(p; loci = :rare_alleles)`, with the rare-alleles closure of
+src/rare_alleles.jl ([`rare_alleles_vg`](@ref)).
 """
-function multilocus_equilibrium(p::Params; drift::Bool = false, tol::Real = 1e-14, maxiter::Integer = 10^7)
+function multilocus_equilibrium(p::Params; drift::Bool = false, loci::Symbol = :multilocus, tol::Real = 1e-14, maxiter::Integer = 10^7)
     p.Drift && throw(ArgumentError("no equilibrium without selection (Drift = true)"))
     nt, L, h = p.NoTraits, p.NoQTL, p.Ploidy
+    α2 = rare_alleles_effect(p, loci)
     ω, ρ = pair_classes(p)
     VE = envVar(p)
     if nt == 1
@@ -296,7 +309,7 @@ function multilocus_equilibrium(p::Params; drift::Bool = false, tol::Real = 1e-1
             Wbar = c * sqrt(det(Ω) / det(s))
             W2 = c^2 * sqrt(det(Ω) / det(Ω + 2P))
         end
-        st, _ = hap_select(st, sinv, Nd, ω, h)
+        st, _ = hap_select(st, sinv, Nd, ω, h; α2)
         npar = p.Selection === :fecundity ? N * Wbar^2 / W2 : N * Wbar
         n = drift ? max(npar, 1.0) : Inf
         st = hap_reproduce(st, n, ρ, h)
