@@ -97,8 +97,8 @@ weak-selection cells across the Gaussian, house-of-cards and drift regimes
 `house_of_gauss_vg` is its closed form for loci in linkage equilibrium. For several traits
 (src/rare_alleles_traits.jl) the equilibrium is `rare_alleles_G`, the linkage-equilibrium
 form `house_of_gauss_G` and the multivariate house of cards `house_of_cards_G`. The default,
-`loci = :auto`, is the rare-alleles closure for one diploid trait and the multilocus model
-for several traits and for haploids (`QTLSim.moments_loci`); `multilocus_equilibrium`
+`loci = :auto`, is the rare-alleles closure for one trait (diploid, or haploid clones) and
+the multilocus model for several traits (`QTLSim.moments_loci`); `multilocus_equilibrium`
 takes the same default.
 
 ```@docs

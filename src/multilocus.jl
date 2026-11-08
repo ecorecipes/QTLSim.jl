@@ -241,8 +241,8 @@ end
 
 The equilibrium genetic variance of the multilocus Gaussian model, the fixed point that
 the moments lowering converges to with `loci = :multilocus` (`run_moments(p; loci =
-:multilocus)`; the default for several traits and for haploids,
-[`QTLSim.moments_loci`](@ref)). For one diploid trait the default is the rare-alleles
+:multilocus)`; the default for several traits,
+[`QTLSim.moments_loci`](@ref)). For one trait the default is the rare-alleles
 closure, whose fixed point is [`rare_alleles_vg`](@ref). Without drift, the
 positive root of `V²/(V_s + V) = n·V_m`,
 

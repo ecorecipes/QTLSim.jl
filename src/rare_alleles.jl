@@ -88,7 +88,10 @@ end
 The model of the loci that the moments lowering ([`run_moments`](@ref)) and
 [`multilocus_equilibrium`](@ref) use when asked for `loci`: any value but `:auto` is
 returned as it is, and `:auto`, the default, resolves to
-- `:rare_alleles`, the rare-alleles closure (src/rare_alleles.jl), for one diploid trait:
+- `:rare_alleles`, the rare-alleles closure (src/rare_alleles.jl), for one trait, diploid or
+  haploid (clones; src/rare_alleles_traits.jl, within 4% of the kernel in all 8 haploid
+  cells of `validate/rare_alleles_traits.jl` on two seed sets, up to 3000× closer than the
+  Gaussian). Diploid:
   within 15% of the kernel in 46 of 47 weak-selection cells of
   `validate/moments_regimes.jl`, never farther from it than the multilocus Gaussian, and
   up to 10× closer in the house-of-cards and drift regimes, to which it reduces to the
@@ -97,9 +100,7 @@ returned as it is, and `:auto`, the default, resolves to
   - `NoTraits > 1`: the closure for several traits (src/rare_alleles_traits.jl) is far
     better than the multilocus Gaussian for one population in the house-of-cards regime,
     but gives under half the kernel's within-deme G for demes with local optima there
-    (`validate/rare_alleles_traits.jl`, scenario D1);
-  - `Ploidy = 1`: the closure for clones passes every criterion of
-    `validate/rare_alleles_traits.jl`, but the default has not been switched.
+    (`validate/rare_alleles_traits.jl`, scenario D1).
 `run_moments` also resolves `:auto` to `:multilocus` when the `mutate` steps of the life
 cycle carry different `MutationScalar` or `MutationRatePerGamete`, as no one `α²` then
 describes the mutations; when they all carry the same, `α²` is theirs. The demes of a
@@ -108,7 +109,6 @@ metapopulation each have their own `α²`.
 function moments_loci(p::Params, loci::Symbol = :auto)
     loci === :auto || return loci
     p.NoTraits > 1 && return :multilocus
-    p.Ploidy == 1 && return :multilocus
     :rare_alleles
 end
 

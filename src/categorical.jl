@@ -210,8 +210,8 @@ variances:
 - `mutate`: adds `V_m = m·V_E`.
 
 **Which model (`loci`).** The default, `loci = :auto`, is the rare-alleles closure
-(`:rare_alleles`, below) for one diploid trait, and the multilocus Gaussian model
-(`:multilocus`) for several traits and for haploids (both closures are compared with the
+(`:rare_alleles`, below) for one trait (diploid, or haploid clones), and the multilocus
+Gaussian model (`:multilocus`) for several traits (both closures are compared with the
 kernel in `validate/rare_alleles_traits.jl`), and when the `mutate` steps of `cycle` carry different
 `MutationScalar` or `MutationRatePerGamete` (no one mutation effect variance);
 [`QTLSim.moments_loci`](@ref) gives the resolution for a `Params`. Ask for
@@ -247,7 +247,7 @@ to [`steady_lag`](@ref) with that variance. The model is good when many small mu
 hold each locus's variance; when few large ones do (the house-of-cards regime,
 [`house_of_cards_vg`](@ref)) the kernel holds less (`validate/moments_loci.jl`).
 
-**The rare-alleles closure (`loci = :rare_alleles`; the default for one diploid
+**The rare-alleles closure (`loci = :rare_alleles`; the default for one
 trait).** The multilocus model
 with the fourth cumulant of a locus's alleles set to `α²` times their variance (`α²` =
 `QTLSim.mutation_effect_variance(p)`, the variance of one mutation's effect): selection

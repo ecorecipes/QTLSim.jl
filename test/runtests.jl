@@ -524,9 +524,9 @@ end
     # model is for one haploid locus (or haploid clones of any number of loci)
     @test run_moments(p; loci = :aggregate).geno_var[end] ≈ gaussian_vg_exact(p) rtol = 1e-6
     ph = Params(p; Ploidy = 1, NoQTL = 20)
-    @test QTLSim.moments_loci(ph) === :multilocus                     # haploids default to the multilocus model
-    @test run_moments(ph).geno_var == run_moments(ph; loci = :multilocus).geno_var
-    @test run_moments(ph).geno_var ≈ run_moments(ph; loci = :aggregate).geno_var rtol = 1e-9
+    @test QTLSim.moments_loci(ph) === :rare_alleles                   # haploids default to the closure for clones
+    @test run_moments(ph).geno_var == run_moments(ph; loci = :rare_alleles).geno_var
+    @test run_moments(ph; loci = :multilocus).geno_var ≈ run_moments(ph; loci = :aggregate).geno_var rtol = 1e-9
     @test gaussian_vg_loci(ph) ≈ gaussian_vg_exact(ph)
     @test_throws ArgumentError run_moments(p; loci = :other)
     @test_throws ArgumentError run_moments(p; loci = :aggregate, between = true)
@@ -765,8 +765,8 @@ end
     @test run_moments(q; loci = :multilocus).geno_var[end] ≈ gaussian_vg_loci(p) rtol = 1e-6
     @test multilocus_equilibrium(p).VG == multilocus_equilibrium(p; loci = :rare_alleles).VG == rare_alleles_vg(p)
     @test multilocus_equilibrium(p; loci = :multilocus).VG ≈ gaussian_vg_loci(p) rtol = 1e-6
-    # how the default resolves (QTLSim.moments_loci): the multilocus model for several traits
-    # and for haploids
+    # how the default resolves (QTLSim.moments_loci): the multilocus model for several traits,
+    # the closure for one trait, haploid too
     @test QTLSim.moments_loci(p) === QTLSim.moments_loci(p, :auto) === :rare_alleles
     @test QTLSim.moments_loci(p, :aggregate) === :aggregate
     p2t = Params(p; NoTraits = 2, NoGenerations = 200)
@@ -776,10 +776,11 @@ end
     g2_ = lifecycle().generation ⊗ lifecycle().generation
     @test run_moments([p2t, p2t]; cycle = g2_).gmatrix == run_moments([p2t, p2t]; cycle = g2_, loci = :multilocus).gmatrix
     @test run_moments([p2t, p2t]; cycle = g2_, loci = :rare_alleles).gmatrix[1:2:end] ≈ run_moments(p2t; loci = :rare_alleles).gmatrix rtol = 1e-12
-    @test QTLSim.moments_loci(Params(p; Ploidy = 1)) === :multilocus
+    @test QTLSim.moments_loci(Params(p; Ploidy = 1)) === :rare_alleles
     ph = Params(p; Ploidy = 1, NoGenerations = 200)
-    @test run_moments(ph).geno_var == run_moments(ph; loci = :multilocus).geno_var
-    @test multilocus_equilibrium(ph).VG == multilocus_equilibrium(ph; loci = :multilocus).VG
+    @test run_moments(ph).geno_var == run_moments(ph; loci = :rare_alleles).geno_var
+    @test multilocus_equilibrium(ph).VG == multilocus_equilibrium(ph; loci = :rare_alleles).VG == rare_alleles_vg(ph)
+    @test QTLSim.moments_loci(Params(p; Ploidy = 1, NoTraits = 2)) === :multilocus
     @test_throws ArgumentError run_moments(q; loci = :bogus)
     @test run_moments(Params(p2t; NoGenerations = 50_000); loci = :rare_alleles).gmatrix[end] ≈ rare_alleles_G(p2t) rtol = 1e-6
     # demes: the closure acts in each deme
