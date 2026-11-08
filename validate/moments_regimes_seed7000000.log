@@ -1,0 +1,248 @@
+QTLSim validate/moments_regimes.jl: the moments lowering across regimes (Gaussian, house of cards, drift)
+Julia threads: 3; replicates per cell R = 16; SEED_OFFSET = 7000000
+V_E = 0.50, V_m = 0.0050; 30000 generations, window 10000:10:29990
+
+60 cells in 1891 s
+
+Equilibrium V_G: kernel (± SE) and kernel/prediction; x = α²/(2V_s), weak cells x ≤ 0.05
+   N   4Nμ     L   V_s      α²        x       kernel      ±SE   gauss  ratio    rare  ratio   SHC ratio   HoG ratio
+1000  0.01    10  50.5 1.00e+02 9.90e-01   0.008274  0.00019   2.014  0.004 0.005052  1.638  1.639  1.639
+1000  0.01   100  50.5 1.00e+01 9.90e-02    0.05073   0.0012   4.282  0.012  0.0506  1.003  1.010  1.010
+1000  0.01  1000  50.5 1.00e+00 9.90e-03     0.4964   0.0073   5.082  0.098  0.5225  0.950  1.033  1.033
+1000   0.1    10  50.5 1.00e+01 9.90e-02    0.04884  0.00077   2.014  0.024 0.05041  0.969  0.972  0.973
+1000   0.1   100  50.5 1.00e+00 9.90e-03     0.5104   0.0085   4.282  0.119  0.5092  1.002  1.062  1.067
+1000   0.1  1000  50.5 1.00e-01 9.90e-04       3.27    0.034   5.082  0.643    3.48  0.940  0.981  1.002
+1000     1    10  50.5 1.00e+00 9.90e-03     0.4854     0.01   2.014  0.241  0.4742  1.024  1.010  1.054
+1000     1   100  50.5 1.00e-01 9.90e-04      2.961    0.017   4.282  0.692   2.991  0.990  0.888  1.053
+1000     1  1000  50.5 1.00e-02 9.90e-05      4.822    0.021   5.082  0.949   4.904  0.983  0.591  0.660
+1000     4    10  50.5 2.50e-01 2.48e-03      1.306    0.012   2.014  0.649   1.247  1.048  0.779  1.089
+1000     4   100  50.5 2.50e-02 2.48e-04      3.849    0.017   4.282  0.899   3.923  0.981  0.584  0.907
+1000     4  1000  50.5 2.50e-03 2.48e-05      5.012    0.015   5.082  0.986   5.037  0.995  0.540  0.620
+1000    10    10  50.5 1.00e-01 9.90e-04      1.676     0.01   2.014  0.832   1.655  1.013  0.502  1.038
+1000    10   100  50.5 1.00e-02 9.90e-05      4.028    0.019   4.282  0.941   4.136  0.974  0.492  0.864
+1000    10  1000  50.5 1.00e-03 9.90e-06      5.015    0.019   5.082  0.987   5.064  0.990  0.525  0.607
+ 100  0.01    10  50.5 1.00e+01 9.90e-02    0.04652   0.0024  0.8233  0.057  0.0482  0.965  0.968  0.968
+ 100  0.01   100  50.5 1.00e+00 9.90e-03     0.3418   0.0094  0.8939  0.382  0.3383  1.010  1.019  1.021
+ 100  0.01  1000  50.5 1.00e-01 9.90e-04     0.7781   0.0079  0.8965  0.868  0.7803  0.997  0.935  0.936
+ 100   0.1    10  50.5 1.00e+00 9.90e-03     0.3411    0.012  0.8233  0.414  0.3304  1.032  1.017  1.039
+ 100   0.1   100  50.5 1.00e-01 9.90e-04     0.7821   0.0078  0.8939  0.875  0.7775  1.006  0.940  0.953
+ 100   0.1  1000  50.5 1.00e-02 9.90e-05     0.8806    0.004  0.8965  0.982  0.8836  0.997  0.902  0.903
+ 100     1    10  50.5 1.00e-01 9.90e-04     0.7234    0.012  0.8233  0.879  0.7253  0.997  0.869  0.975
+ 100     1   100  50.5 1.00e-02 9.90e-05     0.8796   0.0046  0.8939  0.984  0.8809  0.998  0.901  0.917
+ 100     1  1000  50.5 1.00e-03 9.90e-06     0.8917   0.0038  0.8965  0.995  0.8952  0.996  0.897  0.899
+ 100     4    10  50.5 2.50e-02 2.48e-04     0.8046   0.0076  0.8233  0.977  0.7968  1.010  0.848  0.979
+ 100     4   100  50.5 2.50e-03 2.48e-05     0.8883   0.0038  0.8939  0.994  0.8906  0.997  0.897  0.914
+ 100     4  1000  50.5 2.50e-04 2.48e-06     0.8932    0.004  0.8965  0.996  0.8962  0.997  0.897  0.899
+ 100    10    10  50.5 1.00e-02 9.90e-05     0.8191   0.0085  0.8233  0.995  0.8125  1.008  0.839  0.975
+ 100    10   100  50.5 1.00e-03 9.90e-06     0.8926   0.0036  0.8939  0.999  0.8926  1.000  0.898  0.915
+ 100    10  1000  50.5 1.00e-04 9.90e-07     0.9015   0.0038  0.8965  1.006  0.8964  1.006  0.906  0.907
+1000  0.01    10   5.5 1.00e+02 9.09e+00   0.005271  0.00024  0.7457  0.007 0.004987  1.057  9.584  9.584
+1000  0.01   100   5.5 1.00e+01 9.09e-01   0.008908  0.00012    1.81  0.005 0.005539  1.608  1.621  1.621
+1000  0.01  1000   5.5 1.00e+00 9.09e-02    0.05856   0.0008   2.219  0.026 0.06029  0.971  1.071  1.071
+1000   0.1    10   5.5 1.00e+01 9.09e-01   0.008705  8.1e-05  0.7457  0.012 0.00552  1.577  1.584  1.584
+1000   0.1   100   5.5 1.00e+00 9.09e-02    0.05837  0.00079    1.81  0.032 0.05879  0.993  1.067  1.068
+1000   0.1  1000   5.5 1.00e-01 9.09e-03     0.7692   0.0068   2.219  0.347   1.075  0.716  1.480  1.487
+1000     1    10   5.5 1.00e+00 9.09e-02    0.05753  0.00054  0.7457  0.077 0.05647  1.019  1.052  1.058
+1000     1   100   5.5 1.00e-01 9.09e-03     0.6946   0.0055    1.81  0.384  0.8263  0.841  1.336  1.399
+1000     1  1000   5.5 1.00e-02 9.09e-04      1.969   0.0035   2.219  0.888   2.103  0.936  0.577  0.681
+1000     4    10   5.5 2.50e-01 2.27e-02     0.2212   0.0015  0.7457  0.297  0.2249  0.983  1.028  1.108
+1000     4   100   5.5 2.50e-02 2.27e-03      1.424   0.0051    1.81  0.786   1.541  0.924  0.802  1.129
+1000     4  1000   5.5 2.50e-03 2.27e-04      2.093   0.0062   2.219  0.943    2.19  0.956  0.329  0.491
+1000    10    10   5.5 1.00e-01 9.09e-03     0.4492   0.0023  0.7457  0.602  0.4411  1.018  0.864  1.176
+1000    10   100   5.5 1.00e-02 9.09e-04      1.597   0.0052    1.81  0.882   1.702  0.938  0.465  0.952
+1000    10  1000   5.5 1.00e-03 9.09e-05      2.119   0.0044   2.219  0.955   2.207  0.960  0.275  0.455
+ 100  0.01    10   5.5 1.00e+01 9.09e-01    0.00859  0.00018  0.4764  0.018 0.005514  1.558  1.571  1.571
+ 100  0.01   100   5.5 1.00e+00 9.09e-02    0.05616   0.0015  0.5863  0.096 0.05463  1.028  1.079  1.079
+ 100  0.01  1000   5.5 1.00e-01 9.09e-03     0.3366   0.0021  0.5912  0.569  0.3658  0.920  0.961  0.963
+ 100   0.1    10   5.5 1.00e+00 9.09e-02    0.05526   0.0019  0.4764  0.116 0.05334  1.036  1.061  1.067
+ 100   0.1   100   5.5 1.00e-01 9.09e-03     0.3461   0.0024  0.5863  0.590  0.3592  0.963  0.988  1.010
+ 100   0.1  1000   5.5 1.00e-02 9.09e-04     0.5534   0.0014  0.5912  0.936  0.5638  0.982  0.680  0.688
+ 100     1    10   5.5 1.00e-01 9.09e-03     0.3122   0.0027  0.4764  0.655  0.3066  1.018  0.891  1.058
+ 100     1   100   5.5 1.00e-02 9.09e-04     0.5459   0.0021  0.5863  0.931  0.5583  0.978  0.671  0.744
+ 100     1  1000   5.5 1.00e-03 9.09e-05     0.5829   0.0011  0.5912  0.986  0.5884  0.991  0.622  0.631
+ 100     4    10   5.5 2.50e-02 2.27e-03     0.4295   0.0038  0.4764  0.902  0.4254  1.010  0.643  0.984
+ 100     4   100   5.5 2.50e-03 2.27e-04     0.5699   0.0018  0.5863  0.972  0.5792  0.984  0.623  0.707
+ 100     4  1000   5.5 2.50e-04 2.27e-05     0.5864   0.0017  0.5912  0.992  0.5905  0.993  0.618  0.627
+ 100    10    10   5.5 1.00e-02 9.09e-04      0.456   0.0022  0.4764  0.957  0.4553  1.002  0.558  0.955
+ 100    10   100   5.5 1.00e-03 9.09e-05     0.5765   0.0017  0.5863  0.983  0.5835  0.988  0.615  0.701
+ 100    10  1000   5.5 1.00e-04 9.09e-06     0.5863    0.002  0.5912  0.992  0.5909  0.992  0.616  0.626
+
+Criteria, grid
+  PASS  C0: run_moments(p; loci = :rare_alleles, erosion = true) converges to rare_alleles_vg(p; drift = true) in every cell
+  47 weak cells of 60
+  PASS  R1: N = 1000, 4Nμ = 0.01, L = 1000, V_s = 50.5: kernel 0.4964 within 15% of rare 0.5225 (ratio 0.950)
+  PASS  R1: N = 1000, 4Nμ = 0.1, L = 100, V_s = 50.5: kernel 0.5104 within 15% of rare 0.5092 (ratio 1.002)
+  PASS  R1: N = 1000, 4Nμ = 0.1, L = 1000, V_s = 50.5: kernel 3.27 within 15% of rare 3.48 (ratio 0.940)
+  PASS  R1: N = 1000, 4Nμ = 1, L = 10, V_s = 50.5: kernel 0.4854 within 15% of rare 0.4742 (ratio 1.024)
+  PASS  R1: N = 1000, 4Nμ = 1, L = 100, V_s = 50.5: kernel 2.961 within 15% of rare 2.991 (ratio 0.990)
+  PASS  R1: N = 1000, 4Nμ = 1, L = 1000, V_s = 50.5: kernel 4.822 within 15% of rare 4.904 (ratio 0.983)
+  PASS  R1: N = 1000, 4Nμ = 4, L = 10, V_s = 50.5: kernel 1.306 within 15% of rare 1.247 (ratio 1.048)
+  PASS  R1: N = 1000, 4Nμ = 4, L = 100, V_s = 50.5: kernel 3.849 within 15% of rare 3.923 (ratio 0.981)
+  PASS  R1: N = 1000, 4Nμ = 4, L = 1000, V_s = 50.5: kernel 5.012 within 15% of rare 5.037 (ratio 0.995)
+  PASS  R1: N = 1000, 4Nμ = 10, L = 10, V_s = 50.5: kernel 1.676 within 15% of rare 1.655 (ratio 1.013)
+  PASS  R1: N = 1000, 4Nμ = 10, L = 100, V_s = 50.5: kernel 4.028 within 15% of rare 4.136 (ratio 0.974)
+  PASS  R1: N = 1000, 4Nμ = 10, L = 1000, V_s = 50.5: kernel 5.015 within 15% of rare 5.064 (ratio 0.990)
+  PASS  R1: N = 100, 4Nμ = 0.01, L = 100, V_s = 50.5: kernel 0.3418 within 15% of rare 0.3383 (ratio 1.010)
+  PASS  R1: N = 100, 4Nμ = 0.01, L = 1000, V_s = 50.5: kernel 0.7781 within 15% of rare 0.7803 (ratio 0.997)
+  PASS  R1: N = 100, 4Nμ = 0.1, L = 10, V_s = 50.5: kernel 0.3411 within 15% of rare 0.3304 (ratio 1.032)
+  PASS  R1: N = 100, 4Nμ = 0.1, L = 100, V_s = 50.5: kernel 0.7821 within 15% of rare 0.7775 (ratio 1.006)
+  PASS  R1: N = 100, 4Nμ = 0.1, L = 1000, V_s = 50.5: kernel 0.8806 within 15% of rare 0.8836 (ratio 0.997)
+  PASS  R1: N = 100, 4Nμ = 1, L = 10, V_s = 50.5: kernel 0.7234 within 15% of rare 0.7253 (ratio 0.997)
+  PASS  R1: N = 100, 4Nμ = 1, L = 100, V_s = 50.5: kernel 0.8796 within 15% of rare 0.8809 (ratio 0.998)
+  PASS  R1: N = 100, 4Nμ = 1, L = 1000, V_s = 50.5: kernel 0.8917 within 15% of rare 0.8952 (ratio 0.996)
+  PASS  R1: N = 100, 4Nμ = 4, L = 10, V_s = 50.5: kernel 0.8046 within 15% of rare 0.7968 (ratio 1.010)
+  PASS  R1: N = 100, 4Nμ = 4, L = 100, V_s = 50.5: kernel 0.8883 within 15% of rare 0.8906 (ratio 0.997)
+  PASS  R1: N = 100, 4Nμ = 4, L = 1000, V_s = 50.5: kernel 0.8932 within 15% of rare 0.8962 (ratio 0.997)
+  PASS  R1: N = 100, 4Nμ = 10, L = 10, V_s = 50.5: kernel 0.8191 within 15% of rare 0.8125 (ratio 1.008)
+  PASS  R1: N = 100, 4Nμ = 10, L = 100, V_s = 50.5: kernel 0.8926 within 15% of rare 0.8926 (ratio 1.000)
+  PASS  R1: N = 100, 4Nμ = 10, L = 1000, V_s = 50.5: kernel 0.9015 within 15% of rare 0.8964 (ratio 1.006)
+  FAIL  R1: N = 1000, 4Nμ = 0.1, L = 1000, V_s = 5.5: kernel 0.7692 within 15% of rare 1.075 (ratio 0.716)
+  PASS  R1: N = 1000, 4Nμ = 1, L = 100, V_s = 5.5: kernel 0.6946 within 15% of rare 0.8263 (ratio 0.841)
+  PASS  R1: N = 1000, 4Nμ = 1, L = 1000, V_s = 5.5: kernel 1.969 within 15% of rare 2.103 (ratio 0.936)
+  PASS  R1: N = 1000, 4Nμ = 4, L = 10, V_s = 5.5: kernel 0.2212 within 15% of rare 0.2249 (ratio 0.983)
+  PASS  R1: N = 1000, 4Nμ = 4, L = 100, V_s = 5.5: kernel 1.424 within 15% of rare 1.541 (ratio 0.924)
+  PASS  R1: N = 1000, 4Nμ = 4, L = 1000, V_s = 5.5: kernel 2.093 within 15% of rare 2.19 (ratio 0.956)
+  PASS  R1: N = 1000, 4Nμ = 10, L = 10, V_s = 5.5: kernel 0.4492 within 15% of rare 0.4411 (ratio 1.018)
+  PASS  R1: N = 1000, 4Nμ = 10, L = 100, V_s = 5.5: kernel 1.597 within 15% of rare 1.702 (ratio 0.938)
+  PASS  R1: N = 1000, 4Nμ = 10, L = 1000, V_s = 5.5: kernel 2.119 within 15% of rare 2.207 (ratio 0.960)
+  PASS  R1: N = 100, 4Nμ = 0.01, L = 1000, V_s = 5.5: kernel 0.3366 within 15% of rare 0.3658 (ratio 0.920)
+  PASS  R1: N = 100, 4Nμ = 0.1, L = 100, V_s = 5.5: kernel 0.3461 within 15% of rare 0.3592 (ratio 0.963)
+  PASS  R1: N = 100, 4Nμ = 0.1, L = 1000, V_s = 5.5: kernel 0.5534 within 15% of rare 0.5638 (ratio 0.982)
+  PASS  R1: N = 100, 4Nμ = 1, L = 10, V_s = 5.5: kernel 0.3122 within 15% of rare 0.3066 (ratio 1.018)
+  PASS  R1: N = 100, 4Nμ = 1, L = 100, V_s = 5.5: kernel 0.5459 within 15% of rare 0.5583 (ratio 0.978)
+  PASS  R1: N = 100, 4Nμ = 1, L = 1000, V_s = 5.5: kernel 0.5829 within 15% of rare 0.5884 (ratio 0.991)
+  PASS  R1: N = 100, 4Nμ = 4, L = 10, V_s = 5.5: kernel 0.4295 within 15% of rare 0.4254 (ratio 1.010)
+  PASS  R1: N = 100, 4Nμ = 4, L = 100, V_s = 5.5: kernel 0.5699 within 15% of rare 0.5792 (ratio 0.984)
+  PASS  R1: N = 100, 4Nμ = 4, L = 1000, V_s = 5.5: kernel 0.5864 within 15% of rare 0.5905 (ratio 0.993)
+  PASS  R1: N = 100, 4Nμ = 10, L = 10, V_s = 5.5: kernel 0.456 within 15% of rare 0.4553 (ratio 1.002)
+  PASS  R1: N = 100, 4Nμ = 10, L = 100, V_s = 5.5: kernel 0.5765 within 15% of rare 0.5835 (ratio 0.988)
+  PASS  R1: N = 100, 4Nμ = 10, L = 1000, V_s = 5.5: kernel 0.5863 within 15% of rare 0.5909 (ratio 0.992)
+  PASS  R2: N = 1000, 4Nμ = 0.01, L = 1000, V_s = 50.5: rare not farther than gauss (ratios 0.950, 0.098)
+  PASS  R2: N = 1000, 4Nμ = 0.1, L = 100, V_s = 50.5: rare not farther than gauss (ratios 1.002, 0.119)
+  PASS  R2: N = 1000, 4Nμ = 0.1, L = 1000, V_s = 50.5: rare not farther than gauss (ratios 0.940, 0.643)
+  PASS  R2: N = 1000, 4Nμ = 1, L = 10, V_s = 50.5: rare not farther than gauss (ratios 1.024, 0.241)
+  PASS  R2: N = 1000, 4Nμ = 1, L = 100, V_s = 50.5: rare not farther than gauss (ratios 0.990, 0.692)
+  PASS  R2: N = 1000, 4Nμ = 1, L = 1000, V_s = 50.5: rare not farther than gauss (ratios 0.983, 0.949)
+  PASS  R2: N = 1000, 4Nμ = 4, L = 10, V_s = 50.5: rare not farther than gauss (ratios 1.048, 0.649)
+  PASS  R2: N = 1000, 4Nμ = 4, L = 100, V_s = 50.5: rare not farther than gauss (ratios 0.981, 0.899)
+  PASS  R2: N = 1000, 4Nμ = 4, L = 1000, V_s = 50.5: rare not farther than gauss (ratios 0.995, 0.986)
+  PASS  R2: N = 1000, 4Nμ = 10, L = 10, V_s = 50.5: rare not farther than gauss (ratios 1.013, 0.832)
+  PASS  R2: N = 1000, 4Nμ = 10, L = 100, V_s = 50.5: rare not farther than gauss (ratios 0.974, 0.941)
+  PASS  R2: N = 1000, 4Nμ = 10, L = 1000, V_s = 50.5: rare not farther than gauss (ratios 0.990, 0.987)
+  PASS  R2: N = 100, 4Nμ = 0.01, L = 100, V_s = 50.5: rare not farther than gauss (ratios 1.010, 0.382)
+  PASS  R2: N = 100, 4Nμ = 0.01, L = 1000, V_s = 50.5: rare not farther than gauss (ratios 0.997, 0.868)
+  PASS  R2: N = 100, 4Nμ = 0.1, L = 10, V_s = 50.5: rare not farther than gauss (ratios 1.032, 0.414)
+  PASS  R2: N = 100, 4Nμ = 0.1, L = 100, V_s = 50.5: rare not farther than gauss (ratios 1.006, 0.875)
+  PASS  R2: N = 100, 4Nμ = 0.1, L = 1000, V_s = 50.5: rare not farther than gauss (ratios 0.997, 0.982)
+  PASS  R2: N = 100, 4Nμ = 1, L = 10, V_s = 50.5: rare not farther than gauss (ratios 0.997, 0.879)
+  PASS  R2: N = 100, 4Nμ = 1, L = 100, V_s = 50.5: rare not farther than gauss (ratios 0.998, 0.984)
+  PASS  R2: N = 100, 4Nμ = 1, L = 1000, V_s = 50.5: rare not farther than gauss (ratios 0.996, 0.995)
+  PASS  R2: N = 100, 4Nμ = 4, L = 10, V_s = 50.5: rare not farther than gauss (ratios 1.010, 0.977)
+  PASS  R2: N = 100, 4Nμ = 4, L = 100, V_s = 50.5: rare not farther than gauss (ratios 0.997, 0.994)
+  PASS  R2: N = 100, 4Nμ = 4, L = 1000, V_s = 50.5: rare not farther than gauss (ratios 0.997, 0.996)
+  PASS  R2: N = 100, 4Nμ = 10, L = 10, V_s = 50.5: rare not farther than gauss (ratios 1.008, 0.995)
+  PASS  R2: N = 100, 4Nμ = 10, L = 100, V_s = 50.5: rare not farther than gauss (ratios 1.000, 0.999)
+  PASS  R2: N = 100, 4Nμ = 10, L = 1000, V_s = 50.5: rare not farther than gauss (ratios 1.006, 1.006)
+  PASS  R2: N = 1000, 4Nμ = 0.1, L = 1000, V_s = 5.5: rare not farther than gauss (ratios 0.716, 0.347)
+  PASS  R2: N = 1000, 4Nμ = 1, L = 100, V_s = 5.5: rare not farther than gauss (ratios 0.841, 0.384)
+  PASS  R2: N = 1000, 4Nμ = 1, L = 1000, V_s = 5.5: rare not farther than gauss (ratios 0.936, 0.888)
+  PASS  R2: N = 1000, 4Nμ = 4, L = 10, V_s = 5.5: rare not farther than gauss (ratios 0.983, 0.297)
+  PASS  R2: N = 1000, 4Nμ = 4, L = 100, V_s = 5.5: rare not farther than gauss (ratios 0.924, 0.786)
+  PASS  R2: N = 1000, 4Nμ = 4, L = 1000, V_s = 5.5: rare not farther than gauss (ratios 0.956, 0.943)
+  PASS  R2: N = 1000, 4Nμ = 10, L = 10, V_s = 5.5: rare not farther than gauss (ratios 1.018, 0.602)
+  PASS  R2: N = 1000, 4Nμ = 10, L = 100, V_s = 5.5: rare not farther than gauss (ratios 0.938, 0.882)
+  PASS  R2: N = 1000, 4Nμ = 10, L = 1000, V_s = 5.5: rare not farther than gauss (ratios 0.960, 0.955)
+  PASS  R2: N = 100, 4Nμ = 0.01, L = 1000, V_s = 5.5: rare not farther than gauss (ratios 0.920, 0.569)
+  PASS  R2: N = 100, 4Nμ = 0.1, L = 100, V_s = 5.5: rare not farther than gauss (ratios 0.963, 0.590)
+  PASS  R2: N = 100, 4Nμ = 0.1, L = 1000, V_s = 5.5: rare not farther than gauss (ratios 0.982, 0.936)
+  PASS  R2: N = 100, 4Nμ = 1, L = 10, V_s = 5.5: rare not farther than gauss (ratios 1.018, 0.655)
+  PASS  R2: N = 100, 4Nμ = 1, L = 100, V_s = 5.5: rare not farther than gauss (ratios 0.978, 0.931)
+  PASS  R2: N = 100, 4Nμ = 1, L = 1000, V_s = 5.5: rare not farther than gauss (ratios 0.991, 0.986)
+  PASS  R2: N = 100, 4Nμ = 4, L = 10, V_s = 5.5: rare not farther than gauss (ratios 1.010, 0.902)
+  PASS  R2: N = 100, 4Nμ = 4, L = 100, V_s = 5.5: rare not farther than gauss (ratios 0.984, 0.972)
+  PASS  R2: N = 100, 4Nμ = 4, L = 1000, V_s = 5.5: rare not farther than gauss (ratios 0.993, 0.992)
+  PASS  R2: N = 100, 4Nμ = 10, L = 10, V_s = 5.5: rare not farther than gauss (ratios 1.002, 0.957)
+  PASS  R2: N = 100, 4Nμ = 10, L = 100, V_s = 5.5: rare not farther than gauss (ratios 0.988, 0.983)
+  PASS  R2: N = 100, 4Nμ = 10, L = 1000, V_s = 5.5: rare not farther than gauss (ratios 0.992, 0.992)
+  PASS  R3: N = 1000, 4Nμ = 4, L = 10, V_s = 50.5: kernel within 10% of rare (ratio 1.048)
+  PASS  R3: N = 1000, 4Nμ = 4, L = 100, V_s = 50.5: kernel within 10% of rare (ratio 0.981)
+  PASS  R3: N = 1000, 4Nμ = 4, L = 1000, V_s = 50.5: kernel within 10% of rare (ratio 0.995)
+  PASS  R3: N = 1000, 4Nμ = 10, L = 10, V_s = 50.5: kernel within 10% of rare (ratio 1.013)
+  PASS  R3: N = 1000, 4Nμ = 10, L = 100, V_s = 50.5: kernel within 10% of rare (ratio 0.974)
+  PASS  R3: N = 1000, 4Nμ = 10, L = 1000, V_s = 50.5: kernel within 10% of rare (ratio 0.990)
+  PASS  R3: N = 1000, 4Nμ = 4, L = 10, V_s = 5.5: kernel within 10% of rare (ratio 0.983)
+  PASS  R3: N = 1000, 4Nμ = 4, L = 100, V_s = 5.5: kernel within 10% of rare (ratio 0.924)
+  PASS  R3: N = 1000, 4Nμ = 4, L = 1000, V_s = 5.5: kernel within 10% of rare (ratio 0.956)
+  PASS  R3: N = 1000, 4Nμ = 10, L = 10, V_s = 5.5: kernel within 10% of rare (ratio 1.018)
+  PASS  R3: N = 1000, 4Nμ = 10, L = 100, V_s = 5.5: kernel within 10% of rare (ratio 0.938)
+  PASS  R3: N = 1000, 4Nμ = 10, L = 1000, V_s = 5.5: kernel within 10% of rare (ratio 0.960)
+  PASS  R4: N = 1000, 4Nμ = 0.1, L = 100, V_s = 50.5: kernel within 20% of house_of_gauss_vg (ratio 1.067)
+  PASS  R4: N = 1000, 4Nμ = 1, L = 10, V_s = 50.5: kernel within 20% of house_of_gauss_vg (ratio 1.054)
+  PASS  R4: N = 1000, 4Nμ = 1, L = 100, V_s = 50.5: kernel within 20% of house_of_gauss_vg (ratio 1.053)
+  PASS  R4: N = 100, 4Nμ = 0.01, L = 100, V_s = 50.5: kernel within 20% of house_of_gauss_vg (ratio 1.021)
+  PASS  R4: N = 100, 4Nμ = 0.1, L = 10, V_s = 50.5: kernel within 20% of house_of_gauss_vg (ratio 1.039)
+  PASS  R4: N = 100, 4Nμ = 0.1, L = 100, V_s = 50.5: kernel within 20% of house_of_gauss_vg (ratio 0.953)
+  PASS  R4: N = 100, 4Nμ = 1, L = 10, V_s = 50.5: kernel within 20% of house_of_gauss_vg (ratio 0.975)
+  PASS  R4: N = 100, 4Nμ = 1, L = 100, V_s = 50.5: kernel within 20% of house_of_gauss_vg (ratio 0.917)
+  FAIL  R4: N = 1000, 4Nμ = 1, L = 100, V_s = 5.5: kernel within 20% of house_of_gauss_vg (ratio 1.399)
+  PASS  R4: N = 100, 4Nμ = 0.1, L = 100, V_s = 5.5: kernel within 20% of house_of_gauss_vg (ratio 1.010)
+  PASS  R4: N = 100, 4Nμ = 1, L = 10, V_s = 5.5: kernel within 20% of house_of_gauss_vg (ratio 1.058)
+  FAIL  R4: N = 100, 4Nμ = 1, L = 100, V_s = 5.5: kernel within 20% of house_of_gauss_vg (ratio 0.744)
+  expectation (not a criterion): strong cells (x > 0.05), kernel/rare: 1.64, 1.00, 0.97, 0.97, 1.06, 1.61, 0.97, 1.58, 0.99, 1.02, 1.56, 1.03, 1.04
+  expectation (not a criterion): multilocus Gaussian fails (kernel < 85%) in 12 of 12 cells with N = 1000, 4Nμ ≤ 0.1: confirmed
+
+S, steady lag behind a continuous move of 0.01 per generation, house of cards (L = 100, 4Nμ = 0.4) (73 s)
+  kernel lag 0.2488 ± 0.0031; kernel V_G under the move 2.5045 (stationary predictions: rare 1.8090, gauss 4.2815)
+  steady_lag with rare 0.2892 (ratio 0.861), moments lowering (rare) 0.2895 (ratio 0.860), with gauss 0.1279 (ratio 1.945), with the kernel's V_G 0.2116 (ratio 1.176)
+  PASS  S: kernel lag within 15% of steady_lag with rare_alleles_vg(p; drift = true)
+  PASS  S: kernel lag within 15% of the rare-alleles moments lowering's
+  FAIL  S: kernel lag within 10% of steady_lag with the kernel's V_G
+  expectation (not a criterion): kernel V_G under the move above the stationary rare prediction: confirmed
+
+E, extinction under a move of 1.0120 per generation (1.15 × the dying lag 25.45 × V_G/s) (37 s)
+  kernel: 48 of 48 died within 2000 generations; median generation of extinction after the move 45
+  predicted median (extinction_distribution of the moments trajectory): rare 41, gauss 210
+  PASS  E: the kernel's median time to extinction within 20% of the rare-alleles moments prediction
+
+P, the paper's populations: 320 published inputs matched to the table (209 s)
+  per stratum: median table/pred (moments, 10,000 generations from zero) and median |log ratio|; 4Nμ, x = α²/(2V_s), N α²/V_s medians
+  stratum               n   rare  |log|   gauss |log|   rare_eq   SHC    HoG     4Nμ      x        Nα²/V_s
+  QT0100-Possion3.0   40   0.962  0.120  0.854  0.181   0.961   0.900  0.972     0.4  8.72e-05     0.174
+  QT0100-Possion5.0   40   0.943  0.139  0.823  0.274   0.939   0.898  0.930     0.4  6.24e-05     0.125
+  QT0500-Possion3.0   40   1.021  0.100  0.989  0.100   1.017   0.944  0.971     0.4  2.54e-05    0.0508
+  QT0500-Possion5.0   40   0.960  0.095  0.937  0.118   0.957   0.828  0.842     0.4  1.13e-05    0.0226
+  QT1000-Possion3.0   40   1.035  0.067  1.022  0.093   1.029   0.943  0.956     0.4  7.80e-06    0.0156
+  QT1000-Possion5.0   40   1.001  0.067  0.992  0.066   0.996   0.908  0.912     0.4  3.89e-06   0.00778
+  QT5000-Possion3.0   40   0.976  0.066  0.975  0.062   0.970   0.894  0.897     0.4  1.31e-06   0.00263
+  QT5000-Possion5.0   40   1.027  0.123  1.023  0.125   1.022   0.828  0.831     0.4  1.21e-06   0.00242
+  all                320   0.988  0.091  0.961  0.107   0.985   0.901  0.918     0.4  1.00e-05      0.02
+  PASS  P1: median table/rare 0.988 within [0.85, 1.15]
+  PASS  P2: median |log(table/pred)| smaller for rare (0.091) than for gauss (0.107)
+  P3: kernel on 24 inputs (167 s): Σ kernel/Σ rare 0.978, Σ kernel/Σ gauss 0.872, Σ table/Σ rare (same inputs) 1.064
+    QT0100-Possion3.0/Input-00226.txt  kernel 0.2975  table 0.3369  rare 0.2872  gauss 0.3413
+    QT0100-Possion3.0/Input-00660.txt  kernel 0.192  table 0.2001  rare 0.2086  gauss 0.3367
+    QT0100-Possion3.0/Input-00927.txt  kernel 0.05925  table 0.04861  rare 0.05371  gauss 0.05448
+    QT0100-Possion3.0/Input-01250.txt  kernel 0.05492  table 0.05267  rare 0.05702  gauss 0.06376
+    QT0100-Possion5.0/Input-00238.txt  kernel 0.1535  table 0.2463  rare 0.1587  gauss 0.1685
+    QT0100-Possion5.0/Input-00463.txt  kernel 0.07971  table 0.08248  rare 0.09369  gauss 0.1224
+    QT0100-Possion5.0/Input-00956.txt  kernel 0.01381  table 0.023  rare 0.01736  gauss 0.01904
+    QT0100-Possion5.0/Input-01923.txt  kernel 0.1123  table 0.1348  rare 0.122  gauss 0.1464
+    QT0500-Possion3.0/Input-00144.txt  kernel 0.2174  table 0.231  rare 0.2599  gauss 0.293
+    QT0500-Possion3.0/Input-00585.txt  kernel 0.06541  table 0.06584  rare 0.06353  gauss 0.06402
+    QT0500-Possion3.0/Input-01132.txt  kernel 0.01686  table 0.0201  rare 0.01678  gauss 0.01993
+    QT0500-Possion3.0/Input-01263.txt  kernel 0.04014  table 0.03139  rare 0.03793  gauss 0.0384
+    QT0500-Possion5.0/Input-01196.txt  kernel 0.1146  table 0.1162  rare 0.1124  gauss 0.1222
+    QT0500-Possion5.0/Input-01396.txt  kernel 0.1083  table 0.1407  rare 0.1101  gauss 0.1125
+    QT0500-Possion5.0/Input-01732.txt  kernel 0.1017  table 0.1292  rare 0.1078  gauss 0.1094
+    QT0500-Possion5.0/Input-02356.txt  kernel 0.2483  table 0.3  rare 0.2542  gauss 0.2603
+    QT1000-Possion3.0/Input-00669.txt  kernel 0.1285  table 0.1037  rare 0.1275  gauss 0.128
+    QT1000-Possion3.0/Input-00842.txt  kernel 0.0605  table 0.07007  rare 0.06626  gauss 0.06693
+    QT1000-Possion3.0/Input-01033.txt  kernel 0.1572  table 0.1403  rare 0.1463  gauss 0.1469
+    QT1000-Possion3.0/Input-02381.txt  kernel 0.01736  table 0.01599  rare 0.01748  gauss 0.01749
+    QT1000-Possion5.0/Input-00267.txt  kernel 0.2449  table 0.2361  rare 0.2286  gauss 0.2365
+    QT1000-Possion5.0/Input-00620.txt  kernel 0.05082  table 0.03267  rare 0.04721  gauss 0.04728
+    QT1000-Possion5.0/Input-00670.txt  kernel 0.02356  table 0.03017  rare 0.0252  gauss 0.02524
+    QT1000-Possion5.0/Input-00762.txt  kernel 0.02095  table 0.01807  rare 0.01911  gauss 0.01914
+  PASS  P3: Σ kernel / Σ rare within [0.85, 1.15]
+
+FAILED (4): R1: N = 1000, 4Nμ = 0.1, L = 1000, V_s = 5.5: kernel 0.7692 within 15% of rare 1.075 (ratio 0.716); R4: N = 1000, 4Nμ = 1, L = 100, V_s = 5.5: kernel within 20% of house_of_gauss_vg (ratio 1.399); R4: N = 100, 4Nμ = 1, L = 100, V_s = 5.5: kernel within 20% of house_of_gauss_vg (ratio 0.744); S: kernel lag within 10% of steady_lag with the kernel's V_G

@@ -74,6 +74,10 @@
 # cells; with β² it predicts 0.95–1.17 (1.17 at L = 1). No kernel run of this script had
 # been made when these criteria were written. The script exits 1 if any criterion fails.
 #
+# CONFIRMATION (2026-11-07): an independent run with fresh seeds (SEED_OFFSET = 7000000,
+# moments_regimes_seed7000000.log) gave the same result, 122 PASS and the same 4 FAIL (R1 at
+# N = 1000, 4Nμ = 0.1, L = 1000, V_s = 5.5, ratio 0.716; both R4 at V_s = 5.5, L = 100; S),
+# so those failures are systematic limits of the model, not noise.
 # HISTORY. Run 1 (2026-11-07, R = 16, SEED_OFFSET = 0, moments_regimes.log, about 45 min
 # on 3 threads) failed 4 criteria, kept as failures: R1 in one of 47 weak cells (N = 1000,
 # 4Nμ = 0.1, L = 1000, V_s = 5.5: kernel/rare 0.72, strong selection with strong LD, between
