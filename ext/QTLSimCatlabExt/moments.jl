@@ -111,12 +111,13 @@ mutable struct DemeCov
     ploidy::Int
     drift::Bool                          # finite demes (N adults, n parents); false: infinite
     α2::Vector{Float64}                  # per deme; loci = :rare_alleles: the mutation effect variance α²; 0: Gaussian
+    gain::Union{Nothing,Vector{Float64}} # loci = :rare_local: per deme, the gain Λ of a rare mutant from the lags (src/local_alleles.jl)
 end
 
 # demes start as Hardy–Weinberg populations in linkage equilibrium, with exactly their
 # mean z̄ and population variance V
 function DemeCov(N::AbstractVector, V::AbstractVector; origins = :exchange, ploidy::Integer = 2, drift::Bool = true,
-                 classes = ([1.0, 0.0], [0.0, 0.0]), α2 = 0.0)
+                 classes = ([1.0, 0.0], [0.0, 0.0]), α2 = 0.0, localal::Bool = false)
     k = length(N)
     ω, ρ = classes
     nc = length(ω)
@@ -125,7 +126,8 @@ function DemeCov(N::AbstractVector, V::AbstractVector; origins = :exchange, ploi
     for a in 1:k; T[a, :] = st[a][1]; Q[a, a, :] = st[a][3]; end
     α2s = α2 isa Real ? fill(float(α2), k) : collect(Float64, α2)
     length(α2s) == k || throw(ArgumentError("α2 gives $(length(α2s)) values for $k demes"))
-    DemeCov(T, R, Q, collect(float.(ω)), collect(float.(ρ)), origins, Dict{Any,Any}(), ploidy, drift, α2s)
+    DemeCov(T, R, Q, collect(float.(ω)), collect(float.(ρ)), origins, Dict{Any,Any}(), ploidy, drift, α2s,
+            localal ? zeros(k) : nothing)
 end
 # α2: one value per deme, from `resolve_loci` (0 for the multilocus Gaussian model)
 DemeCov(p::Params, N::AbstractVector, V::AbstractVector; α2 = 0.0, kw...) =
@@ -146,7 +148,7 @@ function cov_select!(m::Moments, c::DemeCov)
     a = m.idx
     m.sinv == 0 && return m                 # neutral: the identity
     st, β = QTLSim.hap_select(_state(c, a), m.sinv, _nd(c, m.N), c.ω, c.ploidy; α2 = c.α2[a],
-                              clonal = QTLSim.hap_clonal(c.ploidy, c.ρ))
+                              clonal = QTLSim.hap_clonal(c.ploidy, c.ρ), gain = c.gain === nothing ? nothing : c.gain[a])
     for b in axes(c.Q, 1)
         b == a && continue
         Qab = sum(c.Q[a, b, :])
@@ -297,7 +299,7 @@ function run_moments1(p::Params; cycle = lifecycle().generation, images = Dict{S
     rec = records()
     step = lower(cycle, :moments; images, record = rec)
     cov = loci === :aggregate ? nothing : loci === :spectrum ? spectrum_state(p, cycle, VG; spectrum...) :
-          DemeCov(p, [float(p.PopSize)], [float(VG)]; α2, origins, drift = between || erosion)
+          DemeCov(p, [float(p.PopSize)], [float(VG)]; α2, origins, drift = between || erosion, localal = loci === :rare_local)
     m = Moments(p; zbar, VG, erosion, cov)
     mp = metapop_records()
     m.gen = 0                    # whole cycles, as in run_composed
@@ -379,6 +381,18 @@ function cov_mixing(c::DemeCov, M, Nv, alive)
     end
 end
 
+# loci = :rare_local: the gain Λ of a rare mutant (QTLSim.local_gain) in each living deme of `ix`
+# from the lags ℓ_d = s_d⁻¹(θ_d − z̄_d) after migration by P (src/local_alleles.jl)
+function set_gain!(c, ix, P, alive, ℓ)
+    live = findall(alive)
+    isempty(live) && return c
+    g = QTLSim.local_gain(P[live, live], ℓ[live])
+    for (i, a) in enumerate(live)
+        c.gain[ix[a]] = g[i]
+    end
+    c
+end
+
 # migration of the means and of the second moments (see the comment on DemeCov)
 function cov_migrate!(s, ms, M, alive)
     k = length(ms)
@@ -412,6 +426,7 @@ function cov_migrate!(s, ms, M, alive)
         ms[a].VE = sum(P[a, :] .* VE)
         ms[a].VG = _vpop(c, ms[a].idx, max(ms[a].N, 2.0))
     end
+    c.gain === nothing || set_gain!(c, ix, P, alive, [m.sinv * (m.θ - m.zbar) for m in ms])
     s
 end
 
@@ -455,8 +470,8 @@ function check_between(ps, origins)
 end
 
 function check_loci(loci, between)
-    loci in (:auto, :multilocus, :rare_alleles, :aggregate, :spectrum) ||
-        throw(ArgumentError("loci is :auto, :multilocus, :rare_alleles, :spectrum or :aggregate; got :$loci"))
+    loci in (:auto, :multilocus, :rare_alleles, :rare_local, :aggregate, :spectrum) ||
+        throw(ArgumentError("loci is :auto, :multilocus, :rare_alleles, :rare_local, :spectrum or :aggregate; got :$loci"))
     loci === :spectrum && between &&
         throw(ArgumentError("loci = :spectrum is for one deme; it has no between = true"))
     loci === :aggregate && between &&
@@ -533,7 +548,7 @@ function run_moments(ps::AbstractVector{Params}; cycle, images = Dict{Symbol,Any
     perdeme(x, name) = x isa AbstractVector ? (length(x) == k ? x : throw(ArgumentError("$name gives $(length(x)) values for $k demes"))) : fill(x, k)
     zs, vs = perdeme(zbar, "zbar"), perdeme(VG, "VG")
     cov = loci === :aggregate ? nothing :
-          DemeCov(ps[1], [float(q.PopSize) for q in ps], float.(vs); α2, origins, drift = between || erosion)
+          DemeCov(ps[1], [float(q.PopSize) for q in ps], float.(vs); α2, origins, drift = between || erosion, localal = loci === :rare_local)
     s = DemeMoments([Moments(q; zbar = z, VG = v, erosion, cov, idx = i) for (i, (q, z, v)) in enumerate(zip(ps, zs, vs))])
     mp = metapop_records()
     for (i, m) in enumerate(s.demes); rec.demeof[m] = i; end

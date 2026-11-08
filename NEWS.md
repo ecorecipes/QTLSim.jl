@@ -8,6 +8,25 @@ All notable changes to QTLSim.jl are recorded here. The format follows
 
 ### Added
 
+- **Locally favoured alleles in metapopulations: `run_moments(...; loci = :rare_local)`**
+  (`src/local_alleles.jl`). The rare-alleles closure takes every mutant to be deleterious
+  wherever it is; under local adaptation with migration, demes lag behind different
+  optima, and a rare mutant is favoured where its deme lags. To second order, its lineage
+  grows at `π·σ + σᵀWσ` with `W = Π(I − P)^#P` (`P` the backward migration matrix), so
+  selection against it weakens by `2Λ`, `Λ = Σ W_dc (ℓ_d − ℓ̄)(ℓ_c − ℓ̄)ᵀ`, `ℓ_d = s_d⁻¹(θ_d −
+  z̄_d)` (`QTLSim.local_gain`; island model `(1 − m′)/m′·Var(ℓ)`). The closure's rare loss
+  uses `[s⁻¹ − 2Λ]₊` in place of `s⁻¹`. No constant is fitted, and it equals
+  `:rare_alleles` exactly for one deme, for a common optimum and without migration.
+  `validate/local_adaptation.jl` (run 1, criteria written before any kernel run): the
+  current default misses the kernel's within-deme variance by −45% (one trait, house of
+  cards, migration 0.01) and by −148%/−85% (two traits, D1); `:rare_local` is within 0.8%
+  and within 1–9%, passes the 15% accuracy criterion in all 10 cells, and is never worse
+  than the multilocus Gaussian by more than 0.001. Its one failure, on the pre-specified
+  rule "better than `:multilocus` in every house-of-cards cell", is a tie: where the gain
+  switches the rare loss off, `:rare_local` is the multilocus model (0.008 against 0.007).
+- `validate/symbolic/` (own environment with Symbolics.jl; CI job `Symbolic checks`, about
+  30 s): checks the algebra of the closures and evaluates each identity against the code.
+  Lean: `CategoricalQuantGen/LocalAdaptation.lean`.
 - **Genetic variance under a moving optimum: `run_moments(p; loci = :spectrum)`**
   (`src/spectrum.jl`; one deme, one diploid trait, drift always on). The other moments
   models predict the genetic variance before the optimum moves but hold it roughly fixed

@@ -273,6 +273,17 @@ stabilising solution of an algebraic Riccati equation. Haploid offspring are clo
 haploid genome is one unit of inheritance: the closure then acts on a haplotype's whole
 variance (`β = 1`, [`QTLSim.hap_clonal`](@ref)), with `L μ` mutations per genome.
 
+**Locally favoured alleles (`loci = :rare_local`).** The rare-alleles closure for
+metapopulations whose demes lag behind different optima (src/local_alleles.jl). A rare
+mutant of effect `a` has selection coefficient `aᵀℓ_d − ½aᵀs_d⁻¹a` in deme `d`, `ℓ_d =
+s_d⁻¹(θ_d − z̄_d)`; under migration (backward matrix `P`) its lineage grows at
+`π·σ + σᵀWσ` to second order, `W = Π(I − P)^#P`, so the variation of the lags among
+the demes weakens selection against it by `2Λ`, `Λ = Σ W_dc (ℓ_d − ℓ̄)(ℓ_c − ℓ̄)ᵀ`
+([`QTLSim.local_gain`](@ref)), the island model's `(1 − m′)/m′·Var(ℓ)`. The closure's rare loss uses
+`[s⁻¹ − 2Λ]₊` ([`QTLSim.local_sinv`](@ref)) in place of `s⁻¹`; nothing else changes. It is exactly
+`:rare_alleles` for one deme, for demes that lag alike (a common optimum) and without
+migration. `validate/local_adaptation.jl` compares it with the kernel.
+
 **The allele-frequency spectrum (`loci = :spectrum`, one diploid trait, one deme).** A
 model of how the variance changes under a moving optimum (src/spectrum.jl): instead of
 haplotype moments, the expected numbers of segregating mutations by effect and frequency

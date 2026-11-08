@@ -88,6 +88,19 @@ jobs:
         run: julia --project=. validate/gsl_locked.jl
       - name: In distribution (Julia kernel vs QTSim)
         run: julia --project=. validate/compare_to_qtsim.jl
+  symbolic:
+    name: Symbolic checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1'
+      - uses: julia-actions/cache@v2
+      - name: Instantiate validate/symbolic
+        run: julia --project=validate/symbolic -e 'using Pkg; Pkg.instantiate()'
+      - name: Closures' algebra (Symbolics.jl) and spot checks against the code
+        run: julia --project=validate/symbolic validate/symbolic/check_closures.jl
   slim:
     name: SLiM backend
     runs-on: ubuntu-latest

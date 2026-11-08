@@ -77,9 +77,11 @@ mutable struct TraitCov
     cache::Dict{Any,Any}    # (M, N, alive) => (P, J)
     α2::Vector{Any}         # per deme: loci = :rare_alleles, the per-mutation effect covariance C; 0.0: Gaussian
     clonal::Bool            # QTLSim.hap_clonal: the genome is inherited whole (haploid clones)
+    gain::Any               # loci = :rare_local: per deme, the gain matrix Λ (src/local_alleles.jl); nothing otherwise
 end
 
-function TraitCov(p::Params, N::AbstractVector, G::AbstractVector; drift::Bool, origins = :exchange, α2 = 0.0)
+function TraitCov(p::Params, N::AbstractVector, G::AbstractVector; drift::Bool, origins = :exchange, α2 = 0.0,
+                  localal::Bool = false)
     k, n = length(N), p.NoTraits
     ω, ρ = QTLSim.pair_classes(p)
     nc = length(ω)
@@ -92,7 +94,8 @@ function TraitCov(p::Params, N::AbstractVector, G::AbstractVector; drift::Bool, 
     end
     α2s = α2 isa AbstractVector ? Any[a for a in α2] : Any[α2 for _ in 1:k]
     length(α2s) == k || throw(ArgumentError("α2 gives $(length(α2s)) values for $k demes"))
-    TraitCov(T, R, Q, p.Ploidy, drift, ω, ρ, origins, Dict{Any,Any}(), α2s, QTLSim.hap_clonal(p.Ploidy, ρ))
+    TraitCov(T, R, Q, p.Ploidy, drift, ω, ρ, origins, Dict{Any,Any}(), α2s, QTLSim.hap_clonal(p.Ploidy, ρ),
+             localal ? [zeros(n, n) for _ in 1:k] : nothing)
 end
 
 _nd(c::TraitCov, N) = c.drift ? max(N, 2.0) : Inf
@@ -106,9 +109,9 @@ function TraitMoments(p::Params; zbar = zeros(p.NoTraits), G = zeros(p.NoTraits,
     n, VE = p.NoTraits, QTLSim.envVar(p)
     Id = Matrix{Float64}(I, n, n)
     loci === :auto && (loci = QTLSim.moments_loci(p))
-    cov === :new && (cov = loci in (:multilocus, :rare_alleles) ?
-                     TraitCov(p, [float(p.PopSize)], [G]; drift = erosion,
-                              α2 = loci === :rare_alleles ? QTLSim.mutation_effect_covariance(p) : 0.0) : nothing)
+    cov === :new && (cov = loci in (:multilocus, :rare_alleles, :rare_local) ?
+                     TraitCov(p, [float(p.PopSize)], [G]; drift = erosion, localal = loci === :rare_local,
+                              α2 = loci in (:rare_alleles, :rare_local) ? QTLSim.mutation_effect_covariance(p) : 0.0) : nothing)
     TraitMoments(p, 0, collect(Float64, zbar), Matrix{Float64}(G), G + VE * Id, zeros(n), QTLSim.initFitSD(p),
                  p.PopSize, 1.0, zeros(n), collect(Float64, zbar), Matrix{Float64}(G), collect(Float64, zbar),
                  Matrix{Float64}(G), false, p.PopSize, p.PopSize, erosion, VE, false, 1.0,
@@ -170,7 +173,8 @@ function trait_moments_select!(m::TraitMoments; θ = nothing)
     c = m.cov
     if c !== nothing && !p.Drift
         a = m.idx
-        st, B = QTLSim.hap_select(_state(c, a), m.sinv, _nd(c, m.N), c.ω, c.ploidy; α2 = c.α2[a], clonal = c.clonal)
+        st, B = QTLSim.hap_select(_state(c, a), m.sinv, _nd(c, m.N), c.ω, c.ploidy; α2 = c.α2[a], clonal = c.clonal,
+                                  gain = c.gain === nothing ? nothing : c.gain[a])
         # the deviation of this deme's mean shrinks by I − B, and with it its cross-moments
         for b in axes(c.Q, 1)
             b == a && continue
@@ -320,6 +324,7 @@ function moments_migrate!(s::TraitDemeMoments, demes, rate)
         ms[a].VE = sum(P[a, :] .* VE)
         c === nothing || (ms[a].G = _vpop(c, ms[a].idx, max(ms[a].N, 2.0)))
     end
+    c === nothing || c.gain === nothing || set_gain!(c, [m.idx for m in ms], P, alive, [m.sinv * (m.θ - m.zbar) for m in ms])
     s
 end
 
@@ -466,7 +471,8 @@ function run_trait_moments(ps::AbstractVector{Params}; cycle = lifecycle().gener
         (length(x) == k ? x : throw(ArgumentError("$name gives $(length(x)) values for $k demes"))) : fill(x, k)
     zs, Gs = perdeme(zbar, "zbar"), perdeme(G, "G")
     drift = between || erosion
-    cov = loci === :aggregate ? nothing : TraitCov(p, [float(q.PopSize) for q in ps], Gs; drift, origins, α2)
+    cov = loci === :aggregate ? nothing : TraitCov(p, [float(q.PopSize) for q in ps], Gs; drift, origins, α2,
+                                                            localal = loci === :rare_local)
     s = TraitDemeMoments([TraitMoments(q; zbar = z, G = g, erosion, loci, cov, idx = i)
                           for (i, (q, z, g)) in enumerate(zip(ps, zs, Gs))])
     k > 1 && for (i, m) in enumerate(s.demes); rec.demeof[m] = i; end

@@ -169,7 +169,8 @@ closure of src/rare_alleles.jl: the genic part also loses `β²α²/(2s)` of its
 `clonal = true` (the default for haploids, whose offspring are clones) the closure acts
 on every class with `β = 1` ([`QTLSim.hap_clonal`](@ref)).
 """
-function hap_select(st, sinv, N::Real, ω::AbstractVector, ploidy::Integer; α2 = 0.0, clonal::Bool = ploidy == 1)
+function hap_select(st, sinv, N::Real, ω::AbstractVector, ploidy::Integer; α2 = 0.0, clonal::Bool = ploidy == 1,
+                    gain = nothing)
     T, R, Q = st
     Tf, Rf, Qf = sum(T), sum(R), sum(Q)
     C = hap_cmean(Tf, Rf, Qf, N, ploidy)
@@ -191,11 +192,14 @@ function hap_select(st, sinv, N::Real, ω::AbstractVector, ploidy::Integer; α2 
         # (`clonal`: haploid clones) is one unit: every class loses the closure's share of
         # its own variance, with β = 1.
         if _rare(α2) && (clonal || k == 1)
+            # `gain` (`loci = :rare_local`, src/local_alleles.jl): a rare mutant feels
+            # [s⁻¹ − 2Λ]₊ in place of s⁻¹, Λ the gain from lags that differ among demes
             if clonal
-                σ2 -= rare_loss(α2, sinv, T[k] - Ck)
+                σ2 -= rare_loss(α2, gain === nothing ? sinv : local_sinv(sinv, gain), T[k] - Ck)
             else
                 Hg = ploidy == 2 ? T[k] + R[k] - 2Ck : T[k] - Ck      # the genic part of H
-                σ2 -= rare_loss(α2, rare_sinv(H, Hg, sinv), T[k] - Ck)
+                rs = gain === nothing || iszero(gain) ? rare_sinv(H, Hg, sinv) : psd_part(rare_sinv(H, Hg, _sym(sinv - 2 * gain)))
+                σ2 -= rare_loss(α2, rs, T[k] - Ck)
             end
         end
         if ploidy == 2

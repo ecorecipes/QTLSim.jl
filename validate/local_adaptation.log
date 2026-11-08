@@ -1,0 +1,85 @@
+QTLSim validate/local_adaptation.jl
+threads 3, replicates per one-trait cell 30, two-trait 36, SEED_OFFSET 0
+
+I: identity of :rare_local and :rare_alleles (moments only)
+  one deme, one trait, μ=0.0002, erosion         identical
+  one deme, one trait, μ=0.0002, between         identical
+  one deme, two traits, μ=0.0002, erosion        identical
+  one deme, two traits, μ=0.0002, between        identical
+  4 demes, local optima, no migration, μ=0.0002  identical
+  4 demes, common optimum, m=0.01, μ=0.0002      identical
+  4 demes, two traits, no migration, μ=0.0002    identical
+  one deme, one trait, μ=0.02, erosion           identical
+  one deme, one trait, μ=0.02, between           identical
+  one deme, two traits, μ=0.02, erosion          identical
+  one deme, two traits, μ=0.02, between          identical
+  4 demes, local optima, no migration, μ=0.02    identical
+  4 demes, common optimum, m=0.01, μ=0.02        identical
+  4 demes, two traits, no migration, μ=0.02      identical
+
+B, G: one trait, k = 4 demes of N = 100, 50 loci, island migration m; census 3000–5990
+
+  B1 μ=0.0002 m=0.001 optima (2, 1, −1, −2)
+    kernel V_W 0.542 ± 0.012   RA 0.4453 (-17.9%)   RL 0.6443 (+18.9%)   ML 0.6443 (+18.9%)
+    RL: A ok, R1 ok, R2 ok;   baseline RA FAILS
+
+  B2 μ=0.0002 m=0.01 optima (2, 1, −1, −2)
+    kernel V_W 0.9227 ± 0.019   RA 0.5095 (-44.8%)   RL 0.9156 (-0.8%)   ML 0.9159 (-0.7%)
+    RL: A ok, R1 ok, R2 FAIL;   baseline RA FAILS
+
+  B3 μ=0.0002 m=0.1 optima (2, 1, −1, −2)
+    kernel V_W 0.5126 ± 0.014   RA 0.4252 (-17.0%)   RL 0.4254 (-17.0%)   ML 0.6627 (+29.3%)
+    RL: A ok, R1 ok, R2 ok;   baseline RA ok
+
+  B4 μ=0.0002 m=0.01 optima all 0
+    kernel V_W 0.3917 ± 0.0093   RA 0.4087 (+4.3%)   RL 0.4087 (+4.3%)   ML 0.5815 (+48.5%)
+    RL: A ok, R1 ok, R2 ok;   baseline RA ok
+
+  G1 μ=0.02 m=0.001 optima (2, 1, −1, −2)
+    kernel V_W 0.6163 ± 0.0075   RA 0.6419 (+4.2%)   RL 0.6443 (+4.5%)   ML 0.6443 (+4.5%)
+    RL: A ok, R1 ok;   baseline RA ok
+
+  G2 μ=0.02 m=0.01 optima (2, 1, −1, −2)
+    kernel V_W 0.8925 ± 0.012   RA 0.9108 (+2.1%)   RL 0.9159 (+2.6%)   ML 0.9159 (+2.6%)
+    RL: A ok, R1 ok;   baseline RA ok
+
+  G3 μ=0.02 m=0.1 optima (2, 1, −1, −2)
+    kernel V_W 0.6578 ± 0.0087   RA 0.6593 (+0.2%)   RL 0.6593 (+0.2%)   ML 0.6627 (+0.7%)
+    RL: A ok, R1 ok;   baseline RA ok
+
+  G4 μ=0.02 m=0.01 optima all 0
+    kernel V_W 0.5654 ± 0.0069   RA 0.5793 (+2.5%)   RL 0.5793 (+2.5%)   ML 0.5815 (+2.8%)
+    RL: A ok, R1 ok;   baseline RA ok
+
+D: two traits, k = 4 demes of N = 100, 50 loci, local optima, island migration 0.01; census 2000–3990
+
+  D1 μ = 0.0002
+    G11  kernel 0.8482 ± 0.022   RA 0.3421 (-148.0%)   RL 0.8551 (+0.8%)   ML 0.8917 (+4.9%)  RL ok
+    G12  kernel 0.1175 ± 0.01   RA 0.07272 (-14.3%)   RL 0.08773 (-4.6%)   ML 0.1572 (+5.3%)  RL ok
+    G22  kernel 0.5319 ± 0.01   RA 0.2875 (-85.0%)   RL 0.4877 (-9.1%)   ML 0.6346 (+16.2%)  RL ok
+    e_RA = 0.557, e_RL = 0.061, e_ML = 0.123   R1 ok, R2 ok;   baseline RA FAILS
+
+  D2 μ = 0.02
+    G11  kernel 0.8226 ± 0.0093   RA 0.8829 (+6.8%)   RL 0.8914 (+7.7%)   ML 0.8917 (+7.7%)  RL ok
+    G12  kernel 0.1647 ± 0.0077   RA 0.1558 (-1.2%)   RL 0.1565 (-1.1%)   ML 0.1572 (-1.0%)  RL ok
+    G22  kernel 0.6211 ± 0.0078   RA 0.6288 (+1.2%)   RL 0.6332 (+1.9%)   ML 0.6346 (+2.1%)  RL ok
+    e_RA = 0.059, e_RL = 0.067, e_ML = 0.067   R1 ok;   baseline RA ok
+
+Summary (relative error of the prediction against the kernel):
+  cell       e_RA     e_RL     e_ML
+  B1        0.179    0.189    0.189
+  B2        0.448    0.008    0.007
+  B3        0.170    0.170    0.293
+  B4        0.043    0.043    0.485
+  G1        0.042    0.045    0.045
+  G2        0.021    0.026    0.026
+  G3        0.002    0.002    0.007
+  G4        0.025    0.025    0.028
+  D1        0.557    0.061    0.123
+  D2        0.059    0.067    0.067
+
+kernel runs and predictions in 3893 s
+baseline (current :rare_alleles) fails: B1, B2, D1
+decision rule, one trait: :auto → :multilocus for metapopulations with differing optima (baseline fails, not fixed: B2)
+decision rule, several traits: :auto → :rare_local
+FAIL: R2 B2

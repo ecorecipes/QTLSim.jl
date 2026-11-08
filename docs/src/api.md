@@ -96,7 +96,11 @@ weak-selection cells across the Gaussian, house-of-cards and drift regimes
 (`validate/moments_regimes.jl`), has the equilibrium `rare_alleles_vg`;
 `house_of_gauss_vg` is its closed form for loci in linkage equilibrium. For several traits
 (src/rare_alleles_traits.jl) the equilibrium is `rare_alleles_G`, the linkage-equilibrium
-form `house_of_gauss_G` and the multivariate house of cards `house_of_cards_G`. The default,
+form `house_of_gauss_G` and the multivariate house of cards `house_of_cards_G`. For
+metapopulations whose demes lag behind different optima, `loci = :rare_local`
+(src/local_alleles.jl, `validate/local_adaptation.jl`) weakens the closure by the gain
+`QTLSim.local_gain` of locally favoured alleles; it equals `:rare_alleles` for one deme, a
+common optimum and no migration. The default,
 `loci = :auto`, is the rare-alleles closure for one trait (diploid, or haploid clones) and
 the multilocus model for several traits (`QTLSim.moments_loci`); `multilocus_equilibrium`
 takes the same default.
@@ -122,6 +126,10 @@ QTLSim.mutation_effect_covariance
 QTLSim.rare_alleles_rate
 QTLSim.rare_hc_matrix
 QTLSim.hap_clonal
+QTLSim.local_gain
+QTLSim.local_weights
+QTLSim.local_sinv
+QTLSim.migration_classes
 spectrum_equilibrium
 spectrum_vg
 QTLSim.AlleleSpectrum

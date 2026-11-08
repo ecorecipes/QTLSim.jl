@@ -12,3 +12,5 @@ reference/QTSim/build/
 validate/slim/Manifest.toml
 validate/slim/Manifest-v*.toml
 validate/demography_sweep/
+validate/symbolic/Manifest.toml
+validate/symbolic/Manifest-v*.toml

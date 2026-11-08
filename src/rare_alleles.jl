@@ -115,7 +115,8 @@ end
 # α² for the rare-alleles closure, 0 for the multilocus Gaussian model
 function rare_alleles_effect(p::Params, loci::Symbol)
     loci = moments_loci(p, loci)
-    loci in (:multilocus, :rare_alleles) || throw(ArgumentError("loci is :auto, :multilocus, :rare_alleles or :aggregate; got :$loci"))
+    loci in (:multilocus, :rare_alleles, :rare_local) ||
+        throw(ArgumentError("loci is :auto, :multilocus, :rare_alleles, :rare_local or :aggregate; got :$loci"))
     loci === :multilocus && return 0.0
     p.NoTraits == 1 || return mutation_effect_covariance(p)      # several traits: src/rare_alleles_traits.jl
     mutation_effect_variance(p)

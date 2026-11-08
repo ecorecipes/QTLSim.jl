@@ -2242,3 +2242,70 @@ end
     @test length(r0.gmatrix) == length(r.gmatrix) && !haskey(r0, :metapop)
     @test_throws ArgumentError run_moments(p2; cycle = c2, between = true, loci = :aggregate)
 end
+
+@testset "rare alleles with locally favoured alleles (loci = :rare_local, src/local_alleles.jl)" begin
+    L_ = lifecycle()
+    p = Params(Ploidy = 2, NoQTL = 20, PhenotypeVar = 2.0, Heritability = 0.5, MutationScalar = 1e-3,
+               MutationRatePerGamete = 2e-4, PopSize = 100, NoGenerations = 600, Sample = 10, InitFitnessSD = 5.0)
+    p2 = Params(p; NoTraits = 2, MutCorr = 0.3, SelCorr = 0.2)
+    cyc1(θs) = foldl(⊗, [withparams(L_.generation, p; θ = t) for t in θs]) ⋅ L_.migrate(length(θs))
+    cyc2(φs) = foldl(⊗, [withparams(L_.generation, p2; θ = 2.0 .* [cosd(φ), sind(φ)]) for φ in φs]) ⋅ L_.migrate(length(φs))
+    flat(x) = reduce(vcat, [y isa Number ? [y] : vec(y) for y in x])
+    rel(a, b) = maximum(abs.(flat(a) .- flat(b))) / maximum(abs.(flat(b)))
+    # reductions to the current closure (to 1e-12; they are in fact identical)
+    for (f, tag) in ((l -> run_moments(p; erosion = true, loci = l).geno_var, "one deme"),
+                     (l -> run_moments(p; between = true, loci = l).metapop.within, "one deme, between"),
+                     (l -> run_moments(p2; erosion = true, loci = l).gmatrix, "one deme, two traits"),
+                     (l -> run_moments(p; cycle = cyc1(zeros(4)), migration_rate = 0.01, between = true, loci = l).metapop.within,
+                      "common optimum"),
+                     (l -> run_moments(p; cycle = cyc1([2.0, 1, -1, -2]), migration_rate = 0.0, between = true, loci = l).metapop.within,
+                      "no migration"),
+                     (l -> run_moments(p2; cycle = cyc2([0.0, 90.0]), migration_rate = 0.0, between = true, loci = l).metapop.within,
+                      "no migration, two traits"))
+        a, b = f(:rare_local), f(:rare_alleles)
+        @test rel(a, b) <= 1e-12
+    end
+    # local optima with migration: the gain raises the within-deme variance above the current
+    # closure (Lean local_fixed_point_ge) and not above the multilocus Gaussian model
+    w(l) = run_moments(p; cycle = cyc1([2.0, 1, -1, -2]), migration_rate = 0.01, between = true, loci = l).metapop.within[end]
+    @test w(:rare_alleles) < w(:rare_local) <= w(:multilocus) * (1 + 1e-9)
+    w2(l) = QTLSim.tr(run_moments(p2; cycle = cyc2([0.0, 60, 120, 180]), migration_rate = 0.01, between = true, loci = l).metapop.within[end])
+    @test w2(:rare_alleles) < w2(:rare_local) <= w2(:multilocus) * (1 + 1e-9)
+    # the gain: the eigenvalue expansion, the island form, the reductions and the limits
+    rng = Xoshiro(11)
+    for k in (2, 3, 5)
+        M = rand(rng, k, k) .* 0.05; for i in 1:k; M[i, i] = 0; end
+        P = QTLSim.Diagonal(ones(k)) - QTLSim.Diagonal(vec(sum(M; dims = 2))) + M
+        σ = 0.01 .* randn(rng, k)
+        lead(e) = maximum(real, eigvals(P * (QTLSim.Diagonal(ones(k)) + e * QTLSim.Diagonal(σ))))
+        h = 1e-3
+        @test (lead(h) - 2lead(0.0) + lead(-h)) / (2h^2) ≈ σ' * QTLSim.local_weights(P) * σ rtol = 1e-4
+    end
+    P4(m) = QTLSim.migration_mixing(island_migration(4, m), fill(100.0, 4), trues(4))
+    ℓ = [0.01, 0.004, -0.004, -0.01]
+    varℓ = sum(abs2, ℓ .- sum(ℓ) / 4) / 4
+    for m in (0.001, 0.01, 0.1)
+        P = P4(m); mp = 1 - (P[1, 1] - P[1, 2])
+        @test all(QTLSim.local_gain(P, ℓ) .≈ (1 - mp) / mp * varℓ)
+    end
+    @test QTLSim.local_gain(P4(0.01), ℓ)[1] > QTLSim.local_gain(P4(0.1), ℓ)[1] > 0
+    @test abs(QTLSim.local_gain(fill(0.25, 4, 4), ℓ)[1]) < 1e-15        # complete mixing, m′ = 1
+    @test all(iszero, QTLSim.local_gain(P4(0.01), fill(0.3, 4)))
+    @test all(iszero, QTLSim.local_gain(P4(0.01), fill([0.3, -0.1], 4)))
+    @test all(iszero, QTLSim.local_gain(Matrix(1.0 * QTLSim.I, 4, 4), ℓ))
+    @test QTLSim.local_gain(fill(1.0, 1, 1), [0.5]) == [0.0]
+    @test QTLSim.migration_classes([0.9 0.1 0; 0.1 0.9 0; 0 0 1.0]) == [[1, 2], [3]]
+    @test QTLSim.local_sinv(0.04, 0.0) === 0.04
+    @test QTLSim.local_sinv(0.04, 0.01) ≈ 0.02
+    @test QTLSim.local_sinv(0.04, 0.05) == 0.0
+    S = [0.05 0.01; 0.01 0.03]
+    @test QTLSim.local_sinv(S, zeros(2, 2)) === S
+    @test minimum(eigvals(Symmetric(QTLSim.local_sinv(S, [0.04 0.0; 0.0 -0.01])))) >= -1e-15
+    ω, _ = QTLSim.pair_classes(p)
+    st = QTLSim.hap_init(0.3, 100.0, 2, length(ω))
+    α2 = QTLSim.mutation_effect_variance(p)
+    @test QTLSim.hap_select(st, 0.03, 100.0, ω, 2; α2) == QTLSim.hap_select(st, 0.03, 100.0, ω, 2; α2, gain = 0.0)
+    @test QTLSim.hap_select(st, 0.03, 100.0, ω, 2; α2, gain = 1.0)[1] ==
+          QTLSim.hap_select(st, 0.03, 100.0, ω, 2; α2 = 0.0)[1]           # the rare loss switched off
+    @test_throws ArgumentError run_moments(p; loci = :rare_locals)
+end

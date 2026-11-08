@@ -16,7 +16,7 @@ functions are declared, documented and exported here.
 module QTLSim
 
 using Random, Statistics, Distributions
-using LinearAlgebra: I, kron, eigvals, eigen, Symmetric, cholesky, det, tr, dot, norm, schur, ordschur!, isposdef
+using LinearAlgebra: I, kron, eigvals, eigen, Symmetric, cholesky, det, tr, dot, norm, schur, ordschur!, isposdef, Diagonal
 
 include("params.jl")
 include("models.jl")
@@ -29,6 +29,7 @@ include("traits_theory.jl")
 include("multilocus.jl")
 include("rare_alleles.jl")
 include("rare_alleles_traits.jl")
+include("local_alleles.jl")
 include("spectrum.jl")
 include("migration.jl")
 include("categorical.jl")

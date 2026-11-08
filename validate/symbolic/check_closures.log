@@ -1,0 +1,83 @@
+QTLSim validate/symbolic/check_closures.jl (Symbolics 7.48.0)
+
+(a) the closure with locally favoured alleles (src/local_alleles.jl)
+  completing the square: the background-averaged fitness of a mutant       ok
+  log marginal fitness −((a − λ)² − λ²)/(2s) = aλ/s − a²/(2s)              ok
+  π is stationary: πP = π                                                  ok
+  (I − P)^# is the group inverse: A A^# A = A, A^# A A^# = A^#, A A^# = A^# A ok
+  two demes: W = Π(I − P)^#P = pq(1 − p − q)/(p + q)³ · [1 −1; −1 1]       ok
+  W's rows and columns sum to zero (so σᵀWσ sees only deviations; Lean gain_shift) ok
+  det(P(I + εΣ) − λ(ε)I) = O(ε³) at λ = 1 + ε π·σ + ε² σᵀWσ                ok
+  a² coefficient of r(a): −π·κ + ℓᵀWℓ                                      ok
+  a¹ coefficient of r(a): π·ℓ, the common lag (left out)                   ok
+  σᵀWσ is unchanged by a common shift of the lags                          ok
+  reduction, lags alike (ℓ₁ = ℓ₂): Λ = 0                                   ok
+  island (k = 2): Λ = (1 − m′)/m′ · Var_π(ℓ), m′ = 2m                      ok
+  reduction, complete migration (m′ = 1): Λ = 0                            ok
+  reduction, Λ = 0: α²(s⁻¹ − 2Λ)/2 = α²/(2s)                               ok
+  several traits, lags alike: Λ = Σ W_dc ℓ_d ℓ_cᵀ = 0                      ok
+  several traits: aᵀΛa = σᵀWσ for σ_d = aᵀℓ_d (the quadratic form of the gain) ok
+
+(b) the existing closures
+  rare alleles: the root form solves c²/V_s + c(α²/(2V_s) + 1/ng) = μα²    ok
+  rare alleles: root form = rationalised form 2μα²/(b + √D) (house_of_gauss_vg) ok
+  Hermisson–Wagner A4: c = α²(√(s_e² + 2(1+Θ)s_e + 1) − s_e − 1)/(4s_e) is the fixed point ok
+  multivariate closure exact at the house of cards: ½(𝓡X + X𝓡ᵀ) = ½C       ok
+  one trait: 𝓡 = ½ α² X⁻¹ with X = s is α²/(2s)                            ok
+  two traits: e_i = 1/(√λ_i(√λ₁+√λ₂)) gives Σ λ_i e_i = 1 (tr(s⁻¹X) = 1)   ok
+  multilocus Gaussian: V = (U V_m + √(U²V_m² + 4U V_m V_s))/2 gives V²/(V_s + V) = U V_m ok
+  multilocus Gaussian: genic change −V²/(2Ls) + V_m = 0 ⇔ V²/(V_s + V) = 2L V_m ok
+
+(c) numerical spot checks against the Julia implementation
+  house_of_gauss_vg = 2L·(root form), L=9 μ=0.0025 N=1522                  ok
+  house_of_gauss_vg = 2L·α²·(eq. A4)                                       ok
+  gaussian_vg_loci = root form, and V²/(V_s+V) = 2L V_m                    ok
+  rare_alleles_rate, one trait: α²·s⁻¹/2                                   ok
+  rare_alleles_rate = ½ C X⁻¹ (symbolic 𝓡 at rare_hc_matrix's X), two traits ok
+  ½(𝓡X + X𝓡ᵀ) = ½C with rare_alleles_rate and rare_hc_matrix               ok
+  tr(s⁻¹ X) = 1 for rare_hc_matrix                                         ok
+  rare_hc_rates (two traits) = 1/(2e_i) with the symbolic e_i              ok
+  rare_hc_rates (three traits, quadrature): Σ λ_i e_i = 1                  ok
+  house_of_gauss_vg = 2L·(root form), L=6 μ=0.0041 N=1546                  ok
+  house_of_gauss_vg = 2L·α²·(eq. A4)                                       ok
+  gaussian_vg_loci = root form, and V²/(V_s+V) = 2L V_m                    ok
+  rare_alleles_rate, one trait: α²·s⁻¹/2                                   ok
+  rare_alleles_rate = ½ C X⁻¹ (symbolic 𝓡 at rare_hc_matrix's X), two traits ok
+  ½(𝓡X + X𝓡ᵀ) = ½C with rare_alleles_rate and rare_hc_matrix               ok
+  tr(s⁻¹ X) = 1 for rare_hc_matrix                                         ok
+  rare_hc_rates (two traits) = 1/(2e_i) with the symbolic e_i              ok
+  rare_hc_rates (three traits, quadrature): Σ λ_i e_i = 1                  ok
+  house_of_gauss_vg = 2L·(root form), L=10 μ=0.0066 N=166                  ok
+  house_of_gauss_vg = 2L·α²·(eq. A4)                                       ok
+  gaussian_vg_loci = root form, and V²/(V_s+V) = 2L V_m                    ok
+  rare_alleles_rate, one trait: α²·s⁻¹/2                                   ok
+  rare_alleles_rate = ½ C X⁻¹ (symbolic 𝓡 at rare_hc_matrix's X), two traits ok
+  ½(𝓡X + X𝓡ᵀ) = ½C with rare_alleles_rate and rare_hc_matrix               ok
+  tr(s⁻¹ X) = 1 for rare_hc_matrix                                         ok
+  rare_hc_rates (two traits) = 1/(2e_i) with the symbolic e_i              ok
+  rare_hc_rates (three traits, quadrature): Σ λ_i e_i = 1                  ok
+  local_weights = symbolic W (two demes, p=0.069 q=0.340)                  ok
+  local_weights = symbolic W (two demes, p=0.197 q=0.397)                  ok
+  local_weights = symbolic W (two demes, p=0.204 q=0.121)                  ok
+  leading eigenvalue of P(I + εΣ), k = 2: λ′ = π·σ, λ″/2 = σᵀWσ (local_weights) ok
+  leading eigenvalue of P(I + εΣ), k = 3: λ′ = π·σ, λ″/2 = σᵀWσ (local_weights) ok
+  leading eigenvalue of P(I + εΣ), k = 4: λ′ = π·σ, λ″/2 = σᵀWσ (local_weights) ok
+  leading eigenvalue of P(I + εΣ), k = 6: λ′ = π·σ, λ″/2 = σᵀWσ (local_weights) ok
+  local_gain, island k = 2, m = 0.484: Λ = (1 − m′)/m′·Var_π(ℓ)            ok
+  local_gain, island k = 4, m = 0.346: Λ = (1 − m′)/m′·Var_π(ℓ)            ok
+  local_gain, island k = 7, m = 0.013: Λ = (1 − m′)/m′·Var_π(ℓ)            ok
+  local_gain = 0 exactly for lags alike (one trait)                        ok
+  local_gain = 0 exactly for lags alike (two traits)                       ok
+  local_gain = 0 exactly without migration (P = I)                         ok
+  local_gain = 0 exactly for one deme                                      ok
+  local_gain per migration class: two classes, the second with lags alike  ok
+  local_sinv(s⁻¹, 0) === s⁻¹; local_sinv = [s⁻¹ − 2Λ]₊                     ok
+  local_sinv, two traits: Λ = 0 gives s⁻¹ itself; the positive part is PSD ok
+  hap_select: gain = 0 is identical to the current closure                 ok
+  hap_select: gain Λ with β = 1 equals the current closure at s⁻¹ − 2Λ in the rare loss ok
+  marginal fitness by quadrature = exp(aλ/s − a²/(2s)), a=-0.04 λ=1.91     ok
+  marginal fitness by quadrature = exp(aλ/s − a²/(2s)), a=-0.10 λ=1.36     ok
+  marginal fitness by quadrature = exp(aλ/s − a²/(2s)), a=0.06 λ=0.70      ok
+
+0 checks failed; 18 s
+PASS
