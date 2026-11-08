@@ -6,7 +6,48 @@ All notable changes to QTLSim.jl are recorded here. The format follows
 
 ## [Unreleased]
 
-<!-- TODO(vgmove): genetic variance under a moving optimum -->
+### Added
+
+- **Genetic variance under a moving optimum: `run_moments(p; loci = :spectrum)`**
+  (`src/spectrum.jl`; one deme, one diploid trait, drift always on). The other moments
+  models predict the genetic variance before the optimum moves but hold it roughly fixed
+  afterwards, so they could not predict extinction at slow rates. This model follows the
+  expected allele-frequency spectrum of the segregating mutations (a Poisson random field):
+  selection moves each allele by Hayward and Sella's (2022) eq. 7 with the rare-alleles
+  closure's Gaussian term, drift acts among the expected parents, and Barton's (1995)
+  linked-selection factor lowers the effective size under directional selection. No
+  constant is fitted. Directional selection sweeps or purges the alleles that carry the
+  variance within a few hundred generations; the variance sweeps sustain scales with the
+  survivors, and QTSim's single crossover per gamete adds linked selection, so a lagging
+  population loses variance, lags further and dies. `spectrum_equilibrium` and `spectrum_vg`
+  give its stationary state.
+- `validate/vg_move.jl` (run 1, criteria written before any kernel run: 148 PASS, 17 FAIL,
+  the failures kept):
+  - It predicts extinction times in density-regulated populations at slow rates within
+    0–20% of the kernel, where the rare-alleles model predicted survival or times up to
+    1.7× too long. Median |log error| is 0.038, against 0.106.
+  - It matches the published extinction times on 240 of the paper's inputs (median
+    table/prediction 1.000).
+  - It reproduces the rise of the variance when rare alleles of large effect sweep.
+  - Caveat: the model was designed after studying vignette 10's runs and exploratory
+    kernel runs of the same scenarios. The validation used fresh seeds, but its vignette 10
+    cells are not independent of the design.
+  - Where it fails:
+    - It over-predicts the rise of the variance at intermediate rates in the
+      house-of-cards regime.
+    - In the Gaussian regime its variance is 1.5× too high, and it misses the kernel's
+      collapse of the variance under a move.
+    - The rate at which linked-selection associations decay is the open problem.
+  - It is not the default. It is recommended for moving optima when 4Nμ ≲ 1 per locus,
+    as in the paper's inputs and vignettes 10 and 11.
+
+### Changed
+
+- `loci = :rare_alleles` works for several traits (`rare_alleles_G`, `house_of_gauss_G`,
+  `house_of_cards_G`) and for haploid clones, and `:auto` uses it for one-trait haploids.
+  Several traits stay on `:multilocus` by default. The closure fails a pre-specified test
+  of four demes with local optima in the house-of-cards regime: there it predicts under
+  half the kernel's within-deme variance (`validate/rare_alleles_traits.jl`).
 
 ## [0.1.0] - unreleased
 
