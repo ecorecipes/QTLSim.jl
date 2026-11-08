@@ -358,6 +358,21 @@ with each growth rate, paired by input
     0.073 at a fixed size.
 - **No input survived better under density regulation.**
 
+One assumption is left: selection here is on viability, as in QTSim, so
+who survives is itself random. `validate/fecundity_summary.md` reran the
+900 of these inputs with at most 1000 loci with fecundity selection
+instead (`Selection = :fecundity`). Every individual survives, parents
+are drawn in proportion to their fitness, and the number of offspring
+uses the expected number of viability survivors, so the two kinds of
+selection have the same expected strength and differ only in how random
+they are. With $R = 2$, 5.3% of populations were alive against 5.2%
+under viability selection, and, paired by input, they lasted 1.05 times
+as long, still less than half as long as at a fixed size (0.45 against
+0.43). The effect of density regulation does not depend on the kind of
+selection. At a fixed size it does: fecundity selection cannot empty a
+population that is refilled every generation, so QTSim’s extinctions
+exist only because selection acts on viability.
+
 <div id="refs" class="references csl-bib-body hanging-indent">
 
 <div id="ref-Pagel2025" class="csl-entry">
