@@ -124,8 +124,9 @@ end
 The equilibrium genetic variance of the moments lowering with `loci = :rare_alleles`
 (`run_moments(p; loci = :rare_alleles)`; with `drift = true`, of `erosion = true`): the
 multilocus model of [`gaussian_vg_loci`](@ref) with the rare-alleles closure, in which the
-genic variance also loses `α²/(2s)` of itself to selection per generation, `α²` =
-[`QTLSim.mutation_effect_variance`](@ref)`(p)` (src/rare_alleles.jl). It tends to
+genic variance also loses `β²α²/(2s)` of itself to selection per generation, `α²` =
+[`QTLSim.mutation_effect_variance`](@ref)`(p)`, `s = V_s + V_G` and `β = V_G/V_genic` the
+regression of the genotype on a locus's alleles (`β = 1` without LD; src/rare_alleles.jl). It tends to
 [`gaussian_vg_loci`](@ref) when mutations are many and small and to the (stochastic) house
 of cards when they are rare and large; for loci in linkage equilibrium it is
 [`house_of_gauss_vg`](@ref). See [`multilocus_equilibrium`](@ref) for the details.

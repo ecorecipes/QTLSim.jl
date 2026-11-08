@@ -74,7 +74,10 @@ The predictions the simulations are compared with; `run_moments` iterates them f
 life cycle. Its default, the multilocus Gaussian model (genic variance, linkage
 disequilibrium broken up by recombination, optional drift), has the equilibrium
 `gaussian_vg_loci`; `gaussian_vg_exact` is the equilibrium of the aggregate (one haploid
-locus) recursion, `run_moments(p; loci = :aggregate)`.
+locus) recursion, `run_moments(p; loci = :aggregate)`. With `loci = :rare_alleles`, the
+rare-alleles closure (src/rare_alleles.jl), right across the Gaussian, house-of-cards and
+neutral regimes, has the equilibrium `rare_alleles_vg`; `house_of_gauss_vg` is its
+closed form for loci in linkage equilibrium.
 
 ```@docs
 selection_variance
@@ -84,6 +87,9 @@ gaussian_vg
 gaussian_vg_exact
 effective_size
 house_of_cards_vg
+house_of_gauss_vg
+rare_alleles_vg
+QTLSim.mutation_effect_variance
 steady_lag
 critical_rate
 mutation_adjusted

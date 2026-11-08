@@ -17,7 +17,7 @@ generations under stabilising selection, so that it starts the
 experiment at equilibrium. How much genetic variance it holds then
 matters: the genetic variance $V_G$ is the raw material of the response
 to a moving optimum. This vignette measures the equilibrium and compares
-it with two classical approximations.
+it with classical approximations and with a model that bridges them.
 
 Mutation adds variance and stabilising selection and drift remove it.
 Write $V_m$ for the variance mutation adds per generation,
@@ -43,6 +43,19 @@ of a mutation’s effect and $N_e$ for the effective population size.
   $V_G \approx 4 n \mu V_s \,/\, \left(1 + V_s / (N_e \alpha^2)\right)$.
   This is the approximation the paper compares its simulations with (its
   Supplementary Figure S1, labelled equation 21a in its results table).
+- The rare-alleles closure (`rare_alleles_vg`,
+  `run_moments(p; loci = :rare_alleles)`) bridges the two. The Gaussian
+  model takes the fourth moment of the allelic values at a locus to be
+  Gaussian; when a locus is mostly one allele with a few rare mutants,
+  that moment is instead dominated by the mutants, lpha^2 the variance,
+  so selection removes each rare mutant at its own rate besides the
+  Gaussian loss. For loci in linkage equilibrium its equilibrium is the
+  “stochastic house of Gauss” of Hermisson and Wagner
+  ([2004](#ref-HermissonWagner2004)) (`house_of_gauss_vg`), which is the
+  house of cards when mutations are rare, the Gaussian when they are
+  many, and N_e V_m drift dominates; in the multilocus model it keeps
+  linkage disequilibrium and recombination. Its comparison with the
+  kernel across regimes is `validate/moments_regimes.jl`.
 
 ## Setup
 
@@ -164,6 +177,7 @@ computes it.
 
 ``` julia
 gaussian(p) = gaussian_vg_loci(p; drift = true)           # n loci, linkage disequilibrium, drift
+rare(p) = rare_alleles_vg(p; drift = true)                # the same with the rare-alleles closure
 one_locus(p) = sqrt(muteVar(p) * (initFitSD(p)^2 + envVar(p)))   # gaussian_vg(p)
 
 function house_of_cards(p, ns)
@@ -177,25 +191,29 @@ end
 
 shc = [house_of_cards(r.p, r.ns) for r in eq]
 gau = [gaussian(r.p) for r in eq]
+rar = [rare(r.p) for r in eq]
 one = [one_locus(r.p) for r in eq]
 sim = [r.VG for r in eq]
 @printf("simulated / house of cards: median %.2f (range %.2f–%.2f)\n",
         median(sim ./ shc), extrema(sim ./ shc)...)
 @printf("simulated / Gaussian, n loci: median %.2f (range %.2f–%.2f)\n",
         median(sim ./ gau), extrema(sim ./ gau)...)
+@printf("simulated / rare alleles:    median %.2f (range %.2f–%.2f)\n",
+        median(sim ./ rar), extrema(sim ./ rar)...)
 @printf("simulated / one locus:       median %.2f (range %.2f–%.2f)\n",
         median(sim ./ one), extrema(sim ./ one)...)
 ```
 
     simulated / house of cards: median 0.95 (range 0.69–1.50)
     simulated / Gaussian, n loci: median 0.90 (range 0.49–1.48)
+    simulated / rare alleles:    median 0.97 (range 0.70–1.55)
     simulated / one locus:       median 1.28 (range 0.19–4.57)
 
 ``` julia
-fig = Figure(size = (1020, 360))
-for (k, (pred, name)) in enumerate(((shc, "stochastic house of cards"), (gau, "Gaussian, 100 loci, drift"),
-                                     (one, "Gaussian, one locus")))
-    ax = Axis(fig[1, k], xscale = log10, yscale = log10, title = name,
+fig = Figure(size = (900, 760))
+for (k, (pred, name)) in enumerate(((shc, "stochastic house of cards"), (rar, "rare alleles, 100 loci, drift"),
+                                     (gau, "Gaussian, 100 loci, drift"), (one, "Gaussian, one locus")))
+    ax = Axis(fig[fld1(k, 2), mod1(k, 2)], xscale = log10, yscale = log10, title = name,
               xlabel = "predicted V_G", ylabel = "simulated V_G")
     lo, hi = extrema(vcat(pred, sim))
     lines!(ax, [lo / 2, 2hi], [lo / 2, 2hi], color = :gray, linestyle = :dash)
@@ -211,12 +229,12 @@ fig
 ![](02_mutation_selection_balance_files/figure-commonmark/fig-balance-output-1.png)
 
 Figure 1: Equilibrium genetic variance of 24 simulated populations
-against three approximations (the line is equality). The stochastic
-house of cards tracks the simulations across nearly three orders of
-magnitude, within a factor of 1.5. The Gaussian approximation summed
-over the 100 loci, with drift, is right on average but scatters more
-widely. Its one-locus form misses by up to a factor of about five in
-either direction.
+against four approximations (the line is equality). The stochastic house
+of cards and the rare-alleles closure track the simulations across
+nearly three orders of magnitude, within a factor of 1.5. The Gaussian
+approximation summed over the 100 loci, with drift, is right on average
+but scatters more widely. Its one-locus form misses by up to a factor of
+about five in either direction.
 
 ```@raw html
 </div>
@@ -229,12 +247,16 @@ the standing variation at its locus. The Gaussian approximation assumes
 the opposite, many small effects at every locus, yet with the loci
 counted and drift included its median is within 10% of the simulations;
 it scatters more than the house of cards because it misses how the
-variance depends on the size of a mutation’s effect. The one-locus form,
-which counts all of selection’s reduction of the variance as inherited,
-is not a model of these populations at all. One consequence is that the
-heritability in `Params` is not the heritability the population ends up
-with. It only sets the environmental variance, $V_E = (1-h^2)V_P$; the
-genetic variance is whatever mutation, selection and drift balance at.
+variance depends on the size of a mutation’s effect. The rare-alleles
+closure, which adds that dependence to the Gaussian model, does as well
+as the house of cards here (median 0.97 against 0.95, with the same
+scatter, much of which is the sampling noise of single runs). The
+one-locus form, which counts all of selection’s reduction of the
+variance as inherited, is not a model of these populations at all. One
+consequence is that the heritability in `Params` is not the heritability
+the population ends up with. It only sets the environmental variance,
+$V_E = (1-h^2)V_P$; the genetic variance is whatever mutation, selection
+and drift balance at.
 
 ``` julia
 fig = Figure(size = (420, 380))
@@ -276,22 +298,23 @@ Threads.@threads for k in eachindex(Ls)
     byL[k] = equilibrium(θ; L = Ls[k], seed = 100 + k)
 end
 for (L, r) in zip(Ls, byL)
-    @printf("NoQTL = %4d:  simulated %.4f   house of cards %.4f   Gaussian, n loci %.4f\n",
-            L, r.VG, house_of_cards(r.p, r.ns), gaussian(r.p))
+    @printf("NoQTL = %4d:  simulated %.4f   house of cards %.4f   Gaussian, n loci %.4f   rare alleles %.4f\n",
+            L, r.VG, house_of_cards(r.p, r.ns), gaussian(r.p), rare(r.p))
 end
 ```
 
-    NoQTL =   10:  simulated 0.0106   house of cards 0.0137   Gaussian, n loci 0.0446
-    NoQTL =   30:  simulated 0.0365   house of cards 0.0320   Gaussian, n loci 0.0604
-    NoQTL =  100:  simulated 0.0465   house of cards 0.0599   Gaussian, n loci 0.0722
-    NoQTL =  300:  simulated 0.0626   house of cards 0.0797   Gaussian, n loci 0.0766
-    NoQTL = 1000:  simulated 0.0694   house of cards 0.0901   Gaussian, n loci 0.0779
+    NoQTL =   10:  simulated 0.0106   house of cards 0.0137   Gaussian, n loci 0.0446   rare alleles 0.0133
+    NoQTL =   30:  simulated 0.0365   house of cards 0.0320   Gaussian, n loci 0.0604   rare alleles 0.0300
+    NoQTL =  100:  simulated 0.0465   house of cards 0.0599   Gaussian, n loci 0.0722   rare alleles 0.0539
+    NoQTL =  300:  simulated 0.0626   house of cards 0.0797   Gaussian, n loci 0.0766   rare alleles 0.0687
+    NoQTL = 1000:  simulated 0.0694   house of cards 0.0901   Gaussian, n loci 0.0779   rare alleles 0.0753
 
 ``` julia
 fig = Figure(size = (520, 380))
 ax = Axis(fig[1, 1], xscale = log10, xlabel = "number of loci", ylabel = "equilibrium V_G")
 lines!(ax, Ls, [house_of_cards(r.p, r.ns) for r in byL], color = :teal, label = "house of cards")
 lines!(ax, Ls, [gaussian(r.p) for r in byL], color = :gray, label = "Gaussian, n loci")
+lines!(ax, Ls, [rare(r.p) for r in byL], color = :orange, label = "rare alleles")
 hlines!(ax, [one_locus(byL[1].p)], color = :gray, linestyle = :dash, label = "Gaussian, one locus")
 scatter!(ax, Ls, [r.VG for r in byL], color = :crimson, label = "simulated")
 axislegend(ax, position = :lt)
@@ -306,8 +329,9 @@ fig
 
 Figure 3: Equilibrium genetic variance against the number of loci for
 one parameter set (points), with the house-of-cards prediction (teal),
-the Gaussian prediction summed over the loci with drift (gray) and its
-one-locus form, which does not depend on the number of loci (dashed).
+the Gaussian prediction summed over the loci with drift (gray), the
+rare-alleles closure (orange) and its one-locus form, which does not
+depend on the number of loci (dashed).
 
 ```@raw html
 </div>
@@ -320,7 +344,11 @@ over the loci is four times too high at 10 loci, where mutations are
 largest compared with the variance at a locus, and approaches the
 simulations as the loci multiply and the effects shrink; at 300 and 1000
 loci it is closer than the house of cards (22% and 12% high, against 27%
-and 30%). The one-locus form misses the trend entirely. The [replication
+and 30%). The rare-alleles closure follows the Gaussian model where
+mutations are small and the house of cards where they are large, and is
+the closest of the three from 100 loci on (16%, 10% and 8% high); at 10
+and 30 loci it is 25% high and 18% low, as close as the house of cards.
+The one-locus form misses the trend entirely. The [replication
 vignette](09_replicating_pagel_2025.md)
 makes the same comparison for the paper’s own parameter sets.
 
@@ -347,6 +375,18 @@ Mutation-Selection Balance?” *Evolution* 43 (8): 1748–66.
 
 Falconer, Douglas S., and Trudy F. C. Mackay. 1996. *Introduction to
 Quantitative Genetics*. 4th ed. Longman.
+
+```@raw html
+</div>
+```
+
+```@raw html
+<div id="ref-HermissonWagner2004" class="csl-entry">
+```
+
+Hermisson, Joachim, and Günter P. Wagner. 2004. “The Population Genetic
+Theory of Hidden Variation and Genetic Robustness.” *Genetics* 168 (4):
+2271–84. <https://doi.org/10.1534/genetics.104.029173>.
 
 ```@raw html
 </div>
