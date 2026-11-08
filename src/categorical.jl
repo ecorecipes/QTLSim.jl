@@ -21,7 +21,7 @@ Requires Catlab.
 function lifecycle end
 
 """
-    lower(f, target; images = Dict(), record = nothing, migration_rate = 0.0)
+    lower(f, target; images = Dict(), record = nothing, migration_rate = 0.0, model = OneTraitModel())
 
 The image of the life-cycle morphism `f` under the lowering functor to `target`:
 `:kernel` gives an operator on a [`World`](@ref), `:eidos` a fragment of Eidos code for
@@ -38,6 +38,12 @@ exchange individuals among demes at `migration_rate` (in Eidos, the constant `mi
 along a migration graph when it is a matrix ([`island_migration`](@ref),
 [`stepping_stone`](@ref); in Eidos, the constant `MIG`), unless the step has a rate of its
 own (`lifecycle().migrate(k; rate)`).
+
+`model` ([`QTLSim.Model`](@ref)) chooses the functor: each model has its own table of images
+of the steps in each target, so the same `f` lowers to QTSim's one-trait operators or, with
+`model = TraitModel(n)`, to those of `n` traits; an image refuses a population of the other
+model. [`run_composed`](@ref), [`run_moments`](@ref) and [`slim_script`](@ref) pass the model
+of their `Params`.
 
 A step with parameters ([`withparams`](@ref)) is a generator of its own. Its image is the
 plain step's, with the step's parameters in place of the deme's `Params`; in Eidos they
@@ -82,12 +88,18 @@ function slim_script end
 
 """
     withparams(f; kw...)
+    withparams(f, model; kw...)
+    withparams(f, p::Params; kw...)
 
 The life-cycle morphism `f` with parameters given to its steps. Each generator of `f`
 that takes one of the parameters in `kw` becomes a new generator of the same type, named
 by the step and its parameters. Its image in each lowering (`:kernel`, `:eidos`,
 `:moments`) is the image of the plain step with those parameters in place of the deme's
-`Params`, for that step only. The parameters each step takes:
+`Params`, for that step only. The parameters belong to a model ([`QTLSim.Model`](@ref)):
+they are checked against the schema of `model` ([`step_schema`](@ref)), of `model_of(p)`
+with a `Params`, or of QTSim's [`OneTraitModel`](@ref) without either, and again against the
+model a lowering targets, so a step written for one model is rejected by another whose
+schema it does not fit. The parameters each step takes in the one-trait model:
 
 - `select`: `ω`, a fixed width; `θ`, a fixed optimum, in place of the move; the move,
   `MoveType`, `MoveFitnessSD`, `MoveFitnessSDGen`, `MoveNoiseSD`, `MoveAutocorr`,
@@ -101,6 +113,12 @@ by the step and its parameters. Its image in each lowering (`:kernel`, `:eidos`,
 - `mutate`: `MutationScalar` and `MutationRatePerGamete`;
 - `migrate`: `rate`, a number or a migration matrix, in place of the lowering's
   `migration_rate`. `lifecycle().migrate(k; rate)` is the same.
+
+In the model of `n` traits ([`TraitModel`](@ref)`(n)`), `select`'s `θ` is a vector of `n`, and
+`select` also takes `Ω`, a fitness covariance matrix in place of `ω² S` (so not with `ω` or
+`SelCorr`), `SelCorr` and `MoveDirection`, but not `StandardisePhenotype`; `mutate` also
+takes `MutCorr` and `MutCov`. `withparams(g, p; θ = [0.1, 0.0]) ⊗ withparams(g, p; θ = [0.0,
+0.1])` is two demes with optima along different traits.
 
 So `withparams(L.select; ω = 0.3)` is a selection step of width 0.3, and
 `withparams(g; θ = 0.1) ⊗ g` a generation of two demes whose first selects toward 0.1.
@@ -119,9 +137,10 @@ step's code. Steps without parameters lower exactly as before. Requires Catlab.
 function withparams end
 
 """
-    operators()
+    operators(model = OneTraitModel())
 
-The kernel images of the steps of the life cycle ([`lifecycle`](@ref)), as the named
+The kernel images of the steps of the life cycle ([`lifecycle`](@ref)) in `model` (a
+[`QTLSim.Model`](@ref) or a `Params`, whose model is `model_of(p)`), as the named
 tuple `(; develop, select, reproduce, record, rescale, mutate, swap, generation)`. An
 operator is called as `op(world, rng)`, composes left to right with Catlab's `⋅`
 (`(f ⋅ g)(w, rng)` applies `f` then `g`), and acts deme by deme on a metapopulation

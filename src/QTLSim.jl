@@ -19,6 +19,7 @@ using Random, Statistics, Distributions
 using LinearAlgebra: I, kron, eigvals, eigen, Symmetric, cholesky, det, tr, dot, norm
 
 include("params.jl")
+include("models.jl")
 include("qtsim_io.jl")
 include("blocks.jl")
 include("model.jl")
@@ -36,6 +37,8 @@ export Params, World, genomes, setgenomes!, simulate, run!, generation!, init_en
        geneticVar, envVar, analyticalFitSD, initFitSD, muteVar,
        mutational_covariance, selection_covariance, selection_shape, move_direction, traitvalues,
        read_qtsim_options, write_qtsim_options
+# models: the families of lowerings of the one life cycle, and their step parameters
+export OneTraitModel, TraitModel, model_of, step_schema
 # analytical predictions
 export selection_variance, gaussian_vg, gaussian_vg_exact, gaussian_vg_loci, multilocus_equilibrium, effective_size, house_of_cards_vg,
        steady_lag, critical_rate, mutation_adjusted, extinction_distribution, rescue_probability

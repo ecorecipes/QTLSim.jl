@@ -49,43 +49,85 @@ compose(f::Operator, g::Operator, h::Operator, rest::Operator...) = foldl(⋅, (
 isextinct(w::World) = w.extinct
 
 # --- the kernel image of each step of the life cycle ---------------------
+#
+# Each model (QTLSim.Model) is a functor out of the same free category, so each has its
+# own table of images. The tables share the images of the steps that do not care what an
+# allele is (inheritance copies blocks of loci, the width changes on schedule, the
+# buffers swap) and differ in develop, select and mutate, where the object image, ℝ or ℝⁿ,
+# matters. An image checks that it got a population of its model.
 
-"""
-The kernel image of each step of the life cycle, by name: the kernel's operators, with
-`record` appending to `rec` (see `QTLSim.records`), or discarding its observations when
-`rec` is `nothing`.
-"""
-kernel_images(rec = nothing) = Dict{Symbol,Any}(
-    :develop => Operator(:develop, (w, rng) -> QTLSim.develop!(w)),
-    :select => Operator(:select, (w, rng) -> QTLSim.select!(w, rng)),
+# the steps whose kernel image is the same in both models
+shared_kernel_images(rec) = Dict{Symbol,Any}(
     :reproduce => Operator(:reproduce, (w, rng) -> isextinct(w) ? w : QTLSim.reproduce!(w, rng)),
     :record => Operator(:record, (w, rng) -> record!(rec, w)),
     :rescale => Operator(:rescale, (w, rng) -> rescale!(w)),
-    :mutate => Operator(:mutate, (w, rng) -> QTLSim.mutate!(w, rng)),
     :swap => Operator(:swap, (w, rng) -> (QTLSim.swapbuffers!(w); w.gen += 1; w)))
 
+"A `World` of the one-trait model, or an error that says which model it belongs to."
+@inline function onetrait(w::World)
+    w.traits === nothing ||
+        throw(ArgumentError("the one-trait model's image of a step got a population of $(w.p.NoTraits) traits; " *
+                            "lower with model = model_of(p), TraitModel($(w.p.NoTraits))"))
+    w
+end
+
+"A `World` of `n` traits, or an error that says which model it belongs to."
+@inline function ntraits_world(w::World, n::Int)
+    t = w.traits
+    t !== nothing && t.n == n ||
+        throw(ArgumentError("the image of a step for $n traits got a population of $(w.p.NoTraits) trait" *
+                            "$(w.p.NoTraits == 1 ? "" : "s"); lower with model = model_of(p)"))
+    w
+end
+
 """
-    with_step_params(s::Step, op::Operator)
+    kernel_images(model, rec = nothing)
+
+The kernel image of each step of the life cycle in `model`, by name: the kernel's
+operators, with `record` appending to `rec` (see `QTLSim.records`), or discarding its
+observations when `rec` is `nothing`. `OneTraitModel()` (QTSim's) and `TraitModel(n)` share
+the images of reproduce, record, rescale and swap, and differ in develop, select and mutate.
+"""
+kernel_images(::OneTraitModel, rec = nothing) = merge!(shared_kernel_images(rec), Dict{Symbol,Any}(
+    :develop => Operator(:develop, (w, rng) -> QTLSim.develop_one!(onetrait(w))),
+    :select => Operator(:select, (w, rng) -> QTLSim.select_one!(onetrait(w), rng)),
+    :mutate => Operator(:mutate, (w, rng) -> QTLSim.mutate_one!(onetrait(w), rng))))
+kernel_images(m::TraitModel, rec = nothing) = merge!(shared_kernel_images(rec), Dict{Symbol,Any}(
+    :develop => Operator(:develop, (w, rng) -> QTLSim.develop_traits!(ntraits_world(w, m.n))),
+    :select => Operator(:select, (w, rng) -> QTLSim.select_traits!(ntraits_world(w, m.n), rng)),
+    :mutate => Operator(:mutate, (w, rng) -> QTLSim.mutate_traits!(ntraits_world(w, m.n), rng))))
+kernel_images(rec = nothing) = kernel_images(OneTraitModel(), rec)
+
+"""
+    with_step_params(model, s::Step, op::Operator)
 
 The image of a step with parameters `s.params`, from the image `op` of the plain step,
-in the kernel or the moments lowering: `op` runs with the deme's `Params` overridden by
-the step's fields of `Params`, its width `ω` and its optimum `θ` replaced by the step's
-`ω` and `θ` when it has them, and all three restored afterwards. A step's own `θ`
-replaces the move (`MoveFitnessSDGen = -1` for that step). So the parameters act in that
-step only: the deme's state keeps its own optimum and width, which is what `record`
-records, while a move made by a step's own move parameters moves the deme's optimum.
+in the kernel or the moments lowering of `model`: `op` runs with the deme's `Params`
+overridden by the step's fields of `Params`, and with the step's own parameters in place of
+the deme's state, all restored afterwards. A step's own `θ` replaces the move
+(`MoveFitnessSDGen = -1` for that step). So the parameters act in that step only: the
+deme's state keeps its own optimum and width, which is what `record` records, while a move
+made by a step's own move parameters moves the deme's optimum.
+
+For one trait the step's `ω` and `θ` (numbers) replace the deme's width and optimum. For
+`n` traits `θ` is a vector, `Ω` a fitness covariance (in place of `ω² S`, so the width is
+1 for that step), and the fields that define the state's derived matrices replace them:
+`SelCorr` the fitness shape, `MutationScalar`, `MutationRatePerGamete`,
+`MutCorr`/`MutCov` the mutational covariance, `MoveDirection` the move's direction.
 """
-function with_step_params(s, op::Operator)
+function with_step_params(::OneTraitModel, s, op::Operator)
     fields = paramfields(s)
     ω = get(s.params, :ω, nothing)
     θ = get(s.params, :θ, nothing)
     θ === nothing || (fields = merge(fields, (MoveFitnessSDGen = -1,)))
-    cache = IdDict{Params,Params}()          # the overridden Params, per deme's Params
+    cache = Tuple{Params,Params}[]           # the overridden Params, per deme's Params
     Operator(Symbol(string(s)), function (w, rng)
-        θ === nothing || !hastraits(w) ||
-            throw(ArgumentError("the step $s has its own θ, a number; with several traits the optimum is a vector"))
         p0, ω0, θ0 = w.p, w.ω, w.θ
-        isempty(fields) || (w.p = get!(() -> QTLSim.checkparams(Params(p0; fields...)), cache, p0))
+        if !isempty(fields)
+            i = cacheindex(cache, p0)
+            i == 0 && (push!(cache, (p0, QTLSim.checkparams(Params(p0; fields...)))); i = length(cache))
+            w.p = cache[i][2]
+        end
         ω === nothing || (w.ω = ω)
         θ === nothing || (w.θ = θ)
         try
@@ -99,9 +141,70 @@ function with_step_params(s, op::Operator)
     end, op.scope)
 end
 
-"Whether a state carries several traits (a `World` with `traits`, or `TraitMoments`)."
-hastraits(w::World) = w.traits !== nothing
-hastraits(_) = false
+# the index in `cache`, a vector of tuples whose first element is a deme's Params, of the
+# entry for `p` (the same object, ===), or 0; a linear search allocates nothing, where an
+# IdDict boxes its immutable key
+@inline function cacheindex(cache::Vector, p::Params)
+    for i in eachindex(cache)
+        cache[i][1] === p && return i
+    end
+    0
+end
+
+const SELECTION_FIELDS = (:SelCorr,)
+const MUTATION_FIELDS = (:MutationScalar, :MutationRatePerGamete, :MutCorr, :MutCov)
+
+function with_step_params(::TraitModel, s, op::Operator)
+    θ = get(s.params, :θ, nothing)
+    Ω = get(s.params, :Ω, nothing)
+    fields = θ === nothing ? paramfields(s) : merge(paramfields(s), (MoveFitnessSDGen = -1,))
+    ω = Ω === nothing ? get(s.params, :ω, nothing) : 1.0      # Ω is the whole covariance: Ω = 1² Ω
+    sel = Ω !== nothing || any(k -> haskey(fields, k), SELECTION_FIELDS)
+    mut = any(k -> haskey(fields, k), MUTATION_FIELDS)
+    dir = haskey(fields, :MoveDirection)
+    # per deme's Params: the overridden Params and the state's matrices for the step, the
+    # step's where it overrides them and otherwise the deme's (the same values as its state)
+    cache = Tuple{Params,Params,Matrix{Float64},Matrix{Float64},Vector{Float64}}[]
+    Operator(Symbol(string(s)), function (w, rng)
+        p0, ω0 = w.p, w.ω
+        i = cacheindex(cache, p0)
+        if i == 0
+            q = isempty(fields) ? p0 : QTLSim.checkparams(Params(p0; fields...))
+            push!(cache, (p0, q, sel ? selection_slot(w, q, Ω) : selection_slot(w, p0, nothing),
+                          mut ? mutation_slot(w, q) : mutation_slot(w, p0), QTLSim.move_direction(dir ? q : p0)))
+            i = length(cache)
+        end
+        _, q, S, M, u = cache[i]
+        saved = trait_slots(w)               # (θ, selection, mutation, direction)
+        w.p = q
+        ω === nothing || (w.ω = ω)
+        set_trait_slots!(w, (θ === nothing ? saved[1] : θ, S, M, u))
+        try
+            op(w, rng)
+        finally
+            w.p = p0
+            ω === nothing || (w.ω = ω0)
+            # the optimum stays where the step's own move put it, unless the step fixed it
+            set_trait_slots!(w, (θ === nothing ? trait_slots(w)[1] : saved[1], saved[2], saved[3], saved[4]))
+        end
+        w
+    end, op.scope)
+end
+
+# The state of n traits that a step's parameters replace, in the kernel: the optimum
+# vector, the inverse of the fitness shape, a square root of one mutation's covariance and
+# the move's direction (fields of the World's TraitState). w.θ holds the optimum's trait 1.
+trait_slots(w::World) = (t = w.traits; (t.θ, t.Sinv, t.Lmut, t.u))
+function set_trait_slots!(w::World, (θ, Sinv, Lmut, u))
+    t = w.traits
+    t.θ, t.Sinv, t.Lmut, t.u = θ, Sinv, Lmut, u
+    w.θ = θ[1]
+    w
+end
+# the step's fitness shape (Ω with width 1, or Params' shape) and mutation, as the kernel holds them
+selection_slot(::World, q::Params, Ω) = Matrix(inv(QTLSim.Symmetric(Ω === nothing ? QTLSim.selection_shape(q) : Ω)))
+mutation_slot(::World, q::Params) =
+    QTLSim.psd_sqrt(QTLSim.mutational_covariance(q) ./ (q.Ploidy * q.NoQTL * q.MutationRatePerGamete))
 
 # --- a run driven by one lowered life cycle -------------------------------
 
@@ -111,7 +214,7 @@ function run_composed(w::World, rng; record::Bool=true, cycle = lifecycle().gene
     dom(cycle) == zygotes && codom(cycle) == zygotes ||
         throw(ArgumentError("a run iterates a life cycle Zygotes → Zygotes; got $(dom(cycle)) → $(codom(cycle))"))
     rec = records(; traits = w.p.NoTraits)
-    step = lower(cycle, :kernel; images, record = record ? rec : nothing)
+    step = lower(cycle, :kernel; images, record = record ? rec : nothing, model = model_of(w.p))
     p = w.p
     init_env!(w, rng)
     # whole cycles until NoGenerations generations are done: a cycle of several generations
@@ -279,8 +382,11 @@ function run_composed(s::Stratified, rng; cycle, record::Bool=true, images = Dic
     dom(cycle) == zk && codom(cycle) == zk ||
         throw(ArgumentError("a run of $k demes iterates a life cycle on $k zygote stages, Zygotes⊗…⊗Zygotes; " *
                             "got $(dom(cycle)) → $(codom(cycle))"))
+    m = model_of(first(s.demes).p)
+    all(w -> model_of(w.p) == m, s.demes) ||
+        throw(ArgumentError("the demes of a metapopulation belong to one model; got $(unique(model_of(w.p) for w in s.demes))"))
     rec = records(demes = s.demes, traits = first(s.demes).p.NoTraits)
-    step = demeop(lower(cycle, :kernel; images, record = record ? rec : nothing, migration_rate))
+    step = demeop(lower(cycle, :kernel; images, record = record ? rec : nothing, migration_rate, model = m))
     foreach(w -> init_env!(w, rng), s.demes)
     p = first(s.demes).p
     d = collect(1:k)

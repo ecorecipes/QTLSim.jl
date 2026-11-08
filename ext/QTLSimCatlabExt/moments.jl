@@ -244,8 +244,15 @@ function moments_record!(rec, m::Moments)
     m
 end
 
-"The image of each step of the life cycle in the moments lowering, by name."
-moment_images(rec = nothing) = Dict{Symbol,Any}(
+"""
+    moment_images(model, rec = nothing)
+
+The image of each step of the life cycle in the moments lowering of `model`, by name: for
+QTSim's one trait this table, for `TraitModel(n)` the table of `n` traits
+(`trait_moment_images`, trait_moments.jl).
+"""
+moment_images(rec = nothing) = moment_images(OneTraitModel(), rec)
+moment_images(::OneTraitModel, rec = nothing) = Dict{Symbol,Any}(
     :develop => Operator(:develop, (m, rng) -> (m.VP = m.VG + m.VE; m)),
     :select => Operator(:select, (m, rng) -> moments_select!(m)),
     :reproduce => Operator(:reproduce, (m, rng) -> m.extinct ? m : moments_reproduce!(m)),

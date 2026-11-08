@@ -191,7 +191,10 @@ function run_trait_moments(p::Params; cycle = lifecycle().generation, images = D
         throw(ArgumentError("the moments of several traits are for one deme, a life cycle Zygotes → Zygotes; " *
                             "got $(dom(cycle)) → $(codom(cycle))"))
     rec = merge(records(), QTLSim.trait_records())
-    step = lower(cycle, :moments; images = merge(trait_moment_images(rec), Dict{Symbol,Any}(images)), record = rec)
+    # the model of n traits lowers with its own table; called with one trait, the same table runs 1×1 matrices
+    model = model_of(p)
+    step = lower(cycle, :moments; images = model isa TraitModel ? images : merge(trait_moment_images(rec), Dict{Symbol,Any}(images)),
+                 record = rec, model)
     m = TraitMoments(p; zbar, G, erosion, loci)
     while m.gen < p.NoGenerations
         it = m.gen
@@ -201,4 +204,12 @@ function run_trait_moments(p::Params; cycle = lifecycle().generation, images = D
     end
     (extinct = false, extinct_gen = -1, rec...)
 end
-hastraits(::TraitMoments) = true
+moment_images(::TraitModel, rec = nothing) = trait_moment_images(rec)
+
+# the state of n traits that a step's parameters replace (compose.jl, with_step_params), in
+# the moments: the optimum vector, the fitness shape, the mutational covariance and the
+# move's direction
+trait_slots(m::TraitMoments) = (m.θ, m.shape, m.M, m.u)
+set_trait_slots!(m::TraitMoments, (θ, shape, M, u)) = ((m.θ, m.shape, m.M, m.u) = (θ, shape, M, u); m)
+selection_slot(::TraitMoments, q::Params, Ω) = Ω === nothing ? QTLSim.selection_shape(q) : Matrix{Float64}(Ω)
+mutation_slot(::TraitMoments, q::Params) = QTLSim.mutational_covariance(q)

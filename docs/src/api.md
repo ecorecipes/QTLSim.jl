@@ -68,6 +68,20 @@ move_direction
 traitvalues
 ```
 
+Models: the families of lowerings of the one life cycle, each with its own step
+parameters and tables of images:
+
+```@docs
+QTLSim.Model
+OneTraitModel
+TraitModel
+model_of
+step_schema
+QTLSim.step_fields
+QTLSim.step_own_params
+QTLSim.checkstep
+```
+
 ## Theory
 
 The predictions the simulations are compared with; `run_moments` iterates them for any
@@ -190,6 +204,9 @@ QTLSimCatlabExt
 QTLSimCatlabExt.Stage
 QTLSimCatlabExt.Step
 QTLSimCatlabExt.STEP_PARAMS
+QTLSimCatlabExt.kernel_images
+QTLSimCatlabExt.moment_images
+QTLSimCatlabExt.with_step_params
 QTLSimCatlabExt.EidosCode
 QTLSimCatlabExt.EidosMeta
 QTLSimCatlabExt.DemeOp

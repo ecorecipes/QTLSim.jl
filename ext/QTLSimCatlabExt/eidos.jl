@@ -84,8 +84,9 @@ const EIDOS_SCOPE = Dict(
     :Survivors => "W, survived, sidx and ns ≥ 2 (and, when a model has fecundity selection, weighted, sw and nw)",
     :Offspring => "c0 and c1, the offspring's chromosomes (concatenated, L values per offspring)")
 
-"The Eidos image of each step of the life cycle, by name."
-eidos_images() = Dict{Symbol,Any}(
+"The Eidos image of each step of the life cycle in `model` (by default QTSim's one trait), by name."
+eidos_images() = eidos_images(OneTraitModel())
+eidos_images(::OneTraitModel) = Dict{Symbol,Any}(
     :develop => EidosCode(:develop, """
     // develop: genotype the sum of allele values, phenotype genotype + e with e ~ N(0, V_E)   [Zygotes → Adults]
     adults = @POP@.individuals;
@@ -329,15 +330,20 @@ function substitute_identifiers(code::AbstractString, subs)
 end
 
 """
-    eidos_with_params(s::Step, c::EidosCode)
+    eidos_with_params(model, s::Step, c::EidosCode)
 
 The Eidos image of a step with parameters, from the image `c` of the plain step: each
 constant of `slim_script` the step overrides (`EIDOS_CONSTANT`) becomes the step's value,
 a literal, and a step's `ω` and `θ` replace the deme's `OMEGA` and `THETA` where the
 step reads them. A `select` whose own `MoveType` is a fluctuating move gets the code of
 the fluctuating moves. As in the kernel, the deme's state is left alone.
+
+For `TraitModel(n)` (the Eidos of eidos_traits.jl) a step's `θ` is a vector literal in
+place of the deme's `THETA`, `Ω` replaces the width (`OMEGA`, 1.0) and the inverse fitness
+shape (`SINV`), `SelCorr` the shape, `MoveDirection` the direction `UDIR`, and the mutation
+fields the covariance of one mutation `MUTCOV`.
 """
-function eidos_with_params(s, c::EidosCode)
+function eidos_with_params(::OneTraitModel, s, c::EidosCode)
     pr = s.params
     get(pr, :CrossoverModel, :qtsim) === :qtsim ||
         throw(ArgumentError("the lowering to Eidos recombines as QTSim does (CrossoverModel = :qtsim); the step $s does not"))
@@ -455,10 +461,9 @@ function slim_model(f, ps::Vector{Params}, images, migration_rate)
         end
         QTLSim.mineigen(QTLSim.mutational_covariance(p)) > 0 ||
             throw(ArgumentError("the lowering to Eidos draws mutations with rmvnorm, which needs a positive definite mutational covariance"))
-        any(g -> !(g isa ObExpr) && haskey(stepparams(g), :θ), stepsof(f)) &&
-            throw(ArgumentError("a step's own θ is a number; with several traits the optimum is a vector"))
     end
-    table = traits ? eidos_trait_images() : eidos_images()
+    model = model_of(p)
+    table = eidos_images(model)
     # QTLSim's fluctuating moves: in the image of the plain select when a deme uses one, and
     # their constants when a deme or a step does
     fluctuating = any(q -> q.MoveType in FLUCTUATING_MOVES, ps)
@@ -467,12 +472,11 @@ function slim_model(f, ps::Vector{Params}, images, migration_rate)
     fecund = any(q -> q.Selection === :fecundity, ps) ||
              any(g -> !(g isa ObExpr) && haskey(stepparams(g), :Selection), stepsof(f))
     builtin = Dict{Any,Any}()
-    fluctuating && (builtin[:select] = eidos_fluctuating_select())
+    fluctuating && (builtin[:select] = eidos_fluctuating_select(table[:select].code))
     if fecund
         builtin[:select] = eidos_fecundity_select(get(builtin, :select, table[:select]).code)
         builtin[:reproduce] = eidos_fecundity_reproduce(table[:reproduce].code)
     end
-    traits && foreach(((s, c),) -> haskey(builtin, s) || (builtin[s] = c), table)
     isempty(builtin) || (images = merge(builtin, Dict{Any,Any}(images)))
     stepmoves = any(g -> !(g isa ObExpr) && get(stepparams(g), :MoveType, :none) in FLUCTUATING_MOVES, stepsof(f))
     # a constant whose value differs between demes is a vector, one value per deme, and deme state
@@ -498,7 +502,7 @@ function slim_model(f, ps::Vector{Params}, images, migration_rate)
                                  "OMEGA0" => vary("initOmega", "VP", "h2", "m")) if on]
     # what the steps read from the deme's subpopulation (initOmega and OMEGA0 found the deme)
     state = filter(n -> !(n in ("initOmega", "OMEGA0")), vcat(perdeme, derived))
-    img = lower(f, :eidos; images, migration_rate, deme_constants = state)
+    img = lower(f, :eidos; images, migration_rate, deme_constants = state, model)
     pops = ["p$i" for i in 1:k]
     if img isa EidosCode
         body = deme_block(img.code, "p1")

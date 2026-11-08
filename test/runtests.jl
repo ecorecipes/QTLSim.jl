@@ -1810,3 +1810,78 @@ end
     @test_throws ArgumentError run_composed(World(p), MersenneTwister(1); cycle = θstep)
     @test_throws ArgumentError run_moments(p; cycle = θstep)
 end
+
+@testset "models: step parameters typed by the model, a table of images per model" begin
+    L = lifecycle(); g = L.generation
+    base = Params(PopSize = 200, NoQTL = 10, Ploidy = 2, NoGenerations = 100, PhenotypeVar = 0.02,
+                  MutationScalar = 0.004, MutationRatePerGamete = 0.02, InitFitnessSD = 0.3, RecombPoissonMean = 2.0)
+    pt = Params(base; NoTraits = 2, MutCorr = 0.4, SelCorr = -0.3)
+    @test model_of(base) == OneTraitModel() && model_of(pt) == TraitModel(2)
+    @test_throws ArgumentError TraitModel(1)
+    # each model has its own schema: θ is a number for one trait, a vector for two; Ω only for traits
+    s1, s2 = step_schema(OneTraitModel()), step_schema(TraitModel(2))
+    @test :θ in s1[:select] && :Ω ∉ s1[:select] && :Ω in s2[:select] && :MutCov in s2[:mutate] && :MutCov ∉ s1[:mutate]
+    @test :StandardisePhenotype in s1[:select] && :StandardisePhenotype ∉ s2[:select]
+    @test Ext.STEP_PARAMS == s1
+    θv = withparams(L.select, pt; θ = [0.1, -0.1])
+    @test first(Catlab.args(θv)).params.θ == [0.1, -0.1]
+    @test withparams(L.select, pt; θ = [1, 0]) == withparams(L.select, TraitModel(2); θ = [1.0, 0.0])   # normalised
+    @test_throws ArgumentError withparams(L.select; θ = [0.1, -0.1])                  # one trait: a number
+    @test_throws ArgumentError withparams(L.select, pt; θ = 0.1)                      # two traits: a vector
+    @test_throws ArgumentError withparams(L.select, pt; θ = [0.1, 0.2, 0.3])
+    @test_throws ArgumentError withparams(L.select; Ω = [1.0 0; 0 1])
+    @test_throws ArgumentError withparams(L.select, pt; Ω = [1.0 2; 2 1])               # not positive definite
+    @test_throws ArgumentError withparams(L.select, pt; Ω = [1.0 0; 0 1], ω = 0.2)      # Ω is the whole covariance
+    @test_throws ArgumentError withparams(L.select, pt; StandardisePhenotype = true)
+    @test_throws ArgumentError withparams(L.mutate; MutCorr = 0.2)
+    # a step written for one model is checked again when lowered for the other
+    @test_throws ArgumentError lower(withparams(g; θ = 0.1), :kernel; model = TraitModel(2))
+    @test_throws ArgumentError lower(withparams(g, pt; θ = [0.1, 0.0]), :moments)
+    @test_throws ArgumentError slim_script(withparams(g, pt; θ = [0.1, 0.0]), base)
+    # a table of images per model: the one-trait functor refuses a population of two traits
+    @test_throws ArgumentError lower(g, :kernel)(World(pt), MersenneTwister(1))
+    @test_throws ArgumentError lower(g, :kernel; model = TraitModel(2))(World(base), MersenneTwister(1))
+    @test_throws ArgumentError lower(g, :kernel; model = TraitModel(3))(World(pt), MersenneTwister(1))
+    ops = operators(pt)
+    w = World(pt); init_env!(w, MersenneTwister(1)); ops.generation(w, MersenneTwister(2))
+    @test w.gen == 1
+    k1, k2 = Ext.kernel_images(OneTraitModel()), Ext.kernel_images(TraitModel(2))
+    @test Set(keys(k1)) == Set(keys(k2))
+    @test_throws ArgumentError run_composed(Ext.Stratified([World(base), World(pt)]), MersenneTwister(1); cycle = g ⊗ g)
+    # n traits: a step's fields of Params give the run of Params with those values, bit for bit
+    same(a, b) = all(getfield(a, k) == getfield(b, k) for k in keys(a) if k != :seed)
+    over = (MutationScalar = 0.02, MutationRatePerGamete = 0.05, MoveType = :continuous, MoveFitnessSDGen = 30,
+            MoveFitnessSD = 0.004, MoveDirection = [1.0, 2.0], SelCorr = 0.2)
+    @test same(run!(World(Params(pt; over...)), MersenneTwister(3)),
+               run_composed(World(pt), MersenneTwister(3); cycle = withparams(g, pt; over...)))
+    p0 = Params(pt; MutCorr = 0.0)
+    C = [0.002 -0.0005; -0.0005 0.001]
+    @test same(run!(World(Params(p0; MutCov = C)), MersenneTwister(4)),
+               run_composed(World(p0), MersenneTwister(4); cycle = withparams(g, p0; MutCov = C)))
+    @test same(run_moments(Params(pt; over...)), run_moments(pt; cycle = withparams(g, pt; over...)))
+    # a step's Ω equal to the deme's ω² S is the deme's selection (to rounding)
+    Ωd = selection_covariance(pt)
+    a, b = run_moments(pt), run_moments(pt; cycle = withparams(g, pt; Ω = Ωd))
+    @test a.gmatrix[end] ≈ b.gmatrix[end] rtol = 1e-10
+    # a step's θ, a vector: the optimum selected toward, the deme's recorded optimum unchanged
+    pθ = Params(pt; NoQTL = 1, PopSize = 500, NoGenerations = 600, MutationRatePerGamete = 0.5, MutationScalar = 0.02)
+    o = run_composed(World(pθ), MersenneTwister(5); cycle = withparams(g, pθ; θ = [0.1, -0.05]))
+    zbar = sum(o.trait_mean[301:end]) / 300
+    @test abs(zbar[1] - 0.1) < 0.02 && abs(zbar[2] + 0.05) < 0.02 && all(iszero, o.theta)
+    mo = run_moments(Params(pθ; NoGenerations = 3000); cycle = withparams(g, pθ; θ = [0.1, -0.05]))
+    @test mo.trait_mean[end] ≈ [0.1, -0.05] rtol = 1e-4
+    # demes with optima along different directions, in the kernel and in the moments
+    cyc = withparams(g, pθ; θ = [0.1, 0.0]) ⊗ withparams(g, pθ; θ = [0.0, 0.1]) ⋅ L.migrate(2; rate = 0.01)
+    r = run_composed(pθ ⊗ demes(2), MersenneTwister(6); cycle = cyc)
+    @test !r.extinct && length(r.gmatrix) == 2 * pθ.NoGenerations
+    # Eidos: the step's θ, Ω, direction and mutation are literals in its code
+    e = lower(withparams(L.select, pt; θ = [0.1, -0.1]), :eidos; model = TraitModel(2)).code
+    @test occursin("THETA = c(0.1, -0.1);", e)
+    e = lower(withparams(L.select, pt; Ω = [0.1 0.0; 0.0 0.05], MoveDirection = [3.0, 4.0]), :eidos; model = TraitModel(2)).code
+    @test occursin("c(10.0, 0.0, 0.0, 20.0)", e) && occursin("c(0.6, 0.8)", e) && occursin("OMEGA = 1.0;", e)
+    e = lower(withparams(L.mutate, pt; MutCov = C), :eidos; model = TraitModel(2)).code
+    @test occursin("matrix(c(0.002, -0.0005, -0.0005, 0.001), nrow = 2, byrow = T) / (2 * L * rate)", e)
+    # a step's m alone rescales the deme's MUTCOV, unless the deme gives M itself
+    e = lower(withparams(L.mutate, pt; MutationScalar = 0.04), :eidos; model = TraitModel(2)).code
+    @test occursin("(MUTCOV * (1.0 * (exists(\"MCOV\") ? 1.0 else 0.04 / m)))", e)
+end

@@ -70,18 +70,18 @@ fixed point (see "For Lean" below).
 
 ## Where it did not work that way
 
-These are the places where the generalisation was not free:
+These are the places where the generalisation was not free, as first found. Items 1–3
+have since been addressed by making the model explicit (next section); the notes record
+the original finding.
 
 1. **Step parameters belong to the model, not to the syntax.** A generator carries
    parameters (`withparams(select; ω = 0.3)`, the table `STEP_PARAMS`). The bare
    presentation is model-independent, but the parameter vocabulary of each step is not:
    the trait model's `select` reads `SelCorr`/`SelCov`/`MoveDirection`, its `mutate`
    reads `MutCorr`/`MutCov`, and a fixed optimum `θ` is a vector. The parametrised
-   generators `Step(name, params)` range over a model-specific parameter space. For now
-   steps with parameters take the scalar parameters only (a step's `ω` scales `Ω`; a
-   vector `θ` or a matrix `Ω` as a step parameter is not implemented). A general
-   framework should type a step's parameters by the model (by the object image), rather
-   than by one global table.
+   generators `Step(name, params)` range over a model-specific parameter space. At first
+   steps with parameters took the scalar parameters only. *Now addressed*: each model
+   types its steps' parameters (`step_schema`), a vector `θ` and a matrix `Ω` included.
 2. **The optimum's move is not a function of the syntax.** QTSim's moves are rules about a
    scalar; with several traits they need a direction, a new parameter of `select`'s image.
    The fluctuating moves (`:red_noise`, `:periodic`) are not generalised (a direction for
@@ -94,9 +94,85 @@ These are the places where the generalisation was not free:
    a second table. That is a Julia convenience: semantically they are two functors, and
    the trait moments lowering is written as a genuinely second table
    (`trait_moment_images`, passed as `images`) to show that the syntax is shared.
+   *Now addressed*: `kernel_images(model)` is two tables, chosen by `lower(f, :kernel;
+   model)`.
 4. **QTSim's scalar outputs are a projection.** `record`'s QTSim columns (`pheno_mean`,
    `geno_var`, `theta`) describe trait 1; the trait columns are additional. The SLiM
    model's output format, the golden file and the parsers are keyed to the scalar columns.
+
+## Models: step parameters and images belong to the model
+
+The three findings above have one cause: the model (one trait or `n`) was implicit, read
+off the `World` at run time, while step parameters were checked against one global table.
+`src/models.jl` makes it explicit and keeps it minimal and concrete:
+
+- `QTLSim.Model`, with two instances, `OneTraitModel()` (QTSim's) and `TraitModel(n)`;
+  `model_of(p)` is the model of a `Params`.
+- **Each model declares its own parameter schema per step** (`step_schema(model)`, from
+  `step_fields`, the fields of `Params` a step's image reads, and `step_own_params`, the
+  parameters that are not fields, each with a checker). For one trait, `select` takes a
+  number `θ` and `ω` (and `StandardisePhenotype`); for `n` traits, `select` takes a
+  vector `θ` of `n`, a fitness covariance matrix `Ω` (in place of `ω² S`), `ω`, `SelCorr`
+  and `MoveDirection`, and `mutate` also takes `MutCorr` and `MutCov`. `STEP_PARAMS`
+  survives as `step_schema(OneTraitModel())`.
+- **`withparams` validates against a model**: `withparams(f; kw...)` against QTSim's,
+  `withparams(f, model; kw...)` or `withparams(f, p; kw...)` against `model` or
+  `model_of(p)`. **`lower` validates again against the model it targets** (`lower(f,
+  target; model)`), so `withparams(g; θ = 0.1)` lowered for two traits, or `withparams(g,
+  p2; θ = [0.1, 0.0])` lowered for one, is an `ArgumentError` at lowering, not a wrong run.
+  The parametrised generators `Step(name, params)` are unchanged: the presentation stays
+  model-independent, and the parameters are typed where they are interpreted.
+- **Each model has its own table of images in each backend**: `kernel_images(model, rec)`,
+  `moment_images(model, rec)` and `eidos_images(model)`, chosen by `lower(f, target;
+  model)`. The two kernel tables share the images of `reproduce`, `record`, `rescale` and
+  `swap` (`shared_kernel_images`) and differ in `develop`, `select` and `mutate`, which
+  call `develop_one!`/`develop_traits!` etc. directly; each image refuses a population of
+  the other model. `develop!`, `select!` and `mutate!` remain as the monolithic `run!`'s
+  dispatchers. So `lower(f, :kernel; model = TraitModel(2))` is visibly a second functor
+  from the same syntax. `run_composed`, `run_moments` and `slim_script` pass `model_of(p)`;
+  a metapopulation must be of one model.
+- **How a step's parameters act is per model** (`with_step_params(model, s, op)` for the
+  kernel and the moments, `eidos_with_params(model, s, code)` for Eidos). For `n` traits a
+  step's `θ` replaces the optimum vector, `Ω` the width (1) and the fitness shape, and the
+  `Params` fields that define the state's derived matrices replace them for the step: the
+  inverse shape `S⁻¹` (`SelCorr`), one mutation's covariance (`MutationScalar`,
+  `MutationRatePerGamete`, `MutCorr`, `MutCov`) and the move direction. In Eidos they are
+  literals (`THETA = c(…)`, `SINV`, `UDIR`, `MUTCOV`), so **per-deme trait parameters in a
+  SLiM model go through steps**: `withparams(g, p; θ = [0.1, 0.0]) ⊗ withparams(g, p; Ω =
+  …) ⋅ L.migrate(2)` gives each deme its own optimum vector or fitness covariance, while
+  `slim_script(f, [p1, p2])` still requires the demes' trait fields of `Params` to agree.
+
+What this shows about generalisation:
+
+- The syntax needed no change; the change was to make the *codomain side* of each functor
+  a first-class value. A model is exactly the data of a family of functors from the same
+  free category: an object image, a table of step images per backend, and the parameter
+  space of each parametrised generator. That is the shape a general framework would have
+  (a model as an instance), and it is what a third model would implement.
+- Parameters are not uniform across models even for the same step: `select`'s `θ` lives in
+  the object image (ℝ or ℝⁿ), `Ω` exists only where the object image has more than one
+  dimension, and `StandardisePhenotype` has no n-trait meaning. A step's parameter space
+  is a function of the model, which is why one global table could not work.
+- Typing at lowering, not at construction, keeps the presentation free: the same
+  `withparams(L.select; ω = 0.3)` is valid in both models, since `ω` is in both schemas.
+- It found a silent bug: before, a step's `MutationScalar` (or `MutationRatePerGamete`) on
+  a population of traits was ignored in the kernel and in the moments, because the trait
+  state's mutation matrix was derived from the deme's `Params` once, not from the step's.
+  With the derived matrices part of what a step's parameters replace, a step's mutation
+  fields now give the run of `Params` with those values, bit for bit (tested).
+- One trait is bitwise unchanged: 36 hashes before and after (`simulate` in three regimes,
+  `run_composed` with and without step parameters, two demes with and without, Beverton–Holt,
+  fecundity, red noise, periodic, `run_moments` in six configurations including two demes
+  with `between = true`, trait runs, and 13 `slim_script` outputs), the golden file and
+  `check_generated.jl`. A generation still allocates nothing, now also with a step that
+  overrides fields of `Params` (an `IdDict` keyed by the immutable `Params` boxed the key,
+  272 bytes per generation; a typed vector searched by `===` does not).
+
+What remains: `record` is shared (its trait columns are added when the `World` carries
+traits) rather than per model; `slim_script`'s per-deme `Params` cannot vary the trait
+fields (use steps); `checkparams` still knows both models (`checktraits`); and a model is
+chosen from `NoTraits`, not declared, so `Params` remains the union of both models'
+parameters. A general framework would let a model own its `Params`.
 
 ## What is implemented
 
@@ -134,7 +210,8 @@ These are the places where the generalisation was not free:
   spliced segments are verbatim the one-trait ones. Limits: the demes of a SLiM model share
   the trait parameters, `M` must be positive definite (`rmvnorm`), and a step's own `θ` is
   rejected (as in the kernel and moments lowerings, where it would otherwise be a scalar
-  for a vector).
+  for a vector); a step's own vector `θ`, `Ω`, `SelCorr`, `MoveDirection` and mutation
+  fields lower to literals.
 
 ## The theory
 

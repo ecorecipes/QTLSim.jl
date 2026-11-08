@@ -49,7 +49,7 @@ end
 
 # moveoptimum! with several traits (called from the move's first generation on): along
 # the unit direction u, θ = z̄ + √V_P·d·u (:phenotype), z̄ + ω·d·u (:fitness), or θ += d·u
-function moveoptimum_traits!(w::World)
+function moveoptimum_traits!(w::World, rng = nothing)
     p, t = w.p, w.traits::TraitState
     d = p.MoveFitnessSD
     if p.MoveType === :continuous

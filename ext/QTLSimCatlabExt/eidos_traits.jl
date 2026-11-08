@@ -129,7 +129,6 @@ which `initialize()` derives MUTCOV = M/(2·L·rate).
 """
 function eidos_trait_constants(p::Params)
     n = p.NoTraits
-    rowwise(A) = vec(permutedims(Matrix{Float64}(A)))
     Mshape = isempty(p.MutCov) ? ("MCORR" => rowwise(QTLSim.equicorrelation(n, p.MutCorr))) : ("MCOV" => rowwise(p.MutCov))
     ("NT" => n, "SINV" => rowwise(inv(QTLSim.Symmetric(QTLSim.selection_shape(p)))), "UDIR" => QTLSim.move_direction(p), Mshape)
 end
@@ -145,3 +144,46 @@ trait_header(n) = " + \"" * join(vcat(["\\tz$r" for r in 1:n], ["\\tG$r$s" for r
 
 "The constants of `slim_script` whose values are vectors in every deme, not one value per deme."
 const VECTOR_CONSTANTS = ("MIG", "SINV", "UDIR", "MCORR", "MCOV")
+
+eidos_images(::TraitModel) = eidos_trait_images()
+
+rowwise(A) = vec(permutedims(Matrix{Float64}(A)))
+eidos_matrix(A) = "matrix(" * eidos_literal(rowwise(A)) * ", nrow = $(size(A, 1)), byrow = T)"
+
+function eidos_with_params(m::TraitModel, s, c::EidosCode)
+    pr = s.params
+    get(pr, :CrossoverModel, :qtsim) === :qtsim ||
+        throw(ArgumentError("the lowering to Eidos recombines as QTSim does (CrossoverModel = :qtsim); the step $s does not"))
+    code = c.code
+    n = m.n
+    θ, Ω = get(pr, :θ, nothing), get(pr, :Ω, nothing)
+    ω = Ω === nothing ? get(pr, :ω, nothing) : 1.0
+    ω === nothing || (code = replace(code, "@POP@.getValue(\"OMEGA\")" => eidos_literal(ω)))
+    θ === nothing || (code = replace(code, "@POP@.getValue(\"THETA\")" => eidos_literal(θ)))
+    # the derived constants, from the step's parameters: the inverse fitness shape, the
+    # move's direction, and one mutation's covariance (before the constants m and rate are
+    # replaced, so that a step's m and rate enter it)
+    subs1 = Dict{String,String}()
+    Ω === nothing || (subs1["SINV"] = eidos_literal(rowwise(inv(QTLSim.Symmetric(Ω)))))
+    haskey(pr, :SelCorr) && (subs1["SINV"] = eidos_literal(rowwise(inv(QTLSim.Symmetric(QTLSim.equicorrelation(n, pr.SelCorr))))))
+    haskey(pr, :MoveDirection) && (subs1["UDIR"] = eidos_literal(pr.MoveDirection ./ sqrt(sum(abs2, pr.MoveDirection))))
+    if haskey(pr, :MutCov)
+        subs1["MUTCOV"] = "(" * eidos_matrix(pr.MutCov) * " / (2 * L * rate))"
+    elseif haskey(pr, :MutCorr)
+        subs1["MUTCOV"] = "(" * eidos_matrix(QTLSim.equicorrelation(n, pr.MutCorr)) * " * ((m / (2 * L * rate)) * VE))"
+    end
+    code = substitute_identifiers(code, subs1)
+    subs = Dict{String,String}(EIDOS_CONSTANT[k] => eidos_literal(v) for (k, v) in pairs(pr) if haskey(EIDOS_CONSTANT, k))
+    θ === nothing || (subs["moveGen"] = "-1")
+    code = substitute_identifiers(code, subs)
+    # a step's m or rate alone rescales the deme's MUTCOV = M/(2·L·rate): M ∝ m unless the
+    # deme gives M itself (MCOV); the deme's own m and rate are the constants left in place
+    if !haskey(pr, :MutCov) && !haskey(pr, :MutCorr) && (haskey(pr, :MutationScalar) || haskey(pr, :MutationRatePerGamete))
+        f = "1.0"
+        haskey(pr, :MutationRatePerGamete) && (f *= " * (rate / " * eidos_literal(pr.MutationRatePerGamete) * ")")
+        haskey(pr, :MutationScalar) &&
+            (f *= " * (exists(\"MCOV\") ? 1.0 else " * eidos_literal(pr.MutationScalar) * " / m)")
+        code = substitute_identifiers(code, ["MUTCOV" => "(MUTCOV * ($f))"])
+    end
+    EidosCode(Symbol(string(s)), code)
+end

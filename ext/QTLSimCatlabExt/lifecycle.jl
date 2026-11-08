@@ -23,6 +23,11 @@
 # generator, named by the step and its parameters (`Step`), whose image in each backend is
 # the plain step's with those parameters in place of the deme's. Being a generator, it is
 # covered by the same fact: a lowering is fixed by its images on the generators.
+#
+# A model (QTLSim.Model, src/models.jl) is a family of these functors: QTSim's one trait
+# and n traits lower the same generators by different tables of images, and type the
+# parameters a step can carry (`θ` a number or a vector of n). `lower(f, target; model)`
+# picks the table, and checks every step's parameters against the model's schema.
 
 @present LifeCycle(FreeSymmetricMonoidalCategory) begin
     (Zygotes, Adults, Survivors, Offspring)::Ob
@@ -52,7 +57,9 @@ dom, codom)` of the free category, beside the presentation's generator `name`.
 step's own parameters (`ω` and `θ` for `select`, `rate` for `migrate`). Two such
 generators are equal when their names and parameters are, so the parameters are part
 of the syntax: `withparams(L.select; ω = 0.3)` is a different morphism from `L.select`
-and from `withparams(L.select; ω = 0.4)`.
+and from `withparams(L.select; ω = 0.4)`. The parameters range over a model's parameter
+space (`QTLSim.step_schema`): a `θ` that is a vector is a step of the model of several
+traits, and a lowering checks each step against the model it lowers for.
 """
 struct Step
     name::Symbol
@@ -66,24 +73,11 @@ Base.show(io::IO, s::Step) =
     print(io, s.name, "(", join(("$k = $(showvalue(v))" for (k, v) in pairs(s.params)), ", "), ")")
 
 """
-The parameters each step of the life cycle can carry: fields of `Params` that its
-kernel image reads, and for `select` a fixed width `ω` and a fixed optimum `θ`. `Selection`
-belongs to `select`: under `:fecundity` the stage `Survivors` carries every individual
-with its fitness as a mating weight, which the plain `reproduce` samples parents by.
+The parameters each step of QTSim's one-trait model can carry, `step_schema(OneTraitModel())`;
+kept for reference: each model has its own schema (`QTLSim.step_schema`), which
+`withparams` and `lower` check a step's parameters against.
 """
-const STEP_PARAMS = Dict{Symbol,Tuple}(
-    :develop => (),
-    :select => (:ω, :θ, :MoveType, :MoveFitnessSD, :MoveFitnessSDGen, :MoveNoiseSD, :MoveAutocorr,
-                :MoveAmplitude, :MovePeriod, :StandardisePhenotype, :Drift, :Selection),
-    :reproduce => (:RecombPoissonMean, :CrossoverModel, :Demography, :GrowthRate),
-    :record => (:Sample,),
-    :rescale => (:ChangeFitnessGen, :ChangeFitnessSD),
-    :mutate => (:MutationScalar, :MutationRatePerGamete),
-    :swap => (),
-    :migrate => (:rate,))
-
-const MOVE_FIELDS = (:MoveType, :MoveFitnessSD, :MoveFitnessSDGen, :MoveNoiseSD, :MoveAutocorr,
-                     :MoveAmplitude, :MovePeriod)
+const STEP_PARAMS = QTLSim.step_schema(OneTraitModel())
 
 "The name of a generator: a step's name, whether or not it carries parameters."
 stepname(g) = (v = first(args(g)); v isa Step ? v.name : nameof(g))
@@ -94,52 +88,40 @@ stepparams(g) = (v = first(args(g)); v isa Step ? v.params : (;))
 "The fields of `Params` among a step's parameters."
 paramfields(s::Step) = NamedTuple(k => v for (k, v) in pairs(s.params) if k in fieldnames(Params))
 
-# Check a step's parameters and normalise their types, through Params' own constructor and
-# checks: `ω = 1` becomes 1.0, and `MoveType = :bogus` is an error when it is written.
-function checkstep(name::Symbol, params::NamedTuple)
-    allowed = get(STEP_PARAMS, name, nothing)
-    allowed === nothing && throw(ArgumentError("the step $name has no parameters; only the steps of lifecycle() do"))
-    for k in keys(params)
-        k in allowed || throw(ArgumentError("the step $name takes the parameters $(join(allowed, ", ")); got $k"))
+# a step's parameters checked against a model's schema (QTLSim.checkstep), and for
+# migrate a rate checked against its number of demes
+function checkstep(m, name::Symbol, params::NamedTuple, g)
+    if name === :migrate && haskey(params, :rate)
+        rate = params.rate
+        rate isa AbstractMatrix ? QTLSim.check_migration(rate, nfactors(dom(g))) :
+            (0 <= rate <= 1 || throw(ArgumentError("a migration rate is in [0, 1]; got $rate")))
     end
-    haskey(params, :θ) && any(k -> k in MOVE_FIELDS, keys(params)) &&
-        throw(ArgumentError("a fixed optimum θ replaces the move; give one or the other to $name"))
-    for k in (:ω, :θ)
-        haskey(params, k) && !(params[k] isa Real && isfinite(params[k])) &&
-            throw(ArgumentError("$k must be a finite number; got $(params[k])"))
-    end
-    haskey(params, :ω) && params.ω <= 0 && throw(ArgumentError("ω must be positive; got $(params.ω)"))
-    fields = NamedTuple(k => v for (k, v) in pairs(params) if k in fieldnames(Params))
-    q = isempty(fields) ? Params() : QTLSim.checkparams(Params(Params(; InitFitnessSD = 1.0, ChangeFitnessSD = 1.0); fields...))
-    NamedTuple(k => (k in fieldnames(Params) ? getfield(q, k) :
-                     k === :rate ? (v isa AbstractMatrix ? Matrix{Float64}(v) : Float64(v)) : Float64(v))
-               for (k, v) in pairs(params))
+    QTLSim.checkstep(m, name, params)
 end
 
-function withparams(f::GATExpr; kw...)
+withparams(f::GATExpr; kw...) = withparams(f, OneTraitModel(); kw...)
+withparams(f::GATExpr, p::Params; kw...) = withparams(f, model_of(p); kw...)
+
+function withparams(f::GATExpr, m::QTLSim.Model; kw...)
     isempty(kw) && return f
+    schema = QTLSim.step_schema(m)
     used = Set{Symbol}()
     gens = Dict{Any,Any}()
     for g in stepsof(f)
         g isa ObExpr && (gens[g] = g; continue)
         name = stepname(g)
-        mine = NamedTuple(k => v for (k, v) in pairs(kw) if k in get(STEP_PARAMS, name, ()))
+        mine = NamedTuple(k => v for (k, v) in pairs(kw) if k in get(schema, name, ()))
         if isempty(mine)
             gens[g] = g
         else
             union!(used, keys(mine))
             merged = merge(stepparams(g), mine)
-            if name === :migrate && haskey(merged, :rate)
-                rate = merged.rate
-                rate isa AbstractMatrix ? QTLSim.check_migration(rate, nfactors(dom(g))) :
-                    (0 <= rate <= 1 || throw(ArgumentError("a migration rate is in [0, 1]; got $rate")))
-            end
-            gens[g] = Hom(Step(name, checkstep(name, merged)), dom(g), codom(g))
+            gens[g] = Hom(Step(name, checkstep(m, name, merged, g)), dom(g), codom(g))
         end
     end
     unused = setdiff(keys(kw), used)
     isempty(unused) ||
-        throw(ArgumentError("no step of $f takes the parameter$(length(unused) == 1 ? "" : "s") $(join(unused, ", "))"))
+        throw(ArgumentError("no step of $f takes the parameter$(length(unused) == 1 ? "" : "s") $(join(unused, ", ")) in $m"))
     head(f) === :generator ? gens[f] :
         functor((FreeSymmetricMonoidalCategory.Ob, FreeSymmetricMonoidalCategory.Hom), f; generators = gens)
 end
@@ -208,7 +190,7 @@ The image of a step that carries parameters (`s`, a `Step`): the one `table` giv
 the plain step `s.name`, with the step's parameters in place of those of `Params` (see
 `with_step_params` and `eidos_with_params`).
 """
-function step_image(t::Val{T}, s::Step, table, k, migration_rate) where {T}
+function step_image(t::Val{T}, m, s::Step, table, k, migration_rate) where {T}
     haskey(table, s) && return asimage(t, Symbol(string(s)), table[s])
     if s.name === :migrate
         haskey(s.params, :rate) || return migrate_image(t, k, migration_rate)
@@ -217,14 +199,16 @@ function step_image(t::Val{T}, s::Step, table, k, migration_rate) where {T}
     haskey(table, s.name) ||
         throw(ArgumentError("no $T image for the step $s; give one with `images = Dict(:$(s.name) => …)`"))
     base = asimage(t, s.name, table[s.name])
-    T === :eidos ? eidos_with_params(s, base) : with_step_params(s, base)
+    T === :eidos ? eidos_with_params(m, s, base) : with_step_params(m, s, base)
 end
 
 function lower(f, target::Symbol; images = Dict{Symbol,Any}(), record = nothing,
-               migration_rate::Union{Real,AbstractMatrix} = 0.0, deme_constants = ())
-    table = target === :kernel ? kernel_images(record) :
-            target === :eidos ? eidos_images() :
-            target === :moments ? moment_images(record) :
+               migration_rate::Union{Real,AbstractMatrix} = 0.0, deme_constants = (), model = OneTraitModel())
+    m = model_of(model)
+    # the model chooses the functor: its own table of images of the steps
+    table = target === :kernel ? kernel_images(m, record) :
+            target === :eidos ? eidos_images(m) :
+            target === :moments ? moment_images(m, record) :
             throw(ArgumentError("unknown target :$target; the targets are :kernel, :eidos and :moments"))
     # a select step with its own Selection: Eidos needs the images of select and reproduce
     # that know fecundity selection (eidos.jl); the kernel and moments images always do
@@ -240,7 +224,9 @@ function lower(f, target::Symbol; images = Dict{Symbol,Any}(), record = nothing,
         if g isa ObExpr
             gens[g] = Stage{target}(name)
         elseif v isa Step
-            gens[g] = step_image(Val(target), v, table, nfactors(dom(g)), migration_rate)
+            # a step written for one model is checked against the model lowered for
+            s = Step(v.name, checkstep(m, v.name, v.params, g))
+            gens[g] = step_image(Val(target), m, s, table, nfactors(dom(g)), migration_rate)
         elseif haskey(table, name)
             gens[g] = asimage(Val(target), name, table[name])
         elseif name === :migrate
@@ -255,7 +241,8 @@ function lower(f, target::Symbol; images = Dict{Symbol,Any}(), record = nothing,
     functor((Stage{target}, Any), f; generators = gens)
 end
 
-function operators()
-    k = kernel_images()
-    NamedTuple{(STEPS..., :generation)}((map(s -> k[s], STEPS)..., lower(lifecycle().generation, :kernel)))
+function operators(model = OneTraitModel())
+    m = model_of(model)
+    k = kernel_images(m)
+    NamedTuple{(STEPS..., :generation)}((map(s -> k[s], STEPS)..., lower(lifecycle().generation, :kernel; model = m)))
 end

@@ -334,9 +334,16 @@ Genotype = Σ allele effects; phenotype = genotype + environment (QTSim
 `CaclPopPhenotype`). Deterministic given the environments drawn at birth. The sum of the
 effects is the sum of the cached sums of the individual's blocks, chromosome by
 chromosome, block by block (see [`World`](@ref)).
+
+`develop!`, [`select!`](@ref) and [`mutate!`](@ref) serve both models: they call the
+one-trait operator (`develop_one!` etc.) or the operator of several traits
+(`develop_traits!` etc., src/traits.jl) by the `World`. The two models' tables of kernel
+images (ext/QTLSimCatlabExt/compose.jl) call those directly.
 """
-function develop!(w::World)
-    w.traits === nothing || return develop_traits!(w)
+develop!(w::World) = w.traits === nothing ? develop_one!(w) : develop_traits!(w)
+
+# develop! of QTSim's one-trait model
+function develop_one!(w::World)
     sums, chr = w.pool.sums, w.chr
     nb, P = size(chr, 1), size(chr, 2)
     m = nb * P
@@ -378,7 +385,12 @@ scale (`−1/ln ρ` generations) of the fluctuations separately.
 function moveoptimum!(w::World, rng = nothing)
     p = w.p
     (p.MoveFitnessSDGen != -1 && w.gen >= p.MoveFitnessSDGen) || return w
-    w.traits === nothing || return moveoptimum_traits!(w)
+    w.traits === nothing ? moveoptimum_one!(w, rng) : moveoptimum_traits!(w, rng)
+end
+
+# moveoptimum! of the one-trait model, from the move's first generation on
+function moveoptimum_one!(w::World, rng)
+    p = w.p
     if p.MoveType === :red_noise || p.MoveType === :periodic
         t = w.gen - p.MoveFitnessSDGen
         t == 0 && (w.θ0 = w.θ)
@@ -433,22 +445,37 @@ Fitness is the normalized Gaussian `pdf(Normal(0,ω), (z−θ)/sd) / (0.4/ω)`,
 replicating QTSim exactly (the `0.4 ≈ 1/√(2π)` constant included); the idealized
 form `exp(−(z−θ)²/2ω²)` is what Lean `StabilizingSelection.lean` proves about.
 """
-function select!(w::World, rng)
+select!(w::World, rng) = w.traits === nothing ? select_one!(w, rng) : select_traits!(w, rng)
+
+# select! of the one-trait model: move the optimum, QTSim's fitness, the survivors
+function select_one!(w::World, rng)
     p = w.p
-    moveoptimum!(w, rng)
-    if w.traits === nothing
-        sd = p.StandardisePhenotype ? std(view(w.phenotype, 1:w.N)) : 1.0
-        @inbounds for i in 1:w.N
-            if p.Drift
-                w.fitness[i] = 1.0
-            else
-                x = (w.phenotype[i] - w.θ) / sd
-                w.fitness[i] = pdf(Normal(0.0, w.ω), x) / (0.4 / w.ω)
-            end
+    (p.MoveFitnessSDGen != -1 && w.gen >= p.MoveFitnessSDGen) && moveoptimum_one!(w, rng)
+    sd = p.StandardisePhenotype ? std(view(w.phenotype, 1:w.N)) : 1.0
+    @inbounds for i in 1:w.N
+        if p.Drift
+            w.fitness[i] = 1.0
+        else
+            x = (w.phenotype[i] - w.θ) / sd
+            w.fitness[i] = pdf(Normal(0.0, w.ω), x) / (0.4 / w.ω)
         end
-    else
-        fitness_traits!(w)
     end
+    survive!(w, rng)
+end
+
+# select! of several traits: move the optimum vector, the Gaussian fitness in n dimensions
+# (src/traits.jl), the survivors
+function select_traits!(w::World, rng)
+    p = w.p
+    (p.MoveFitnessSDGen != -1 && w.gen >= p.MoveFitnessSDGen) && moveoptimum_traits!(w, rng)
+    fitness_traits!(w)
+    survive!(w, rng)
+end
+
+# the survivors of viability selection (QTSim SetSurviving), or under fecundity selection
+# everyone, with their fitnesses as mating weights; the same in both models
+function survive!(w::World, rng)
+    p = w.p
     empty!(w.survivors)
     if p.Selection === :fecundity
         return weigh!(w)
@@ -753,8 +780,10 @@ individual per generation (Lean `mutationalVarianceInput_eq`).
 A mutation changes its block in place if the offspring is the only holder, and a copy of
 it otherwise; the block's sum is then recomputed from its values.
 """
-function mutate!(w::World, rng)
-    w.traits === nothing || return mutate_traits!(w, rng)
+mutate!(w::World, rng) = w.traits === nothing ? mutate_one!(w, rng) : mutate_traits!(w, rng)
+
+# mutate! of the one-trait model
+function mutate_one!(w::World, rng)
     p = w.p
     L = p.NoQTL
     rate = p.MutationRatePerGamete
