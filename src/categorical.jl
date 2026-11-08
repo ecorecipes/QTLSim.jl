@@ -211,8 +211,8 @@ variances:
 
 **Which model (`loci`).** The default, `loci = :auto`, is the rare-alleles closure
 (`:rare_alleles`, below) for one diploid trait, and the multilocus Gaussian model
-(`:multilocus`) for several traits and for haploids (the closure has not been compared
-with the kernel for haploids), and when the `mutate` steps of `cycle` carry different
+(`:multilocus`) for several traits and for haploids (both closures are compared with the
+kernel in `validate/rare_alleles_traits.jl`), and when the `mutate` steps of `cycle` carry different
 `MutationScalar` or `MutationRatePerGamete` (no one mutation effect variance);
 [`QTLSim.moments_loci`](@ref) gives the resolution for a `Params`. Ask for
 `loci = :multilocus`, `:rare_alleles` or `:aggregate` to use those models anywhere (the

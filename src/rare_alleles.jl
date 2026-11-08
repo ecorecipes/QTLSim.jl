@@ -94,9 +94,12 @@ returned as it is, and `:auto`, the default, resolves to
   up to 10× closer in the house-of-cards and drift regimes, to which it reduces to the
   Gaussian when mutations are many and small;
 - `:multilocus`, the multilocus Gaussian model (src/multilocus.jl), when
-  - `NoTraits > 1`: the closure is for one trait;
-  - `Ploidy = 1`: the closure has not been compared with the kernel for haploids
-    (`validate/moments_regimes.jl` is diploid).
+  - `NoTraits > 1`: the closure for several traits (src/rare_alleles_traits.jl) is far
+    better than the multilocus Gaussian for one population in the house-of-cards regime,
+    but gives under half the kernel's within-deme G for demes with local optima there
+    (`validate/rare_alleles_traits.jl`, scenario D1);
+  - `Ploidy = 1`: the closure for clones passes every criterion of
+    `validate/rare_alleles_traits.jl`, but the default has not been switched.
 `run_moments` also resolves `:auto` to `:multilocus` when the `mutate` steps of the life
 cycle carry different `MutationScalar` or `MutationRatePerGamete`, as no one `α²` then
 describes the mutations; when they all carry the same, `α²` is theirs. The demes of a
