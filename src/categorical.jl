@@ -210,13 +210,13 @@ variances:
 - `mutate`: adds `V_m = m·V_E`.
 
 **Which model (`loci`).** The default, `loci = :auto`, is the rare-alleles closure
-(`:rare_alleles`, below) for one diploid trait, and the multilocus Gaussian model
-(`:multilocus`) for several traits and for haploids (the closure has not been compared
-with the kernel for haploids), and when the `mutate` steps of `cycle` carry different
+(`:rare_alleles`, below) for one trait (diploid, or haploid clones), and the multilocus
+Gaussian model (`:multilocus`) for several traits (both closures are compared with the
+kernel in `validate/rare_alleles_traits.jl`), and when the `mutate` steps of `cycle` carry different
 `MutationScalar` or `MutationRatePerGamete` (no one mutation effect variance);
 [`QTLSim.moments_loci`](@ref) gives the resolution for a `Params`. Ask for
-`loci = :multilocus` or `:aggregate` to use those models anywhere; `:rare_alleles` with
-several traits is an error. The rare-alleles closure is within 15% of the kernel in 46 of
+`loci = :multilocus`, `:rare_alleles` or `:aggregate` to use those models anywhere (the
+closure for several traits and for haploid clones is in src/rare_alleles_traits.jl). The rare-alleles closure is within 15% of the kernel in 46 of
 47 weak-selection cells of `validate/moments_regimes.jl`, never farther from it than the
 multilocus Gaussian, and up to 10× closer in the house-of-cards and drift regimes; when
 mutations are many and small the two agree.
@@ -247,7 +247,7 @@ to [`steady_lag`](@ref) with that variance. The model is good when many small mu
 hold each locus's variance; when few large ones do (the house-of-cards regime,
 [`house_of_cards_vg`](@ref)) the kernel holds less (`validate/moments_loci.jl`).
 
-**The rare-alleles closure (`loci = :rare_alleles`, one trait; the default for one diploid
+**The rare-alleles closure (`loci = :rare_alleles`; the default for one
 trait).** The multilocus model
 with the fourth cumulant of a locus's alleles set to `α²` times their variance (`α²` =
 `QTLSim.mutation_effect_variance(p)`, the variance of one mutation's effect): selection
@@ -263,6 +263,15 @@ converges to `rare_alleles_vg(p; drift = true)`, and under a continuous move the
 [`steady_lag`](@ref) with that variance. Each deme of a metapopulation has its own `α²`;
 when the `mutate` steps of `cycle` carry `MutationScalar` or `MutationRatePerGamete`
 (all the same), `α²` is computed with them.
+
+With several traits (`loci = :rare_alleles`) a locus's genic covariance `c` also loses
+`½(𝓡 c + c 𝓡ᵀ)`, with `𝓡 = ½ C X⁻¹`, `C` the covariance of one mutation's effect vector and
+`X = E[a aᵀ/(aᵀ s̃⁻¹ a)]` (`s̃⁻¹ = βᵀ s⁻¹ β`): exact at the multivariate house-of-cards
+balance, `α²/(2s)` for one trait ([`QTLSim.rare_alleles_rate`](@ref)). Its equilibrium is
+[`rare_alleles_G`](@ref), and for loci in linkage equilibrium [`house_of_gauss_G`](@ref), the
+stabilising solution of an algebraic Riccati equation. Haploid offspring are clones, so a
+haploid genome is one unit of inheritance: the closure then acts on a haplotype's whole
+variance (`β = 1`, [`QTLSim.hap_clonal`](@ref)), with `L μ` mutations per genome.
 
 **The aggregate recursion (`loci = :aggregate`).** QTLSim's moments lowering before the
 multilocus model: the offspring inherit the survivors' variance, `V ← V − V²/(V_s + V) +

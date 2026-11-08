@@ -16,7 +16,7 @@ functions are declared, documented and exported here.
 module QTLSim
 
 using Random, Statistics, Distributions
-using LinearAlgebra: I, kron, eigvals, eigen, Symmetric, cholesky, det, tr, dot, norm
+using LinearAlgebra: I, kron, eigvals, eigen, Symmetric, cholesky, det, tr, dot, norm, schur, ordschur!, isposdef
 
 include("params.jl")
 include("models.jl")
@@ -28,6 +28,7 @@ include("theory.jl")
 include("traits_theory.jl")
 include("multilocus.jl")
 include("rare_alleles.jl")
+include("rare_alleles_traits.jl")
 include("migration.jl")
 include("categorical.jl")
 include("sweep.jl")
@@ -42,7 +43,7 @@ export Params, World, genomes, setgenomes!, simulate, run!, generation!, init_en
 export OneTraitModel, TraitModel, model_of, step_schema
 # analytical predictions
 export selection_variance, gaussian_vg, gaussian_vg_exact, gaussian_vg_loci, multilocus_equilibrium, effective_size, house_of_cards_vg,
-       house_of_gauss_vg, rare_alleles_vg,
+       house_of_gauss_vg, rare_alleles_vg, house_of_cards_G, house_of_gauss_G, rare_alleles_G,
        steady_lag, critical_rate, mutation_adjusted, extinction_distribution, rescue_probability
 # fluctuating optima
 export periodic_response, red_noise_lag_var, expected_lag2, lag_load

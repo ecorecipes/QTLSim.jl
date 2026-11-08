@@ -524,9 +524,9 @@ end
     # model is for one haploid locus (or haploid clones of any number of loci)
     @test run_moments(p; loci = :aggregate).geno_var[end] ≈ gaussian_vg_exact(p) rtol = 1e-6
     ph = Params(p; Ploidy = 1, NoQTL = 20)
-    @test QTLSim.moments_loci(ph) === :multilocus                     # haploids default to the multilocus model
-    @test run_moments(ph).geno_var == run_moments(ph; loci = :multilocus).geno_var
-    @test run_moments(ph).geno_var ≈ run_moments(ph; loci = :aggregate).geno_var rtol = 1e-9
+    @test QTLSim.moments_loci(ph) === :rare_alleles                   # haploids default to the closure for clones
+    @test run_moments(ph).geno_var == run_moments(ph; loci = :rare_alleles).geno_var
+    @test run_moments(ph; loci = :multilocus).geno_var ≈ run_moments(ph; loci = :aggregate).geno_var rtol = 1e-9
     @test gaussian_vg_loci(ph) ≈ gaussian_vg_exact(ph)
     @test_throws ArgumentError run_moments(p; loci = :other)
     @test_throws ArgumentError run_moments(p; loci = :aggregate, between = true)
@@ -765,8 +765,8 @@ end
     @test run_moments(q; loci = :multilocus).geno_var[end] ≈ gaussian_vg_loci(p) rtol = 1e-6
     @test multilocus_equilibrium(p).VG == multilocus_equilibrium(p; loci = :rare_alleles).VG == rare_alleles_vg(p)
     @test multilocus_equilibrium(p; loci = :multilocus).VG ≈ gaussian_vg_loci(p) rtol = 1e-6
-    # how the default resolves (QTLSim.moments_loci): the multilocus model for several traits
-    # and for haploids
+    # how the default resolves (QTLSim.moments_loci): the multilocus model for several traits,
+    # the closure for one trait, haploid too
     @test QTLSim.moments_loci(p) === QTLSim.moments_loci(p, :auto) === :rare_alleles
     @test QTLSim.moments_loci(p, :aggregate) === :aggregate
     p2t = Params(p; NoTraits = 2, NoGenerations = 200)
@@ -775,14 +775,14 @@ end
     @test multilocus_equilibrium(p2t).VG == multilocus_equilibrium(p2t; loci = :multilocus).VG
     g2_ = lifecycle().generation ⊗ lifecycle().generation
     @test run_moments([p2t, p2t]; cycle = g2_).gmatrix == run_moments([p2t, p2t]; cycle = g2_, loci = :multilocus).gmatrix
-    @test_throws ArgumentError run_moments([p2t, p2t]; cycle = g2_, loci = :rare_alleles)
-    @test QTLSim.moments_loci(Params(p; Ploidy = 1)) === :multilocus
+    @test run_moments([p2t, p2t]; cycle = g2_, loci = :rare_alleles).gmatrix[1:2:end] ≈ run_moments(p2t; loci = :rare_alleles).gmatrix rtol = 1e-12
+    @test QTLSim.moments_loci(Params(p; Ploidy = 1)) === :rare_alleles
     ph = Params(p; Ploidy = 1, NoGenerations = 200)
-    @test run_moments(ph).geno_var == run_moments(ph; loci = :multilocus).geno_var
-    @test multilocus_equilibrium(ph).VG == multilocus_equilibrium(ph; loci = :multilocus).VG
+    @test run_moments(ph).geno_var == run_moments(ph; loci = :rare_alleles).geno_var
+    @test multilocus_equilibrium(ph).VG == multilocus_equilibrium(ph; loci = :rare_alleles).VG == rare_alleles_vg(ph)
+    @test QTLSim.moments_loci(Params(p; Ploidy = 1, NoTraits = 2)) === :multilocus
     @test_throws ArgumentError run_moments(q; loci = :bogus)
-    @test_throws ArgumentError run_moments(Params(q; NoTraits = 2); loci = :rare_alleles)
-    @test_throws ArgumentError multilocus_equilibrium(Params(p; NoTraits = 2); loci = :rare_alleles)
+    @test run_moments(Params(p2t; NoGenerations = 50_000); loci = :rare_alleles).gmatrix[end] ≈ rare_alleles_G(p2t) rtol = 1e-6
     # demes: the closure acts in each deme
     L_ = lifecycle()
     g2 = L_.generation ⊗ L_.generation
@@ -804,6 +804,91 @@ end
     gmix = gm ⋅ L_.generation
     @test run_moments(pa; cycle = gmix).geno_var == run_moments(pa; cycle = gmix, loci = :multilocus).geno_var
     @test_throws ArgumentError run_moments(pa; cycle = gmix, loci = :rare_alleles)
+end
+@testset "rare alleles: several traits and haploids (src/rare_alleles_traits.jl)" begin
+    L_ = lifecycle(); g = L_.generation
+    p = Params(PopSize = 1000, NoQTL = 10, Ploidy = 2, PhenotypeVar = 1.0, Heritability = 0.5, NoGenerations = 4000,
+               MutationScalar = 0.01, MutationRatePerGamete = 1e-4, RecombPoissonMean = 2.0, Sample = 10)
+    Vm, Vs, L, μ = muteVar(p), selection_variance(p), p.NoQTL, p.MutationRatePerGamete
+    # n = 1: the matrix closure with 1×1 matrices is the one-trait closure
+    @test QTLSim.mutation_effect_covariance(p) ≈ fill(QTLSim.mutation_effect_variance(p), 1, 1) rtol = 1e-14
+    @test QTLSim.rare_alleles_rate(fill(0.3, 1, 1), fill(1 / 2.5, 1, 1))[1] ≈ 0.3 / 5 rtol = 1e-14
+    for erosion in (false, true)
+        a = run_moments(p; loci = :rare_alleles, erosion).geno_var
+        b = Ext.run_trait_moments(p; loci = :rare_alleles, erosion).geno_var
+        @test maximum(abs.(a .- b) ./ a[end]) < 1e-12
+    end
+    @test rare_alleles_G(p)[1] ≈ rare_alleles_vg(p) rtol = 1e-12
+    @test rare_alleles_G(p; drift = true)[1] ≈ rare_alleles_vg(p; drift = true) rtol = 1e-12
+    @test house_of_gauss_G(p)[1] ≈ house_of_gauss_vg(p) rtol = 1e-12
+    @test house_of_gauss_G(p; drift = false)[1] ≈ house_of_gauss_vg(p; drift = false) rtol = 1e-12
+    @test house_of_cards_G(p)[1] ≈ 4L * μ * Vs rtol = 1e-12
+    # X = E[a aᵀ/(aᵀ s⁻¹ a)]: tr(s⁻¹X) = 1, X = s for one trait, the closed form for two
+    # against Monte Carlo, and spherical pleiotropy dilutes the house of cards by 1/n
+    C2, s2 = [1.0 0.6; 0.6 0.5], [2.0 -0.5; -0.5 1.0]
+    X2 = QTLSim.rare_hc_matrix(C2, inv(s2))
+    @test QTLSim.tr(inv(s2) * X2) ≈ 1 rtol = 1e-12
+    @test QTLSim.rare_hc_matrix(fill(0.2, 1, 1), fill(1 / 3, 1, 1))[1] ≈ 3 rtol = 1e-12
+    rng = MersenneTwister(11); Lc = QTLSim.cholesky(C2).L
+    mc = sum(begin a = Lc * randn(rng, 2); a * a' ./ QTLSim.dot(a, s2 \ a) end for _ in 1:200_000) ./ 200_000
+    @test mc ≈ X2 rtol = 0.01
+    C3, s3 = [1.0 0.3 0.1; 0.3 0.8 -0.2; 0.1 -0.2 0.5], [1.5 0.2 0; 0.2 1 0.3; 0 0.3 2]
+    @test QTLSim.tr(s3 \ QTLSim.rare_hc_matrix(C3, inv(s3))) ≈ 1 rtol = 1e-9
+    @test QTLSim.rare_hc_rates([0.4, 0.4, 0.4]) ≈ fill(3 * 0.4 / 2, 3) rtol = 1e-9          # e = 1/(nλ)
+    @test QTLSim.rare_hc_rates([0.2, 0.5]) ≈ [sqrt(0.2) * (sqrt(0.2) + sqrt(0.5)), sqrt(0.5) * (sqrt(0.2) + sqrt(0.5))] ./ 2
+    sph = Params(p; NoTraits = 2)                                                          # MutCorr = SelCorr = 0
+    @test house_of_cards_G(sph) ≈ (4L * μ * Vs / 2) .* [1 0; 0 1] rtol = 1e-12
+    # two traits whose M and Ω do not share eigenvectors: the limits of the closed form and
+    # of the closure in the multilocus model
+    p2 = Params(p; NoTraits = 2, MutCov = Vm .* [1.0 0.5; 0.5 0.6], SelCorr = -0.4)
+    A, M = selection_variance_matrix(p2), mutational_covariance(p2)
+    rare = Params(p2; MutationRatePerGamete = 1e-7, MutationScalar = 0.01 * 1e-7 / 1e-4, MutCov = 1e-3 .* M,
+                  InitFitnessSD = initFitSD(p2))                  # the same C and A, rarer
+    @test house_of_gauss_G(rare; drift = false) ≈ house_of_cards_G(rare) rtol = 1e-3
+    @test rare_alleles_G(rare) ≈ house_of_cards_G(rare) rtol = 0.02
+    many = Params(p2; MutationRatePerGamete = 1.0)
+    @test rare_alleles_G(many) ≈ gaussian_G_loci(many) rtol = 2e-3
+    weak = Params(many; InitFitnessSD = 100.0)                   # G ≪ A: G A⁻¹ G = 2L M
+    Gw = house_of_gauss_G(weak; drift = false)
+    @test Gw * (selection_variance_matrix(weak) \ Gw) ≈ 2L .* mutational_covariance(weak) rtol = 1e-3
+    neutral = Params(p2; InitFitnessSD = 1e5)
+    @test house_of_gauss_G(neutral; nsurv = 1000) ≈ 2effective_size(1000, 1000) .* M rtol = 1e-3
+    @test rare_alleles_G(neutral; drift = true) ≈ gaussian_G_loci(neutral; drift = true) rtol = 1e-3
+    G2 = rare_alleles_G(p2)
+    @test all(QTLSim.eigvals(G2) .> 0) && G2[1, 1] < gaussian_G_loci(p2)[1, 1]
+    # the trait moments lowering converges to it, with and without drift; explicit
+    # loci = :rare_alleles with traits, on several demes and through mutate steps
+    q2 = Params(p2; NoGenerations = 60_000, Sample = 1000)
+    @test run_moments(q2; loci = :rare_alleles).gmatrix[end] ≈ G2 rtol = 1e-6
+    @test run_moments(q2; loci = :rare_alleles, erosion = true).gmatrix[end] ≈ rare_alleles_G(p2; drift = true) rtol = 1e-6
+    gm = withparams(g, p2; MutationRatePerGamete = 1e-3)
+    pb = Params(p2; MutationRatePerGamete = 1e-3, NoGenerations = 2000)
+    @test run_moments(Params(p2; NoGenerations = 2000); cycle = gm, loci = :rare_alleles).gmatrix ≈
+          run_moments(pb; loci = :rare_alleles).gmatrix rtol = 1e-12
+    @test_throws ArgumentError run_moments(Params(p2; NoGenerations = 200); cycle = gm ⋅ g, loci = :rare_alleles)
+    @test run_moments(Params(p2; NoGenerations = 200); cycle = gm ⋅ g).gmatrix ==
+          run_moments(Params(p2; NoGenerations = 200); cycle = gm ⋅ g, loci = :multilocus).gmatrix
+    md = run_moments([pb, pb]; cycle = g ⊗ g, between = true, loci = :rare_alleles)
+    @test md.gmatrix[md.deme .== 1] ≈ run_moments(pb; between = true, loci = :rare_alleles).gmatrix rtol = 1e-12
+    # haploids: clones are one unit of inheritance (QTLSim.hap_clonal), with U = Lμ
+    ph = Params(p; Ploidy = 1)
+    @test QTLSim.hap_clonal(1, [0.0, 0.3]) && QTLSim.hap_clonal(2, [0.0]) && !QTLSim.hap_clonal(2, [0.0, 0.3])
+    phr = Params(rare; Ploidy = 1, NoTraits = 1, MutCov = zeros(0, 0), SelCorr = 0.0)
+    Vsh = selection_variance(phr)
+    @test house_of_gauss_vg(phr; drift = false) ≈ 2L * 1e-7 * Vsh rtol = 1e-3        # half the diploid's 4Lμ V_s
+    @test rare_alleles_vg(phr) ≈ 2L * 1e-7 * Vsh rtol = 0.02
+    phm = Params(ph; MutationRatePerGamete = 1.0)
+    @test rare_alleles_vg(phm) ≈ gaussian_vg_loci(phm) rtol = 2e-3                     # √(V_m V_s): one clone
+    @test house_of_gauss_vg(Params(ph; InitFitnessSD = 1e5); nsurv = 1000) ≈ effective_size(1000, 1000) * Vm rtol = 1e-3
+    qh = Params(ph; NoGenerations = 100_000, Sample = 1000)
+    oh = run_moments(qh; loci = :rare_alleles)
+    @test oh.geno_var[end] ≈ rare_alleles_vg(ph) rtol = 1e-6
+    @test run_moments(qh; loci = :rare_alleles, erosion = true).geno_var[end] ≈ rare_alleles_vg(ph; drift = true) rtol = 1e-6
+    @test rare_alleles_vg(ph) ≈ house_of_gauss_vg(ph; drift = false) rtol = 0.1          # LD carries little for clones
+    # several traits, haploid
+    p2h = Params(p2; Ploidy = 1)
+    @test house_of_gauss_G(p2h)[1, 1] < house_of_gauss_G(p2)[1, 1]
+    @test run_moments(Params(p2h; NoGenerations = 60_000, Sample = 1000); loci = :rare_alleles).gmatrix[end] ≈ rare_alleles_G(p2h) rtol = 1e-6
 end
 
 @testset "demographic stochasticity along the moments trajectory" begin
@@ -1836,7 +1921,7 @@ end
     # one trait of the two-trait recursion is the one-trait recursion
     p1t = Params(p; NoTraits = 1, MutCorr = 0.0, SelCorr = 0.0, NoGenerations = 2000)
     for erosion in (false, true)
-        @test Ext.run_trait_moments(p1t; erosion).geno_var[2:end] ≈ run_moments(p1t; erosion, loci = :multilocus).geno_var[2:end] rtol = 1e-10
+        @test Ext.run_trait_moments(p1t; erosion, loci = :multilocus).geno_var[2:end] ≈ run_moments(p1t; erosion, loci = :multilocus).geno_var[2:end] rtol = 1e-10
     end
     @test o.pmatrix[end] ≈ o.gmatrix[end] + envVar(p) * [1 0; 0 1]
     @test all(0 .< o.mean_fitness .<= 1)
@@ -1850,13 +1935,13 @@ end
     p1 = Params(PopSize = 1000, NoGenerations = 3000, PhenotypeVar = 0.02, MutationScalar = 0.02,
                 MutationRatePerGamete = 0.5, InitFitnessSD = 0.3, MoveFitnessSDGen = 1000, MoveFitnessSD = 0.001,
                 MoveType = :continuous, ChangeFitnessGen = 2000, ChangeFitnessSD = 0.4)
-    a, b = run_moments(p1; loci = :multilocus), Ext.run_trait_moments(p1)
+    a, b = run_moments(p1; loci = :multilocus), Ext.run_trait_moments(p1; loci = :multilocus)
     @test a.geno_var ≈ b.geno_var rtol = 1e-10
     @test a.pheno_mean ≈ b.pheno_mean rtol = 1e-10
     @test a.theta ≈ b.theta rtol = 1e-10
     @test a.mean_fitness ≈ b.mean_fitness rtol = 1e-10
     @test a.sel_diff ≈ b.sel_diff rtol = 1e-8
-    ae, be = run_moments(p1; erosion = true, loci = :multilocus), Ext.run_trait_moments(p1; erosion = true)
+    ae, be = run_moments(p1; erosion = true, loci = :multilocus), Ext.run_trait_moments(p1; erosion = true, loci = :multilocus)
     @test ae.geno_var ≈ be.geno_var rtol = 1e-10
     # it is a functor: the generation's image is the composite of the steps' images
     steps = (:develop, :select, :reproduce, :record, :rescale, :mutate, :swap)
