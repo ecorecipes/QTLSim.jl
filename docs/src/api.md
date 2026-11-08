@@ -75,9 +75,10 @@ life cycle. Its default, the multilocus Gaussian model (genic variance, linkage
 disequilibrium broken up by recombination, optional drift), has the equilibrium
 `gaussian_vg_loci`; `gaussian_vg_exact` is the equilibrium of the aggregate (one haploid
 locus) recursion, `run_moments(p; loci = :aggregate)`. With `loci = :rare_alleles`, the
-rare-alleles closure (src/rare_alleles.jl), right across the Gaussian, house-of-cards and
-neutral regimes, has the equilibrium `rare_alleles_vg`; `house_of_gauss_vg` is its
-closed form for loci in linkage equilibrium.
+rare-alleles closure (src/rare_alleles.jl), within 15% of the kernel in 46 of 47
+weak-selection cells across the Gaussian, house-of-cards and drift regimes
+(`validate/moments_regimes.jl`), has the equilibrium `rare_alleles_vg`;
+`house_of_gauss_vg` is its closed form for loci in linkage equilibrium.
 
 ```@docs
 selection_variance

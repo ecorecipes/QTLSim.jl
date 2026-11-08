@@ -73,6 +73,18 @@
 # src/rare_alleles.jl) predicted 0.81–1.06 of those kernels' V_G in the house-of-cards
 # cells; with β² it predicts 0.95–1.17 (1.17 at L = 1). No kernel run of this script had
 # been made when these criteria were written. The script exits 1 if any criterion fails.
+#
+# HISTORY. Run 1 (2026-11-07, R = 16, SEED_OFFSET = 0, moments_regimes.log, about 45 min
+# on 3 threads) failed 4 criteria, kept as failures: R1 in one of 47 weak cells (N = 1000,
+# 4Nμ = 0.1, L = 1000, V_s = 5.5: kernel/rare 0.72, strong selection with strong LD, between
+# the regimes); R4 in two cells with V_s = 5.5 and L = 100 (the closed form ignores LD:
+# 1.42 and 0.75); S's third check (the kernel's lag is 1.21 times steady_lag with its own
+# V_G under the move, which rose from about 1.8 to 2.5, the Barton–Turelli effect, so the
+# Gaussian response V_G λ/s does not hold there). Everything else passed: C0, R1 in 46
+# of 47 weak cells (0.85–1.04, most within 5%), R2 in all 47, R3 in all 12, R4 in 10 of 12,
+# S's lag within 12% of the rare-alleles prediction, E (kernel median 45 generations to
+# extinction against 41 predicted; the Gaussian predicts 210), P1–P3 (paper: median
+# table/rare 0.991, gauss 0.966). The model was not changed after the run.
 
 using QTLSim, Statistics, Printf, Random
 import Catlab, XLSX
