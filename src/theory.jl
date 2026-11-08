@@ -3,7 +3,8 @@
 # the lag behind an optimum moving at a constant rate, Bürger and Lynch's critical rate of
 # environmental change, and the paper's adjustment for the mutation scalar. The forms are
 # those the paper's results table uses (see vignettes 02, 03 and 09); the algebra is in
-# lean/CategoricalQuantGen/Theory.lean.
+# lean/CategoricalQuantGen/Theory.lean. The multilocus Gaussian model, the moments
+# lowering's default, and its equilibria are in multilocus.jl.
 
 """
     selection_variance(p) -> V_s
@@ -17,21 +18,27 @@ selection_variance(p::Params) = initFitSD(p)^2 + envVar(p)
 """
     gaussian_vg(p)
 
-The Gaussian approximation to the equilibrium genetic variance under mutation–selection
-balance, `√(V_m V_s)`, with `V_m = m·V_E` ([`muteVar`](@ref)) and `V_s` from
-[`selection_variance`](@ref) (Lande 1975). It ignores drift, and does not depend on the
-number of loci. The moments lowering (`run_moments`) has the slightly larger fixed point
-[`gaussian_vg_exact`](@ref).
+Lande's (1975) weak-mutation form of the equilibrium genetic variance of a Gaussian
+population of one haploid locus (or of the aggregate recursion), `√(V_m V_s)`, with
+`V_m = m·V_E` ([`muteVar`](@ref)) and `V_s` from [`selection_variance`](@ref). It
+ignores drift and the number of loci; for many loci it is far too small. The prediction
+for QTSim's model, diploid with `L` loci that recombine, is
+[`gaussian_vg_loci`](@ref), `√(2L·V_m V_s)` for weak mutation (with drift,
+`gaussian_vg_loci(p; drift = true)`), and the moments lowering's (`run_moments`) default.
 """
 gaussian_vg(p::Params) = sqrt(muteVar(p) * selection_variance(p))
 
 """
     gaussian_vg_exact(p)
 
-The fixed point of the Gaussian recursion `V ← V − V²/(V_s + V) + V_m`, which the
-moments lowering iterates: `(V_m + √(V_m² + 4 V_m V_s))/2`. It is
+The fixed point of the aggregate Gaussian recursion `V ← V − V²/(V_s + V) + V_m`,
+`(V_m + √(V_m² + 4 V_m V_s))/2`, which `run_moments(p; loci = :aggregate)` iterates. It is
 `√(V_m V_s)·(1 + O(√(V_m/V_s)))`, close to [`gaussian_vg`](@ref) when mutation is weak
-relative to selection (Lean `gaussian_fixed_point`).
+relative to selection (Lean `gaussian_fixed_point`). The recursion treats all of
+selection's reduction of the variance as inherited, which is exact only for one haploid
+locus (or haploid clones): it is not the general Gaussian prediction. For a diploid of
+`L` recombining loci the equilibrium is [`gaussian_vg_loci`](@ref), the same formula with
+`2L·V_m` for `V_m` (10× larger at 50 loci in the paper's regime, 7.6× with drift at N = 1000).
 """
 function gaussian_vg_exact(p::Params)
     Vm, Vs = muteVar(p), selection_variance(p)
@@ -58,7 +65,9 @@ Bürger's stochastic house-of-cards approximation to the equilibrium genetic var
 `4nμ V_s / (1 + V_s/(N_e α²))`, with `n` loci, mutation rate `μ` per locus per gamete,
 `α² = V_m/(2nμ)` the variance of one mutation's effect, and `N_e` from
 [`effective_size`](@ref) with `nsurv` survivors per generation (Bürger 1989; the paper's
-Supplementary Figure S1). Unlike [`gaussian_vg`](@ref), it grows with the number of loci.
+Supplementary Figure S1). Unlike [`gaussian_vg`](@ref), it grows with the number of loci, as
+[`gaussian_vg_loci`](@ref) does; it is the better prediction when mutations are rare and
+large (`α²` above a locus's share of the variance), where the Gaussian one fails.
 """
 function house_of_cards_vg(p::Params; nsurv::Real = p.PopSize)
     n, μ = p.NoQTL, p.MutationRatePerGamete
@@ -706,9 +715,10 @@ the count is 0 or at least `L`), switching strands at the lowest point only
 (`model = :qtsim`, QTSim's) or at every point (`:all`). With `K` points and the lowest at
 `c`, `(c + 1)(L − 1 − c)` pairs are split, and `P(min ≥ c) = C(L−1−c, K)/C(L−1, K)`; under
 `:all` a pair `d` loci apart is split by an odd number of the points among its `d`
-positions, hypergeometric. The moments lowering's `between = true` uses `ρ` for the rate
-at which recombination breaks up linkage disequilibrium within haplotypes (`T ← Tg + (1 −
-ρ)(T − Tg) + ρ(R − Rg)`). `ρ = 0` for one locus.
+positions, hypergeometric. `ρ = 0` for one locus. It is the mean of the pair classes' rates
+(`QTLSim.pair_classes`), at which the moments lowering's multilocus model breaks up
+linkage disequilibrium class by class: the mean alone would understate the LD, which at
+equilibrium is proportional to `1/ρ` for each pair (`validate/moments_loci_run1.log`).
 """
 pair_recombination(p::Params) = pair_recombination(p.NoQTL, p.RecombPoissonMean; model = p.CrossoverModel)
 

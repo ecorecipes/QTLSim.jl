@@ -1,6 +1,7 @@
 # The multilocus Gaussian model: the recursion the moments lowering iterates by default
 # (ext/QTLSimCatlabExt/moments.jl and trait_moments.jl) and its equilibria. The algebra is
-# in lean/CategoricalQuantGen/Multilocus.lean.
+# in lean/CategoricalQuantGen/Multilocus.lean; the comparison with the kernel in
+# validate/moments_loci.jl.
 #
 # A population of `NoQTL` additive loci, diploid or haploid, whose allelic values are
 # jointly Gaussian (Lande 1975; Bulmer 1971, 1980; Turelli and Barton 1990, 1994). Its
@@ -11,9 +12,13 @@
 #   R = E[(h₁ − z̄/2)(h₂ − z̄/2)]       the two haplotypes of one adult (diploid only)
 #   Q = E[(h − z̄/2)(h′ − z̄/2)]        haplotypes of two distinct adults
 #
-# and their genic parts Tg, Rg, Qg, the same sums over pairs of alleles at one locus. The
-# full moment minus the genic part is linkage disequilibrium (LD). Each is a number for
-# one trait and a matrix (`(h − z̄/2)(h − z̄/2)ᵀ`) for several. With N adults,
+# each a sum over ordered pairs of loci (l, m) of the covariance of the alleles at l and
+# m, and kept resolved by class of pairs (`pair_classes`): class 1, l = m, of weight
+# ω₁ = 1/L, is the genic part; the other classes group the pairs of distinct loci by the
+# probability ρ_c that a gamete takes their alleles from different haplotypes of its
+# parent, with ω_c their share of the L² pairs. A class of distinct loci is linkage
+# disequilibrium (LD). Each moment is a number for one trait and a matrix
+# (`(h − z̄/2)(h − z̄/2)ᵀ`) for several. With N adults and T, R, Q summed over the classes,
 #
 #   C  = Q + (T + R − 2Q)/(2N)        (haploid: Q + (T − Q)/N), the expected square of the mean's deviation,
 #   H  = T + R − 2C                   (haploid: T − C), the within-population covariance of a haplotype and the genotype,
@@ -23,31 +28,33 @@
 #
 # - select, Gaussian of covariance s = Ω + P (one trait: s = ω² + V_P = V_s + V_G): the
 #   survivors' allelic values are again Gaussian, each allele's regressed on the
-#   phenotype. A haplotype's within-population variance falls by D = H s⁻¹ H, and so does
-#   the covariance of an adult's two haplotypes (an adult's h₁ − h₂ does not change). By
-#   exchangeability each locus carries 1/L of H, so its alleles' variance falls by
-#   (H/L) s⁻¹ (H/L), and summed over the loci the genic parts fall by D/L. The rest of
-#   the reduction, D(1 − 1/L), is negative LD, which recombination breaks up. With
-#   B = V_G s⁻¹ the mean's deviation shrinks to (I − B)δ, so C ← (I − B) C (I − B)ᵀ, and
-#   each locus's share by (B/L)δ, so Cg ← Cg − (B C + C Bᵀ)/L + B C Bᵀ/L.
+#   phenotype through its covariance with the genotype. A haplotype's within-population
+#   variance falls by D = H s⁻¹ H, and so does the covariance of an adult's two
+#   haplotypes (an adult's h₁ − h₂ does not change). By exchangeability each locus
+#   carries 1/L of H, so the pair (l, m) loses (H/L) s⁻¹ (H/L), and class c loses ω_c D:
+#   the genic part D/L, the rest, D(1 − 1/L), negative LD. With B = V_G s⁻¹ the mean's
+#   deviation shrinks to (I − B)δ, C ← C − ΔC with ΔC = B C + C Bᵀ − B C Bᵀ, and class c's
+#   part of C by ω_c ΔC.
 # - reproduce, n parents (diploid: an offspring's two gametes come from distinct parents;
-#   haploid: an offspring is a copy of one parent): R ← Q, Q ← (T + R)/(2n) + (1 − 1/n) Q
-#   (haploid Q ← T/n + (1 − 1/n) Q), the genic parts alike, and recombination
-#   T ← Tg + (1 − ρ)(T − Tg) + ρ (R − Rg), with ρ = `pair_recombination(p)` the probability
-#   that a gamete's alleles at two random distinct loci come from different haplotypes of
-#   its parent. A haploid offspring inherits its parent's haplotype whole, T ← T. Without
+#   haploid: an offspring is a copy of one parent): in every class R_c ← Q_c,
+#   Q_c ← (T_c + R_c)/(2n) + (1 − 1/n) Q_c (haploid Q_c ← T_c/n + (1 − 1/n) Q_c), and
+#   recombination T_c ← (1 − ρ_c) T_c + ρ_c R_c (ρ₁ = 0: a locus is never split from
+#   itself). A haploid offspring inherits its parent's haplotype whole, T ← T. Without
 #   drift n = ∞.
-# - mutate: T and Tg gain M/Ploidy, M = m·V_E (`muteVar`) per individual.
+# - mutate: the genic class of T gains M/Ploidy, M = m·V_E (`muteVar`) per individual.
 #
 # Without drift the genic part of a diploid population's variance changes by
 # −V_G²/(2Ls) + V_m per generation, so at equilibrium V_G²/(V_s + V_G) = 2L·V_m whatever
-# the recombination (as long as ρ > 0), the fixed point `gaussian_vg_loci`: LD lowers V_G
-# below the genic variance, and the genic variance rises until V_G itself balances
-# mutation (Lande 1975). For one haploid locus, or haploid clones of any number of loci,
-# all of selection's reduction is inherited and the recursion is `gaussian_vg_exact`'s
-# `V ← V − V²/(V_s + V) + V_m`. Two simplifications: every pair of loci recombines at the
-# mean rate ρ, and a nonlinear function of the random within-population variance is taken
-# at its expected value (`D = E[H] s⁻¹ E[H]`, as is Gaussian selection with drift on).
+# the recombination (as long as every ρ_c > 0), the fixed point `gaussian_vg_loci`: LD
+# lowers V_G below the genic variance, by L V_m Σ_c ω_c/ρ_c at equilibrium, and the
+# genic variance rises until V_G itself balances mutation (Lande 1975). For one haploid
+# locus, or haploid clones of any number of loci, all of selection's reduction is
+# inherited and the recursion is `gaussian_vg_exact`'s `V ← V − V²/(V_s + V) + V_m`.
+# Simplifications: the loci are exchangeable (equal shares of H; Lean
+# `genic_reduction_ge`: unequal shares, as when a few large mutations hold the variance,
+# lose more), the LD of a class is shared equally by its pairs, and a nonlinear function
+# of the random within-population variance is taken at its expected value
+# (`D = E[H] s⁻¹ E[H]`, as is Gaussian selection with drift on).
 
 # QTSim's fitness peak: pdf(Normal(0, ω), x)/(0.4/ω) = c·exp(−x²/2ω²)
 const QTSIM_FITNESS_PEAK = 1 / (0.4 * sqrt(2π))
@@ -59,69 +66,147 @@ _eye(x::Number) = one(x)
 _eye(x::AbstractMatrix) = Matrix{Float64}(I, size(x)...)
 
 """
-    QTLSim.hap_init(V, N, ploidy)
+    QTLSim.pair_classes(p) -> (ω, ρ)
 
-The haplotype moments `(T, R, Q, Tg, Rg, Qg)` of a Hardy–Weinberg population in linkage
-equilibrium with within-population genetic variance `V` (a number or a matrix) among `N`
-adults (`Inf` without drift). See src/multilocus.jl.
+The classes of pairs of loci over which the multilocus model's haplotype moments are
+resolved: class 1 is a locus with itself (the genic part, weight `ω₁ = 1/L`, never split,
+`ρ₁ = 0`); the other classes group the ordered pairs of distinct loci by the probability
+`ρ` that the kernel's crossover (`gamete!`, `CrossoverModel`) puts their alleles on
+different haplotypes of a gamete, with `ω` the fraction of the `L²` ordered pairs in each.
+Under `:qtsim` (the lowest crossover point only) the pair `(i, j)`, `i < j`, is split when
+the lowest of `K ~ Poisson(mean)` distinct points in `0:L−2` lies in `i:j−1`; under `:all`
+when an odd number of the points does, which depends only on `j − i`. Pairs whose `ρ`
+differ by less than 2% share a class (their weighted mean `ρ`), so a class's LD,
+which at equilibrium is proportional to `1/ρ`, is resolved to about 0.1%. The weighted
+mean of `ρ` over the pairs of distinct loci is [`pair_recombination`](@ref).
 """
-function hap_init(V, N::Real, ploidy::Integer)
-    T = ploidy == 2 ? V ./ 2 : V .* 1
-    Q = ploidy == 2 ? -T ./ (2N - 2) : -T ./ (N - 1)
-    z = zero(T)
-    (T, z, Q, copy(T), z, copy(Q))
+function pair_classes(p::Params)
+    L = p.NoQTL
+    L <= 1 && return ([1.0], [0.0])
+    ρpairs, wpairs = pair_splits(L, p.RecombPoissonMean, p.CrossoverModel)
+    # bins of 2% in ρ; pairs never split form a class of their own
+    key(r) = r <= 0 ? typemin(Int) : floor(Int, log(r) / log(1.02))
+    acc = Dict{Int,Tuple{Float64,Float64}}()
+    for (r, w) in zip(ρpairs, wpairs)
+        a = get(acc, key(r), (0.0, 0.0))
+        acc[key(r)] = (a[1] + w, a[2] + w * r)
+    end
+    ks = sort(collect(keys(acc)))
+    ω = [1 / L; [acc[k][1] for k in ks]]
+    ρ = [0.0; [acc[k][2] / acc[k][1] for k in ks]]
+    ω[2:end] .*= (1 - 1 / L) / sum(ω[2:end])          # exactly 1 − 1/L in all
+    (ω, ρ)
+end
+
+# the split probability of every pair class of distinct loci and its weight among them:
+# under :all by distance d (L − d pairs), under :qtsim every pair i < j
+function pair_splits(L::Integer, mean::Real, model::Symbol)
+    model in (:qtsim, :all) || throw(ArgumentError("model is :qtsim or :all; got :$model"))
+    pois = Poisson(mean)
+    Ks = [K for K in 1:L-1 if pdf(pois, K) > 1e-17 || K <= mean]
+    if model === :all
+        ρ = zeros(L - 1)
+        for K in Ks, d in 1:L-1
+            h = Hypergeometric(d, L - 1 - d, K)
+            ρ[d] += pdf(pois, K) * sum(pdf(h, x) for x in 1:2:min(d, K); init = 0.0)
+        end
+        return ρ, [(L - d) / (L * (L - 1) / 2) for d in 1:L-1]
+    end
+    # P(min ≥ c) for K points, then pair (i, j) (0-based i < j) is split iff min ∈ i:j−1
+    S = zeros(L)                                   # Σ_K pK P(min ≥ c), c = 0:L−1
+    for K in Ks
+        w = pdf(pois, K)
+        for c in 0:L-1
+            s = 1.0
+            for i in 0:K-1; s *= max(L - 1 - c - i, 0) / (L - 1 - i); end
+            S[c+1] += w * s
+        end
+    end
+    ρ = Float64[]; wt = Float64[]
+    np = L * (L - 1) / 2
+    for i in 0:L-2, j in i+1:L-1
+        push!(ρ, S[i+1] - S[j+1]); push!(wt, 1 / np)
+    end
+    ρ, wt
+end
+
+"""
+    QTLSim.hap_init(V, N, ploidy, nclass)
+
+The haplotype moments `(T, R, Q)` (each a vector over the `nclass` pair classes of
+[`pair_classes`](@ref)) of a Hardy–Weinberg population in linkage equilibrium with
+within-population genetic variance `V` (a number or a matrix) among `N` adults (`Inf`
+without drift): all of it genic, class 1. See src/multilocus.jl.
+"""
+function hap_init(V, N::Real, ploidy::Integer, nclass::Integer = 2)
+    T0 = ploidy == 2 ? V ./ 2 : V .* 1
+    Q0 = ploidy == 2 ? -T0 ./ (2N - 2) : -T0 ./ (N - 1)
+    z = zero(T0)
+    ([k == 1 ? T0 : z for k in 1:nclass], [z for _ in 1:nclass], [k == 1 ? Q0 : z for k in 1:nclass])
 end
 
 hap_cmean(T, R, Q, N::Real, ploidy::Integer) = ploidy == 2 ? Q + (T + R - 2Q) / (2N) : Q + (T - Q) / N
 
 "The within-population (divisor N) genetic variance of the haplotype moments `st`."
 function hap_vpop(st, N::Real, ploidy::Integer)
-    T, R, Q = st
+    T, R, Q = sum(st[1]), sum(st[2]), sum(st[3])
     C = hap_cmean(T, R, Q, N, ploidy)
     ploidy == 2 ? 2T + 2R - 4C : T - C
 end
 
+"The genic part (class 1) of the within-population genetic variance."
+hap_genic(st, N::Real, ploidy::Integer) = hap_vpop(([st[1][1]], [st[2][1]], [st[3][1]]), N, ploidy)
+
 """
-    QTLSim.hap_select(st, sinv, N, L, ploidy) -> (st′, B)
+    QTLSim.hap_select(st, sinv, N, ω, ploidy) -> (st′, B)
 
 Gaussian selection of covariance `s` (`sinv` = s⁻¹) on the haplotype moments `st` of a
-population of `N` adults at `L` loci; `B = V_G s⁻¹` is the factor by which the deviation of
-the mean shrinks, for the moments with other populations. See src/multilocus.jl.
+population of `N` adults, with pair-class weights `ω` ([`pair_classes`](@ref)); `B = V_G s⁻¹`
+is the factor by which the deviation of the mean shrinks, for the moments with other
+populations. See src/multilocus.jl.
 """
-function hap_select(st, sinv, N::Real, L::Integer, ploidy::Integer)
-    T, R, Q, Tg, Rg, Qg = st
-    C, Cg = hap_cmean(T, R, Q, N, ploidy), hap_cmean(Tg, Rg, Qg, N, ploidy)
-    σ2, σ2g = T - C, Tg - Cg
-    r, rg = ploidy == 2 ? (R - C, Rg - Cg) : (zero(R), zero(Rg))
-    H = σ2 + r
+function hap_select(st, sinv, N::Real, ω::AbstractVector, ploidy::Integer)
+    T, R, Q = st
+    Tf, Rf, Qf = sum(T), sum(R), sum(Q)
+    C = hap_cmean(Tf, Rf, Qf, N, ploidy)
+    H = ploidy == 2 ? Tf + Rf - 2C : Tf - C
     B = ploidy * H * sinv
     D = _sym(H * sinv * H)
-    σ2, σ2g = σ2 - D, σ2g - D / L
-    A = _eye(B) - B
-    Cn = _sym(A * C * A')
-    Cgn = _sym(Cg - (B * C + C * B') / L + B * C * B' / L)
-    if ploidy == 2
-        r, rg = r - D, rg - D / L
-        return (Cn + σ2, Cn + r, Cn - (σ2 + r) / (2N - 2), Cgn + σ2g, Cgn + rg, Cgn - (σ2g + rg) / (2N - 2)), B
+    ΔC = _sym(B * C + C * B' - B * C * B')          # (I − B) C (I − B)ᵀ = C − ΔC
+    Tn, Rn, Qn = similar(T), similar(R), similar(Q)
+    for k in eachindex(T)
+        Ck = hap_cmean(T[k], R[k], Q[k], N, ploidy)
+        Cn = Ck - ω[k] * ΔC
+        σ2 = T[k] - Ck - ω[k] * D
+        if ploidy == 2
+            r = R[k] - Ck - ω[k] * D
+            Tn[k], Rn[k], Qn[k] = Cn + σ2, Cn + r, Cn - (σ2 + r) / (2N - 2)
+        else
+            Tn[k], Rn[k], Qn[k] = Cn + σ2, R[k], Cn - σ2 / (N - 1)
+        end
     end
-    (Cn + σ2, R, Cn - σ2 / (N - 1), Cgn + σ2g, Rg, Cgn - σ2g / (N - 1)), B
+    (Tn, Rn, Qn), B
 end
 
 """
     QTLSim.hap_reproduce(st, n, ρ, ploidy)
 
-Random mating of `n` parents (`Inf` without drift) with pair recombination probability
-`ρ`: the haplotype moments of the offspring. See src/multilocus.jl.
+Random mating of `n` parents (`Inf` without drift), with `ρ` the split probabilities of
+the pair classes: the haplotype moments of the offspring. See src/multilocus.jl.
 """
-function hap_reproduce(st, n::Real, ρ::Real, ploidy::Integer)
-    T, R, Q, Tg, Rg, Qg = st
-    ploidy == 1 && return (T, R, T / n + (1 - 1 / n) * Q, Tg, Rg, Tg / n + (1 - 1 / n) * Qg)
-    (Tg + (1 - ρ) * (T - Tg) + ρ * (R - Rg), Q, (T + R) / (2n) + (1 - 1 / n) * Q,
-     Tg, Qg, (Tg + Rg) / (2n) + (1 - 1 / n) * Qg)
+function hap_reproduce(st, n::Real, ρ::AbstractVector, ploidy::Integer)
+    T, R, Q = st
+    ploidy == 1 && return (T, R, [T[k] / n + (1 - 1 / n) * Q[k] for k in eachindex(T)])
+    ([(1 - ρ[k]) * T[k] + ρ[k] * R[k] for k in eachindex(T)], copy(Q),
+     [(T[k] + R[k]) / (2n) + (1 - 1 / n) * Q[k] for k in eachindex(T)])
 end
 
-"Mutation adds `M/ploidy` to each haplotype, locus by locus."
-hap_mutate(st, M, ploidy::Integer) = (st[1] + M / ploidy, st[2], st[3], st[4] + M / ploidy, st[5], st[6])
+"Mutation adds `M/ploidy` to each haplotype, locus by locus (the genic class)."
+function hap_mutate(st, M, ploidy::Integer)
+    T = copy(st[1]); T[1] = T[1] + M / ploidy
+    (T, st[2], st[3])
+end
+
 
 # the number of allele positions whose variance balances mutation separately: 2L for a
 # diploid that recombines, 2 for a diploid without recombination (one locus, or none),
@@ -181,7 +266,7 @@ disequilibrium.
 function multilocus_equilibrium(p::Params; drift::Bool = false, tol::Real = 1e-14, maxiter::Integer = 10^7)
     p.Drift && throw(ArgumentError("no equilibrium without selection (Drift = true)"))
     nt, L, h = p.NoTraits, p.NoQTL, p.Ploidy
-    ρ = pair_recombination(p)
+    ω, ρ = pair_classes(p)
     VE = envVar(p)
     if nt == 1
         M, Ω, Id = muteVar(p), initFitSD(p)^2, 1.0
@@ -192,7 +277,7 @@ function multilocus_equilibrium(p::Params; drift::Bool = false, tol::Real = 1e-1
         V0 = gaussian_G_loci(p)
     end
     N = float(p.PopSize)
-    st = hap_init(V0, drift ? N : Inf, h)
+    st = hap_init(V0, drift ? N : Inf, h, length(ω))
     VG, Wbar, n = V0, 1.0, Inf
     c = QTSIM_FITNESS_PEAK
     for _ in 1:maxiter
@@ -211,7 +296,7 @@ function multilocus_equilibrium(p::Params; drift::Bool = false, tol::Real = 1e-1
             Wbar = c * sqrt(det(Ω) / det(s))
             W2 = c^2 * sqrt(det(Ω) / det(Ω + 2P))
         end
-        st, _ = hap_select(st, sinv, Nd, L, h)
+        st, _ = hap_select(st, sinv, Nd, ω, h)
         npar = p.Selection === :fecundity ? N * Wbar^2 / W2 : N * Wbar
         n = drift ? max(npar, 1.0) : Inf
         st = hap_reproduce(st, n, ρ, h)
@@ -225,7 +310,7 @@ function multilocus_equilibrium(p::Params; drift::Bool = false, tol::Real = 1e-1
         done && break
     end
     Nd = drift ? max(N, 2.0) : Inf
-    g = hap_vpop(st[4:6], Nd, h)
+    g = hap_genic(st, Nd, h)
     k = drift ? Nd / (Nd - 1) : 1.0
     (VG = VG * k, genic = g * k, ld = (VG - g) * k, N, nparents = n, Wbar)
 end

@@ -43,12 +43,13 @@ mutable struct TraitMoments
     sinv::Matrix{Float64}   # (Ω + P)⁻¹, zero when neutral
 end
 
-"The haplotype moments (T, R, Q, Tg, Rg, Qg) of the multilocus model, as matrices (src/multilocus.jl)."
+"The haplotype moments (T, R, Q) of the multilocus model by pair class, as matrices (src/multilocus.jl)."
 mutable struct TraitCov
-    st::NTuple{6,Matrix{Float64}}
+    st::Any                 # (T, R, Q), vectors over the pair classes of matrices
     ploidy::Int
     drift::Bool
-    ρ::Float64
+    ω::Vector{Float64}      # QTLSim.pair_classes(p)
+    ρ::Vector{Float64}
 end
 
 _nd(c::TraitCov, N) = c.drift ? max(N, 2.0) : Inf
@@ -58,8 +59,9 @@ function TraitMoments(p::Params; zbar = zeros(p.NoTraits), G = zeros(p.NoTraits,
     n, VE = p.NoTraits, QTLSim.envVar(p)
     Id = Matrix{Float64}(I, n, n)
     cov = loci === :multilocus ?
-          TraitCov(QTLSim.hap_init(Matrix{Float64}(G), erosion ? float(p.PopSize) : Inf, p.Ploidy), p.Ploidy, erosion,
-                   QTLSim.pair_recombination(p)) : nothing
+          (cl = QTLSim.pair_classes(p);
+           TraitCov(QTLSim.hap_init(Matrix{Float64}(G), erosion ? float(p.PopSize) : Inf, p.Ploidy, length(cl[1])),
+                    p.Ploidy, erosion, cl...)) : nothing
     TraitMoments(p, 0, collect(Float64, zbar), Matrix{Float64}(G), G + VE * Id, zeros(n), QTLSim.initFitSD(p),
                  p.PopSize, 1.0, zeros(n), collect(Float64, zbar), Matrix{Float64}(G), collect(Float64, zbar),
                  Matrix{Float64}(G), false, p.PopSize, p.PopSize, erosion, VE, false, 1.0,
@@ -101,7 +103,7 @@ function trait_moments_select!(m::TraitMoments)
     m.nsurv = m.weighted ? m.N : m.N * m.Wbar
     m.extinct = m.weighted ? m.N < p.Ploidy : m.nsurv < (p.Ploidy == 2 ? 2 : 1)
     c = m.cov
-    c === nothing || p.Drift || (c.st = first(QTLSim.hap_select(c.st, m.sinv, _nd(c, m.N), p.NoQTL, c.ploidy)))
+    c === nothing || p.Drift || (c.st = first(QTLSim.hap_select(c.st, m.sinv, _nd(c, m.N), c.ω, c.ploidy)))
     m
 end
 
@@ -140,7 +142,8 @@ end
     trait_moment_images(rec = nothing)
 
 The image of each step of the life cycle in the moments lowering of several traits, by
-name: the multivariate Gaussian recursion, `Δz̄ = G (Ω + P)⁻¹ (θ − z̄)`,
+name: the multivariate Gaussian recursion, `Δz̄ = G (Ω + P)⁻¹ (θ − z̄)`, with `G` from the
+haplotype moments of the multilocus model (src/multilocus.jl), or with `loci = :aggregate`
 `G' = G − G (Ω + P)⁻¹ G + M`. A second table for the same generators as `moment_images`.
 """
 trait_moment_images(rec = nothing) = Dict{Symbol,Any}(
@@ -167,13 +170,15 @@ function trait_moments_swap!(m::TraitMoments)
 end
 
 """
-    run_trait_moments(p; cycle = lifecycle().generation, images, zbar, G, erosion = false)
+    run_trait_moments(p; cycle = lifecycle().generation, images, zbar, G, erosion = false, loci = :multilocus)
 
 The moments lowering of a model of several traits: `cycle`, one deme's life cycle, lowered
 with the images `trait_moment_images` and iterated `NoGenerations` times from mean `zbar`
 and genetic covariance `G` (zero by default). `run_moments(p)` calls it when
 `p.NoTraits > 1`; called directly with one trait it runs the multivariate recursion with
-1×1 matrices, which is the one-trait recursion.
+1×1 matrices, which is the one-trait recursion. By default the multilocus model
+(converging to `gaussian_G_loci(p)`, or with `erosion = true` to `gaussian_G_loci(p; drift =
+true)`); `loci = :aggregate` is the old recursion (`gaussian_G(p)`).
 """
 function run_trait_moments(p::Params; cycle = lifecycle().generation, images = Dict{Symbol,Any}(),
                            zbar = zeros(p.NoTraits), G = zeros(p.NoTraits, p.NoTraits), erosion = false,

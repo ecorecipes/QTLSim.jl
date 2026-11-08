@@ -1,9 +1,10 @@
 # Theory for several traits (Lande 1979, 1980; Jones, Arnold and Bürger 2003): the
 # multivariate Gaussian mutation–selection balance, the steady lag behind an optimum that
 # moves in a direction, and the response deflected toward the genetic line of least
-# resistance (Schluter 1996). These are the fixed points of the trait moments lowering
-# (ext/QTLSimCatlabExt/trait_moments.jl), whose one-trait case is the scalar recursion
-# of theory.jl.
+# resistance (Schluter 1996). `gaussian_G` is the fixed point of the aggregate recursion
+# (`run_moments(p; loci = :aggregate)`, exact for one haploid locus); the trait moments
+# lowering's default, the multilocus model, converges to `gaussian_G_loci` (multilocus.jl),
+# which is `gaussian_G` with `2L·M` in place of `M`.
 #
 # Notation: G the additive genetic covariance matrix, P = G + V_E I the phenotypic one,
 # Ω the covariance of the Gaussian fitness function, A = Ω + V_E I (the matrix analogue of
@@ -30,8 +31,9 @@ symsqrt(A) = (F = eigen(Symmetric(Matrix{Float64}(A))); F.vectors * (sqrt.(max.(
     gaussian_G(M, A)
     gaussian_G(p)
 
-The equilibrium G matrix of the Gaussian recursion `G' = G − G (A + G)⁻¹ G + M`, the
-multivariate [`gaussian_vg_exact`](@ref): the unique positive semidefinite solution of
+The equilibrium G matrix of the aggregate Gaussian recursion `G' = G − G (A + G)⁻¹ G + M`,
+the multivariate [`gaussian_vg_exact`](@ref) (exact for one haploid locus; for `L`
+recombining diploid loci the equilibrium is [`gaussian_G_loci`](@ref), `gaussian_G(2L·M, A)`): the unique positive semidefinite solution of
 `G (A + G)⁻¹ G = M`,
 
     G = A^{1/2} X A^{1/2},   X = ½ (M̃ + (M̃² + 4 M̃)^{1/2}),   M̃ = A^{-1/2} M A^{-1/2}.
@@ -61,8 +63,8 @@ gaussian_G(p::Params) = gaussian_G(mutational_covariance(p), selection_variance_
 The fixed point of the Gaussian recursion found by iterating it, `G ← (G − G (A + G)⁻¹ G)
 (1 − erosion) + M`, from `G0` until no entry changes by more than `tol` relative to the
 largest: a numerical check on [`gaussian_G`](@ref), and with `erosion = 1/(2N_e)` the
-equilibrium with drift's loss of variance (as `run_moments(…; erosion = true)` with a
-constant `N_e`).
+equilibrium of the aggregate recursion with drift's loss of variance (as
+`run_moments(…; loci = :aggregate, erosion = true)` with a constant `N_e`).
 """
 function gaussian_G_iterate(M::AbstractMatrix, A::AbstractMatrix; G0 = Matrix{Float64}(M), tol = 1e-13,
                             maxiter::Integer = 10^7, erosion::Real = 0.0)

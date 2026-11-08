@@ -538,7 +538,7 @@ end
     # the lowering is a functor: the generation's image is the composite of the steps' images
     steps = (:develop, :select, :reproduce, :record, :rescale, :mutate, :swap)
     Ext_ = Ext
-    for cov in (nothing, Ext_.DemeCov([1000.0], [0.003]; drift = false), Ext_.DemeCov([1000.0], [0.003]))
+    for cov in (nothing, Ext_.DemeCov(p, [1000.0], [0.003]; drift = false), Ext_.DemeCov(p, [1000.0], [0.003]))
         m1 = Ext_.Moments(p; VG = 0.003, cov); m2 = deepcopy(m1)
         lower(g, :moments)(m1, nothing)
         foldl(Catlab.compose, (lower(getfield(L, s), :moments) for s in steps))(m2, nothing)
@@ -558,12 +558,15 @@ end
     @test V^2 / (Vs + V) ≈ 2 * 50 * Vm
     @test V ≈ gaussian_vg_exact(Params(p; MutationScalar = 100 * p.MutationScalar, InitFitnessSD = initFitSD(p))) rtol = 1e-12
     for q in (p, Params(p; CrossoverModel = :all), Params(p; RecombPoissonMean = 5.0))
-        @test run_moments(q).geno_var[end] ≈ V rtol = 1e-6
+        @test run_moments(Params(q; NoGenerations = 100_000, Sample = 100)).geno_var[end] ≈ V rtol = 1e-6
         e = multilocus_equilibrium(q)
         @test e.VG ≈ V rtol = 1e-6
         @test e.ld < 0 && e.genic ≈ e.VG - e.ld
-        # the LD at equilibrium: −(1 − 1/L)·b/ρ per haplotype, b = L V_m/2, so ld = −(L − 1) V_m/ρ
-        @test e.ld ≈ -(50 - 1) * Vm / pair_recombination(q) rtol = 1e-6
+        # the LD at equilibrium: −ω_c b/ρ_c per haplotype in each pair class, b = L V_m/2
+        ω, ρ = QTLSim.pair_classes(q)
+        @test sum(ω) ≈ 1 && ω[1] == 1 / 50 && ρ[1] == 0
+        @test sum(ω[2:end] .* ρ[2:end]) / (1 - 1 / 50) ≈ pair_recombination(q) rtol = 1e-10
+        @test e.ld ≈ -50 * Vm * sum(ω[2:end] ./ ρ[2:end]) rtol = 1e-6
     end
     # less recombination, more LD, the same V_G
     @test multilocus_equilibrium(Params(p; RecombPoissonMean = 0.5)).ld < multilocus_equilibrium(p).ld
@@ -576,14 +579,18 @@ end
     # selection: the genic reduction is the sum of the loci's shares, (H/L)²/s each, and the
     # survivors' variance is V − V²/s
     H, s, Lq = 0.7, 3.0, 50
-    st = QTLSim.hap_init(2H, Inf, 2)
-    st2, β = QTLSim.hap_select(st, 1 / s, Inf, Lq, 2)
-    @test st[4] - st2[4] ≈ sum((H / Lq)^2 / s for _ in 1:Lq) && β ≈ 2H / s
+    st = QTLSim.hap_init(2H, Inf, 2, 2)
+    st2, β = QTLSim.hap_select(st, 1 / s, Inf, [1 / Lq, 1 - 1 / Lq], 2)
+    @test st[1][1] - st2[1][1] ≈ sum((H / Lq)^2 / s for _ in 1:Lq) && β ≈ 2H / s
     @test QTLSim.hap_vpop(st2, Inf, 2) ≈ 2H - (2H)^2 / s
     # recombination turns the LD back into variance: one generation of mating at ρ = 1
     # restores the haplotypes' LE, losing only the between-haplotype part
-    st3 = QTLSim.hap_reproduce(st2, Inf, 1.0, 2)
-    @test st3[1] - st3[4] ≈ st2[2] - st2[5]
+    st3 = QTLSim.hap_reproduce(st2, Inf, [0.0, 1.0], 2)
+    @test st3[1][2] ≈ st2[2][2] && st3[1][1] == st2[1][1]
+    # pair classes: one locus has only the genic class; two loci are split by one point
+    @test QTLSim.pair_classes(Params(p; NoQTL = 1)) == ([1.0], [0.0])
+    ωa, ρa = QTLSim.pair_classes(Params(p; NoQTL = 2, RecombPoissonMean = 0.7))
+    @test ωa ≈ [0.5, 0.5] && ρa ≈ [0.0, 0.7 * exp(-0.7)]
     # a continuous move: Lande's steady lag with the multilocus V_G
     pc = Params(p; NoGenerations = 30_000, MoveFitnessSDGen = 20_000, MoveFitnessSD = 0.01, MoveType = :continuous)
     oc = run_moments(pc)

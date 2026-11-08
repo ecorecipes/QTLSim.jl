@@ -71,10 +71,15 @@ traitvalues
 ## Theory
 
 The predictions the simulations are compared with; `run_moments` iterates them for any
-life cycle.
+life cycle. Its default, the multilocus Gaussian model (genic variance, linkage
+disequilibrium broken up by recombination, optional drift), has the equilibrium
+`gaussian_vg_loci`; `gaussian_vg_exact` is the equilibrium of the aggregate (one haploid
+locus) recursion, `run_moments(p; loci = :aggregate)`.
 
 ```@docs
 selection_variance
+gaussian_vg_loci
+multilocus_equilibrium
 gaussian_vg
 gaussian_vg_exact
 effective_size
@@ -99,9 +104,9 @@ Several traits with pleiotropy (Lande 1979, 1980; Schluter 1996):
 
 ```@docs
 selection_variance_matrix
+gaussian_G_loci
 gaussian_G
 gaussian_G_iterate
-gaussian_G_loci
 selection_gradient
 trait_response
 steady_lag_vector
