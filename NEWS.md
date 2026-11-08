@@ -62,6 +62,12 @@ All notable changes to QTLSim.jl are recorded here. The format follows
 
 ### Changed
 
+- **Several traits: `loci = :auto` resolves to `:rare_local`** (was `:multilocus`), by the
+  rule fixed before `validate/local_adaptation.jl` ran: the closure passes the accuracy and
+  "no worse, better in the house of cards" criteria in D1 and D2, and for one population it
+  is `:rare_alleles`, which already passed `validate/rare_alleles_traits.jl`'s T cells
+  (up to 1000× closer to the kernel than the multilocus Gaussian). Pass `loci = :multilocus`
+  for the old default.
 - `loci = :rare_alleles` works for several traits (`rare_alleles_G`, `house_of_gauss_G`,
   `house_of_cards_G`) and for haploid clones, and `:auto` uses it for one-trait haploids.
   Several traits stay on `:multilocus` by default. The closure fails a pre-specified test

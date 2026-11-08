@@ -96,19 +96,20 @@ returned as it is, and `:auto`, the default, resolves to
   `validate/moments_regimes.jl`, never farther from it than the multilocus Gaussian, and
   up to 10× closer in the house-of-cards and drift regimes, to which it reduces to the
   Gaussian when mutations are many and small;
-- `:multilocus`, the multilocus Gaussian model (src/multilocus.jl), when
-  - `NoTraits > 1`: the closure for several traits (src/rare_alleles_traits.jl) is far
-    better than the multilocus Gaussian for one population in the house-of-cards regime,
-    but gives under half the kernel's within-deme G for demes with local optima there
-    (`validate/rare_alleles_traits.jl`, scenario D1).
-`run_moments` also resolves `:auto` to `:multilocus` when the `mutate` steps of the life
+- `:rare_local`, the closure for several traits with locally favoured alleles
+  (src/rare_alleles_traits.jl, src/local_alleles.jl), when `NoTraits > 1`: for one
+  population it is `:rare_alleles`, far better than the multilocus Gaussian in the
+  house-of-cards regime (`validate/rare_alleles_traits.jl`, T cells); for demes with local
+  optima and migration it is within 15% of the kernel's within-deme G where `:rare_alleles`
+  gives under half of it (`validate/local_adaptation.jl`, D1; D2 too).
+`run_moments` resolves `:auto` to `:multilocus` when the `mutate` steps of the life
 cycle carry different `MutationScalar` or `MutationRatePerGamete`, as no one `α²` then
 describes the mutations; when they all carry the same, `α²` is theirs. The demes of a
 metapopulation each have their own `α²`.
 """
 function moments_loci(p::Params, loci::Symbol = :auto)
     loci === :auto || return loci
-    p.NoTraits > 1 && return :multilocus
+    p.NoTraits > 1 && return :rare_local
     :rare_alleles
 end
 

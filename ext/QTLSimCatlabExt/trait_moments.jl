@@ -392,8 +392,9 @@ function resolve_trait_loci(ps::AbstractVector{Params}, cycle, loci::Symbol)
     end
     qs = isempty(fs) ? ps : [Params(q; only(fs)...) for q in ps]
     if loci === :auto
-        all(q -> QTLSim.moments_loci(q) === :rare_alleles, qs) || return :multilocus, Any[0.0 for _ in ps]
-        loci = :rare_alleles
+        rs = unique([QTLSim.moments_loci(q) for q in qs])
+        length(rs) == 1 && rs[1] in (:rare_alleles, :rare_local) || return :multilocus, Any[0.0 for _ in ps]
+        loci = rs[1]
     end
     loci, Any[QTLSim.mutation_effect_covariance(q) for q in qs]
 end
@@ -409,9 +410,9 @@ The moments lowering of a model of several traits: `cycle` lowered with the tabl
 and genetic covariance `G` (zero by default; with several demes, one or one per deme).
 `run_moments(p)` calls it when `p.NoTraits > 1`; called directly with one trait it runs the
 multivariate recursion with 1×1 matrices, which is the one-trait recursion with `loci =
-:multilocus`. `loci = :auto`, the default, resolves as `QTLSim.moments_loci` (the multilocus
-Gaussian model while that is its resolution for several traits; `loci = :rare_alleles` is the
-rare-alleles closure of src/rare_alleles_traits.jl, converging to `rare_alleles_G(p)`). The
+:multilocus`. `loci = :auto`, the default, resolves as `QTLSim.moments_loci` (for several
+traits `:rare_local`, the closure with locally favoured alleles of src/local_alleles.jl, which
+for one deme is `:rare_alleles`; `loci = :rare_alleles` is the rare-alleles closure of src/rare_alleles_traits.jl, converging to `rare_alleles_G(p)`). The
 multilocus model (converging to `gaussian_G_loci(p)`, or with `erosion = true` to
 `gaussian_G_loci(p; drift = true)`); `loci = :aggregate` is the old recursion
 (`gaussian_G(p)`). `optimum`, a vector of optimum vectors, one per generation, replaces the

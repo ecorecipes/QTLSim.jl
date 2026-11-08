@@ -210,12 +210,13 @@ variances:
 - `mutate`: adds `V_m = m·V_E`.
 
 **Which model (`loci`).** The default, `loci = :auto`, is the rare-alleles closure
-(`:rare_alleles`, below) for one trait (diploid, or haploid clones), and the multilocus
-Gaussian model (`:multilocus`) for several traits (both closures are compared with the
-kernel in `validate/rare_alleles_traits.jl`), and when the `mutate` steps of `cycle` carry different
+(`:rare_alleles`, below) for one trait (diploid, or haploid clones), the closure with
+locally favoured alleles (`:rare_local`, below; `:rare_alleles` for one deme) for several
+traits (compared with the kernel in `validate/rare_alleles_traits.jl` and
+`validate/local_adaptation.jl`), and the multilocus Gaussian model (`:multilocus`) when the `mutate` steps of `cycle` carry different
 `MutationScalar` or `MutationRatePerGamete` (no one mutation effect variance);
 [`QTLSim.moments_loci`](@ref) gives the resolution for a `Params`. Ask for
-`loci = :multilocus`, `:rare_alleles` or `:aggregate` to use those models anywhere (the
+`loci = :multilocus`, `:rare_alleles`, `:rare_local` or `:aggregate` to use those models anywhere (the
 closure for several traits and for haploid clones is in src/rare_alleles_traits.jl). The rare-alleles closure is within 15% of the kernel in 46 of
 47 weak-selection cells of `validate/moments_regimes.jl`, never farther from it than the
 multilocus Gaussian, and up to 10× closer in the house-of-cards and drift regimes; when

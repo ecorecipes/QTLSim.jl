@@ -506,8 +506,9 @@ function resolve_loci(ps::AbstractVector{Params}, cycle, loci::Symbol)
     end
     qs = isempty(mf) ? ps : [Params(q; mf...) for q in ps]
     if loci === :auto
-        all(q -> QTLSim.moments_loci(q) === :rare_alleles, qs) || return :multilocus, zeros(length(ps))
-        loci = :rare_alleles
+        rs = unique([QTLSim.moments_loci(q) for q in qs])
+        length(rs) == 1 && rs[1] in (:rare_alleles, :rare_local) || return :multilocus, zeros(length(ps))
+        loci = rs[1]
     end
     loci, [QTLSim.rare_alleles_effect(q, loci) for q in qs]
 end

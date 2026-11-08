@@ -290,9 +290,10 @@ traits the variances are matrices. Returns `(; VG, genic, ld, N, nparents, Wbar)
 the within-population genetic variance (the expected sample variance, divisor `N − 1`,
 with drift), `genic` its genic part and `ld = VG − genic` the contribution of linkage
 disequilibrium. `loci` is the moments lowering's: the default `:auto` resolves as in
-`run_moments` ([`QTLSim.moments_loci`](@ref)), to `:rare_alleles` for one diploid trait (the rare-alleles closure of src/rare_alleles.jl, [`rare_alleles_vg`](@ref)) and
-to `:multilocus` otherwise (the multilocus Gaussian model, [`gaussian_vg_loci`](@ref) and
-[`gaussian_G_loci`](@ref)).
+`run_moments` ([`QTLSim.moments_loci`](@ref)), to `:rare_alleles` for one trait (the rare-alleles closure of src/rare_alleles.jl, [`rare_alleles_vg`](@ref)) and
+to `:rare_local` for several (for one population the closure of src/rare_alleles_traits.jl,
+[`rare_alleles_G`](@ref)); `loci = :multilocus` is the multilocus Gaussian model
+([`gaussian_vg_loci`](@ref), [`gaussian_G_loci`](@ref)).
 """
 function multilocus_equilibrium(p::Params; drift::Bool = false, loci::Symbol = :auto, tol::Real = 1e-14, maxiter::Integer = 10^7)
     p.Drift && throw(ArgumentError("no equilibrium without selection (Drift = true)"))

@@ -102,7 +102,7 @@ metapopulations whose demes lag behind different optima, `loci = :rare_local`
 `QTLSim.local_gain` of locally favoured alleles; it equals `:rare_alleles` for one deme, a
 common optimum and no migration. The default,
 `loci = :auto`, is the rare-alleles closure for one trait (diploid, or haploid clones) and
-the multilocus model for several traits (`QTLSim.moments_loci`); `multilocus_equilibrium`
+`:rare_local` for several traits (`QTLSim.moments_loci`); `multilocus_equilibrium`
 takes the same default.
 Under a moving optimum, the allele-frequency spectrum (`loci = :spectrum`,
 src/spectrum.jl, `validate/vg_move.jl`) follows how sweeps, drift and linked selection

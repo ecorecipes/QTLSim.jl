@@ -119,7 +119,7 @@ window(o, lo, hi) = findall(t -> lo <= t <= hi, o.gen)
 Gk = [mean(o.gmatrix[window(o, 1000, 2999)]) for o in runs]
 Gbar = mean(Gk)
 Gth, Gd = gaussian_G_loci(p), gaussian_G_loci(p; drift = true)
-Gmo = run_moments(p; erosion = true).gmatrix[end]
+Gmo = run_moments(p; erosion = true, loci = :multilocus).gmatrix[end]
 corr(G) = G[1, 2] / sqrt(G[1, 1] * G[2, 2])
 angle(v) = mod(atand(v[2], v[1]), 180)
 ```
@@ -132,7 +132,7 @@ se(f) = std(f.(Gk)) / sqrt(R)
         Gbar[1, 1], se(G -> G[1, 1]), Gbar[1, 2], se(G -> G[1, 2]), Gbar[2, 2], se(G -> G[2, 2]),
         corr(Gbar), se(corr), angle(gmax(Gbar)))
 for (nm, G) in (("multilocus Gaussian, with drift (`gaussian_G_loci(p; drift = true)`)", Gd),
-                ("moments lowering, with drift (`run_moments(p; erosion = true)`)", Gmo),
+                ("moments lowering, with drift (`run_moments(p; erosion = true, loci = :multilocus)`)", Gmo),
                 ("multilocus Gaussian, no drift (`gaussian_G_loci(p)`)", Gth))
     @printf("| %s | %.4f | %.4f | %.4f | %.3f | %.1f |\n", nm, G[1, 1], G[1, 2], G[2, 2], corr(G), angle(gmax(G)))
 end
@@ -300,7 +300,9 @@ Steps carry parameters of their model, so a deme can be given an optimum vector 
 `(θ₁, θ₂)`. Four demes of 100 diploids with optima at distance 2 from the origin, at 0°,
 60°, 120° and 180°, exchange migrants at forward rate 0.01 (island model). The moments
 lowering of several demes (`between = true`) carries, for each deme, the haplotype
-moments of the multilocus model as matrices and, with drift, the cross-moments between
+moments of the multilocus model as matrices (by default with the rare-alleles closure for
+locally favoured alleles, `loci = :rare_local`, which here, with many mutations, is close
+to the Gaussian model) and, with drift, the cross-moments between
 demes, so it predicts the deme means, the within-deme `G` and the covariance matrix of
 the deme means. Twenty kernel runs:
 

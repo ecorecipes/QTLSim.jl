@@ -765,22 +765,22 @@ end
     @test run_moments(q; loci = :multilocus).geno_var[end] ≈ gaussian_vg_loci(p) rtol = 1e-6
     @test multilocus_equilibrium(p).VG == multilocus_equilibrium(p; loci = :rare_alleles).VG == rare_alleles_vg(p)
     @test multilocus_equilibrium(p; loci = :multilocus).VG ≈ gaussian_vg_loci(p) rtol = 1e-6
-    # how the default resolves (QTLSim.moments_loci): the multilocus model for several traits,
-    # the closure for one trait, haploid too
+    # how the default resolves (QTLSim.moments_loci): the closure with locally favoured alleles
+    # for several traits (the closure itself for one deme), the closure for one trait, haploid too
     @test QTLSim.moments_loci(p) === QTLSim.moments_loci(p, :auto) === :rare_alleles
     @test QTLSim.moments_loci(p, :aggregate) === :aggregate
     p2t = Params(p; NoTraits = 2, NoGenerations = 200)
-    @test QTLSim.moments_loci(p2t) === :multilocus
-    @test run_moments(p2t).gmatrix == run_moments(p2t; loci = :multilocus).gmatrix
-    @test multilocus_equilibrium(p2t).VG == multilocus_equilibrium(p2t; loci = :multilocus).VG
+    @test QTLSim.moments_loci(p2t) === :rare_local
+    @test run_moments(p2t).gmatrix == run_moments(p2t; loci = :rare_alleles).gmatrix
+    @test multilocus_equilibrium(p2t).VG == multilocus_equilibrium(p2t; loci = :rare_alleles).VG
     g2_ = lifecycle().generation ⊗ lifecycle().generation
-    @test run_moments([p2t, p2t]; cycle = g2_).gmatrix == run_moments([p2t, p2t]; cycle = g2_, loci = :multilocus).gmatrix
+    @test run_moments([p2t, p2t]; cycle = g2_).gmatrix == run_moments([p2t, p2t]; cycle = g2_, loci = :rare_local).gmatrix
     @test run_moments([p2t, p2t]; cycle = g2_, loci = :rare_alleles).gmatrix[1:2:end] ≈ run_moments(p2t; loci = :rare_alleles).gmatrix rtol = 1e-12
     @test QTLSim.moments_loci(Params(p; Ploidy = 1)) === :rare_alleles
     ph = Params(p; Ploidy = 1, NoGenerations = 200)
     @test run_moments(ph).geno_var == run_moments(ph; loci = :rare_alleles).geno_var
     @test multilocus_equilibrium(ph).VG == multilocus_equilibrium(ph; loci = :rare_alleles).VG == rare_alleles_vg(ph)
-    @test QTLSim.moments_loci(Params(p; Ploidy = 1, NoTraits = 2)) === :multilocus
+    @test QTLSim.moments_loci(Params(p; Ploidy = 1, NoTraits = 2)) === :rare_local
     @test_throws ArgumentError run_moments(q; loci = :bogus)
     @test run_moments(Params(p2t; NoGenerations = 50_000); loci = :rare_alleles).gmatrix[end] ≈ rare_alleles_G(p2t) rtol = 1e-6
     # demes: the closure acts in each deme
@@ -1981,11 +1981,12 @@ end
     L = lifecycle(); g = L.generation
     p = Params(PopSize = 1000, NoQTL = 50, Ploidy = 2, NoGenerations = 20_000, PhenotypeVar = 1.0, Heritability = 0.5,
                MutationScalar = 0.01, MutationRatePerGamete = 0.01, NoTraits = 2, MutCorr = 0.5, SelCorr = -0.3)
-    o = run_moments(p)                       # dispatches to the trait table
+    o = run_moments(p; loci = :multilocus)   # dispatches to the trait table
     @test o.gmatrix[end] ≈ gaussian_G_loci(p) rtol = 1e-6       # the multilocus fixed point
     @test gaussian_G_loci(p) ≈ gaussian_G(100 .* mutational_covariance(p), selection_variance_matrix(p))
     @test run_moments(p; loci = :aggregate).gmatrix[end] ≈ gaussian_G(p) rtol = 1e-6    # the legacy recursion
-    @test run_moments(p; erosion = true).gmatrix[end] ≈ gaussian_G_loci(p; drift = true) rtol = 1e-6
+    @test run_moments(p; erosion = true, loci = :multilocus).gmatrix[end] ≈ gaussian_G_loci(p; drift = true) rtol = 1e-6
+    @test run_moments(p).gmatrix[end] ≈ rare_alleles_G(p) rtol = 1e-6         # the default, :rare_local, for one deme
     # one trait of the two-trait recursion is the one-trait recursion
     p1t = Params(p; NoTraits = 1, MutCorr = 0.0, SelCorr = 0.0, NoGenerations = 2000)
     for erosion in (false, true)

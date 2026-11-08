@@ -148,7 +148,7 @@ window(o, lo, hi) = findall(t -> lo <= t <= hi, o.gen)
 Gk = [mean(o.gmatrix[window(o, 1000, 2999)]) for o in runs]
 Gbar = mean(Gk)
 Gth, Gd = gaussian_G_loci(p), gaussian_G_loci(p; drift = true)
-Gmo = run_moments(p; erosion = true).gmatrix[end]
+Gmo = run_moments(p; erosion = true, loci = :multilocus).gmatrix[end]
 corr(G) = G[1, 2] / sqrt(G[1, 1] * G[2, 2])
 angle(v) = mod(atand(v[2], v[1]), 180)
 ```
@@ -162,7 +162,7 @@ se(f) = std(f.(Gk)) / sqrt(R)
         Gbar[1, 1], se(G -> G[1, 1]), Gbar[1, 2], se(G -> G[1, 2]), Gbar[2, 2], se(G -> G[2, 2]),
         corr(Gbar), se(corr), angle(gmax(Gbar)))
 for (nm, G) in (("multilocus Gaussian, with drift (`gaussian_G_loci(p; drift = true)`)", Gd),
-                ("moments lowering, with drift (`run_moments(p; erosion = true)`)", Gmo),
+                ("moments lowering, with drift (`run_moments(p; erosion = true, loci = :multilocus)`)", Gmo),
                 ("multilocus Gaussian, no drift (`gaussian_G_loci(p)`)", Gth))
     @printf("| %s | %.4f | %.4f | %.4f | %.3f | %.1f |\n", nm, G[1, 1], G[1, 2], G[2, 2], corr(G), angle(gmax(G)))
 end
@@ -173,7 +173,7 @@ end
 |:---|---:|---:|---:|---:|---:|
 | kernel, 12 runs (± SE) | 0.6211 ± 0.0064 | 0.1716 ± 0.0039 | 0.4417 ± 0.0063 | 0.328 ± 0.008 | 31.2 |
 | multilocus Gaussian, with drift (`gaussian_G_loci(p; drift = true)`) | 0.6795 | 0.1910 | 0.4876 | 0.332 | 31.7 |
-| moments lowering, with drift (`run_moments(p; erosion = true)`) | 0.6795 | 0.1910 | 0.4876 | 0.332 | 31.7 |
+| moments lowering, with drift (`run_moments(p; erosion = true, loci = :multilocus)`) | 0.6795 | 0.1910 | 0.4876 | 0.332 | 31.7 |
 | multilocus Gaussian, no drift (`gaussian_G_loci(p)`) | 0.7775 | 0.2007 | 0.5674 | 0.302 | 31.2 |
 | mutation, `M` | 0.0050 | 0.0025 | 0.0030 | 0.645 | 34.1 |
 
@@ -262,7 +262,7 @@ end
 |:---|---:|---:|---:|
 | kernel, generations 4000–4999 | -0.0043 | 0.0154 | 105.6 |
 | `steady_lag_vector`, kernel’s G | -0.0024 | 0.0134 | 100.2 |
-| moments lowering | -0.0022 | 0.0126 | 99.8 |
+| moments lowering | -0.0024 | 0.0135 | 99.9 |
 | the optimum’s motion `k` (×10) | 0.0068 | 0.0188 | 70.0 |
 
 The optimum moves at 70°, `g_max` lies at 32°, and the lag points at
@@ -387,10 +387,12 @@ a deme selected toward `(θ₁, θ₂)`. Four demes of 100 diploids with
 optima at distance 2 from the origin, at 0°, 60°, 120° and 180°,
 exchange migrants at forward rate 0.01 (island model). The moments
 lowering of several demes (`between = true`) carries, for each deme, the
-haplotype moments of the multilocus model as matrices and, with drift,
-the cross-moments between demes, so it predicts the deme means, the
-within-deme `G` and the covariance matrix of the deme means. Twenty
-kernel runs:
+haplotype moments of the multilocus model as matrices (by default with
+the rare-alleles closure for locally favoured alleles,
+`loci = :rare_local`, which here, with many mutations, is close to the
+Gaussian model) and, with drift, the cross-moments between demes, so it
+predicts the deme means, the within-deme `G` and the covariance matrix
+of the deme means. Twenty kernel runs:
 
 ``` julia
 pd = Params(Ploidy = 2, NoQTL = 20, PhenotypeVar = 2.0, Heritability = 0.5, MutationScalar = 1e-3,
@@ -448,15 +450,15 @@ println("\n| | G₁₁ | G₁₂ | G₂₂ | among, 11 | among, 12 | among, 22 |
 
 | deme | optimum | kernel mean | moments mean | direction, kernel | direction, moments |
 |---:|---:|---:|---:|---:|---:|
-| 1 | (2.00, 0.00) | (1.182, 0.440) | (1.186, 0.445) | 20.4° | 20.6° |
-| 2 | (1.00, 1.73) | (0.560, 1.263) | (0.545, 1.251) | 66.1° | 66.5° |
-| 3 | (-1.00, 1.73) | (-0.580, 1.245) | (-0.566, 1.241) | 115.0° | 114.5° |
-| 4 | (-2.00, 0.00) | (-1.176, 0.391) | (-1.138, 0.426) | 161.6° | 159.5° |
+| 1 | (2.00, 0.00) | (1.182, 0.440) | (1.186, 0.446) | 20.4° | 20.6° |
+| 2 | (1.00, 1.73) | (0.560, 1.263) | (0.544, 1.249) | 66.1° | 66.5° |
+| 3 | (-1.00, 1.73) | (-0.580, 1.245) | (-0.567, 1.240) | 115.0° | 114.6° |
+| 4 | (-2.00, 0.00) | (-1.176, 0.391) | (-1.138, 0.427) | 161.6° | 159.4° |
 
 |  | G₁₁ | G₁₂ | G₂₂ | among, 11 | among, 12 | among, 22 | Q_ST trait 1 | Q_ST trait 2 |
 |:---|---:|---:|---:|---:|---:|---:|---:|---:|
 | kernel, 20 runs | 0.859 | 0.155 | 0.591 | 1.245 | 0.034 | 0.323 | 0.351 | 0.167 |
-| moments, `between = true` | 0.938 | 0.131 | 0.589 | 1.195 | 0.014 | 0.288 | 0.322 | 0.152 |
+| moments, `between = true` | 0.938 | 0.130 | 0.585 | 1.195 | 0.013 | 0.286 | 0.322 | 0.152 |
 
 The demes do not reach their optima: migration pulls each toward the
 others, so the deme whose optimum is at 0° has its mean at 20° and the
@@ -464,7 +466,7 @@ one at 180° at 162°. Trait 1, along which the optima are spread further,
 is more differentiated than trait 2: Q_ST is 0.351 and 0.167 in the
 kernel (0.322 and 0.152 predicted), against 0.064 for a neutral trait in
 the same metapopulation. The largest difference between the kernel’s and
-the moments’ deme means is 0.037, for optima at distance 2.
+the moments’ deme means is 0.038, for optima at distance 2.
 
 `validate/trait_moments_demes.jl` makes this comparison with 200 runs
 and 50 loci, with tolerances fixed before the runs, and passes:
