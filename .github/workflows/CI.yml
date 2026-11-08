@@ -132,6 +132,14 @@ jobs:
       - name: Density regulation, generated SLiM model vs the kernel, in distribution (40 runs)
         if: github.event_name == 'schedule'
         run: julia -t auto --project=validate/slim validate/slim/compare_demography.jl 40
+      # Fecundity selection: 40 runs take about 80 CPU-minutes, so on push 8 runs per backend
+      # and scenario (about 16 CPU-minutes), again only a gross-breakage check; 40 weekly.
+      - name: Fecundity selection, generated SLiM model vs the kernel, in distribution (8 runs)
+        if: github.event_name != 'schedule'
+        run: julia -t auto --project=validate/slim validate/slim/compare_selection.jl 8
+      - name: Fecundity selection, generated SLiM model vs the kernel, in distribution (40 runs)
+        if: github.event_name == 'schedule'
+        run: julia -t auto --project=validate/slim validate/slim/compare_selection.jl 40
   docs:
     name: Documentation
     runs-on: ubuntu-latest

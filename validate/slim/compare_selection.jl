@@ -7,7 +7,8 @@
 # moves, the equilibrium population size, and the time to extinction after the move.
 # Exits 1 if any p < 0.001. Logged in valid_selection.log.
 #
-# Run from the package root (R runs per backend and scenario, default 40; 80 min on 1 thread):
+# Run from the package root (R runs per backend and scenario, default 40; 80 min on 1 thread;
+# CI runs 8 on push, a gross-breakage check, and 40 weekly):
 #   julia -t 4 --project=validate/slim validate/slim/compare_selection.jl [R]
 
 using QTLSim, Statistics, HypothesisTests, Printf, Random
