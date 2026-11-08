@@ -1,5 +1,6 @@
 using QTLSim
 using Test, Statistics, Random
+using QTLSim: eigvals, Symmetric   # LinearAlgebra, through the package
 
 # The categorical layer is the package extension QTLSimCatlabExt, loaded with Catlab.
 import Catlab
@@ -1442,4 +1443,109 @@ end
         @test sweep(j -> (; j), 1:5; cache = c3) == [(; j) for j in 1:5]
     end
     @test_throws ArgumentError sweep(identity, 1:2; ntasks = 0)
+end
+
+@testset "several traits: parameters and the kernel" begin
+    base = Params(PopSize = 300, NoQTL = 20, Ploidy = 2, NoGenerations = 200, PhenotypeVar = 1.0,
+                  Heritability = 0.5, MutationScalar = 0.01, MutationRatePerGamete = 0.01, RecombPoissonMean = 2.0)
+    p = Params(base; NoTraits = 2, MutCorr = 0.6, SelCorr = -0.4)
+    # derived matrices; one trait is the scalar model
+    @test mutational_covariance(p) ≈ muteVar(p) .* [1 0.6; 0.6 1]
+    @test selection_covariance(p) ≈ initFitSD(p)^2 .* [1 -0.4; -0.4 1]
+    @test selection_covariance(Params(p; SelCorr = 0.0, SelCov = [2.0 0.5; 0.5 1.0])) ≈ [2.0 0.5; 0.5 1.0]
+    @test mutational_covariance(base) ≈ fill(muteVar(base), 1, 1)
+    @test selection_covariance(base) ≈ fill(initFitSD(base)^2, 1, 1)
+    @test move_direction(Params(p; MoveDirection = [3.0, 4.0])) ≈ [0.6, 0.8] && move_direction(p) == [1.0, 0.0]
+    @test Params(p) == p && hash(Params(p)) == hash(p) && Params(base; NoTraits = 2) == Params(base; NoTraits = 2)
+    # checkparams
+    bad(; kw...) = @test_throws ArgumentError World(Params(base; kw...))
+    bad(NoTraits = 0); bad(MutCorr = 0.5)                     # trait fields need NoTraits > 1
+    bad(NoTraits = 2, SelCorr = 1.0); bad(NoTraits = 3, MutCorr = -0.6)   # not a correlation of 3 traits
+    bad(NoTraits = 2, MutCov = [1.0 2.0; 2.0 1.0]); bad(NoTraits = 2, SelCov = ones(3, 3))
+    bad(NoTraits = 2, MutCov = [1.0 0.0; 0.0 1.0], MutCorr = 0.1); bad(NoTraits = 2, MoveDirection = [1.0])
+    bad(NoTraits = 2, MoveDirection = [0.0, 0.0]); bad(NoTraits = 2, MoveType = :red_noise)
+    bad(NoTraits = 2, StandardisePhenotype = true)
+    @test World(Params(base; NoTraits = 3, MutCorr = -0.5)) isa World       # -1/(n-1) is singular but allowed
+    @test_throws ArgumentError write_qtsim_options(IOBuffer(), p)
+    # genotypes are the sums of the effects, trait by trait; the block pool stays consistent;
+    # a generation allocates nothing in the steady state
+    w = World(p); rng = MersenneTwister(4); init_env!(w, rng)
+    for t in 0:149
+        w.gen = t; generation!(w, rng)
+    end
+    QTLSim.check_blocks(w)
+    develop!(w)
+    G = genomes(w)
+    @test size(G) == (2, p.NoQTL, 2, w.N)
+    @test traitvalues(w; what = :genotype) ≈ dropdims(sum(G; dims = (2, 3)); dims = (2, 3)) atol = 1e-12
+    @test traitvalues(w) ≈ traitvalues(w; what = :genotype) .+ traitvalues(w; what = :env)
+    @test w.genotype[1:w.N] == traitvalues(w; what = :genotype)[1, :]      # the scalar fields hold trait 1
+    alloc(w, rng) = @allocated generation!(w, rng)
+    alloc(w, rng); @test alloc(w, rng) == 0
+    v = World(p); setgenomes!(v, G); develop!(v)
+    @test genomes(v) == G
+    @test traitvalues(v; what = :genotype) ≈ dropdims(sum(G; dims = (2, 3)); dims = (2, 3)) atol = 1e-12
+    @test_throws ArgumentError setgenomes!(v, zeros(p.NoQTL, 2, 3))
+    # fitness: QTSim's 0.4 at the optimum; with Ω diagonal, the product of one-trait fitnesses
+    q = Params(base; NoTraits = 2, InitFitnessSD = 0.7)
+    u = World(q); init_env!(u, MersenneTwister(1)); develop!(u)
+    Z = traitvalues(u)
+    select!(u, MersenneTwister(2))
+    c = 1 / (0.4 * sqrt(2π))
+    @test u.fitness[1:u.N] ≈ [c * exp(-(Z[1, i]^2 + Z[2, i]^2) / (2 * 0.7^2)) for i in 1:u.N]
+    one = World(Params(base; InitFitnessSD = 0.7)); one.phenotype .= Z[1, :]; select!(one, MersenneTwister(2))
+    @test u.fitness[1:u.N] ≈ one.fitness .* [exp(-Z[2, i]^2 / (2 * 0.7^2)) for i in 1:u.N]
+    # mutation injects M per individual per generation (Lean mutationalVarianceInput_eq, for
+    # every linear combination of the traits)
+    pm = Params(base; NoTraits = 2, PopSize = 40000, NoQTL = 10, MutationRatePerGamete = 0.05,
+                MutCov = [0.02 -0.012; -0.012 0.01])
+    m = World(pm); m.Noff = m.N; r = MersenneTwister(9)
+    mutate!(m, r); swapbuffers!(m); develop!(m)
+    C = cov(traitvalues(m; what = :genotype); dims = 2)
+    @test C ≈ mutational_covariance(pm) rtol = 0.05
+    # the records: per-trait means, G and P matrices, lag and selection differential
+    o = simulate(Params(p; MoveFitnessSDGen = 100, MoveType = :continuous, MoveFitnessSD = 0.01,
+                        MoveDirection = [1.0, 1.0]); seed = 3)
+    @test !o.extinct && length(o.trait_mean) == length(o.gen) == length(o.gmatrix)
+    @test o.pheno_mean ≈ first.(o.trait_mean) && o.geno_var ≈ [g[1, 1] for g in o.gmatrix]
+    @test all(g -> g ≈ g' && all(>(-1e-12), eigvals(Symmetric(g))), o.gmatrix)
+    @test o.theta ≈ [o.trait_mean[i][1] + o.trait_lag[i][1] for i in eachindex(o.gen)]
+    @test o.gen[101] == 100 && o.trait_lag[101] ≈ -o.trait_mean[101] .+ 0.01 / sqrt(2) .* [1, 1]   # moved once along (1, 1)/√2
+    # the same seed, the same run; the one-trait records have no trait columns
+    @test simulate(p; seed = 5).gmatrix == simulate(p; seed = 5).gmatrix
+    @test !haskey(simulate(Params(base; NoGenerations = 5); seed = 1), :gmatrix)
+end
+
+@testset "several traits: the kernel lowering and metapopulations" begin
+    L = lifecycle(); g = L.generation
+    p = Params(PopSize = 200, NoQTL = 10, Ploidy = 2, NoGenerations = 100, MutationScalar = 0.01,
+               MutationRatePerGamete = 0.02, NoTraits = 2, MutCorr = 0.5, SelCorr = 0.3)
+    # the life cycle is unchanged: run_composed drives the same morphism over traits
+    a = simulate(p; seed = 11)
+    b = run_composed(World(p), MersenneTwister(11); cycle = g)
+    @test a.gmatrix == b.gmatrix && a.trait_mean == b.trait_mean
+    # two demes with migration: the traits move with the migrants
+    s = p ⊗ demes(2)
+    o = run_composed(s, MersenneTwister(1); cycle = g ⊗ g ⋅ L.migrate(2), migration_rate = 0.05)
+    @test !o.extinct && length(o.gmatrix) == length(o.gen) == 2 * p.NoGenerations
+    QTLSim.check_blocks(s.demes...)
+    w, v = World(p), World(p); init_env!(w, MersenneTwister(1)); init_env!(v, MersenneTwister(2))
+    e1, e2 = traitvalues(w; what = :env)[:, 3], traitvalues(v; what = :env)[:, 5]
+    Ext.swap_individuals!(w, 3, v, 5)
+    @test traitvalues(w; what = :env)[:, 3] == e2 && traitvalues(v; what = :env)[:, 5] == e1
+    @test_throws ArgumentError migrate!(Ext.Stratified([World(p), World(Params(p; NoTraits = 3))]), MersenneTwister(1))
+end
+
+@testset "several traits: the same ACSet schema, vector-valued attributes" begin
+    p = Params(PopSize = 30, NoQTL = 4, Ploidy = 2, NoGenerations = 20, MutationScalar = 0.05,
+               MutationRatePerGamete = 0.2, NoTraits = 3, MutCorr = 0.2)
+    w = World(p); rng = MersenneTwister(2); init_env!(w, rng)
+    for t in 0:19; w.gen = t; generation!(w, rng); end
+    develop!(w)
+    pop = lift(w)
+    @test pop isa Ext.TraitPopulation && Catlab.acset_schema(pop) == Catlab.acset_schema(lift(World(Params(p; NoTraits = 1, MutCorr = 0.0))))
+    @test reduce(hcat, genotypes(pop)) ≈ traitvalues(w; what = :genotype)
+    @test reduce(hcat, phenotypes(pop)) ≈ traitvalues(w)
+    v = World(p); lower!(pop, v)
+    @test genomes(v) == genomes(w) && traitvalues(v) ≈ traitvalues(w)
 end

@@ -58,6 +58,16 @@ initFitSD
 muteVar
 ```
 
+Several traits (`NoTraits > 1`; see [Several traits](traits_design.md)):
+
+```@docs
+mutational_covariance
+selection_shape
+selection_covariance
+move_direction
+traitvalues
+```
+
 ## Theory
 
 The predictions the simulations are compared with; `run_moments` iterates them for any
@@ -83,6 +93,20 @@ periodic_response
 red_noise_lag_var
 expected_lag2
 lag_load
+```
+
+Several traits with pleiotropy (Lande 1979, 1980; Schluter 1996):
+
+```@docs
+selection_variance_matrix
+gaussian_G
+gaussian_G_iterate
+selection_gradient
+trait_response
+steady_lag_vector
+gmax
+vector_angle
+response_deflection
 ```
 
 Neutral differentiation among demes (F_ST and Q_ST, `validate/fst.jl`):

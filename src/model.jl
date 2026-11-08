@@ -14,6 +14,45 @@
 # C reference.
 
 """
+    TraitState
+
+The state of a population with `n > 1` traits (`Params` `NoTraits`), which a `World`
+carries in `traits` (`nothing` for one trait): genotypes `G`, phenotypes `Z` and the
+parents' and offspring's environmental deviations `E` and `SE`, `n × PopSize` each
+(column `i` is individual `i`), the optimum vector `θ` (and `θ0`, the optimum when a
+fluctuating move would start; unused), the inverse `Sinv` of the fitness function's shape
+(`Ω = ω² S`), a square root `Lmut` of the covariance of one mutation's effects
+(`Lmut·Lmutᵀ = M/(Ploidy·NoQTL·rate)`), the unit move direction `u`, and scratch vectors.
+"""
+mutable struct TraitState
+    n::Int
+    G::Matrix{Float64}
+    Z::Matrix{Float64}
+    E::Matrix{Float64}
+    SE::Matrix{Float64}
+    θ::Vector{Float64}
+    Sinv::Matrix{Float64}
+    Lmut::Matrix{Float64}
+    u::Vector{Float64}
+    ξ::Vector{Float64}
+    d::Vector{Float64}
+end
+
+# a symmetric square root of a positive semidefinite matrix, which may be singular
+function psd_sqrt(A::AbstractMatrix)
+    F = eigen(Symmetric(Matrix{Float64}(A)))
+    F.vectors * (sqrt.(max.(F.values, 0.0)) .* F.vectors')
+end
+
+function TraitState(p::Params, N::Integer)
+    n = p.NoTraits
+    Mper = mutational_covariance(p) ./ (p.Ploidy * p.NoQTL * p.MutationRatePerGamete)
+    TraitState(n, zeros(n, N), zeros(n, N), zeros(n, N), zeros(n, N), zeros(n),
+               inv(Symmetric(selection_shape(p))) |> Matrix, psd_sqrt(Mper), move_direction(p),
+               zeros(n), zeros(n))
+end
+
+"""
     World(p; blocksize = default_blocksize(p.NoQTL), pool = nothing)
 
 Mutable population state carried through the operators. Holds the current parents'
@@ -83,6 +122,7 @@ mutable struct World
     weighted::Bool       # the survivors mate in proportion to their fitness (Selection = :fecundity)
     wsum::Float64        # then: the sum of their fitnesses, ΣW
     cumw::Vector{Float64}   # and the cumulative sums of the fitnesses of 1:N
+    traits::Union{Nothing,TraitState}   # NoTraits > 1: the traits (genotype etc. then hold trait 1)
 end
 
 function World(p::Params; blocksize::Integer = default_blocksize(p.NoQTL),
@@ -90,24 +130,26 @@ function World(p::Params; blocksize::Integer = default_blocksize(p.NoQTL),
     checkparams(p)
     N, L, P = p.PopSize, p.NoQTL, p.Ploidy
     if pool === nothing
-        pool = BlockPool(L, blocksize)
+        pool = BlockPool(L, blocksize; traits = p.NoTraits)
     else
         pool.L == L || throw(ArgumentError("a pool of chromosomes of $(pool.L) loci for NoQTL = $L"))
+        pool.n == p.NoTraits || throw(ArgumentError("a pool of $(pool.n) traits for NoTraits = $(p.NoTraits)"))
     end
-    nb = pool.nb
+    nb, n = pool.nb, pool.n
     # every slot of both buffers starts on one block of zeros per block position
     chr = Array{Int32,3}(undef, nb, P, N)
     for k in 1:nb
         id = newblock!(pool)
-        fill!(view(pool.vals, blockoffset(pool, id) .+ (1:blocklen(pool, k))), 0.0)
-        pool.sums[id] = 0.0
+        fill!(view(pool.vals, blockoffset(pool, id) .+ (1:n*blocklen(pool, k))), 0.0)
+        fill!(view(pool.sums, (Int(id) - 1) * n .+ (1:n)), 0.0)
         pool.refs[id] = Int32(2 * P * N)
         chr[k, :, :] .= id
     end
     World(p, 0, pool, chr, zeros(N),
           zeros(N), zeros(N), zeros(N),
           sizehint!(Int[], N), 0, 0.0, initFitSD(p),
-          copy(chr), zeros(N), false, N, N, 0.0, 0.0, sizehint!(Int[], 16), false, 0.0, zeros(N))
+          copy(chr), zeros(N), false, N, N, 0.0, 0.0, sizehint!(Int[], 16), false, 0.0, zeros(N),
+          p.NoTraits == 1 ? nothing : TraitState(p, N))
 end
 
 """
@@ -136,14 +178,18 @@ end
 The genomes of the current population as a dense `(NoQTL, Ploidy, N)` array of allele
 effects, a copy: `genomes(w)[l, c, i]` is the effect at locus `l` of chromosome `c` of
 individual `i`. With `offspring = true`, those of the `Noff` offspring in the buffer.
+With `n = NoTraits > 1` traits, an `(n, NoQTL, Ploidy, N)` array: `genomes(w)[r, l, c, i]`
+is the effect on trait `r`.
 """
 function genomes(w::World; offspring::Bool = false)
     pool, chr = w.pool, offspring ? w.schr : w.chr
     n = offspring ? w.Noff : w.N
-    G = Array{Float64,3}(undef, pool.L, size(chr, 2), n)
+    nt = pool.n
+    G = nt == 1 ? Array{Float64,3}(undef, pool.L, size(chr, 2), n) :
+                  Array{Float64,4}(undef, nt, pool.L, size(chr, 2), n)
     @inbounds for i in 1:n, c in axes(chr, 2), k in 1:pool.nb
-        copyto!(G, LinearIndices(G)[(k - 1) * pool.B + 1, c, i],
-                pool.vals, blockoffset(pool, chr[k, c, i]) + 1, blocklen(pool, k))
+        copyto!(G, nt * ((k - 1) * pool.B + pool.L * ((c - 1) + size(chr, 2) * (i - 1))) + 1,
+                pool.vals, blockoffset(pool, chr[k, c, i]) + 1, nt * blocklen(pool, k))
     end
     G
 end
@@ -158,6 +204,7 @@ bring the genotypes and phenotypes up to date.
 """
 function setgenomes!(w::World, G::AbstractArray{<:Real,3}; offspring::Bool = false)
     pool, chr = w.pool, offspring ? w.schr : w.chr
+    pool.n == 1 || throw(ArgumentError("genomes of $(pool.n) traits are an (n, NoQTL, Ploidy, N) array"))
     size(G, 1) == pool.L && size(G, 2) == size(chr, 2) && size(G, 3) <= size(chr, 3) ||
         throw(ArgumentError("genomes of size $(size(G)) for $(pool.L) loci, ploidy $(size(chr, 2)) and at most $(size(chr, 3)) individuals"))
     for i in axes(G, 3), c in axes(G, 2)
@@ -166,21 +213,33 @@ function setgenomes!(w::World, G::AbstractArray{<:Real,3}; offspring::Bool = fal
     w
 end
 
-# Write the values `x` (length L) into chromosome `c` of individual `i` of `chr`, as new blocks.
-function setchromosome!(pool::BlockPool, chr::Array{Int32,3}, c, i, x::AbstractVector)
+function setgenomes!(w::World, G::AbstractArray{<:Real,4}; offspring::Bool = false)
+    pool, chr = w.pool, offspring ? w.schr : w.chr
+    size(G, 1) == pool.n && size(G, 2) == pool.L && size(G, 3) == size(chr, 2) && size(G, 4) <= size(chr, 3) ||
+        throw(ArgumentError("genomes of size $(size(G)) for $(pool.n) traits, $(pool.L) loci, ploidy $(size(chr, 2)) and at most $(size(chr, 3)) individuals"))
+    for i in axes(G, 4), c in axes(G, 3)
+        setchromosome!(w.pool, chr, c, i, view(G, :, :, c, i))
+    end
+    w
+end
+
+# Write the values `x` (length L, or n×L for n traits) into chromosome `c` of individual
+# `i` of `chr`, as new blocks.
+function setchromosome!(pool::BlockPool, chr::Array{Int32,3}, c, i, x::AbstractArray)
+    n = pool.n
     for k in 1:pool.nb
         id = newblock!(pool)
-        o, lo, len = blockoffset(pool, id), (k - 1) * pool.B, blocklen(pool, k)
+        o, lo, len = blockoffset(pool, id), (k - 1) * pool.B * n, n * blocklen(pool, k)
         for t in 1:len
-            pool.vals[o + t] = x[firstindex(x) + lo + t - 1]
+            pool.vals[o + t] = x[lo + t]
         end
-        blocksum!(pool, id, len)
+        blocksum!(pool, id, blocklen(pool, k))
         setslot!(pool, chr, k, c, i, id)
     end
 end
 
-"The loci and ploidy of a `World`'s genomes."
-genome_shape(w::World) = (w.p.NoQTL, w.p.Ploidy)
+"The loci and ploidy of a `World`'s genomes (and the traits, when there are several)."
+genome_shape(w::World) = w.p.NoTraits == 1 ? (w.p.NoQTL, w.p.Ploidy) : (w.p.NoQTL, w.p.Ploidy, w.p.NoTraits)
 
 """
     exchange_genomes!(w, i, v, j)
@@ -205,6 +264,7 @@ function exchange_genomes!(w::World, i::Integer, v::World, j::Integer)
             setslot!(pw, w.chr, k, c, i, copyblock!(pw, pv, b, len))
         end
     else
+        pw.n == 1 || throw(ArgumentError("exchanging genomes of several traits between pools of different block sizes"))
         gi = genomes_of(w, i); gj = genomes_of(v, j)
         for c in axes(w.chr, 2)
             setchromosome!(pw, w.chr, c, i, view(gj, :, c))
@@ -252,6 +312,13 @@ with [`generation!`](@ref) or the operators directly.
 """
 function init_env!(w::World, rng)
     esd = envsd(w.p)
+    t = w.traits
+    if t !== nothing         # several traits: N(0, V_E) for each, independently
+        @inbounds for i in 1:w.N, r in 1:t.n
+            t.E[r, i] = esd * randn(rng)
+        end
+        return w
+    end
     @inbounds for i in 1:w.N
         w.env[i] = esd * randn(rng)
     end
@@ -269,6 +336,7 @@ effects is the sum of the cached sums of the individual's blocks, chromosome by
 chromosome, block by block (see [`World`](@ref)).
 """
 function develop!(w::World)
+    w.traits === nothing || return develop_traits!(w)
     sums, chr = w.pool.sums, w.chr
     nb, P = size(chr, 1), size(chr, 2)
     m = nb * P
@@ -310,6 +378,7 @@ scale (`−1/ln ρ` generations) of the fluctuations separately.
 function moveoptimum!(w::World, rng = nothing)
     p = w.p
     (p.MoveFitnessSDGen != -1 && w.gen >= p.MoveFitnessSDGen) || return w
+    w.traits === nothing || return moveoptimum_traits!(w)
     if p.MoveType === :red_noise || p.MoveType === :periodic
         t = w.gen - p.MoveFitnessSDGen
         t == 0 && (w.θ0 = w.θ)
@@ -367,14 +436,18 @@ form `exp(−(z−θ)²/2ω²)` is what Lean `StabilizingSelection.lean` proves 
 function select!(w::World, rng)
     p = w.p
     moveoptimum!(w, rng)
-    sd = p.StandardisePhenotype ? std(view(w.phenotype, 1:w.N)) : 1.0
-    @inbounds for i in 1:w.N
-        if p.Drift
-            w.fitness[i] = 1.0
-        else
-            x = (w.phenotype[i] - w.θ) / sd
-            w.fitness[i] = pdf(Normal(0.0, w.ω), x) / (0.4 / w.ω)
+    if w.traits === nothing
+        sd = p.StandardisePhenotype ? std(view(w.phenotype, 1:w.N)) : 1.0
+        @inbounds for i in 1:w.N
+            if p.Drift
+                w.fitness[i] = 1.0
+            else
+                x = (w.phenotype[i] - w.θ) / sd
+                w.fitness[i] = pdf(Normal(0.0, w.ω), x) / (0.4 / w.ω)
+            end
         end
+    else
+        fitness_traits!(w)
     end
     empty!(w.survivors)
     if p.Selection === :fecundity
@@ -489,7 +562,7 @@ end
 function gamete_blocks!(w::World, c::Int, j::Int, par::Int, rng, recombMean::Float64,
                         allpoints::Bool)
     pool, chr, schr, pts = w.pool, w.chr, w.schr, w.pts
-    L, B, nb = pool.L, pool.B, pool.nb
+    L, B, nb, n = pool.L, pool.B, pool.nb, pool.n
     P = size(chr, 2)
     # linear offsets: block k of strand s of the parent is chr[pb[s] + k], and block k
     # of the gamete goes to schr[db + k]
@@ -532,14 +605,17 @@ function gamete_blocks!(w::World, c::Int, j::Int, par::Int, rng, recombMean::Flo
             else
                 lo = (k - 1) * B + 1
                 id = newblock!(pool)
-                o = blockoffset(pool, id) - lo + 1      # locus l goes to vals[o + l]
+                # locus l (its n values) goes to vals[o + (l - lo)n + 1 : o + (l - lo + 1)n]
+                o = blockoffset(pool, id)
                 l = lo
                 while ip <= npts && pts[ip] + 1 < hi
                     e = pts[ip] + 1
-                    copyto!(pool.vals, o + l, pool.vals, blockoffset(pool, chr[pb + k]) - lo + 1 + l, e - l + 1)
+                    copyto!(pool.vals, o + (l - lo) * n + 1, pool.vals,
+                            blockoffset(pool, chr[pb + k]) + (l - lo) * n + 1, (e - l + 1) * n)
                     l = e + 1; pb, po = po, pb; ip += 1
                 end
-                copyto!(pool.vals, o + l, pool.vals, blockoffset(pool, chr[pb + k]) - lo + 1 + l, hi - l + 1)
+                copyto!(pool.vals, o + (l - lo) * n + 1, pool.vals,
+                        blockoffset(pool, chr[pb + k]) + (l - lo) * n + 1, (hi - l + 1) * n)
                 blocksum!(pool, id, hi - lo + 1)
                 setslot!(pool, schr, db + k, id)
             end
@@ -608,7 +684,7 @@ function reproduce!(w::World, rng)
             for k in 1:nb
                 share!(pool, schr, nb * (j - 1) + k, chr[nb * (par - 1) + k])
             end
-            w.senv[j] = esd * randn(rng)
+            newenv!(w, j, esd, rng)
         end
     else
         @inbounds for j in 1:n
@@ -619,10 +695,23 @@ function reproduce!(w::World, rng)
             end
             gamete_blocks!(w, 1, j, p1, rng, p.RecombPoissonMean, allpts)
             gamete_blocks!(w, 2, j, p2, rng, p.RecombPoissonMean, allpts)
-            w.senv[j] = esd * randn(rng)
+            newenv!(w, j, esd, rng)
         end
     end
     w
+end
+
+# the environmental deviation(s) of offspring j: N(0, V_E), for each trait when there are several
+@inline function newenv!(w::World, j::Int, esd::Float64, rng)
+    t = w.traits
+    if t === nothing
+        @inbounds w.senv[j] = esd * randn(rng)
+    else
+        @inbounds for r in 1:t.n
+            t.SE[r, j] = esd * randn(rng)
+        end
+    end
+    nothing
 end
 
 # reproduce! after fecundity selection: parents drawn in proportion to their fitness
@@ -648,7 +737,7 @@ function reproduce_weighted!(w::World, rng, n, esd, allpts)
             gamete_blocks!(w, 1, j, p1, rng, p.RecombPoissonMean, allpts)
             gamete_blocks!(w, 2, j, p2, rng, p.RecombPoissonMean, allpts)
         end
-        w.senv[j] = esd * randn(rng)
+        newenv!(w, j, esd, rng)
     end
     w
 end
@@ -665,6 +754,7 @@ A mutation changes its block in place if the offspring is the only holder, and a
 it otherwise; the block's sum is then recomputed from its values.
 """
 function mutate!(w::World, rng)
+    w.traits === nothing || return mutate_traits!(w, rng)
     p = w.p
     L = p.NoQTL
     rate = p.MutationRatePerGamete
@@ -704,6 +794,8 @@ change: the old parents' blocks stay referenced by the offspring buffer until th
 function swapbuffers!(w::World)
     w.chr, w.schr = w.schr, w.chr
     w.env, w.senv = w.senv, w.env
+    t = w.traits
+    t === nothing || ((t.E, t.SE) = (t.SE, t.E))
     w.N = w.Noff
     w
 end
@@ -725,14 +817,22 @@ end
 Empty columns for the statistics [`record!`](@ref) collects, as `run!` returns them;
 with `demes`, a vector of `World`s, also the deme of each row.
 """
-records(; demes = nothing) = demes === nothing ?
-    (gen = Int[], pheno_mean = Float64[], pheno_var = Float64[], geno_var = Float64[],
-     nsurv = Int[], theta = Float64[], omega = Float64[], mean_fitness = Float64[],
-     sel_diff = Float64[], popsize = Int[]) :
-    (gen = Int[], deme = Int[], pheno_mean = Float64[], pheno_var = Float64[],
-     geno_var = Float64[], nsurv = Int[], theta = Float64[], omega = Float64[],
-     mean_fitness = Float64[], sel_diff = Float64[], popsize = Int[],
-     demeof = IdDict{World,Int}(w => i for (i, w) in enumerate(demes)))
+function records(; demes = nothing, traits::Integer = 1)
+    rec = demes === nothing ?
+        (gen = Int[], pheno_mean = Float64[], pheno_var = Float64[], geno_var = Float64[],
+         nsurv = Int[], theta = Float64[], omega = Float64[], mean_fitness = Float64[],
+         sel_diff = Float64[], popsize = Int[]) :
+        (gen = Int[], deme = Int[], pheno_mean = Float64[], pheno_var = Float64[],
+         geno_var = Float64[], nsurv = Int[], theta = Float64[], omega = Float64[],
+         mean_fitness = Float64[], sel_diff = Float64[], popsize = Int[],
+         demeof = IdDict{World,Int}(w => i for (i, w) in enumerate(demes)))
+    traits == 1 ? rec : merge(rec, trait_records())
+end
+
+# the columns of a model of several traits: per-trait means, the G and P matrices, the
+# lag θ − z̄ and the selection differential vector, one vector or matrix per record
+trait_records() = (trait_mean = Vector{Float64}[], gmatrix = Matrix{Float64}[], pmatrix = Matrix{Float64}[],
+                   trait_lag = Vector{Float64}[], trait_sel_diff = Vector{Float64}[])
 
 """
     record!(rec, w)
@@ -756,6 +856,7 @@ function record!(rec, w::World)
     push!(rec.sel_diff, (w.weighted ? sum(w.fitness[i] * z[i] for i in 1:w.N) / w.wsum :
                          mean(w.phenotype[i] for i in w.survivors)) - mean(z))
     push!(rec.popsize, w.N)
+    w.traits === nothing || record_traits!(rec, w)
     w
 end
 
@@ -797,7 +898,7 @@ mutate → swap. Returns a NamedTuple of per-sampled-generation statistics
 function run!(w::World, rng; record::Bool=true)
     p = w.p
     init_env!(w, rng)
-    rec = records()
+    rec = records(; traits = p.NoTraits)
     for it in 0:p.NoGenerations-1
         w.gen = it
         generation!(w, rng; rec = record ? rec : nothing)

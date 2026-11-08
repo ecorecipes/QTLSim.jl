@@ -16,13 +16,15 @@ functions are declared, documented and exported here.
 module QTLSim
 
 using Random, Statistics, Distributions
-using LinearAlgebra: I, kron
+using LinearAlgebra: I, kron, eigvals, eigen, Symmetric, cholesky, det, tr, dot, norm
 
 include("params.jl")
 include("qtsim_io.jl")
 include("blocks.jl")
 include("model.jl")
+include("traits.jl")
 include("theory.jl")
+include("traits_theory.jl")
 include("migration.jl")
 include("categorical.jl")
 include("sweep.jl")
@@ -31,12 +33,16 @@ include("sweep.jl")
 export Params, World, genomes, setgenomes!, simulate, run!, generation!, init_env!, checkparams,
        develop!, select!, moveoptimum!, fluctuating_optimum, reproduce!, noffspring, mutate!, gamete!, swapbuffers!,
        geneticVar, envVar, analyticalFitSD, initFitSD, muteVar,
+       mutational_covariance, selection_covariance, selection_shape, move_direction, traitvalues,
        read_qtsim_options, write_qtsim_options
 # analytical predictions
 export selection_variance, gaussian_vg, gaussian_vg_exact, effective_size, house_of_cards_vg,
        steady_lag, critical_rate, mutation_adjusted, extinction_distribution, rescue_probability
 # fluctuating optima
 export periodic_response, red_noise_lag_var, expected_lag2, lag_load
+# several traits (Lande 1979, 1980)
+export selection_variance_matrix, gaussian_G, gaussian_G_iterate, selection_gradient, trait_response,
+       steady_lag_vector, gmax, vector_angle, response_deflection
 # migration graphs among demes
 export island_migration, stepping_stone
 # neutral differentiation among demes (F_ST, Q_ST)

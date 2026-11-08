@@ -99,6 +99,7 @@ write_qtsim_options(path::AbstractString, p::Params; kw...) =
     open(io -> write_qtsim_options(io, p; kw...), path, "w")
 
 function write_qtsim_options(io::IO, p::Params; seed = p.Seed)
+    p.NoTraits == 1 || throw(ArgumentError("QTSim has one trait; NoTraits = $(p.NoTraits) cannot be written"))
     p.MoveType in (:phenotype, :fitness, :continuous) ||
         throw(ArgumentError("QTSim has no MoveType :$(p.MoveType); only :phenotype, :fitness and :continuous can be written"))
     p.CrossoverModel === :qtsim || @warn "QTSim has only its own crossover model; CrossoverModel = :$(p.CrossoverModel) is not written"
