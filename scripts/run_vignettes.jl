@@ -14,6 +14,8 @@
 # 07 needs SLiM and QTSim, 08 QTSim (it skips those sections without it, but its last
 # section reads the paper's data), and 09 and 11 the paper's results tables.
 
+import REPL
+
 const ROOT = normpath(joinpath(@__DIR__, ".."))
 const VIG = joinpath(ROOT, "vignettes")
 const DEFAULT = ["01", "02", "03", "04", "05", "06", "10", "12", "13"]
@@ -76,7 +78,8 @@ function run_one(qmd::AbstractString)
         t = time()
         try
             # pad with blank lines so that errors point at lines of the .qmd file
-            x = Base.invokelatest(include_string, mod, "\n"^(line - 1) * code, qmd)
+            # REPL.softscope: Quarto evaluates chunks with the REPL's soft scope, so a loop may assign a global
+            x = Base.invokelatest(include_string, REPL.softscope, mod, "\n"^(line - 1) * code, qmd)
             ends_with_semicolon(code) || Base.invokelatest(show_value, x)
         catch err
             flush(stdout)
