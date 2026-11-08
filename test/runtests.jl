@@ -720,6 +720,49 @@ end
     @test run_moments(Params(f; NoGenerations = 500)).geno_var == run_moments(Params(p; NoGenerations = 500)).geno_var
 end
 
+@testset "rare alleles: house of Gauss, house of cards, Gaussian and neutral limits" begin
+    p = Params(PopSize = 1000, NoQTL = 10, Ploidy = 2, PhenotypeVar = 1.0, Heritability = 0.5,
+               MutationScalar = 0.01, MutationRatePerGamete = 1e-4, RecombPoissonMean = 2.0)
+    Vm, Vs, L = muteVar(p), selection_variance(p), p.NoQTL
+    @test QTLSim.mutation_effect_variance(p) ≈ Vm / (2L * 1e-4)
+    @test_throws ArgumentError QTLSim.mutation_effect_variance(Params(p; MutationRatePerGamete = 0.0))
+    # the closed form: rare mutations → Bürger's stochastic house of cards, and without drift
+    # Turelli's 4Lμ V_s; many small ones → the Gaussian √(2L V_m V_s); V_s → ∞ → 2N_e V_m
+    rare = Params(p; MutationRatePerGamete = 1e-7, MutationScalar = 0.01 * 1e-7 / 1e-4,     # the same α² and V_s, rarer
+                  InitFitnessSD = initFitSD(p))
+    @test house_of_gauss_vg(rare; nsurv = 950) ≈ house_of_cards_vg(rare; nsurv = 950) rtol = 1e-3
+    @test house_of_gauss_vg(rare; drift = false) ≈ 4L * 1e-7 * Vs rtol = 1e-3
+    many = Params(p; MutationRatePerGamete = 1.0)
+    @test house_of_gauss_vg(many; drift = false) ≈ sqrt(2L * Vm * Vs) rtol = 1e-3
+    neutral = Params(p; InitFitnessSD = 1e5)
+    @test house_of_gauss_vg(neutral; nsurv = 1000) ≈ 2effective_size(1000, 1000) * Vm rtol = 1e-3
+    @test house_of_gauss_vg(p) < house_of_cards_vg(p) && house_of_gauss_vg(p) < gaussian_vg_loci(p; drift = true)
+    # the multilocus model with the rare-alleles closure: below the Gaussian, equal to it
+    # when mutations are many and small, Turelli's house of cards when they are rare
+    @test rare_alleles_vg(p) < gaussian_vg_loci(p)
+    @test rare_alleles_vg(many) ≈ gaussian_vg_loci(many) rtol = 2e-3
+    @test rare_alleles_vg(rare) ≈ 4L * 1e-7 * Vs rtol = 0.02
+    @test rare_alleles_vg(rare; drift = true) ≈ house_of_cards_vg(rare; nsurv = 1000 * multilocus_equilibrium(rare; drift = true).Wbar) rtol = 0.03
+    # V_s → ∞: both models are the neutral recursion, 2N V_m
+    @test rare_alleles_vg(neutral; drift = true) ≈ gaussian_vg_loci(neutral; drift = true) rtol = 1e-3
+    @test rare_alleles_vg(neutral; drift = true) ≈ 2 * 1000 * Vm rtol = 0.01
+    # the moments lowering converges to it, without and with drift; the default is unchanged
+    q = Params(p; NoGenerations = 100_000, Sample = 1000)
+    @test run_moments(q; loci = :rare_alleles).geno_var[end] ≈ rare_alleles_vg(p) rtol = 1e-6
+    @test run_moments(q; loci = :rare_alleles, erosion = true).geno_var[end] ≈ rare_alleles_vg(p; drift = true) rtol = 1e-6
+    @test run_moments(q).geno_var[end] ≈ gaussian_vg_loci(p) rtol = 1e-6
+    @test multilocus_equilibrium(p).VG == multilocus_equilibrium(p; loci = :multilocus).VG
+    @test_throws ArgumentError run_moments(q; loci = :bogus)
+    @test_throws ArgumentError run_moments(Params(q; NoTraits = 2); loci = :rare_alleles)
+    @test_throws ArgumentError multilocus_equilibrium(Params(p; NoTraits = 2); loci = :rare_alleles)
+    # demes: the closure acts in each deme
+    L_ = lifecycle()
+    g2 = L_.generation ⊗ L_.generation
+    m2 = run_moments(Params(p; NoGenerations = 2000, Sample = 100); cycle = g2, loci = :rare_alleles)
+    m1 = run_moments(Params(p; NoGenerations = 2000, Sample = 100); loci = :rare_alleles)
+    @test m2.geno_var[m2.deme .== 1] ≈ m1.geno_var && m2.geno_var[m2.deme .== 2] ≈ m1.geno_var
+end
+
 @testset "demographic stochasticity along the moments trajectory" begin
     Dist = QTLSim.Distributions
     # a Galton–Watson process with Poisson(λ) offspring: no selection (W̄ = 1) and a capacity

@@ -105,21 +105,23 @@ mutable struct DemeCov
     cache::Dict{Any,Any}                 # (M, N, alive) => (P, J)
     ploidy::Int
     drift::Bool                          # finite demes (N adults, n parents); false: infinite
+    α2::Float64                          # loci = :rare_alleles: the mutation effect variance α²; 0: Gaussian
 end
 
 # demes start as Hardy–Weinberg populations in linkage equilibrium, with exactly their
 # mean z̄ and population variance V
 function DemeCov(N::AbstractVector, V::AbstractVector; origins = :exchange, ploidy::Integer = 2, drift::Bool = true,
-                 classes = ([1.0, 0.0], [0.0, 0.0]))
+                 classes = ([1.0, 0.0], [0.0, 0.0]), α2::Real = 0.0)
     k = length(N)
     ω, ρ = classes
     nc = length(ω)
     st = [QTLSim.hap_init(float(V[a]), drift ? float(N[a]) : Inf, ploidy, nc) for a in 1:k]
     T, R, Q = zeros(k, nc), zeros(k, nc), zeros(k, k, nc)
     for a in 1:k; T[a, :] = st[a][1]; Q[a, a, :] = st[a][3]; end
-    DemeCov(T, R, Q, collect(float.(ω)), collect(float.(ρ)), origins, Dict{Any,Any}(), ploidy, drift)
+    DemeCov(T, R, Q, collect(float.(ω)), collect(float.(ρ)), origins, Dict{Any,Any}(), ploidy, drift, float(α2))
 end
-DemeCov(p::Params, N::AbstractVector, V::AbstractVector; kw...) = DemeCov(N, V; ploidy = p.Ploidy, classes = QTLSim.pair_classes(p), kw...)
+DemeCov(p::Params, N::AbstractVector, V::AbstractVector; loci::Symbol = :multilocus, kw...) =
+    DemeCov(N, V; ploidy = p.Ploidy, classes = QTLSim.pair_classes(p), α2 = QTLSim.rare_alleles_effect(p, loci), kw...)
 
 # the number of adults (parents) of a deme in the moments: infinite without drift
 _nd(c::DemeCov, N) = c.drift ? max(N, 2.0) : Inf
@@ -134,7 +136,7 @@ _vpop(c::DemeCov, a, N) = QTLSim.hap_vpop(_state(c, a), _nd(c, N), c.ploidy)
 function cov_select!(m::Moments)
     c, a = m.cov, m.idx
     m.sinv == 0 && return m                 # neutral: the identity
-    st, β = QTLSim.hap_select(_state(c, a), m.sinv, _nd(c, m.N), c.ω, c.ploidy)
+    st, β = QTLSim.hap_select(_state(c, a), m.sinv, _nd(c, m.N), c.ω, c.ploidy; c.α2)
     for b in axes(c.Q, 1)
         b == a && continue
         Qab = sum(c.Q[a, b, :])
@@ -278,7 +280,7 @@ function run_moments1(p::Params; cycle = lifecycle().generation, images = Dict{S
         throw(ArgumentError("the moments lowering iterates a life cycle Zygotes → Zygotes; got $(dom(cycle)) → $(codom(cycle))"))
     rec = records()
     step = lower(cycle, :moments; images, record = rec)
-    cov = loci === :multilocus ? DemeCov(p, [float(p.PopSize)], [float(VG)]; origins, drift = between || erosion) : nothing
+    cov = loci === :aggregate ? nothing : DemeCov(p, [float(p.PopSize)], [float(VG)]; loci, origins, drift = between || erosion)
     m = Moments(p; zbar, VG, erosion, cov)
     mp = metapop_records()
     m.gen = 0                    # whole cycles, as in run_composed
@@ -436,7 +438,8 @@ function check_between(ps, origins)
 end
 
 function check_loci(loci, between)
-    loci in (:multilocus, :aggregate) || throw(ArgumentError("loci is :multilocus or :aggregate; got :$loci"))
+    loci in (:multilocus, :rare_alleles, :aggregate) ||
+        throw(ArgumentError("loci is :multilocus, :rare_alleles or :aggregate; got :$loci"))
     loci === :aggregate && between &&
         throw(ArgumentError("between = true tracks the haplotype moments of the multilocus model; it has no loci = :aggregate"))
 end
@@ -445,6 +448,8 @@ end
 moments_migrate_op(k, rate) = DemeOp(k, collect(1:k), (s, d, rng) -> moments_migrate!(s, d, rate))
 
 function run_moments(p::Params; cycle = lifecycle().generation, kw...)
+    p.NoTraits > 1 && get(kw, :loci, :multilocus) === :rare_alleles &&
+        throw(ArgumentError("loci = :rare_alleles is for one trait; NoTraits = $(p.NoTraits)"))
     p.NoTraits > 1 && return run_trait_moments(p; cycle, kw...)    # trait_moments.jl
     k = nfactors(dom(cycle))
     k > 1 ? run_moments(fill(p, k); cycle, kw...) : run_moments1(p; cycle, kw...)
@@ -461,7 +466,7 @@ function run_moments(ps::AbstractVector{Params}; cycle, images = Dict{Symbol,Any
     foreach(QTLSim.checkparams, ps)
     check_loci(loci, between)
     between && check_between(ps, origins)
-    loci === :multilocus && any(q -> (q.Ploidy, q.NoQTL, q.RecombPoissonMean, q.CrossoverModel) !=
+    loci !== :aggregate && any(q -> (q.Ploidy, q.NoQTL, q.RecombPoissonMean, q.CrossoverModel) !=
                                      (ps[1].Ploidy, ps[1].NoQTL, ps[1].RecombPoissonMean, ps[1].CrossoverModel), ps) &&
         throw(ArgumentError("the demes of a metapopulation share Ploidy, NoQTL, RecombPoissonMean and CrossoverModel"))
     all(q -> q.NoGenerations == ps[1].NoGenerations, ps) ||
@@ -475,8 +480,8 @@ function run_moments(ps::AbstractVector{Params}; cycle, images = Dict{Symbol,Any
            popsize = Int[], demeof = IdDict{Moments,Int}())
     perdeme(x, name) = x isa AbstractVector ? (length(x) == k ? x : throw(ArgumentError("$name gives $(length(x)) values for $k demes"))) : fill(x, k)
     zs, vs = perdeme(zbar, "zbar"), perdeme(VG, "VG")
-    cov = loci === :multilocus ?
-          DemeCov(ps[1], [float(q.PopSize) for q in ps], float.(vs); origins, drift = between || erosion) : nothing
+    cov = loci === :aggregate ? nothing :
+          DemeCov(ps[1], [float(q.PopSize) for q in ps], float.(vs); loci, origins, drift = between || erosion)
     s = DemeMoments([Moments(q; zbar = z, VG = v, erosion, cov, idx = i) for (i, (q, z, v)) in enumerate(zip(ps, zs, vs))])
     mp = metapop_records()
     for (i, m) in enumerate(s.demes); rec.demeof[m] = i; end

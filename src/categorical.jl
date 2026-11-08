@@ -235,6 +235,19 @@ to [`steady_lag`](@ref) with that variance. The model is good when many small mu
 hold each locus's variance; when few large ones do (the house-of-cards regime,
 [`house_of_cards_vg`](@ref)) the kernel holds less (`validate/moments_loci.jl`).
 
+**The rare-alleles closure (`loci = :rare_alleles`, one trait).** The multilocus model
+with the fourth cumulant of a locus's alleles set to `α²` times their variance (`α²` =
+`QTLSim.mutation_effect_variance(p)`, the variance of one mutation's effect): selection
+also removes `β²α²/(2s)` of the genic variance, each rare mutant at its own rate, with
+`β = H/H_genic` the regression of the genotype on a locus's alleles (`β = 1` without
+LD). It equals the multilocus Gaussian when mutations are many and small, and reduces to
+the (stochastic) house of cards when they are rare and large and to `2N V_m` when
+selection is weak against drift; its equilibrium is [`rare_alleles_vg`](@ref), and for
+loci in linkage equilibrium [`house_of_gauss_vg`](@ref). Equations in
+src/rare_alleles.jl; the kernel comparison across regimes, including the paper's
+populations, is `validate/moments_regimes.jl`. The demes of a metapopulation share the
+first deme's `α²`.
+
 **The aggregate recursion (`loci = :aggregate`).** QTLSim's moments lowering before the
 multilocus model: the offspring inherit the survivors' variance, `V ← V − V²/(V_s + V) +
 V_m`, converging to [`gaussian_vg_exact`](@ref). It treats all of selection's reduction
