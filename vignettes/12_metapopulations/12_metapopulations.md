@@ -319,7 +319,7 @@ end
 @printf("%d runs in %.0f s on %d threads\n", length(jobs), elapsed, Threads.nthreads())
 ```
 
-    600 runs in 91 s on 3 threads
+    600 runs in 90 s on 3 threads
 
 ``` julia
 ringdist(a, b, k) = min(mod(a - b, k), mod(b - a, k))
@@ -650,7 +650,7 @@ end
 | trait        | V_W, kernel | V_W, moments | Q_ST, kernel | Q_ST, moments |
 |:-------------|------------:|-------------:|-------------:|--------------:|
 | neutral      |      0.3902 |       0.4014 |       0.1204 |        0.1206 |
-| local optima |      0.1703 |       0.1685 |       0.3081 |        0.2879 |
+| local optima |      0.1703 |       0.1704 |       0.3081 |        0.2864 |
 
 ``` julia
 fig = Figure(size = (820, 340))

@@ -509,6 +509,9 @@ function resolve_loci(ps::AbstractVector{Params}, cycle, loci::Symbol)
         rs = unique([QTLSim.moments_loci(q) for q in qs])
         length(rs) == 1 && rs[1] in (:rare_alleles, :rare_local) || return :multilocus, zeros(length(ps))
         loci = rs[1]
+        # one trait, several demes: the closure with locally favoured alleles, which is exactly
+        # :rare_alleles for a common optimum or no migration (validate/local_adaptation.jl)
+        loci === :rare_alleles && length(ps) > 1 && (loci = :rare_local)
     end
     loci, [QTLSim.rare_alleles_effect(q, loci) for q in qs]
 end

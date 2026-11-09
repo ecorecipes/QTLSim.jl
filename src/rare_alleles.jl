@@ -97,7 +97,8 @@ returned as it is, and `:auto`, the default, resolves to
   up to 10× closer in the house-of-cards and drift regimes, to which it reduces to the
   Gaussian when mutations are many and small;
 - `:rare_local`, the closure for several traits with locally favoured alleles
-  (src/rare_alleles_traits.jl, src/local_alleles.jl), when `NoTraits > 1`: for one
+  (src/rare_alleles_traits.jl, src/local_alleles.jl), when `NoTraits > 1`, and for one trait in a
+  metapopulation (decided in the k-deme path of `run_moments`, which sees the demes): for one
   population it is `:rare_alleles`, far better than the multilocus Gaussian in the
   house-of-cards regime (`validate/rare_alleles_traits.jl`, T cells); for demes with local
   optima and migration it is within 15% of the kernel's within-deme G where `:rare_alleles`

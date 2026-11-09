@@ -210,9 +210,9 @@ variances:
 - `mutate`: adds `V_m = m·V_E`.
 
 **Which model (`loci`).** The default, `loci = :auto`, is the rare-alleles closure
-(`:rare_alleles`, below) for one trait (diploid, or haploid clones), the closure with
+(`:rare_alleles`, below) for one trait in one population (diploid, or haploid clones), the closure with
 locally favoured alleles (`:rare_local`, below; `:rare_alleles` for one deme) for several
-traits (compared with the kernel in `validate/rare_alleles_traits.jl` and
+traits and for one trait in several demes (compared with the kernel in `validate/rare_alleles_traits.jl` and
 `validate/local_adaptation.jl`), and the multilocus Gaussian model (`:multilocus`) when the `mutate` steps of `cycle` carry different
 `MutationScalar` or `MutationRatePerGamete` (no one mutation effect variance);
 [`QTLSim.moments_loci`](@ref) gives the resolution for a `Params`. Ask for

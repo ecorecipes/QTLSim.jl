@@ -2272,6 +2272,9 @@ end
     @test w(:rare_alleles) < w(:rare_local) <= w(:multilocus) * (1 + 1e-9)
     w2(l) = QTLSim.tr(run_moments(p2; cycle = cyc2([0.0, 60, 120, 180]), migration_rate = 0.01, between = true, loci = l).metapop.within[end])
     @test w2(:rare_alleles) < w2(:rare_local) <= w2(:multilocus) * (1 + 1e-9)
+    # the default: one trait in several demes, and several traits, resolve to :rare_local
+    @test w(:auto) == w(:rare_local)
+    @test w2(:auto) == w2(:rare_local)
     # the gain: the eigenvalue expansion, the island form, the reductions and the limits
     rng = Xoshiro(11)
     for k in (2, 3, 5)
