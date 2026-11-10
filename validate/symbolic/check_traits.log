@@ -1,0 +1,68 @@
+QTLSim validate/symbolic/check_traits.jl (Symbolics 7.48.0)
+
+(a) gaussian_G, the multivariate Gaussian balance G(A + G)⁻¹G = M
+  G = A^½XA^½: A + G = A^½(I + X)A^½ (general symmetric 2 × 2), so G(A + G)⁻¹G = A^½X(I + X)⁻¹XA^½ ok
+  X commutes with I + X, so X(I + X)⁻¹X = X²(I + X)⁻¹ = M̃ is solved eigenvalue by eigenvalue ok
+  on an eigenvalue μ of M̃: x = (μ + √(μ² + 4μ))/2 gives x²/(1 + x) = μ     ok
+  shared axes: g = (m + √(m² + 4ma))/2 gives g²/(a + g) = m                ok
+  gaussian_G, n = 2: G(A + G)⁻¹G = M, G ⪰ 0, = gaussian_G_iterate          ok
+  gaussian_G, n = 2: G(A + G)⁻¹G = M, G ⪰ 0, = gaussian_G_iterate          ok
+  gaussian_G, n = 3: G(A + G)⁻¹G = M, G ⪰ 0, = gaussian_G_iterate          ok
+  gaussian_G, n = 3: G(A + G)⁻¹G = M, G ⪰ 0, = gaussian_G_iterate          ok
+  gaussian_G, shared eigenvectors: eigenvalues (m + √(m² + 4ma))/2 on each axis ok
+  gaussian_G_loci = gaussian_G(2L·M, A) (diploid, recombining)             ok
+  gaussian_G_loci = gaussian_G(2·M, A) without recombination (one locus)   ok
+
+(b) steady_lag_vector
+  λ = (A + G)G⁻¹k: with u = G⁻¹k, (A + G)⁻¹λ = u and G(A + G)⁻¹λ = Gu = k (symbolic 2 × 2) ok
+  steady_lag_vector, n = 2: trait_response(λ) = k                          ok
+  steady_lag_vector, n = 3: trait_response(λ) = k                          ok
+  steady_lag_vector, n = 1: steady_lag k(V_G + V_s)/V_G                    ok
+
+(c) red_noise_lag_cov, red_noise_lag_var
+  λ_{t+1} = (1 − β)λ_t + (ρ − 1)θ_t + √(1 − ρ²)η_{t+1}                     ok
+  n = 1: X = [2σ²(1−ρ)/((2−β)(1−ρ(1−β))), σ²(1−ρ)/(1−ρ(1−β)); ·, σ²] solves X = FXFᵀ + Q ok
+  white noise (ρ = 0): 2σ²/(2 − β)                                         ok
+  red_noise_lag_cov (n = 1) = red_noise_lag_var = symbolic X₁₁, ρ = -0.09  ok
+  red_noise_lag_cov (n = 1) = red_noise_lag_var = symbolic X₁₁, ρ = -0.37  ok
+  red_noise_lag_cov (n = 1) = red_noise_lag_var = symbolic X₁₁, ρ = 0.62   ok
+  red_noise_lag_cov, n = 2, ρ = 0.25: the lag block of X = FXFᵀ + Q (series) ok
+  red_noise_lag_cov, n = 2, ρ = 0.39: the lag block of X = FXFᵀ + Q (series) ok
+  red_noise_lag_cov, shared axes: each axis the one-trait value with its own β ok
+
+(d) periodic_response, periodic_lag_cov
+  |e^{iν} − (1 − β)|² = 1 − 2(1 − β)cos ν + (1 − β)² = D²                  ok
+  |e^{iν} − 1|² = (2 sin(ν/2))², so lag amplitude 2 sin(ν/2)/D             ok
+  lag/optimum = (e^{iν} − 1)/(e^{iν} − (1 − β)) = 1 − β/(e^{iν} − (1 − β)) ok
+  periodic_response, P = 7: z̄_t = gain·sin(νt − phase) in the recursion    ok
+  … and the lag's amplitude is lag_amplitude (1.026)                       ok
+  periodic_lag_cov, n = 1 = lag_amplitude²/2                               ok
+  periodic_response, P = 30: z̄_t = gain·sin(νt − phase) in the recursion   ok
+  … and the lag's amplitude is lag_amplitude (1.005)                       ok
+  periodic_lag_cov, n = 1 = lag_amplitude²/2                               ok
+  periodic_response, P = 200: z̄_t = gain·sin(νt − phase) in the recursion  ok
+  … and the lag's amplitude is lag_amplitude (0.229)                       ok
+  periodic_lag_cov, n = 1 = lag_amplitude²/2                               ok
+  slow cycle: gain → 1, delay → 1/β                                        ok
+  periodic_lag_cov, n = 2: = the cycle average of λλᵀ in the recursion     ok
+
+(e) the deflection of the response toward g_max
+  cos²(response, e₁) − cos²(gradient, e₁) has the sign of (g₁² − g₂²)β₁²β₂² ok
+  response_deflection, 300 random examples (n = 2–4): angle to g_max never grows (max -2.6e-01°) ok
+
+(f) the rare-alleles Riccati equation, house_of_gauss_G
+  one trait: c²/A + 2Jc = μα² is c²/V_s + c(α²/(2V_s) + 1/ng) = μα²        ok
+  house_of_gauss_G solves c A⁻¹ c + Jc + cJᵀ = μ_u C (L=5 μ=1.6e-03)       ok
+  … the stabilising root: J + c A⁻¹ has eigenvalues of positive real part, c ⪰ 0 ok
+  house_of_gauss_G solves c A⁻¹ c + Jc + cJᵀ = μ_u C (L=11 μ=1.5e-04)      ok
+  … the stabilising root: J + c A⁻¹ has eigenvalues of positive real part, c ⪰ 0 ok
+  house_of_gauss_G solves c A⁻¹ c + Jc + cJᵀ = μ_u C (L=14 μ=3.0e-04)      ok
+  … the stabilising root: J + c A⁻¹ has eigenvalues of positive real part, c ⪰ 0 ok
+  house_of_gauss_G, one trait = house_of_gauss_vg (Hermisson–Wagner A4)    ok
+  house_of_gauss_G, one trait = house_of_gauss_vg (Hermisson–Wagner A4)    ok
+  μ → 0, no drift: house_of_gauss_G → house_of_cards_G (rel. diff. 5.8e-04 at μ = 1e-7, α² ≪ A) ok
+  many small mutations, no drift: house_of_gauss_G → G with G A⁻¹ G = 2L·M (rel. diff. 8.1e-05) ok
+  … which is gaussian_G_loci (G(A + G)⁻¹G = 2L·M) only to O(G/A) (rel. diff. 1.4e-03) ok
+
+52 checks, 0 failed; 0 s
+PASS

@@ -1,0 +1,61 @@
+QTLSim validate/symbolic/check_fst.jl (Symbolics 7.48.0)
+
+(a) the island model: the reduced coalescence recursion
+  fixed point: S₀ = 1 + 2N(1 − π₀ + π₁)/π₁, S₁ = S₀ + (π₀ − π₁)/π₁, W = 1 + S₀ ok
+  so V_W = V_m(S₀ − 1) = 2NV_m(1 − π₀ + π₁)/π₁ and σ²_B = 2V_m(π₀ − π₁)/π₁ ok
+  island: π₀ − π₁ = (1 − mk/(k − 1))² = λ                                  ok
+  island: π₁ = (1 − λ)/k                                                   ok
+  V_W = 2NkV_m, whatever m                                                 ok
+  σ²_B = 2kV_m λ/(1 − λ)                                                   ok
+  σ²_B/(2V_W) = λ/(2N(1 − λ)), so Q_ST (:demes) = λ/(λ + 2N(1 − λ))        ok
+  Q_ST (:total) = (k−1)/k·R/((k−1)/k·R + 1) = (k−1)λ/((k−1)λ + 2Nk(1 − λ)) ok
+  k = ∞: λ/(λ + 2N(1 − λ)) = (1 − m)²/(2N − (2N − 1)(1 − m)²) (Wright)     ok
+  small m: 1 − λ = 2mk/(k−1) + O(m²), so 1/Q_ST − 1 = 4Nmk/(k−1) + O(m²) (:demes, Takahata) ok
+  … and ×k/(k − 1): 4Nm(k/(k − 1))² + O(m²) (:total)                       ok
+  panmixia m = (k − 1)/k: λ = 0, Q_ST = 0                                  ok
+
+(b) the kernel's exchanges
+  island: π₁ = u(2 − ku), u = m/(k − 1)                                    ok
+  exchanges: V_W → 2NV_m(kN − 1)/(N − 1) as m → 0                          ok
+  … only to leading order: ∂V_W/∂u = 2NV_m·2k(k − 1)/(N(2 − 2/N)²) at m = 0 (relative O(m/N)) ok
+  two distinct adults of the metapopulation share a deme w.p. kN(N−1)/(kN(kN−1)) = (N−1)/(kN−1) ok
+
+(c) Slatkin's stepping stone
+  F_ST = (t_i − t₀)/(t_i + t₀) = 1/(1 + 8Nmk/((k − i)i)) (Slatkin 1991, eqs 16–17) ok
+
+(d) numerical spot checks against the code
+  deme_coalescence, k=2 N=20 m=0.0197: W, S₀, S₁ = the symbolic fixed point ok
+  neutral_deme_variances = island_variances: within 2NkV_m, between 2kV_m λ/(1 − λ) ok
+  qst_island (:total, :demes) = neutral_deme_variances' qst, qst_demes     ok
+  origins = :exchange: within = 2NV_m(k(2 − ku) − 2/N)/(2 − ku − 2/N) (÷ (kN−1)/(N−1) form: 1 + 5.4e-04) ok
+  exchange_origins: rows sum to 1, marginals P, (a,b)→(a,a) is P_aa P_ba − P_ab/N ok
+  backward_migration (island, one order) = migration_mixing over all k! orders ok
+  backward m ≈ 2·rate for small rates (m/(2·rate) = 0.9854)                ok
+  deme_coalescence(t): t = 1 gives W = S = 1; large t approaches the equilibrium ok
+  deme_coalescence, k=3 N=50 m=0.0040: W, S₀, S₁ = the symbolic fixed point ok
+  neutral_deme_variances = island_variances: within 2NkV_m, between 2kV_m λ/(1 − λ) ok
+  qst_island (:total, :demes) = neutral_deme_variances' qst, qst_demes     ok
+  origins = :exchange: within = 2NV_m(k(2 − ku) − 2/N)/(2 − ku − 2/N) (÷ (kN−1)/(N−1) form: 1 + 4.1e-05) ok
+  exchange_origins: rows sum to 1, marginals P, (a,b)→(a,a) is P_aa P_ba − P_ab/N ok
+  backward_migration (island, one order) = migration_mixing over all k! orders ok
+  backward m ≈ 2·rate for small rates (m/(2·rate) = 0.9978)                ok
+  deme_coalescence(t): t = 1 gives W = S = 1; large t approaches the equilibrium ok
+  deme_coalescence, k=5 N=30 m=0.0583: W, S₀, S₁ = the symbolic fixed point ok
+  neutral_deme_variances = island_variances: within 2NkV_m, between 2kV_m λ/(1 − λ) ok
+  qst_island (:total, :demes) = neutral_deme_variances' qst, qst_demes     ok
+  origins = :exchange: within = 2NV_m(k(2 − ku) − 2/N)/(2 − ku − 2/N) (÷ (kN−1)/(N−1) form: 1 + 1.1e-03) ok
+  exchange_origins: rows sum to 1, marginals P, (a,b)→(a,a) is P_aa P_ba − P_ab/N ok
+  backward_migration (island, one order) = migration_mixing over all k! orders ok
+  backward m ≈ 2·rate for small rates (m/(2·rate) = 0.9724)                ok
+  deme_coalescence(t): t = 1 gives W = S = 1; large t approaches the equilibrium ok
+  deme_coalescence, k=8 N=12 m=0.1838: W, S₀, S₁ = the symbolic fixed point ok
+  neutral_deme_variances = island_variances: within 2NkV_m, between 2kV_m λ/(1 − λ) ok
+  qst_island (:total, :demes) = neutral_deme_variances' qst, qst_demes     ok
+  origins = :exchange: within = 2NV_m(k(2 − ku) − 2/N)/(2 − ku − 2/N) (÷ (kN−1)/(N−1) form: 1 + 9.5e-03) ok
+  exchange_origins: rows sum to 1, marginals P, (a,b)→(a,a) is P_aa P_ba − P_ab/N ok
+  backward m ≈ 2·rate for small rates (m/(2·rate) = 0.9189)                ok
+  deme_coalescence(t): t = 1 gives W = S = 1; large t approaches the equilibrium ok
+  qst_island, k = ∞: (1 − m)²/(2N − (2N − 1)(1 − m)²)                      ok
+
+49 checks, 0 failed; 0 s
+PASS

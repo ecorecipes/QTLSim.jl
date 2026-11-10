@@ -1,0 +1,22 @@
+QTLSim validate/symbolic/check_demography.jl (Symbolics 7.48.0)
+
+(a) Beverton–Holt
+  adults: N* = K(RW̄ − 1)/((R − 1)W̄) solves N = R N W̄/(1 + (R − 1)N W̄/K)    ok
+  survivors: n* = N*W̄ = K(RW̄ − 1)/(R − 1)                                  ok
+  W̄ = 1: N* = K                                                            ok
+  slope of the map at N*: 1/(RW̄) (stable iff RW̄ > 1)                       ok
+  expected_offspring iterated, R=1.70 W̄=0.92 K=2752: → K(RW̄ − 1)/((R − 1)W̄) ok
+  expected_offspring iterated, R=2.27 W̄=0.93 K=2604: → K(RW̄ − 1)/((R − 1)W̄) ok
+  expected_offspring iterated, R=3.86 W̄=0.84 K=3399: → K(RW̄ − 1)/((R − 1)W̄) ok
+
+(b) the Galton–Watson process
+  φ(1) = 1, φ′(1) = rW (the mean), φ″(1) = r²W (variance rW(1 + r − rW))   ok
+  rescue_probability, no shift (RW̄=2.26): 1 − q^N₀, q the least root of φ(q) = q ok
+  extinction_distribution(:branching), constant W̄, K → ∞: P(extinct) → q^N₀ ok
+  rescue_probability, no shift (RW̄=1.94): 1 − q^N₀, q the least root of φ(q) = q ok
+  extinction_distribution(:branching), constant W̄, K → ∞: P(extinct) → q^N₀ ok
+  rescue_probability, no shift (RW̄=1.70): 1 − q^N₀, q the least root of φ(q) = q ok
+  extinction_distribution(:branching), constant W̄, K → ∞: P(extinct) → q^N₀ ok
+
+14 checks, 0 failed; 2 s
+PASS

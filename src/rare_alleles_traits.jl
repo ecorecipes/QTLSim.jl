@@ -65,8 +65,10 @@
 # `house_of_gauss_G` (solved by the stable invariant subspace of its Hamiltonian; G = ng_u·c
 # over the allele positions). For one trait it is Hermisson and Wagner's (2004) equation
 # A4, `house_of_gauss_vg`; with μ → 0 it is the stochastic house of cards (a Lyapunov
-# equation), with ng = ∞ and μ → 0 the house of cards above; for many small mutations
-# it is the Gaussian G (A + G)⁻¹ G = 2L M, `gaussian_G_loci`. No closed form in elementary
+# equation), with ng = ∞ and μ → 0 the house of cards above (while α² ≪ A, so that no rate
+# ρ_i reaches its cap of 1); for many small mutations without drift it is the Gaussian
+# G A⁻¹ G = 2L M (s = A), the weak-mutation form of `gaussian_G_loci`'s G (A + G)⁻¹ G = 2L M
+# (validate/symbolic/check_traits.jl). No closed form in elementary
 # functions exists unless C and A share eigenvectors.
 #
 # Genomes that do not recombine (haploid clones, as the kernel's haploid `reproduce!`; or a
@@ -220,7 +222,9 @@ closure for loci in linkage equilibrium with `s = A` = [`selection_variance_matr
 `ng = Ploidy·N_e` genes ([`effective_size`](@ref) with `nsurv` survivors; `∞` with
 `drift = false`) and units as in [`house_of_cards_G`](@ref). For one trait it is
 [`house_of_gauss_vg`](@ref) (Hermisson and Wagner 2004, eq. A4); for rare mutations without
-drift [`house_of_cards_G`](@ref); for many small mutations the Gaussian [`gaussian_G_loci`](@ref).
+drift [`house_of_cards_G`](@ref) (when `α² ≪ A`, as the rates `ρ_i` are capped at 1); for many
+small mutations without drift the solution of `G A⁻¹ G = 2L·M`, the weak-mutation form of
+[`gaussian_G_loci`](@ref) (`s = A` rather than `A + G`).
 [`rare_alleles_G`](@ref) is the same closure with LD and `s = A + G`.
 """
 function house_of_gauss_G(p::Params; nsurv::Real = p.PopSize, drift::Bool = true)

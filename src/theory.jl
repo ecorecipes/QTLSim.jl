@@ -547,8 +547,10 @@ partner went from `b` to `a`. Two adults of different demes then share a deme of
 less often than under `:pool`, by a relative `1/N`, as the exchange keeps every deme's
 size: two distinct adults of the whole metapopulation are in one deme with probability
 exactly `(N − 1)/(kN − 1)` (equal demes), not `1/k`. That raises the within-deme
-variance from `2NkV_m` to `2NV_m (kN − 1)/(N − 1)` and Q_ST by a fraction of a percent,
-at N = 50. `validate/fst.jl` estimates the law from `migrate!` itself and passes it here.
+variance from `2NkV_m` to `2NV_m (kN − 1)/(N − 1)` for small `m` (in the island model
+`:exchange` gives `2NV_m (k(2 − ku) − 2/N)/(2 − ku − 2/N)`, `u = m/(k − 1)`, which is that
+to a relative `O(m/N)`; validate/symbolic/check_fst.jl) and Q_ST by a fraction of a
+percent, at N = 50. `validate/fst.jl` estimates the law from `migrate!` itself and passes it here.
 """
 function deme_coalescence(P::AbstractMatrix, N; t::Union{Nothing,Integer,AbstractVector{<:Integer}} = nothing,
                           origins::Union{Symbol,AbstractMatrix} = :pool)

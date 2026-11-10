@@ -99,8 +99,9 @@ jobs:
       - uses: julia-actions/cache@v2
       - name: Instantiate validate/symbolic
         run: julia --project=validate/symbolic -e 'using Pkg; Pkg.instantiate()'
-      - name: Closures' algebra (Symbolics.jl) and spot checks against the code
-        run: julia --project=validate/symbolic validate/symbolic/check_closures.jl
+      # closures, spectrum, several traits, F_ST, demography: about 1 min locally once compiled
+      - name: Symbolic checks of the theory (Symbolics.jl) and spot checks against the code
+        run: julia --project=validate/symbolic validate/symbolic/check_all.jl
   slim:
     name: SLiM backend
     runs-on: ubuntu-latest

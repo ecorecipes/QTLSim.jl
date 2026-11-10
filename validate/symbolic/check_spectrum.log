@@ -1,0 +1,61 @@
+QTLSim validate/symbolic/check_spectrum.jl (Symbolics 7.48.0)
+
+(a) the selection of one allele, E[Δp]
+  Wright's formula on ln W̄ = −λ²/(2S) − ln S/2 is E[Δp] (c = 0), exactly   ok
+  diploid viability selection, exact: Δp/(pq) = E[Δp]/(pq) + O(ε³) (order ε⁰, ε¹) ok
+  … order ε²: −(1 − λ²/S)a²(1 − 2p)/(2S), at any lag (Hayward–Sella eq. 7) ok
+  near p = 0 (c = 0): Kopp–Hermisson a(2λ − a)/(2S) + a²λ²/(2S²)           ok
+  rare alleles, 2c term: Δc = −Σa⁴p/(2S) − c²/S to first order in each p   ok
+  house of cards p ∝ g/a²: Σa⁴p = (Σga²/Σg)·Σa²p, i.e. α²c                 ok
+
+(b) the neutral Poisson random field
+  Wright–Fisher: E[p′q′] = (1 − 1/(2N)) pq                                 ok
+  Σ_t (1 − 1/(2N))^t pq = 2N pq                                            ok
+  diffusion: u = 2N pq solves (pq/(4N))u″ = −pq, u(0) = u(1) = 0           ok
+  V_G = 2NLμ · 2α² · 2N p₀q₀ = (2N − 1) V_m                                ok
+  implicit Euler step: V_G = (2N − 1/(2N)) V_m                             ok
+
+(c) the response of the mean
+  symmetric pair (±a at one p): Σ 2a E[Δp] = (Σ 2a²pq) λ/S                 ok
+  directional part of Σ 2a E[Δp] is V_G λ/S, V_G = Σ 2a²pq                 ok
+
+(d) the sweep variance
+  logistic sweep: dp/dt = s pq                                             ok
+  so d(p/s)/dt = pq: ∫ pq dt over the sweep = (1 − p₀)/s ≈ 1/s             ok
+  ∫ 2a²pq dt = 2a²/s = 2a S/λ                                              ok
+  Haldane 2s × 2aS/λ = 4a², whatever λ and S                               ok
+  2NLμ · (N_e/N) · E[4a²; a > 0] = 2N_e V_m, with E[a²; a > 0] = α²/2      ok
+
+(e) linked selection
+  Var(Δp) = pq/(2n)·N/N_e with N/N_e = 1 + b²VΣ ⇔ pq(1/(2n) + c), c = b²VΣ/(2n) ok
+  Barton per locus: (L − 1)·(b²V/L)/(2r²) = b²V·(1 − 1/L)/(2r²) (weights Σω = 1 − 1/L) ok
+  ∂ln W̄/∂z̄ = λ/S = b (additive variance in relative fitness b²V)           ok
+
+(f) numerical spot checks against src/spectrum.jl
+  spectrum_vg = Σ 2a²pq n (L=23 N=247 μ=1.5e-03)                           ok
+  Gauss–Hermite effects: Σg = 1, Σga² = α², Σga⁴ = 3α⁴, symmetric          ok
+  Σ_{a>0} g a² = α²/2 (the half that fixes under a lag)                    ok
+  spectrum_seff = E[Δp]/(pq)                                               ok
+  symmetric spectrum (asymmetry 1e-14): spectrum_select = V_G λ/S          ok
+  asymmetric spectrum: spectrum_select = V_G λ/S − Σ 2a pq (1−λ²/S)(a²+2c)(1−2p)/(2S) n ok
+  spectrum_linked = b²V Σ_{c≥2} ω_c/(2(ρ_c + δ)²)/(2n)                     ok
+  pair classes of distinct loci weigh 1 − 1/L                              ok
+  … = Barton's sum over the pairs themselves (binned classes: 9.9e-06)     ok
+  spectrum_mutate!: 2NLμ sites, mean frequency 1/(2N)                      ok
+  spectrum_vg ≈ house_of_gauss_vg (approximate; ratio 1.0176)              ok
+  spectrum_vg = Σ 2a²pq n (L=17 N=180 μ=2.0e-03)                           ok
+  Gauss–Hermite effects: Σg = 1, Σga² = α², Σga⁴ = 3α⁴, symmetric          ok
+  Σ_{a>0} g a² = α²/2 (the half that fixes under a lag)                    ok
+  spectrum_seff = E[Δp]/(pq)                                               ok
+  symmetric spectrum (asymmetry 1e-14): spectrum_select = V_G λ/S          ok
+  asymmetric spectrum: spectrum_select = V_G λ/S − Σ 2a pq (1−λ²/S)(a²+2c)(1−2p)/(2S) n ok
+  spectrum_linked = b²V Σ_{c≥2} ω_c/(2(ρ_c + δ)²)/(2n)                     ok
+  pair classes of distinct loci weigh 1 − 1/L                              ok
+  … = Barton's sum over the pairs themselves (binned classes: 4.4e-06)     ok
+  spectrum_mutate!: 2NLμ sites, mean frequency 1/(2N)                      ok
+  spectrum_vg ≈ house_of_gauss_vg (approximate; ratio 1.0415)              ok
+  neutral, N = 100: spectrum_vg·(N−1)/N = (2N − 1/(2N))V_m (ratio 0.999980) ok
+  neutral, N = 250: spectrum_vg·(N−1)/N = (2N − 1/(2N))V_m (ratio 0.999981) ok
+
+45 checks, 0 failed; 5 s
+PASS
