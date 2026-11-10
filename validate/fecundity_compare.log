@@ -1,0 +1,128 @@
+# Viability against fecundity selection
+
+2000 generations after the move; strata weighted equally; 95% stratified bootstrap intervals (2000 resamples of inputs within strata).
+
+## NoQTL ≤ 1000
+
+Fixed size: 900 inputs (NoQTL 100, u 3: 150; NoQTL 100, u 5: 150; NoQTL 500, u 3: 150; NoQTL 500, u 5: 150; NoQTL 1000, u 3: 150; NoQTL 1000, u 5: 150).
+
+### Fixed size (QTSim's demography)
+
+| | viability | fecundity |
+|:--|--:|--:|
+| died before the move | 0 | 0 |
+| alive 2000 generations after the move | 7.2% (5.7–8.9) | 49.1% (45.7–52.3) |
+| median generations to extinction (those that died) | 124 (115–133) | 975 (875–1045) |
+| died after the move (of 900) | 835 | 458 |
+| median generations to 50% mortality (W̄ ≈ 0.5 for fecundity) | 45 (41–48) | 45 (42–49) |
+| median standardised lag | 0.349 (0.322–0.387) | 0.299 (0.268–0.339) |
+| N·W̄ never below 2 within 2000 generations | – | 14.0% (11.8–16.2) |
+| median generations until N·W̄ < 2 (those that got there) | – | 128 (120–136) |
+
+Paired by input:
+
+- time to extinction, fecundity / viability (median over 458 inputs where both died after the move): 12.00 (11.86–12.15)
+- generations until N·W̄ < 2 under fecundity / time to extinction under viability (median over 774 inputs): 1.11 (1.09–1.12)
+- alive under viability but dead under fecundity: 0; the reverse: 377 (McNemar exact p = 6.5e-114)
+
+### Beverton–Holt, R = 5.0 (900 inputs)
+
+| | viability | fecundity |
+|:--|--:|--:|
+| died before the move | 1 | 1 |
+| alive 2000 generations after the move | 5.9% (4.3–7.4) | 6.8% (5.2–8.4) |
+| median generations to extinction (those that died) | 74 (70–79) | 78 (74–82) |
+| died after the move (of 900) | 846 | 838 |
+| median generations to 50% mortality (W̄ ≈ 0.5 for fecundity) | 45 (41–48) | 45 (42–48) |
+| median standardised lag | 0.387 (0.342–0.430) | 0.362 (0.334–0.418) |
+
+Paired by input:
+
+- time to extinction, fecundity / viability (median over 838 inputs where both died after the move): 1.06 (1.06–1.07)
+- time to extinction against QTSim's fixed-size (viability) run of the same input, median over 831 inputs where all three died after the move: viability 0.60 (0.59–0.60), fecundity 0.64 (0.63–0.64)
+- alive under viability but dead under fecundity: 0; the reverse: 8 (McNemar exact p = 0.00781)
+
+### Beverton–Holt, R = 2.0 (900 inputs)
+
+| | viability | fecundity |
+|:--|--:|--:|
+| died before the move | 4 | 4 |
+| alive 2000 generations after the move | 5.2% (3.8–6.8) | 5.3% (3.9–6.9) |
+| median generations to extinction (those that died) | 55 (52–58) | 58 (54–61) |
+| died after the move (of 900) | 849 | 848 |
+| median generations to 50% mortality (W̄ ≈ 0.5 for fecundity) | 48 (45–51) | 44 (41–48) |
+| median standardised lag | 0.444 (0.384–0.482) | 0.405 (0.361–0.438) |
+
+Paired by input:
+
+- time to extinction, fecundity / viability (median over 848 inputs where both died after the move): 1.05 (1.04–1.05)
+- time to extinction against QTSim's fixed-size (viability) run of the same input, median over 833 inputs where all three died after the move: viability 0.43 (0.43–0.44), fecundity 0.45 (0.45–0.46)
+- alive under viability but dead under fecundity: 0; the reverse: 1 (McNemar exact p = 1)
+
+### Beverton–Holt, R = 1.5 (900 inputs)
+
+| | viability | fecundity |
+|:--|--:|--:|
+| died before the move | 12 | 11 |
+| alive 2000 generations after the move | 4.3% (3.1–5.8) | 4.3% (3.1–5.8) |
+| median generations to extinction (those that died) | 48 (45–51) | 50 (47–52) |
+| died after the move (of 900) | 849 | 850 |
+| median generations to 50% mortality (W̄ ≈ 0.5 for fecundity) | 45 (42–49) | 44 (42–48) |
+| median standardised lag | 0.458 (0.416–0.495) | 0.468 (0.431–0.512) |
+
+Paired by input:
+
+- time to extinction, fecundity / viability (median over 848 inputs where both died after the move): 1.03 (1.03–1.04)
+- time to extinction against QTSim's fixed-size (viability) run of the same input, median over 825 inputs where all three died after the move: viability 0.37 (0.36–0.37), fecundity 0.38 (0.37–0.39)
+- alive under viability but dead under fecundity: 1; the reverse: 1 (McNemar exact p = 1)
+
+## NoQTL = 5000
+
+Fixed size: 100 inputs (NoQTL 5000, u 3: 50; NoQTL 5000, u 5: 50).
+
+### Fixed size (QTSim's demography)
+
+| | viability | fecundity |
+|:--|--:|--:|
+| died before the move | 0 | 0 |
+| alive 2000 generations after the move | 12.0% (6.0–19.0) | 48.0% (39.0–58.0) |
+| median generations to extinction (those that died) | 119 (92–181) | 828 (708–930) |
+| died after the move (of 100) | 88 | 52 |
+| median generations to 50% mortality (W̄ ≈ 0.5 for fecundity) | 50 (33–80) | 53 (32–81) |
+| median standardised lag | 0.341 (0.246–0.443) | 0.364 (0.252–0.469) |
+| N·W̄ never below 2 within 2000 generations | – | 15.0% (8.0–22.0) |
+| median generations until N·W̄ < 2 (those that got there) | – | 123 (93–181) |
+
+Paired by input:
+
+- time to extinction, fecundity / viability (median over 52 inputs where both died after the move): 11.21 (10.80–11.46)
+- generations until N·W̄ < 2 under fecundity / time to extinction under viability (median over 85 inputs): 1.09 (1.07–1.11)
+- alive under viability but dead under fecundity: 0; the reverse: 36 (McNemar exact p = 2.91e-11)
+
+### Beverton–Holt, R = 2.0 (100 inputs)
+
+| | viability | fecundity |
+|:--|--:|--:|
+| died before the move | 0 | 0 |
+| alive 2000 generations after the move | 8.0% (3.0–14.0) | 8.0% (3.0–14.0) |
+| median generations to extinction (those that died) | 60 (41–78) | 62 (46–84) |
+| died after the move (of 100) | 92 | 92 |
+| median generations to 50% mortality (W̄ ≈ 0.5 for fecundity) | 61 (41–78) | 52 (32–80) |
+| median standardised lag | 0.400 (0.294–0.596) | 0.392 (0.270–0.511) |
+
+Paired by input:
+
+- time to extinction, fecundity / viability (median over 92 inputs where both died after the move): 1.04 (1.02–1.06)
+- time to extinction against QTSim's fixed-size (viability) run of the same input, median over 88 inputs where all three died after the move: viability 0.44 (0.43–0.46), fecundity 0.45 (0.44–0.47)
+- alive under viability but dead under fecundity: 0; the reverse: 0 (McNemar exact p = 1)
+
+## Overview
+
+Beverton–Holt runs; time ratios are medians over inputs where the runs compared died after the move.
+
+| group | R | inputs | alive, viability | alive, fecundity | discordant (V only / F only) | T fecundity / viability | T viability / fixed | T fecundity / fixed |
+|:--|--:|--:|--:|--:|--:|--:|--:|--:|
+| NoQTL ≤ 1000 | 5 | 900 | 5.9% (4.3–7.4) | 6.8% (5.2–8.4) | 0 / 8 | 1.06 (1.06–1.07) | 0.60 (0.59–0.60) | 0.64 (0.63–0.64) |
+| NoQTL ≤ 1000 | 2 | 900 | 5.2% (3.8–6.8) | 5.3% (3.9–6.9) | 0 / 1 | 1.05 (1.04–1.05) | 0.43 (0.43–0.44) | 0.45 (0.45–0.46) |
+| NoQTL ≤ 1000 | 1.5 | 900 | 4.3% (3.1–5.8) | 4.3% (3.1–5.8) | 1 / 1 | 1.03 (1.03–1.04) | 0.37 (0.36–0.37) | 0.38 (0.37–0.39) |
+| NoQTL = 5000 | 2 | 100 | 8.0% (3.0–14.0) | 8.0% (3.0–14.0) | 0 / 0 | 1.04 (1.02–1.06) | 0.44 (0.43–0.46) | 0.45 (0.44–0.47) |
