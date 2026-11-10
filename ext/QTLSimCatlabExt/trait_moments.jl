@@ -57,6 +57,9 @@ mutable struct TraitMoments
     noise::Matrix{Float64}
     f::Vector{Float64}
     idx::Int
+    cues::Vector{Float64}   # a reaction norm's cue (ReactionNormModel): the optima of the last CueLag + 1 generations
+    cuegen::Int
+    env::Float64            # and the environment ε = θ_{t−τ}/B its norms were last expressed in
 end
 
 """
@@ -116,7 +119,8 @@ function TraitMoments(p::Params; zbar = zeros(p.NoTraits), G = zeros(p.NoTraits,
                  p.PopSize, 1.0, zeros(n), collect(Float64, zbar), Matrix{Float64}(G), collect(Float64, zbar),
                  Matrix{Float64}(G), false, p.PopSize, p.PopSize, erosion, VE, false, 1.0,
                  QTLSim.mutational_covariance(p), QTLSim.selection_shape(p), QTLSim.move_direction(p),
-                 cov, zeros(n, n), zeros(n), QTLSim.move_noise_covariance(p), QTLSim.fluct_direction(p), idx)
+                 cov, zeros(n, n), zeros(n), QTLSim.move_noise_covariance(p), QTLSim.fluct_direction(p), idx,
+                 Float64[], -1, 0.0)
 end
 
 isextinct(m::TraitMoments) = m.extinct
@@ -167,6 +171,13 @@ function trait_moments_select!(m::TraitMoments; θ = nothing)
         m.W2bar = FITNESS_PEAK^2 * sqrt(det(Ω) / det(s2)) * exp(-dot(λ, s2 \ λ))
         m.sinv = sym(inv(s))
     end
+    trait_moments_survive!(m)
+end
+
+# the end of select in the moments of several heritable values, whatever the fitness function:
+# the expected survivors, and selection on the haplotype moments through `m.sinv`
+function trait_moments_survive!(m::TraitMoments)
+    p = m.p
     m.weighted = p.Selection === :fecundity
     m.nsurv = m.weighted ? m.N : m.N * m.Wbar
     m.extinct = m.weighted ? m.N < p.Ploidy : m.nsurv < (p.Ploidy == 2 ? 2 : 1)
@@ -440,9 +451,14 @@ function run_trait_moments(ps::AbstractVector{Params}; cycle = lifecycle().gener
     k = length(ps)
     foreach(QTLSim.checkparams, ps)
     check_loci(loci, between)
+    p = ps[1]
+    if p.ReactionNorm        # a heritable reaction norm: the multilocus Gaussian model (plasticity.jl)
+        loci in (:auto, :multilocus, :aggregate) ||
+            throw(ArgumentError("the moments of a heritable reaction norm are Gaussian (loci = :multilocus or :aggregate); got :$loci"))
+        loci === :auto && (loci = :multilocus)
+    end
     loci, α2 = resolve_trait_loci(collect(Params, ps), cycle, loci)
     between && check_between(ps, origins)
-    p = ps[1]
     n = p.NoTraits
     all(q -> q.NoTraits == n, ps) || throw(ArgumentError("the demes of a metapopulation have the same number of traits"))
     all(q -> q.NoGenerations == p.NoGenerations, ps) ||
@@ -458,15 +474,21 @@ function run_trait_moments(ps::AbstractVector{Params}; cycle = lifecycle().gener
         k == 1 || throw(ArgumentError("a given optimum sequence is for one deme"))
         length(optimum) >= p.NoGenerations ||
             throw(ArgumentError("optimum gives $(length(optimum)) generations; NoGenerations is $(p.NoGenerations)"))
+        if p.ReactionNorm        # the optimum of the one phenotype, a number per generation
+            all(θ -> θ isa Real, optimum) || throw(ArgumentError("with ReactionNorm each optimum is a number, that of the phenotype"))
+            images = merge(Dict{Any,Any}(:select => Operator(:select, (m, rng) -> norm_moments_select!(m; θ = optimum[m.gen + 1]))),
+                           Dict{Any,Any}(images))
+        else
         all(θ -> length(θ) == n, optimum) || throw(ArgumentError("each optimum is a vector of $n traits"))
         images = merge(Dict{Any,Any}(:select => Operator(:select, (m, rng) -> trait_moments_select!(m; θ = optimum[m.gen + 1]))),
                        Dict{Any,Any}(images))
+        end
     end
     rec = merge(records(), QTLSim.trait_records())
     k > 1 && (rec = merge((gen = rec.gen, deme = Int[]), Base.structdiff(rec, NamedTuple{(:gen,)}), (demeof = IdDict{TraitMoments,Int}(),)))
     # the model of n traits lowers with its own table; called with one trait, the same table runs 1×1 matrices
     model = model_of(p)
-    step = demeop(lower(cycle, :moments; images = model isa TraitModel ? images : merge(trait_moment_images(rec), Dict{Any,Any}(images)),
+    step = demeop(lower(cycle, :moments; images = model isa OneTraitModel ? merge(trait_moment_images(rec), Dict{Any,Any}(images)) : images,
                         record = rec, model, migration_rate))
     perdeme(x, name) = x isa AbstractVector && !(x isa AbstractVector{<:Real}) ?
         (length(x) == k ? x : throw(ArgumentError("$name gives $(length(x)) values for $k demes"))) : fill(x, k)

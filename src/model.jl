@@ -129,6 +129,9 @@ mutable struct World
     wsum::Float64        # then: the sum of their fitnesses, ΣW
     cumw::Vector{Float64}   # and the cumulative sums of the fitnesses of 1:N
     traits::Union{Nothing,TraitState}   # NoTraits > 1: the traits (genotype etc. then hold trait 1)
+    plastic::Float64     # the plastic part (b/B)·θ_{t−τ} of every phenotype, once select has expressed it (Plasticity ≠ 0)
+    cues::Vector{Float64}   # the optima of the last CueLag + 1 generations, the latest first (a reaction norm's cue)
+    cuegen::Int          # the generation whose optimum was last entered in `cues`
 end
 
 function World(p::Params; blocksize::Integer = default_blocksize(p.NoQTL),
@@ -155,7 +158,7 @@ function World(p::Params; blocksize::Integer = default_blocksize(p.NoQTL),
           zeros(N), zeros(N), zeros(N),
           sizehint!(Int[], N), 0, 0.0, initFitSD(p),
           copy(chr), zeros(N), false, N, N, 0.0, 0.0, sizehint!(Int[], 16), false, 0.0, zeros(N),
-          p.NoTraits == 1 ? nothing : TraitState(p, N))
+          p.NoTraits == 1 ? nothing : TraitState(p, N), 0.0, sizehint!(Float64[], p.CueLag + 1), -1)
 end
 
 """
@@ -361,6 +364,7 @@ function develop_one!(w::World)
         w.genotype[i] = g
         w.phenotype[i] = g + w.env[i]
     end
+    w.plastic = 0.0          # the reaction norm, if any, is expressed in select
     w
 end
 
@@ -450,13 +454,23 @@ parents can be drawn), which at a fixed size happens only when fitness underflow
 Fitness is the normalized Gaussian `pdf(Normal(0,ω), (z−θ)/sd) / (0.4/ω)`,
 replicating QTSim exactly (the `0.4 ≈ 1/√(2π)` constant included); the idealized
 form `exp(−(z−θ)²/2ω²)` is what Lean `StabilizingSelection.lean` proves about.
+
+With phenotypic plasticity (`Plasticity = b ≠ 0`, Julia-only) the reaction norm is
+expressed here, once the optimum of the generation is set, since the optimum is the
+measure of the environment (`θ = B·ε`): every phenotype gains the plastic part
+`(b/B)·θ_{t−τ}`, `τ = CueLag` (`QTLSim.express_plasticity!`), so that the recorded
+phenotypes include it, and the cost of plasticity multiplies every fitness by
+`exp(−b²/(2ω_b²))`. With a heritable reaction norm (`ReactionNorm`) the image is
+`QTLSim.select_norm!`.
 """
-select!(w::World, rng) = w.traits === nothing ? select_one!(w, rng) : select_traits!(w, rng)
+select!(w::World, rng) = w.traits === nothing ? select_one!(w, rng) :
+                         w.p.ReactionNorm ? select_norm!(w, rng) : select_traits!(w, rng)
 
 # select! of the one-trait model: move the optimum, QTSim's fitness, the survivors
 function select_one!(w::World, rng)
     p = w.p
     (p.MoveFitnessSDGen != -1 && w.gen >= p.MoveFitnessSDGen) && moveoptimum_one!(w, rng)
+    p.Plasticity == 0 || express_plasticity!(w)
     sd = p.StandardisePhenotype ? std(view(w.phenotype, 1:w.N)) : 1.0
     @inbounds for i in 1:w.N
         if p.Drift
@@ -466,6 +480,7 @@ function select_one!(w::World, rng)
             w.fitness[i] = pdf(Normal(0.0, w.ω), x) / (0.4 / w.ω)
         end
     end
+    p.Plasticity == 0 || p.Drift || plasticity_cost!(w)
     survive!(w, rng)
 end
 

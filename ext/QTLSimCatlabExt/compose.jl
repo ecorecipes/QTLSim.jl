@@ -74,6 +74,7 @@ end
 "A `World` of `n` traits, or an error that says which model it belongs to."
 @inline function ntraits_world(w::World, n::Int)
     t = w.traits
+    w.p.ReactionNorm && throw(ArgumentError("the image of a step for $n traits got a population with a heritable reaction norm; lower with model = model_of(p), ReactionNormModel()"))
     t !== nothing && t.n == n ||
         throw(ArgumentError("the image of a step for $n traits got a population of $(w.p.NoTraits) trait" *
                             "$(w.p.NoTraits == 1 ? "" : "s"); lower with model = model_of(p)"))
@@ -96,7 +97,20 @@ kernel_images(m::TraitModel, rec = nothing) = merge!(shared_kernel_images(rec), 
     :develop => Operator(:develop, (w, rng) -> QTLSim.develop_traits!(ntraits_world(w, m.n))),
     :select => Operator(:select, (w, rng) -> QTLSim.select_traits!(ntraits_world(w, m.n), rng)),
     :mutate => Operator(:mutate, (w, rng) -> QTLSim.mutate_traits!(ntraits_world(w, m.n), rng))))
+# a heritable reaction norm: TraitModel(2)'s images, but for select, which reads the pair
+# (elevation, slope) through the environment, z = a + b·ε + e (QTLSim.select_norm!)
+kernel_images(::ReactionNormModel, rec = nothing) = merge!(shared_kernel_images(rec), Dict{Symbol,Any}(
+    :develop => Operator(:develop, (w, rng) -> QTLSim.develop_traits!(normworld(w))),
+    :select => Operator(:select, (w, rng) -> QTLSim.select_norm!(normworld(w), rng)),
+    :mutate => Operator(:mutate, (w, rng) -> QTLSim.mutate_traits!(normworld(w), rng))))
 kernel_images(rec = nothing) = kernel_images(OneTraitModel(), rec)
+
+"A `World` with a heritable reaction norm, or an error that says which model it belongs to."
+@inline function normworld(w::World)
+    w.p.ReactionNorm && w.traits !== nothing ||
+        throw(ArgumentError("the reaction-norm model's image of a step got a population of $(model_of(w.p)); lower with model = model_of(p)"))
+    w
+end
 
 """
     with_step_params(model, s::Step, op::Operator)
@@ -141,6 +155,39 @@ function with_step_params(::OneTraitModel, s, op::Operator)
         w
     end, op.scope)
 end
+
+# A heritable reaction norm: its optimum and width are numbers, as for one trait, and its
+# mutation is that of two traits. So a step's `ω` and `θ` (numbers) and its fields of Params
+# act as for one trait, on the optimum of the phenotype (`norm_optimum`), and a `mutate`
+# step's fields as for `TraitModel(2)`.
+function with_step_params(::ReactionNormModel, s, op::Operator)
+    s.name === :mutate && return with_step_params(TraitModel(2), s, op)
+    fields = paramfields(s)
+    ω = get(s.params, :ω, nothing)
+    θ = get(s.params, :θ, nothing)
+    θ === nothing || (fields = merge(fields, (MoveFitnessSDGen = -1,)))
+    cache = Tuple{Params,Params}[]
+    Operator(Symbol(string(s)), function (w, rng)
+        p0, ω0, θ0 = w.p, w.ω, norm_optimum(w)
+        if !isempty(fields)
+            i = cacheindex(cache, p0)
+            i == 0 && (push!(cache, (p0, QTLSim.checkparams(Params(p0; fields...)))); i = length(cache))
+            w.p = cache[i][2]
+        end
+        ω === nothing || (w.ω = ω)
+        θ === nothing || set_norm_optimum!(w, θ)
+        try
+            op(w, rng)
+        finally
+            w.p = p0
+            ω === nothing || (w.ω = ω0)
+            θ === nothing || set_norm_optimum!(w, θ0)
+        end
+        w
+    end, op.scope)
+end
+norm_optimum(w::World) = w.θ
+set_norm_optimum!(w::World, θ) = (w.θ = θ; w)
 
 # the index in `cache`, a vector of tuples whose first element is a deme's Params, of the
 # entry for `p` (the same object, ===), or 0; a linear search allocates nothing, where an

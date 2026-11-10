@@ -28,7 +28,7 @@ end
 
 function cov_select!(m::Moments, sp::QTLSim.AlleleSpectrum)
     S = m.sinv == 0 ? Inf : 1 / m.sinv
-    m.zs = m.zbar + QTLSim.spectrum_select(sp, m.θ - m.zbar, S)
+    m.zs = m.zbar + QTLSim.spectrum_select(sp, m.θ - m.zbar - m.shift, S)
     m
 end
 

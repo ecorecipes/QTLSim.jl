@@ -43,12 +43,15 @@ mutable struct Moments
     cov::Any             # `nothing`, or the demes' expected second moments (`DemeCov`, `between = true`)
     idx::Int             # this deme's index in `cov`
     sinv::Float64        # 1/s, s = ω² + V_P the width of selection on the phenotype (0 when neutral)
+    shift::Float64       # the plastic part (b/B)·θ_{t−τ} of the mean phenotype (Plasticity ≠ 0); `zbar` is the mean genotype
+    cues::Vector{Float64}   # the optima of the last CueLag + 1 generations, the latest first
+    cuegen::Int          # the generation whose optimum was last entered in `cues`
 end
 
 Moments(p::Params; zbar = 0.0, VG = 0.0, erosion = false, cov = nothing, idx = 1) =
     Moments(p, 0, zbar, VG, VG + QTLSim.envVar(p), 0.0, QTLSim.initFitSD(p), p.PopSize, 1.0, 0.0,
             zbar, VG, zbar, VG, false, p.PopSize, p.PopSize, 0.0, erosion, QTLSim.envVar(p), false, 1.0,
-            cov, idx, 0.0)
+            cov, idx, 0.0, 0.0, Float64[], -1)
 
 # --- the multilocus model: expected second moments of the haplotypes ----------------
 #
@@ -184,6 +187,28 @@ end
 
 isextinct(m::Moments) = m.extinct
 
+# The cue of a reaction norm, as QTLSim.plastic_cue! keeps it for a World: enter the optimum
+# `θ` of the current generation in the record of the last CueLag + 1 optima of `m` (a
+# `Moments` or a `TraitMoments`) and return the one CueLag generations ago.
+function moments_cue!(m, θ::Real)
+    c, n = m.cues, m.p.CueLag + 1
+    if isempty(c)
+        append!(c, fill(Float64(θ), n))
+    else
+        while length(c) < n
+            push!(c, c[end])
+        end
+        if m.cuegen != m.gen
+            for i in length(c):-1:2
+                c[i] = c[i-1]
+            end
+        end
+        c[1] = θ
+    end
+    m.cuegen = m.gen
+    c[n]
+end
+
 # QTSim's fitness: pdf(Normal(0, ω), x)/(0.4/ω) = c·exp(−x²/2ω²), with c = 1/(0.4√(2π))
 const FITNESS_PEAK = 1 / (0.4 * sqrt(2π))
 
@@ -202,6 +227,9 @@ function moments_select!(m::Moments; θ = nothing)
         m.θ = p.MoveType === :phenotype ? m.zbar + sqrt(p.PhenotypeVar) * p.MoveFitnessSD :
               p.MoveType === :fitness ? m.zbar + m.ω * p.MoveFitnessSD : m.θ + p.MoveFitnessSD
     end
+    # a reaction norm of fixed slope b (QTLSim.express_plasticity!): the mean phenotype is the
+    # mean genotype plus the plastic part (b/B)·θ_{t−τ}, common to all, so only the lag changes
+    m.shift = p.Plasticity == 0 ? 0.0 : QTLSim.plasticity_ratio(p) * moments_cue!(m, m.θ)
     if p.Drift
         m.Wbar, m.S, m.zs, m.VGs = 1.0, 0.0, m.zbar, m.VG
         m.W2bar, m.sinv = 1.0, 0.0
@@ -210,7 +238,7 @@ function moments_select!(m::Moments; θ = nothing)
         # with λ = θ − z̄ and s = ωe² + V_P, and the genotype regresses on the phenotype
         ωe = p.StandardisePhenotype ? m.ω * sqrt(m.VP) : m.ω
         s = ωe^2 + m.VP
-        λ = m.θ - m.zbar
+        λ = m.θ - m.zbar - m.shift
         m.Wbar = FITNESS_PEAK * ωe / sqrt(s) * exp(-λ^2 / (2s))
         m.S = m.VP * λ / s
         m.zs = m.zbar + m.VG * λ / s
@@ -219,6 +247,10 @@ function moments_select!(m::Moments; θ = nothing)
         # E[W²]: W² is c² times a Gaussian of width ωe/√2
         s2 = ωe^2 + 2m.VP
         m.W2bar = FITNESS_PEAK^2 * ωe / sqrt(s2) * exp(-λ^2 / s2)
+        if p.Plasticity != 0                    # the cost of plasticity, exp(−b²/(2ω_b²)) on every fitness
+            c = QTLSim.plasticity_cost(p)
+            m.Wbar *= c; m.W2bar *= c^2
+        end
     end
     # Fecundity selection (Selection = :fecundity) weights parents by W instead of culling
     # by it: the same selection differential and parents' moments, as the parents'
@@ -256,7 +288,7 @@ end
 function moments_record!(rec, m::Moments)
     (rec === nothing || m.gen % m.p.Sample != 0) && return m
     push!(rec.gen, m.gen); haskey(rec, :deme) && push!(rec.deme, rec.demeof[m])
-    push!(rec.pheno_mean, m.zbar); push!(rec.pheno_var, m.VP)
+    push!(rec.pheno_mean, m.zbar + m.shift); push!(rec.pheno_var, m.VP)
     push!(rec.geno_var, m.cov === nothing || !cov_drift(m.cov) ? m.VG : m.VG * m.N / (m.N - 1)); push!(rec.nsurv, round(Int, m.nsurv)); push!(rec.theta, m.θ)
     push!(rec.omega, m.ω); push!(rec.mean_fitness, m.Wbar); push!(rec.sel_diff, m.S)
     push!(rec.popsize, round(Int, m.N))
@@ -426,7 +458,7 @@ function cov_migrate!(s, ms, M, alive)
         ms[a].VE = sum(P[a, :] .* VE)
         ms[a].VG = _vpop(c, ms[a].idx, max(ms[a].N, 2.0))
     end
-    c.gain === nothing || set_gain!(c, ix, P, alive, [m.sinv * (m.θ - m.zbar) for m in ms])
+    c.gain === nothing || set_gain!(c, ix, P, alive, [m.sinv * (m.θ - m.zbar - m.shift) for m in ms])
     s
 end
 
