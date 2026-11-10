@@ -922,19 +922,24 @@ end
 # --- driver --------------------------------------------------------------
 
 """
-    run!(w, rng; record=true)
+    run!(w, rng; record=true, resume=false)
 
 Iterate the generation operator for `NoGenerations`, replicating QTSim's
 `RunSim` order: develop → select → reproduce → (record) → fitness-width change →
 mutate → swap. Returns a NamedTuple of per-sampled-generation statistics
 (`gen`, `pheno_mean`, `pheno_var`, `geno_var`, `nsurv`, `theta`, `omega`) plus
 `extinct`/`extinct_gen`.
+
+With `resume = true` the run continues a `World` that already has its environmental
+deviations, from its generation `w.gen` to `NoGenerations − 1`, without drawing the
+founders' environments again: for a `World` from [`equilibrium_world`](@ref), which
+starts at a later generation of the protocol.
 """
-function run!(w::World, rng; record::Bool=true)
+function run!(w::World, rng; record::Bool=true, resume::Bool=false)
     p = w.p
-    init_env!(w, rng)
+    resume || init_env!(w, rng)
     rec = records(; traits = p.NoTraits)
-    for it in 0:p.NoGenerations-1
+    for it in (resume ? w.gen : 0):p.NoGenerations-1
         w.gen = it
         generation!(w, rng; rec = record ? rec : nothing)
         w.extinct && return (extinct=true, extinct_gen=it, rec...)
@@ -943,17 +948,32 @@ function run!(w::World, rng; record::Bool=true)
 end
 
 """
-    simulate(p::Params; seed=p.Seed)
+    simulate(p::Params; seed=p.Seed, init=:zero, burnin=nothing, at=QTLSim.first_event(p), target=:genic, spectrum=nothing)
 
 Run one simulation from `Params` with a `MersenneTwister(seed)`, returning the recorded
 statistics (see `run!`) and the `seed`. Without a seed one is drawn at random, and the
 returned `seed` reproduces the run.
 
+`init = :zero` (default) starts from genomes of zeros at generation 0, as QTSim does.
+`init = :equilibrium` starts from a population drawn from the stationary allele-frequency
+spectrum, `burnin` generations (required) before generation `at` of the protocol
+([`equilibrium_world`](@ref)): generations before `at − burnin` are not run and not in
+the output, the rest keep their numbers. The output then also has `start`, the first
+generation run. The same generator draws the population and then runs it. `target` and
+`spectrum` are [`equilibrium_genomes`](@ref)'s.
+
 The same seed gives the same run with the same versions of Julia and Distributions.jl:
 the streams of `rand(rng, 1:n)` and of the Poisson sampler are not guaranteed across
 their releases.
 """
-function simulate(p::Params; seed=p.Seed)
+function simulate(p::Params; seed=p.Seed, init::Symbol=:zero, burnin::Union{Nothing,Integer}=nothing,
+                  at::Integer=first_event(p), target=:genic, spectrum=nothing)
     seed === nothing && (seed = Int(rand(RandomDevice(), UInt32)))
-    merge(run!(World(p), MersenneTwister(seed)), (; seed))
+    init === :zero && return merge(run!(World(p), MersenneTwister(seed)), (; seed))
+    init === :equilibrium || throw(ArgumentError("init is :zero or :equilibrium; got :$init"))
+    burnin === nothing && throw(ArgumentError("init = :equilibrium needs burnin, the generations run before generation `at`"))
+    rng = MersenneTwister(seed)
+    w = equilibrium_world(p, rng; burnin, at, target, spectrum = spectrum === nothing ? stationary_spectrum(p) : spectrum)
+    start = w.gen
+    merge(run!(w, rng; resume = true), (; seed, start))
 end

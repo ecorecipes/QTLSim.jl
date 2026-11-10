@@ -134,19 +134,26 @@ function sweep(f, jobs; cache::Union{Nothing,AbstractString} = nothing, id = ide
 end
 
 """
-    replicate(p::Params, n; seed = 1, summary = identity, kw...)
+    replicate(p::Params, n; seed = 1, summary = identity, init = :zero, burnin = nothing, kw...)
 
 Run `n` simulations of `p` with the seeds `seed, seed + 1, …, seed + n - 1`, in parallel,
 and return `summary` of each run's output (see [`simulate`](@ref)), in the order of the
 seeds. The runs go through [`sweep`](@ref), which takes the other keywords. A `cache` is
-keyed by the seed, and `summary` must then return a `NamedTuple`.
+keyed by the seed, and `summary` must then return a `NamedTuple`. `init`, `burnin`, `at`
+and `target` are [`simulate`](@ref)'s: `init = :equilibrium` with a `burnin` starts every
+run from a population drawn from the stationary spectrum ([`equilibrium_world`](@ref)).
 
 ```julia
 VG = replicate(Params(NoGenerations = 2000), 100; summary = o -> o.geno_var[end])
 ```
 """
-replicate(p::Params, n::Integer; seed::Integer = 1, summary = identity, kw...) =
-    sweep(s -> summary(simulate(p; seed = s)), seed:seed+n-1; kw...)
+function replicate(p::Params, n::Integer; seed::Integer = 1, summary = identity, init::Symbol = :zero,
+                   burnin::Union{Nothing,Integer} = nothing, at::Integer = first_event(p), target = :genic, kw...)
+    init === :equilibrium || return sweep(s -> summary(simulate(p; seed = s, init, burnin, at, target)), seed:seed+n-1; kw...)
+    spectrum = stationary_spectrum(p)                 # once for all the runs, as the target
+    target = init_target(p, spectrum, target)
+    sweep(s -> summary(simulate(p; seed = s, init, burnin, at, target, spectrum)), seed:seed+n-1; kw...)
+end
 
 # --- the CSV cache ---------------------------------------------------------
 
