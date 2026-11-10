@@ -245,6 +245,7 @@ end
 ⊗(p::Params, d::Demes) = (pool = QTLSim.BlockPool(p.NoQTL; traits = p.NoTraits); Stratified([World(p; pool) for _ in 1:d.k]))
 function ⊗(w::World, d::Demes)
     w1 = deepcopy(w)
+    w1.anc = nothing                 # the copies record no pedigree: record_pedigree!(w ⊗ demes(k))
     Stratified([w1; [QTLSim.shared_copy(w1) for _ in 2:d.k]])
 end
 function ⊗(ps::AbstractVector{Params}, d::Demes)
@@ -257,6 +258,12 @@ function ⊗(ps::AbstractVector{Params}, d::Demes)
 end
 
 isextinct(s::Stratified) = all(w -> w.extinct, s.demes)
+
+# the pedigree of a metapopulation, and identity by descent among its demes (src/ancestry.jl)
+QTLSim.record_pedigree!(s::Stratified; kw...) = QTLSim.record_pedigree!(s.demes; kw...)
+QTLSim.tag_founders!(s::Stratified) = QTLSim.tag_founders!(s.demes)
+QTLSim.ibd_sharing(s::Stratified) = QTLSim.ibd_sharing(s.demes)
+QTLSim.ibd_fst(s::Stratified) = QTLSim.ibd_fst(s.demes)
 totalpop(s::Stratified) = sum(w -> w.N, s.demes; init=0)
 ndemes(s::Stratified) = length(s.demes)
 

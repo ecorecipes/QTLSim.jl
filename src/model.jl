@@ -90,6 +90,10 @@ block. So a generation costs about `N·√L` operations rather than `N·L`.
 Read the genomes with [`genomes`](@ref) and write them with [`setgenomes!`](@ref), which
 convert to and from a dense `(NoQTL, Ploidy, n)` array.
 
+Chromosomes that hold the same block are identical by descent over it
+([`shared_blocks`](@ref)); `anc` is `nothing` unless a pedigree is being recorded
+([`record_pedigree!`](@ref)).
+
 Every slot of both buffers, all `PopSize` columns, holds one reference to a live block
 at all times. A slot drops its reference only when it is overwritten, after it has
 taken the new one: by [`reproduce!`](@ref) in the offspring buffer, which after a swap
@@ -129,6 +133,7 @@ mutable struct World
     wsum::Float64        # then: the sum of their fitnesses, ΣW
     cumw::Vector{Float64}   # and the cumulative sums of the fitnesses of 1:N
     traits::Union{Nothing,TraitState}   # NoTraits > 1: the traits (genotype etc. then hold trait 1)
+    anc::Union{Nothing,Ancestry{World}} # the pedigree being recorded (record_pedigree!), or nothing
 end
 
 function World(p::Params; blocksize::Integer = default_blocksize(p.NoQTL),
@@ -155,7 +160,7 @@ function World(p::Params; blocksize::Integer = default_blocksize(p.NoQTL),
           zeros(N), zeros(N), zeros(N),
           sizehint!(Int[], N), 0, 0.0, initFitSD(p),
           copy(chr), zeros(N), false, N, N, 0.0, 0.0, sizehint!(Int[], 16), false, 0.0, zeros(N),
-          p.NoTraits == 1 ? nothing : TraitState(p, N))
+          p.NoTraits == 1 ? nothing : TraitState(p, N), nothing)
 end
 
 """
@@ -167,7 +172,7 @@ blocks, one more reference each. `World ⊗ demes(k)` makes its demes this way.
 function shared_copy(w::World)
     v = World(w.p; pool = w.pool)
     for f in fieldnames(World)
-        f in (:p, :pool, :chr, :schr) && continue
+        f in (:p, :pool, :chr, :schr, :anc) && continue   # a copy records no pedigree
         setfield!(v, f, deepcopy(getfield(w, f)))
     end
     for (dst, src) in ((v.chr, w.chr), (v.schr, w.schr)), i in eachindex(src)
@@ -277,6 +282,7 @@ function exchange_genomes!(w::World, i::Integer, v::World, j::Integer)
             setchromosome!(pv, v.chr, c, j, view(gi, :, c))
         end
     end
+    (w.anc === nothing && v.anc === nothing) || exchange_ancestry!(w, i, v, j)
     nothing
 end
 
@@ -602,9 +608,11 @@ function gamete_blocks!(w::World, c::Int, j::Int, par::Int, rng, recombMean::Flo
     pb1 = nb * P * (par - 1)
     pb2 = pb1 + nb
     db = nb * ((c - 1) + P * (j - 1))
+    anc = w.anc
     npts = rand(rng, Poisson(recombMean))
     if npts == 0 || npts >= L
         pb = rand(rng, Bool) ? pb1 : pb2
+        anc === nothing || inherit!(anc, c, j, par, pb == pb1 ? 1 : 2)
         @inbounds for k in 1:nb
             share!(pool, schr, db + k, chr[pb + k])
         end
@@ -622,6 +630,7 @@ function gamete_blocks!(w::World, c::Int, j::Int, par::Int, rng, recombMean::Flo
         pts[1] = minimum(pts)
         npts = 1
     end
+    anc === nothing || inherit!(anc, c, j, par, pb == pb1 ? 1 : 2, pts, npts)
     # A switch after 0-based locus x: loci 1:x+1 (1-based) come from the current strand.
     # Block k holds loci lo:hi; a switch with x+1 < hi falls inside it, x+1 == hi on its
     # end, which changes the strand for the blocks after it only.
@@ -709,11 +718,13 @@ function reproduce!(w::World, rng)
     n = w.Noff = noffspring(w, rng)
     n == 0 && (w.extinct = true; return w)
     pool, chr, schr = w.pool, w.chr, w.schr
+    anc = w.anc
     w.weighted && return reproduce_weighted!(w, rng, n, esd, allpts)
     if p.Ploidy == 1
         @inbounds for j in 1:n
             par = w.survivors[rand(rng, 1:w.nsurv)]
             nb = size(chr, 1)
+            anc === nothing || (newborn!(anc, j, par, 0); inherit!(anc, 1, j, par, 1))
             for k in 1:nb
                 share!(pool, schr, nb * (j - 1) + k, chr[nb * (par - 1) + k])
             end
@@ -726,6 +737,7 @@ function reproduce!(w::World, rng)
             while p2 == p1
                 p2 = w.survivors[rand(rng, 1:w.nsurv)]
             end
+            anc === nothing || newborn!(anc, j, p1, p2)
             gamete_blocks!(w, 1, j, p1, rng, p.RecombPoissonMean, allpts)
             gamete_blocks!(w, 2, j, p2, rng, p.RecombPoissonMean, allpts)
             newenv!(w, j, esd, rng)
@@ -751,9 +763,11 @@ end
 function reproduce_weighted!(w::World, rng, n, esd, allpts)
     p, pool, chr, schr = w.p, w.pool, w.chr, w.schr
     nb = size(chr, 1)
+    anc = w.anc
     @inbounds for j in 1:n
         if p.Ploidy == 1
             par = weighted_parent(w, rng)
+            anc === nothing || (newborn!(anc, j, par, 0); inherit!(anc, 1, j, par, 1))
             for k in 1:nb
                 share!(pool, schr, nb * (j - 1) + k, chr[nb * (par - 1) + k])
             end
@@ -767,6 +781,7 @@ function reproduce_weighted!(w::World, rng, n, esd, allpts)
                 p2 = tries < 100 ? weighted_parent(w, rng) : weighted_parent_except(w, rng, p1)
                 tries += 1
             end
+            anc === nothing || newborn!(anc, j, p1, p2)
             gamete_blocks!(w, 1, j, p1, rng, p.RecombPoissonMean, allpts)
             gamete_blocks!(w, 2, j, p2, rng, p.RecombPoissonMean, allpts)
         end
@@ -797,12 +812,15 @@ function mutate_one!(w::World, rng)
     λ = L * rate
     pool, schr = w.pool, w.schr
     B = pool.B
+    anc = w.anc
+    recm = anc !== nothing && anc.ped.mutations
     @inbounds for j in 1:w.Noff
         for c in 1:p.Ploidy
             no = rand(rng, Poisson(λ))
             for _ in 1:no
                 pos = rand(rng, 1:L)
                 x = mutsd * randn(rng)
+                recm && (mutation!(anc, c, j, pos); push!(anc.ped.mut_effect, x))
                 k = (pos - 1) ÷ B + 1
                 len = blocklen(pool, k)
                 id = schr[k, c, j]
@@ -832,6 +850,7 @@ function swapbuffers!(w::World)
     t = w.traits
     t === nothing || ((t.E, t.SE) = (t.SE, t.E))
     w.N = w.Noff
+    w.anc === nothing || swap_ancestry!(w)
     w
 end
 

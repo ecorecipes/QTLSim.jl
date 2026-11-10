@@ -135,6 +135,8 @@ function mutate_traits!(w::World, rng)
     λ = L * p.MutationRatePerGamete
     pool, schr, Lm, ξ = w.pool, w.schr, t.Lmut, t.ξ
     B = pool.B
+    anc = w.anc
+    recm = anc !== nothing && anc.ped.mutations
     @inbounds for j in 1:w.Noff
         for c in 1:p.Ploidy
             no = rand(rng, Poisson(λ))
@@ -143,6 +145,7 @@ function mutate_traits!(w::World, rng)
                 for r in 1:n
                     ξ[r] = randn(rng)
                 end
+                recm && mutation!(anc, c, j, pos)
                 k = (pos - 1) ÷ B + 1
                 len = blocklen(pool, k)
                 id = schr[k, c, j]
@@ -158,6 +161,7 @@ function mutate_traits!(w::World, rng)
                         x += Lm[r, s] * ξ[s]
                     end
                     pool.vals[o + r] += x
+                    recm && push!(anc.ped.mut_effect, x)
                 end
                 blocksum!(pool, id, len)
             end

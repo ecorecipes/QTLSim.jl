@@ -22,6 +22,7 @@ include("params.jl")
 include("models.jl")
 include("qtsim_io.jl")
 include("blocks.jl")
+include("pedigree.jl")
 include("model.jl")
 include("traits.jl")
 include("theory.jl")
@@ -32,6 +33,7 @@ include("rare_alleles_traits.jl")
 include("local_alleles.jl")
 include("spectrum.jl")
 include("migration.jl")
+include("ancestry.jl")
 include("categorical.jl")
 include("sweep.jl")
 
@@ -59,6 +61,12 @@ export island_migration, stepping_stone
 # neutral differentiation among demes (F_ST, Q_ST)
 export backward_migration, deme_coalescence, neutral_deme_variances, exchange_origins, qst_island, island_variances, fst_stepping_stone,
        pair_recombination
+# ancestry: identity by descent from block ids, recorded pedigrees, coalescence times, tree-sequence tables
+export tag_founders!, shared_blocks, ibd_fraction, ibd_sharing, ibd_fst,
+       Pedigree, record_pedigree!, stop_recording!, simplify!, samples, pedigree_time, pedigree_bytes,
+       marginal_tree, mrca, tmrca, allele, alleles, pedigree_ibd,
+       PairCoalescence, pair_coalescence, coalescence_cdf, coalescence_mean, coalescence_transform,
+       tskit_tables, write_tskit, read_tskit, check_tables, table_tmrca
 # the categorical layer (implemented by QTLSimCatlabExt; load Catlab to use it)
 export lifecycle, withparams, lower, slim_script, operators, operator, demes, run_composed, migrate!,
        migration, totalpop, ndemes, population_schema, lift, lower!, genotypes, phenotypes,

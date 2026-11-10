@@ -8,6 +8,43 @@ All notable changes to QTLSim.jl are recorded here. The format follows
 
 ### Added
 
+- **Ancestry: identity by descent from the block pool, pedigrees, coalescence times,
+  tree-sequence tables** (`src/ancestry.jl`, `src/pedigree.jl`; roadmap F3).
+  - *Block identity, free.* Two chromosomes that hold the same block id are identical by
+    descent over that block, with no mutation and no crossover inside the block since
+    their common ancestor; different ids imply nothing (`shared_blocks` states this
+    exactly). `ibd_fraction`, `ibd_sharing` (all pairs within individuals, within and
+    between demes, per block and genome-wide, in time linear in the chromosomes) and
+    `ibd_fst`. `tag_founders!` gives each founder chromosome its own blocks, so that ids
+    count descent from individual founders and not from the shared block of zeros.
+  - *Pedigrees, off by default.* `record_pedigree!(w)` (or of the demes of a
+    metapopulation) records every offspring chromosome's parental chromosomes and
+    crossovers, the mutations with their effects, and the migrations, as tree-sequence
+    tables (`Pedigree`). It draws no random numbers: the run is the same bit for bit, and
+    without a pedigree a generation still allocates nothing. `simplify!`
+    (Kelleher et al. 2018; `simplify_every = n`) bounds memory by keeping the genealogy
+    of the living chromosomes. Every allele of the living population can be rebuilt from
+    the pedigree alone, bit for bit (`allele`, `alleles`).
+  - *Realised coalescence times.* `pair_coalescence` counts, for every pair of living gene
+    copies at every locus, the time to their most recent common ancestor, within
+    individuals, within demes and between demes (`coalescence_cdf`, `coalescence_mean`,
+    `tmrca`, `marginal_tree`, `pedigree_ibd`): a direct test of `deme_coalescence`.
+  - *Tree-sequence export.* `tskit_tables`, `write_tskit`, `read_tskit`, `check_tables`:
+    nodes, edges, individuals, populations, sites, mutations and migrations in tskit's text
+    format. **Not loaded into tskit** (no Python here): the tables are checked in Julia
+    against tskit's documented requirements and round-tripped through the text files.
+  - Cost (`validate/coalescence.log`, N = 1000, one thread, a busy machine): recording
+    without simplification takes 1.2–1.9× the time of a plain generation and 138 kB per
+    generation (one mutation and one crossover per gamete); simplifying every 100
+    generations 2.5–3.2×, with tables of 1.3–1.8 MB after 500 generations.
+  - `validate/coalescence.jl` (criteria in its header; amended once after a 6-run smoke
+    test, before the first full run, and one script bug fixed after it, both described
+    there): 300 runs each of one deme, islands of 4 and 10 demes at Nm = 0.1, 1, 10 and a
+    ring of 8 demes, censuses at 50, 200 and 800 generations. 424 z tests of
+    E[min(T, t)] and P(T ≤ s) against `deme_coalescence` fed `migrate!`'s own law of
+    pairs' origins: max |z| 2.87 (PASS). Block identity never contradicts the pedigree
+    (2,700 runs); with blocks of one locus it is equivalent to identity by descent without
+    mutation in all of 900 runs, and its probability matches Σ P(T) e^{−2μT} (max |z| 1.41).
 - **Locally favoured alleles in metapopulations: `run_moments(...; loci = :rare_local)`**
   (`src/local_alleles.jl`). The rare-alleles closure takes every mutant to be deleterious
   wherever it is; under local adaptation with migration, demes lag behind different
