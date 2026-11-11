@@ -17,7 +17,7 @@ All notable changes to QTLSim.jl are recorded here. The format follows
   optimum of the generation is set, so its fields are parameters of `select`
   (`withparams(L.select; Plasticity = 0.5)`), and demes can have their own. All three
   lowerings: the kernel, `run_moments` and `slim_script`
-  (`validate/slim/compare_plasticity.jl`). QTSim's `:phenotype` and `:fitness` moves
+  (`validate/slim/compare_plasticity.jl`, no discrepancy, smallest KS p 0.26). QTSim's `:phenotype` and `:fitness` moves
   re-anchor the optimum to the mean phenotype and are rejected with plasticity.
   Theory, derived from the moments recursion: `steady_lag`, `critical_rate`,
   `red_noise_lag_var`, `expected_lag2` and `lag_load` take the slope, the optimum's slope
