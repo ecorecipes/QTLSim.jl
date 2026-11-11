@@ -62,6 +62,18 @@ job. `common.jl` holds the shared helpers.
   (adults) and `K(RW̄ − 1)/(R − 1)` (survivors) and their stability, against
   `expected_offspring`; the thinned Poisson pgf of the Galton–Watson process, against
   `rescue_probability` and `extinction_distribution(:branching)`.
+- `check_init.jl` (40) — the initialisation from theory (src/init.jl): the density sampled,
+  `e^{−γx(1−x)}∫ₓ¹e^{γy(1−y)}dy/(x(1−x))`, is stationary for the code's selection and drift
+  (constant flux `1/(4n)`, equal to the mutations' input times their fixation probability
+  to first order in `1/(2N)`); its variance `4nLμE[a²J(γ)]` with `J = ∫₀¹e^{−γx(1−x)}dx`,
+  the series of `J`, the neutral limit exactly and the house-of-cards and Gaussian limits
+  to leading order in `1/γ`, Hermisson and Wagner's A4 as the same equation with
+  `J → 1/(1 + γ/2)`; the sampler's counts (`θ/k`, `Beta(k, m − k + 1)`) and the exact
+  expected sample variance `2a²x(1−x)`; the stationary variance of the mean genotype;
+  `sojourn_mass`, `sojourn_ratio` (at most 1) and `stationary_spectrum` against brute-force
+  quadrature and `spectrum_vg`, and the sampler's Monte Carlo means. It found that
+  `spectrum_equilibrium`'s default 20 effect classes put its `V_G` 16% above the diffusion's
+  in a house-of-cards cell (1.2% with 80 classes).
 
 Square roots are handled by reducing a polynomial in `r = √D` modulo `r² = D`. Large
 rational identities are checked by substituting a closed form into the equations it

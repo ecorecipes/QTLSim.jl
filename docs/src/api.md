@@ -34,6 +34,30 @@ gamete!
 swapbuffers!
 ```
 
+## Populations initialised from theory
+
+A run from zero genomes spends its first thousands of generations building its standing
+variation. `simulate(p; init = :equilibrium, burnin = B)` (and `replicate` with the same
+keywords) instead starts from a population drawn from the stationary allele-frequency
+spectrum of mutation, stabilising selection and drift (`stationary_spectrum`, src/init.jl),
+`B` generations before the first change of selection, and keeps the protocol's generation
+numbers. The draw is in linkage equilibrium; the burn-in restores the rest. How long it
+must be, and what it saves, is measured in `validate/init_equilibrium.jl`. One diploid
+trait, fixed size, viability selection, kernel only.
+
+```@docs
+equilibrium_world
+equilibrium_genomes
+stationary_spectrum
+QTLSim.stationary_sites
+QTLSim.stationary_density
+QTLSim.stationary_mean_var
+QTLSim.sojourn_mass
+QTLSim.sojourn_ratio
+QTLSim.protocol_start
+QTLSim.first_event
+```
+
 ## Sweeps and replicates
 
 ```@docs

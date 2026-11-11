@@ -92,7 +92,14 @@
 # suggested grid {0, 100, 300, 1000}. No run of this script had been made when the criteria
 # were written.
 #
-# HISTORY. (filled in after the runs)
+# HISTORY. Run 1 (SEED_OFFSET = 0, R = 200, 3 threads) started 2026-11-10 15:30 at commit
+# 33838d6 and was killed by a session restart on 2026-11-11 (last row 11:08) with 2,552 of
+# the 4,800 cell rows in the cache (REF and B = 3000 of every cell, all of P1000, 152 of
+# P100's B = 1000). It was resumed from the cache on 2026-11-11 with the same code, grid,
+# criteria and seeds (the cache is keyed by job id and each job's seed is a function of its
+# id, so the rows are those of an uninterrupted run; two cached rows, P100|1000|3 and
+# P100|3000|7, were recomputed before resuming and agreed bit for bit). The only change
+# was the log line counting cached rows.
 
 using QTLSim, Statistics, Printf, Random
 using HypothesisTests: ApproximateTwoSampleKSTest, FisherExactTest, pvalue
@@ -260,6 +267,8 @@ armname(B) = B < 0 ? "REF" : "B=$B"
 jobs = [(; ci, B, i) for ci in eachindex(CELLS) for B in ARMS for i in 1:R]
 jobseed(j) = SEED_OFFSET + 1_000_000 * j.ci + 10_000 * (findfirst(==(j.B), ARMS) - 1) + j.i
 jobcost(j) = CELLS[j.ci].p.NoQTL^0.5 * ((j.B < 0 ? T0 : j.B) + CAP + SLOW)
+ncached = isfile(CACHE) ? max(0, countlines(CACHE) - 1) : 0
+ncached > 0 && say("\nresuming: $ncached rows already in $(basename(CACHE)) (not rerun; same seeds, keyed by job id)")
 t0 = time()
 rows = sweep(jobs; cache = CACHE, id = j -> "$(CELLS[j.ci].name)|$(j.B)|$(j.i)", cost = jobcost, progress = SMOKE ? 0 : 200) do j
     run_one(CELLS[j.ci], j.B, jobseed(j), theories[j.ci])
