@@ -99,7 +99,26 @@
 # criteria and seeds (the cache is keyed by job id and each job's seed is a function of its
 # id, so the rows are those of an uninterrupted run; two cached rows, P100|1000|3 and
 # P100|3000|7, were recomputed before resuming and agreed bit for bit). The only change
-# was the log line counting cached rows.
+# was the log line counting cached rows. The remaining 2,248 cell rows took 402 s on 3
+# threads, the PUB part 5151 s; the same two rows also reproduce bit for bit after the
+# merge of main (ancestry, plasticity) into this branch.
+#
+# RESULTS of run 1 (init_equilibrium.log). Smallest burn-in from which no larger B fails:
+#   P100  B = 100  (INCONCLUSIVE: adv200's interval reaches 0.86; B = 1000 and 3000 PASS);
+#   P1000 B = 1000 (INCONCLUSIVE: adv200 [1.003, 1.163]; B = 0, 100, 300 FAIL on vg0, ld0,
+#         text, vg200: V_G starts 11% high with too little spread and is still 5% high at
+#         B = 300);
+#   G     B = 3000 (PASS; B = 0–1000 FAIL: the default target, the moments' genic 6.28,
+#         is 5% above the reference's genic 5.96, and the excess decays over thousands of
+#         generations: genic0 +3.4% at B = 1000, +1.4% (n.s.) at 3000);
+#   H     B = 100  (INCONCLUSIVE: text's interval wide, as expected; B = 0 FAILS on ld0);
+#   PUB   B = 300 and B = 1000 PASS (vg0 1.011 [0.970, 1.053], text 1.004 [0.995, 1.014]
+#         at B = 300).
+# Every failure is at a burn-in smaller than the cell's answer, so none is the isolated
+# chance failure the criteria allow for, and no fresh-seed run was needed. TIME (no
+# extinction, one thread): ×5.7 (P100, B = 100), ×3.7 (P1000, B = 1000), ×2.4 (G,
+# B = 3000), ×5.6 (H, B = 100) less wall time for a run capped 2000 generations after the
+# move; the draw itself costs about 0.1 s at most.
 
 using QTLSim, Statistics, Printf, Random
 using HypothesisTests: ApproximateTwoSampleKSTest, FisherExactTest, pvalue

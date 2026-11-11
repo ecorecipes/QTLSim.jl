@@ -8,6 +8,26 @@ All notable changes to QTLSim.jl are recorded here. The format follows
 
 ### Added
 
+- **Populations initialised from theory** (`src/init.jl`; roadmap F1). `stationary_spectrum(p)`
+  is the stationary allele-frequency spectrum of mutation, stabilising selection at a fixed
+  optimum and drift (infinite sites, linkage equilibrium, a closed form solved for V_G);
+  `equilibrium_genomes` samples genomes from it (genic variance scaled by default to
+  `multilocus_equilibrium(p; drift = true).genic`, the mean genotype drawn from its
+  stationary law); `equilibrium_world(p, rng; burnin, at)` starts a `World` `burnin`
+  generations before the first change of selection, keeping the protocol's generation
+  numbers; `simulate`/`replicate(…; init = :equilibrium, burnin)` and
+  `run!(w, rng; resume = true)`. Defaults unchanged (`init = :zero`). One diploid trait,
+  fixed size, viability selection, no `StandardisePhenotype`, a reaction norm only without
+  a cost; anything else is an `ArgumentError`.
+  - `validate/init_equilibrium.jl` (criteria written before the first run; 200 populations
+    per arm against 10,000 generations from zero, then a fast and a slow continuous move):
+    the burn-in needed is B = 100 in the paper's 100-locus regime and in a house-of-cards
+    cell, B = 1000 with 1000 loci (the missing LD and the narrow spread of V_G take
+    longer), and B = 3000 in a Gaussian-regime cell, where the default genic target is
+    5% high and the excess decays slowly. On 16 published inputs B = 300 and 1000 pass.
+    Wall time for a run capped 2000 generations after the move: ×5.7, ×3.7, ×2.4 and ×5.6
+    less. `validate/symbolic/check_init.jl`: 40 checks.
+
 - **Ancestry: identity by descent from the block pool, pedigrees, coalescence times,
   tree-sequence tables** (`src/ancestry.jl`, `src/pedigree.jl`; roadmap F3).
   - *Block identity, free.* Two chromosomes that hold the same block id are identical by

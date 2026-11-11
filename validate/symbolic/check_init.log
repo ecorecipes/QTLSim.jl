@@ -60,5 +60,5 @@ QTLSim validate/symbolic/check_init.jl (Symbolics 7.48.0)
   sampler: the mean genotype is N(0, S/(n(2−b))) (mean within 4 SE of 0, variance within 10%) ok
   sampler: target = 2V doubles the genic variance (within 4 SE), mean = 0.3 sets the mean genotype ok
 
-40 checks, 0 failed; 36 s
+40 checks, 0 failed; 24 s
 PASS

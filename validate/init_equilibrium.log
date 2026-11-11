@@ -1,0 +1,209 @@
+QTLSim validate/init_equilibrium.jl: R = 200 per arm, T0 = 10000, burn-ins (0, 100, 300, 1000, 3000), cap 2000, slow move 1000 generations, SEED_OFFSET = 0, 3 threads
+power of the KS test at α = 0.01, 200 per arm (2000 simulated pairs): shift 0.3 SD 0.46, 0.4 SD 0.79, 0.5 SD 0.95; SD ratio 0.75 0.07, 0.6 0.55, 0.5 0.95; no difference 0.006
+
+theory per cell: the stationary spectrum's V (linkage equilibrium), the moments equilibrium (rare alleles, drift), the sampler's target and sites
+  P100   spectrum V 0.12362  moments V_G 0.11779 genic 0.12187 ld -0.00408  target 0.12187  sites 319  n 994.5  SD(mean genotype) 0.1155  k_fast 0.03 k_slow 0.00492
+  P1000  spectrum V 0.1402  moments V_G 0.1275 genic 0.1402 ld -0.0127  target 0.1402  sites 3245  n 994.2  SD(mean genotype) 0.1156  k_fast 0.03 k_slow 0.00492
+  G      spectrum V 6.4187  moments V_G 4.2448 genic 6.2758 ld -2.031  target 6.2758  sites 27138  n 934.8  SD(mean genotype) 0.1795  k_fast 0.3 k_slow 0.1
+  H      spectrum V 0.47878  moments V_G 0.50915 genic 0.54056 ld -0.0314  target 0.54056  sites 51  n 987.7  SD(mean genotype) 0.1611  k_fast 0.5 k_slow 0.1
+
+resuming: 2552 rows already in init_equilibrium_runs.csv (not rerun; same seeds, keyed by job id)
+
+4800 populations in 402 s (cached rows are not rerun)
+
+====================================================================================================
+P100: 200 populations per arm
+  arm      dead<T0   vg0 mean ± se (CV)        genic0            ld0        SD(zbar0)   text median [q10, q90]  alive fast  alive slow   adv200      vg200      vg1000     lag1000
+  REF         0       0.1183 ± 0.0016   (0.197)    0.1215 ± 0.0016     -0.0032     0.1121        929 [  855,   999]         0        200       0.001677     0.1174     0.1125      1.138
+  B=0         0       0.1222 ± 0.0014   (0.166)    0.1219 ± 0.0013    0.000298      0.115        936 [  861,  1014]         0        200       0.001645     0.1197     0.1142      1.126
+  B=100       0       0.1191 ± 0.0016   (0.194)    0.1215 ± 0.0016    -0.00241     0.1272        930 [  858,  1016]         0        200       0.001563     0.1159     0.1132      1.132
+  B=300       0       0.1194 ± 0.0015   (0.180)    0.1234 ± 0.0015    -0.00397     0.1166        935 [  853,  1003]         0        200       0.001742       0.12     0.1126      1.123
+  B=1000      0       0.1195 ± 0.0016   (0.193)    0.1231 ± 0.0015    -0.00367     0.1123        928 [  851,   992]         0        200       0.001692     0.1172     0.1142      1.123
+  B=3000      0       0.1154 ± 0.0015   (0.184)    0.1177 ± 0.0014    -0.00232     0.1225        917 [  859,  1004]         0        200       0.001699     0.1145      0.112      1.144
+  against REF: KS p of each measure; ratio of means [95% interval]
+  B=0:
+    KS p   vg0 0.0681  genic0 0.465  ld0 5.4e-07  zbar0 0.997  text 0.711  adv200 0.627  vg200 0.393  vg1000 0.792  lag1000 0.711
+    ratio  vg0 1.033 [0.997, 1.070]  genic0 1.004 [0.970, 1.038]  text 1.007 [0.995, 1.020]  adv200 0.981 [0.903, 1.058]  vg200 1.020 [0.981, 1.059]  vg1000 1.015 [0.976, 1.054]  lag1000 0.990 [0.955, 1.024]
+    Fisher p  alive at the fast cap 1, alive at the slow end 1
+    FAIL: KS ld0 p = 5.4e-07
+  B=100:
+    KS p   vg0 0.792  genic0 0.923  ld0 0.27  zbar0 0.112  text 0.327  adv200 0.0681  vg200 0.465  vg1000 0.627  lag1000 0.792
+    ratio  vg0 1.007 [0.968, 1.045]  genic0 1.000 [0.964, 1.036]  text 1.006 [0.994, 1.019]  adv200 0.932 [0.856, 1.008]  vg200 0.988 [0.949, 1.027]  vg1000 1.005 [0.967, 1.044]  lag1000 0.995 [0.960, 1.029]
+    Fisher p  alive at the fast cap 1, alive at the slow end 1
+    INCONCLUSIVE (equivalence within 10% not shown: adv200 [0.856, 1.008])
+  B=300:
+    KS p   vg0 0.792  genic0 0.465  ld0 0.465  zbar0 0.627  text 0.711  adv200 0.22  vg200 0.393  vg1000 0.864  lag1000 0.792
+    ratio  vg0 1.010 [0.972, 1.047]  genic0 1.016 [0.980, 1.051]  text 1.002 [0.991, 1.014]  adv200 1.039 [0.960, 1.117]  vg200 1.023 [0.982, 1.063]  vg1000 1.000 [0.962, 1.039]  lag1000 0.987 [0.952, 1.021]
+    Fisher p  alive at the fast cap 1, alive at the slow end 1
+    INCONCLUSIVE (equivalence within 10% not shown: adv200 [0.960, 1.117])
+  B=1000:
+    KS p   vg0 0.792  genic0 0.393  ld0 0.627  zbar0 0.923  text 0.997  adv200 0.327  vg200 0.864  vg1000 0.27  lag1000 0.465
+    ratio  vg0 1.010 [0.971, 1.048]  genic0 1.014 [0.978, 1.049]  text 0.999 [0.987, 1.011]  adv200 1.009 [0.935, 1.083]  vg200 0.999 [0.961, 1.036]  vg1000 1.015 [0.976, 1.053]  lag1000 0.987 [0.952, 1.021]
+    Fisher p  alive at the fast cap 1, alive at the slow end 1
+    PASS
+  B=3000:
+    KS p   vg0 0.393  genic0 0.142  ld0 0.711  zbar0 0.711  text 0.544  adv200 0.465  vg200 0.393  vg1000 0.923  lag1000 0.987
+    ratio  vg0 0.975 [0.939, 1.012]  genic0 0.969 [0.935, 1.002]  text 0.994 [0.981, 1.006]  adv200 1.013 [0.940, 1.086]  vg200 0.976 [0.937, 1.014]  vg1000 0.995 [0.958, 1.031]  lag1000 1.005 [0.972, 1.038]
+    Fisher p  alive at the fast cap 1, alive at the slow end 1
+    PASS
+  P100: smallest burn-in from which none fails: B = 100 (INCONCLUSIVE)
+
+====================================================================================================
+P1000: 200 populations per arm
+  arm      dead<T0   vg0 mean ± se (CV)        genic0            ld0        SD(zbar0)   text median [q10, q90]  alive fast  alive slow   adv200      vg200      vg1000     lag1000
+  REF         0        0.126 ± 0.0013   (0.146)    0.1393 ± 0.00068    -0.0133     0.1219        905 [  863,   946]         0        200       0.001685      0.125     0.1087      1.112
+  B=0         0       0.1396 ± 0.00065  (0.066)    0.1399 ± 0.0005   -0.000323     0.1172        932 [  890,   985]         0        200       0.001845     0.1315     0.1126      1.095
+  B=100       0       0.1324 ± 0.0012   (0.124)    0.1393 ± 0.00054   -0.00693      0.119        920 [  882,   961]         0        200       0.001774     0.1332     0.1115      1.101
+  B=300       0       0.1324 ± 0.0011   (0.119)    0.1395 ± 0.00054   -0.00714     0.1166        917 [  869,   960]         0        200       0.001891     0.1315     0.1136      1.083
+  B=1000      0       0.1301 ± 0.0014   (0.150)    0.1396 ± 0.0006    -0.00949     0.1144        907 [  872,   952]         0        200       0.001825     0.1299     0.1107      1.127
+  B=3000      0       0.1257 ± 0.0013   (0.146)    0.1384 ± 0.00073    -0.0127     0.1187        906 [  865,   948]         0        200        0.00174     0.1257     0.1079       1.12
+  against REF: KS p of each measure; ratio of means [95% interval]
+  B=0:
+    KS p   vg0 2.79e-21  genic0 0.0397  ld0 1.2e-28  zbar0 0.864  text 1.66e-08  adv200 0.112  vg200 0.00437  vg1000 0.00307  lag1000 0.393
+    ratio  vg0 1.108 [1.084, 1.133]  genic0 1.005 [0.993, 1.016]  text 1.031 [1.024, 1.038]  adv200 1.095 [1.013, 1.177]  vg200 1.052 [1.025, 1.080]  vg1000 1.035 [1.009, 1.062]  lag1000 0.985 [0.959, 1.011]
+    Fisher p  alive at the fast cap 1, alive at the slow end 1
+    FAIL: KS vg0 p = 2.8e-21; KS ld0 p = 1.2e-28; KS text p = 1.7e-08; KS vg200 p = 0.0044; KS vg1000 p = 0.0031; ratio vg0 1.108 [1.084, 1.133]
+  B=100:
+    KS p   vg0 0.000193  genic0 0.393  ld0 0.000671  zbar0 0.465  text 0.00213  adv200 0.544  vg200 1.22e-05  vg1000 0.0397  lag1000 0.792
+    ratio  vg0 1.051 [1.023, 1.078]  genic0 1.000 [0.988, 1.012]  text 1.016 [1.009, 1.023]  adv200 1.053 [0.973, 1.133]  vg200 1.066 [1.038, 1.093]  vg1000 1.025 [0.998, 1.052]  lag1000 0.990 [0.965, 1.015]
+    Fisher p  alive at the fast cap 1, alive at the slow end 1
+    FAIL: KS vg0 p = 0.00019; KS ld0 p = 0.00067; KS text p = 0.0021; KS vg200 p = 1.2e-05
+  B=300:
+    KS p   vg0 0.000671  genic0 0.393  ld0 0.00146  zbar0 0.393  text 0.0298  adv200 0.00864  vg200 0.00307  vg1000 0.00213  lag1000 0.112
+    ratio  vg0 1.051 [1.023, 1.078]  genic0 1.002 [0.989, 1.014]  text 1.012 [1.005, 1.020]  adv200 1.122 [1.041, 1.203]  vg200 1.052 [1.025, 1.080]  vg1000 1.045 [1.018, 1.072]  lag1000 0.974 [0.949, 0.999]
+    Fisher p  alive at the fast cap 1, alive at the slow end 1
+    FAIL: KS vg0 p = 0.00067; KS ld0 p = 0.0015; KS adv200 p = 0.0086; KS vg200 p = 0.0031; KS vg1000 p = 0.0021
+  B=1000:
+    KS p   vg0 0.0681  genic0 0.544  ld0 0.0681  zbar0 0.27  text 0.627  adv200 0.142  vg200 0.0522  vg1000 0.142  lag1000 0.792
+    ratio  vg0 1.032 [1.002, 1.062]  genic0 1.002 [0.989, 1.014]  text 1.005 [0.998, 1.012]  adv200 1.083 [1.003, 1.163]  vg200 1.039 [1.010, 1.068]  vg1000 1.018 [0.991, 1.045]  lag1000 1.014 [0.988, 1.040]
+    Fisher p  alive at the fast cap 1, alive at the slow end 1
+    INCONCLUSIVE (equivalence within 10% not shown: adv200 [1.003, 1.163])
+  B=3000:
+    KS p   vg0 1  genic0 0.22  ld0 0.864  zbar0 0.864  text 0.997  adv200 0.627  vg200 0.711  vg1000 0.465  lag1000 0.711
+    ratio  vg0 0.997 [0.969, 1.026]  genic0 0.993 [0.979, 1.007]  text 1.001 [0.994, 1.008]  adv200 1.032 [0.953, 1.112]  vg200 1.005 [0.977, 1.034]  vg1000 0.992 [0.965, 1.019]  lag1000 1.007 [0.981, 1.034]
+    Fisher p  alive at the fast cap 1, alive at the slow end 1
+    INCONCLUSIVE (equivalence within 10% not shown: adv200 [0.953, 1.112])
+  P1000: smallest burn-in from which none fails: B = 1000 (INCONCLUSIVE)
+
+====================================================================================================
+G: 200 populations per arm
+  arm      dead<T0   vg0 mean ± se (CV)        genic0            ld0        SD(zbar0)   text median [q10, q90]  alive fast  alive slow   adv200      vg200      vg1000     lag1000
+  REF         0        4.123 ± 0.029    (0.099)     5.955 ± 0.032        -1.83     0.1812        324 [  303,   344]         0        200        0.09349      3.709      1.917      2.607
+  B=0         0          6.3 ± 0.023    (0.051)      6.29 ± 0.009      0.00944     0.1624        387 [  369,   405]         0        200          0.094      4.179      2.079      2.376
+  B=100       0        4.432 ± 0.024    (0.076)     6.212 ± 0.016        -1.78     0.1782        359 [  340,   377]         0        200        0.09392      4.057      1.977      2.492
+  B=300       0        4.303 ± 0.024    (0.078)     6.168 ± 0.021        -1.86     0.1762        341 [  322,   359]         0        200        0.09369      3.948      2.003      2.495
+  B=1000      0         4.27 ± 0.025    (0.084)     6.158 ± 0.029        -1.89     0.1871        330 [  309,   349]         0        200        0.09364      3.824      1.975      2.566
+  B=3000      0        4.182 ± 0.028    (0.096)     6.039 ± 0.035        -1.86     0.1674        324 [  303,   348]         0        200        0.09352      3.776      1.926      2.594
+  against REF: KS p of each measure; ratio of means [95% interval]
+  B=0:
+    KS p   vg0 2.77e-87  genic0 1.21e-29  ld0 2.77e-87  zbar0 0.112  text 1.79e-80  adv200 0.000447  vg200 9.4e-26  vg1000 1.34e-09  lag1000 1.82e-10
+    ratio  vg0 1.528 [1.504, 1.552]  genic0 1.056 [1.045, 1.068]  text 1.194 [1.184, 1.204]  adv200 1.006 [1.003, 1.008]  vg200 1.127 [1.105, 1.148]  vg1000 1.085 [1.063, 1.106]  lag1000 0.911 [0.892, 0.930]
+    Fisher p  alive at the fast cap 1, alive at the slow end 1
+    FAIL: KS vg0 p = 2.8e-87; KS genic0 p = 1.2e-29; KS ld0 p = 2.8e-87; KS text p = 1.8e-80; KS adv200 p = 0.00045; KS vg200 p = 9.4e-26; KS vg1000 p = 1.3e-09; KS lag1000 p = 1.8e-10; ratio vg0 1.528 [1.504, 1.552]; ratio text 1.194 [1.184, 1.204]; ratio vg200 1.127 [1.105, 1.148]; ratio vg1000 1.085 [1.063, 1.106]; ratio lag1000 0.911 [0.892, 0.930]
+  B=100:
+    KS p   vg0 2.26e-11  genic0 5.61e-14  ld0 0.393  zbar0 0.864  text 5.46e-48  adv200 0.00618  vg200 2.53e-14  vg1000 0.0222  lag1000 0.000996
+    ratio  vg0 1.075 [1.056, 1.094]  genic0 1.043 [1.031, 1.055]  text 1.106 [1.096, 1.116]  adv200 1.005 [1.002, 1.007]  vg200 1.094 [1.073, 1.114]  vg1000 1.032 [1.011, 1.052]  lag1000 0.956 [0.937, 0.974]
+    Fisher p  alive at the fast cap 1, alive at the slow end 1
+    FAIL: KS vg0 p = 2.3e-11; KS genic0 p = 5.6e-14; KS text p = 5.5e-48; KS adv200 p = 0.0062; KS vg200 p = 2.5e-14; KS lag1000 p = 0.001; ratio vg0 1.075 [1.056, 1.094]; ratio text 1.106 [1.096, 1.116]; ratio vg200 1.094 [1.073, 1.114]
+  B=300:
+    KS p   vg0 3.19e-05  genic0 2.55e-09  ld0 0.393  zbar0 0.711  text 1.74e-16  adv200 0.142  vg200 5.52e-08  vg1000 0.00307  lag1000 0.000671
+    ratio  vg0 1.044 [1.026, 1.062]  genic0 1.036 [1.023, 1.049]  text 1.050 [1.041, 1.060]  adv200 1.002 [0.999, 1.005]  vg200 1.064 [1.044, 1.084]  vg1000 1.045 [1.023, 1.067]  lag1000 0.957 [0.938, 0.976]
+    Fisher p  alive at the fast cap 1, alive at the slow end 1
+    FAIL: KS vg0 p = 3.2e-05; KS genic0 p = 2.6e-09; KS text p = 1.7e-16; KS vg200 p = 5.5e-08; KS vg1000 p = 0.0031; KS lag1000 p = 0.00067
+  B=1000:
+    KS p   vg0 0.000193  genic0 3.19e-05  ld0 0.22  zbar0 0.864  text 0.00618  adv200 0.27  vg200 0.00618  vg1000 0.0164  lag1000 0.393
+    ratio  vg0 1.036 [1.017, 1.054]  genic0 1.034 [1.019, 1.049]  text 1.018 [1.008, 1.027]  adv200 1.002 [0.999, 1.005]  vg200 1.031 [1.010, 1.051]  vg1000 1.030 [1.009, 1.051]  lag1000 0.984 [0.965, 1.003]
+    Fisher p  alive at the fast cap 1, alive at the slow end 1
+    FAIL: KS vg0 p = 0.00019; KS genic0 p = 3.2e-05; KS text p = 0.0062; KS vg200 p = 0.0062
+  B=3000:
+    KS p   vg0 0.465  genic0 0.327  ld0 0.923  zbar0 0.178  text 0.544  adv200 0.465  vg200 0.327  vg1000 0.465  lag1000 0.627
+    ratio  vg0 1.014 [0.995, 1.034]  genic0 1.014 [0.998, 1.030]  text 1.004 [0.994, 1.014]  adv200 1.000 [0.998, 1.003]  vg200 1.018 [0.998, 1.038]  vg1000 1.005 [0.985, 1.025]  lag1000 0.995 [0.976, 1.014]
+    Fisher p  alive at the fast cap 1, alive at the slow end 1
+    PASS
+  G: smallest burn-in from which none fails: B = 3000 (PASS)
+
+====================================================================================================
+H: 200 populations per arm
+  arm      dead<T0   vg0 mean ± se (CV)        genic0            ld0        SD(zbar0)   text median [q10, q90]  alive fast  alive slow   adv200      vg200      vg1000     lag1000
+  REF         0       0.5008 ± 0.011    (0.309)    0.5227 ± 0.013      -0.0219     0.1634        368 [  129,  1153]         3        200        0.09321       4.16      4.183      1.372
+  B=0         0       0.5607 ± 0.013    (0.333)    0.5583 ± 0.013      0.00242     0.1714        385 [  140,   976]         2        200        0.09312      4.181      4.157      1.378
+  B=100       0       0.4825 ± 0.011    (0.335)    0.4975 ± 0.012      -0.0151     0.1596        330 [  125,  1057]         4        200        0.09323      4.226        4.2      1.362
+  B=300       0       0.4892 ± 0.012    (0.346)    0.5127 ± 0.013      -0.0236     0.1525        336 [  131,  1048]         1        200        0.09351      4.309      4.122      1.356
+  B=1000      0       0.4932 ± 0.012    (0.347)    0.5145 ± 0.013      -0.0213     0.1604        292 [  114,   865]         4        200        0.09303      4.095      4.268      1.316
+  B=3000      0       0.5075 ± 0.011    (0.294)    0.5284 ± 0.012      -0.0209     0.1536        341 [  139,   908]         1        200         0.0933      4.248      4.153      1.384
+  against REF: KS p of each measure; ratio of means [95% interval]
+  B=0:
+    KS p   vg0 0.012  genic0 0.327  ld0 6.95e-10  zbar0 0.393  text 0.465  adv200 0.792  vg200 0.544  vg1000 0.864  lag1000 0.864
+    ratio  vg0 1.120 [1.049, 1.190]  genic0 1.068 [0.997, 1.139]  text 0.967 [0.816, 1.118]  adv200 0.999 [0.994, 1.004]  vg200 1.005 [0.950, 1.060]  vg1000 0.994 [0.939, 1.049]  lag1000 1.004 [0.946, 1.061]
+    Fisher p  alive at the fast cap 1, alive at the slow end 1
+    FAIL: KS ld0 p = 7e-10
+  B=100:
+    KS p   vg0 0.112  genic0 0.0879  ld0 0.142  zbar0 0.142  text 0.964  adv200 0.964  vg200 0.792  vg1000 0.544  lag1000 0.923
+    ratio  vg0 0.963 [0.903, 1.024]  genic0 0.952 [0.888, 1.016]  text 0.978 [0.815, 1.140]  adv200 1.000 [0.995, 1.005]  vg200 1.016 [0.958, 1.074]  vg1000 1.004 [0.949, 1.059]  lag1000 0.993 [0.936, 1.049]
+    Fisher p  alive at the fast cap 1, alive at the slow end 1
+    INCONCLUSIVE (equivalence within 10% not shown: genic0 [0.888, 1.016]; text [0.815, 1.140])
+  B=300:
+    KS p   vg0 0.627  genic0 0.465  ld0 0.627  zbar0 0.544  text 0.792  adv200 0.22  vg200 0.0397  vg1000 0.327  lag1000 0.393
+    ratio  vg0 0.977 [0.914, 1.040]  genic0 0.981 [0.912, 1.050]  text 0.940 [0.784, 1.097]  adv200 1.003 [0.998, 1.008]  vg200 1.036 [0.979, 1.093]  vg1000 0.986 [0.931, 1.040]  lag1000 0.988 [0.934, 1.043]
+    Fisher p  alive at the fast cap 0.623, alive at the slow end 1
+    INCONCLUSIVE (equivalence within 10% not shown: text [0.784, 1.097])
+  B=1000:
+    KS p   vg0 0.393  genic0 0.27  ld0 0.393  zbar0 0.544  text 0.327  adv200 0.544  vg200 0.627  vg1000 0.178  lag1000 0.0522
+    ratio  vg0 0.985 [0.922, 1.048]  genic0 0.984 [0.917, 1.052]  text 0.843 [0.700, 0.987]  adv200 0.998 [0.993, 1.003]  vg200 0.985 [0.926, 1.043]  vg1000 1.020 [0.963, 1.078]  lag1000 0.959 [0.903, 1.015]
+    Fisher p  alive at the fast cap 1, alive at the slow end 1
+    INCONCLUSIVE (equivalence within 10% not shown: text [0.700, 0.987])
+  B=3000:
+    KS p   vg0 0.544  genic0 0.923  ld0 0.465  zbar0 0.627  text 0.393  adv200 0.792  vg200 0.864  vg1000 0.864  lag1000 0.864
+    ratio  vg0 1.014 [0.954, 1.073]  genic0 1.011 [0.946, 1.076]  text 0.877 [0.737, 1.016]  adv200 1.001 [0.996, 1.006]  vg200 1.021 [0.962, 1.080]  vg1000 0.993 [0.934, 1.052]  lag1000 1.008 [0.949, 1.067]
+    Fisher p  alive at the fast cap 0.623, alive at the slow end 1
+    INCONCLUSIVE (equivalence within 10% not shown: text [0.737, 1.016])
+  H: smallest burn-in from which none fails: B = 100 (INCONCLUSIVE)
+
+====================================================================================================
+PUB: 16 published inputs × 10 populations per arm (5151 s)
+  input                               L    u   d_env      REF vg0   text (alive)  B=300: vg0 ratio, text ratio (alive)   B=1000: vg0 ratio, text ratio (alive)
+  QT0100-Possion3.0 Input-01170.txt    100   3     0.161   0.08627     174 ( 0)       1.057   1.009 ( 0)          1.059   0.982 ( 0)   
+  QT0100-Possion3.0 Input-02680.txt    100   3    0.0843    0.1079     364 ( 0)       0.847   0.980 ( 0)          0.837   0.988 ( 0)   
+  QT0100-Possion5.0 Input-08569.txt    100   5     0.216   0.03349      83 ( 0)       0.898   1.034 ( 0)          0.904   1.025 ( 0)   
+  QT0100-Possion5.0 Input-13633.txt    100   5       0.2    0.1774      76 ( 0)       0.928   0.972 ( 0)          0.914   1.018 ( 0)   
+  QT0500-Possion3.0 Input-02604.txt    500   3     0.174    0.3442     132 ( 0)       1.057   1.011 ( 0)          1.046   0.994 ( 0)   
+  QT0500-Possion3.0 Input-04321.txt    500   3     0.189   0.04709      55 ( 0)       1.000   1.007 ( 0)          1.004   1.022 ( 0)   
+  QT0500-Possion5.0 Input-08245.txt    500   5    0.0079    0.4354    2000 (10)       0.998   1.000 (10)          1.052   1.000 (10)   
+  QT0500-Possion5.0 Input-13948.txt    500   5     0.255    0.2386      80 ( 0)       1.039   1.023 ( 0)          0.982   0.949 ( 0)   
+  QT1000-Possion3.0 Input-09644.txt   1000   3    0.0732    0.1222     504 ( 0)       1.087   1.011 ( 0)          1.092   1.018 ( 0)   
+  QT1000-Possion3.0 Input-13288.txt   1000   3      0.26   0.01904     118 ( 0)       1.047   1.003 ( 0)          0.972   1.015 ( 0)   
+  QT1000-Possion5.0 Input-10513.txt   1000   5     0.192   0.02803     104 ( 0)       1.026   0.975 ( 0)          0.974   0.992 ( 0)   
+  QT1000-Possion5.0 Input-14048.txt   1000   5    0.0994   0.02023     255 ( 0)       0.934   1.002 ( 0)          0.932   0.992 ( 0)   
+  QT5000-Possion3.0 Input-07121.txt   5000   3    0.0363   0.02846     677 ( 0)       1.036   1.025 ( 0)          1.005   1.026 ( 0)   
+  QT5000-Possion3.0 Input-07150.txt   5000   3      0.27    0.0527      27 ( 0)       1.074   1.004 ( 0)          1.143   1.000 ( 0)   
+  QT5000-Possion5.0 Input-03179.txt   5000   5     0.268    0.3548     144 ( 0)       1.110   1.016 ( 0)          1.092   0.990 ( 0)   
+  QT5000-Possion5.0 Input-05950.txt   5000   5    0.0404   0.02899     641 ( 0)       1.077   1.002 ( 0)          1.177   0.980 ( 0)   
+  B = 300: geometric mean over inputs of B/REF: vg0 1.011 [0.970, 1.053], text 1.004 [0.995, 1.014]: PASS
+  B = 1000: geometric mean over inputs of B/REF: vg0 1.008 [0.960, 1.058], text 0.999 [0.988, 1.010]: PASS
+
+====================================================================================================
+TIME: one run of the whole protocol to T0 + CAP = 12000 generations without a move (no extinction), single-threaded, mean of 2
+  cell      from zero    B=0                B=100              B=300              B=1000             B=3000 
+  P100       2.92 s     0.50 s (× 5.8)     0.52 s (× 5.6)     0.57 s (× 5.1)     0.74 s (× 3.9)     1.24 s (× 2.4)   
+  P1000      5.10 s     0.91 s (× 5.6)     0.96 s (× 5.3)     1.05 s (× 4.9)     1.37 s (× 3.7)     2.24 s (× 2.3)   
+  G          3.64 s     0.64 s (× 5.7)     0.66 s (× 5.5)     0.72 s (× 5.1)     0.93 s (× 3.9)     1.54 s (× 2.4)   
+  H          2.58 s     0.44 s (× 5.9)     0.46 s (× 5.6)     0.51 s (× 5.1)     0.66 s (× 3.9)     1.10 s (× 2.4)   
+  generations run: from zero 12000; B=0: 2000 (×6.0), B=100: 2100 (×5.7), B=300: 2300 (×5.2), B=1000: 3000 (×4.0), B=3000: 5000 (×2.4)
+
+====================================================================================================
+SUMMARY
+  P100   smallest burn-in from which none fails: B = 100 (INCONCLUSIVE); generations saved in a run capped 2000 after the move: ×5.7
+  P1000  smallest burn-in from which none fails: B = 1000 (INCONCLUSIVE); generations saved in a run capped 2000 after the move: ×4.0
+  G      smallest burn-in from which none fails: B = 3000 (PASS); generations saved in a run capped 2000 after the move: ×2.4
+  H      smallest burn-in from which none fails: B = 100 (INCONCLUSIVE); generations saved in a run capped 2000 after the move: ×5.7
+  PUB    B = 300: PASS, B = 1000: PASS
+failures (9):
+  FAIL  P100 B=0: KS ld0 p = 5.4e-07
+  FAIL  P1000 B=0: KS vg0 p = 2.8e-21; KS ld0 p = 1.2e-28; KS text p = 1.7e-08; KS vg200 p = 0.0044; KS vg1000 p = 0.0031; ratio vg0 1.108 [1.084, 1.133]
+  FAIL  P1000 B=100: KS vg0 p = 0.00019; KS ld0 p = 0.00067; KS text p = 0.0021; KS vg200 p = 1.2e-05
+  FAIL  P1000 B=300: KS vg0 p = 0.00067; KS ld0 p = 0.0015; KS adv200 p = 0.0086; KS vg200 p = 0.0031; KS vg1000 p = 0.0021
+  FAIL  G B=0: KS vg0 p = 2.8e-87; KS genic0 p = 1.2e-29; KS ld0 p = 2.8e-87; KS text p = 1.8e-80; KS adv200 p = 0.00045; KS vg200 p = 9.4e-26; KS vg1000 p = 1.3e-09; KS lag1000 p = 1.8e-10; ratio vg0 1.528 [1.504, 1.552]; ratio text 1.194 [1.184, 1.204]; ratio vg200 1.127 [1.105, 1.148]; ratio vg1000 1.085 [1.063, 1.106]; ratio lag1000 0.911 [0.892, 0.930]
+  FAIL  G B=100: KS vg0 p = 2.3e-11; KS genic0 p = 5.6e-14; KS text p = 5.5e-48; KS adv200 p = 0.0062; KS vg200 p = 2.5e-14; KS lag1000 p = 0.001; ratio vg0 1.075 [1.056, 1.094]; ratio text 1.106 [1.096, 1.116]; ratio vg200 1.094 [1.073, 1.114]
+  FAIL  G B=300: KS vg0 p = 3.2e-05; KS genic0 p = 2.6e-09; KS text p = 1.7e-16; KS vg200 p = 5.5e-08; KS vg1000 p = 0.0031; KS lag1000 p = 0.00067
+  FAIL  G B=1000: KS vg0 p = 0.00019; KS genic0 p = 3.2e-05; KS text p = 0.0062; KS vg200 p = 0.0062
+  FAIL  H B=0: KS ld0 p = 7e-10
