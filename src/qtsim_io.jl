@@ -92,14 +92,16 @@ QTSim cannot express two `Params` settings, so the file warns for them:
 - `CrossoverModel = :all`: QTSim applies only the lowest crossover point;
 - `Drift = true`: QTSim switches drift off.
 
-It is an `ArgumentError` to write `MoveType = :red_noise` or `:periodic`: QTSim has no
-fluctuating optimum, and would run a different model.
+It is an `ArgumentError` to write `MoveType = :red_noise` or `:periodic`, or a reaction
+norm (`Plasticity ≠ 0`): QTSim has no fluctuating optimum and no plasticity, and would run
+a different model.
 """
 write_qtsim_options(path::AbstractString, p::Params; kw...) =
     open(io -> write_qtsim_options(io, p; kw...), path, "w")
 
 function write_qtsim_options(io::IO, p::Params; seed = p.Seed)
     p.NoTraits == 1 || throw(ArgumentError("QTSim has one trait; NoTraits = $(p.NoTraits) cannot be written"))
+    p.Plasticity == 0 || throw(ArgumentError("QTSim has no phenotypic plasticity; Plasticity = $(p.Plasticity) cannot be written"))
     p.MoveType in (:phenotype, :fitness, :continuous) ||
         throw(ArgumentError("QTSim has no MoveType :$(p.MoveType); only :phenotype, :fitness and :continuous can be written"))
     p.CrossoverModel === :qtsim || @warn "QTSim has only its own crossover model; CrossoverModel = :$(p.CrossoverModel) is not written"

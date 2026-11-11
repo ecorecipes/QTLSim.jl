@@ -25,6 +25,7 @@ include("blocks.jl")
 include("pedigree.jl")
 include("model.jl")
 include("traits.jl")
+include("plasticity.jl")
 include("theory.jl")
 include("traits_theory.jl")
 include("multilocus.jl")
@@ -44,7 +45,9 @@ export Params, World, genomes, setgenomes!, simulate, run!, generation!, init_en
        mutational_covariance, selection_covariance, selection_shape, move_direction, traitvalues,
        read_qtsim_options, write_qtsim_options
 # models: the families of lowerings of the one life cycle, and their step parameters
-export OneTraitModel, TraitModel, model_of, step_schema
+export OneTraitModel, TraitModel, ReactionNormModel, model_of, step_schema
+# phenotypic plasticity (Chevin, Lande and Mace 2010)
+export plasticity_ratio, plasticity_cost, red_noise_lag_autocov, sustainable_rate, reaction_norm_response, reaction_norm_lag
 # analytical predictions
 export selection_variance, gaussian_vg, gaussian_vg_exact, gaussian_vg_loci, multilocus_equilibrium, effective_size, house_of_cards_vg,
        house_of_gauss_vg, rare_alleles_vg, house_of_cards_G, house_of_gauss_G, rare_alleles_G,

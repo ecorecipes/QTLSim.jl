@@ -1,0 +1,30 @@
+Precompiling packages...
+   8472.3 ms  ✓ QTLSim → QTLSimCatlabExt
+  1 dependency successfully precompiled in 12 seconds. 125 already precompiled.
+A heritable reaction norm, kernel vs moments and theory; 40 runs, seeds from 31000, 2 threads
+
+── A: no cost ──
+  at the move: kernel mean slope 0.223 (SD among runs 0.216), G = [0.169 0.000; 0.000 0.087]; moments slope 0.200, G = [0.175 0.000; 0.000 0.092]; phenotypic SD 0.817
+  + 250  slope kernel 0.781 moments 0.772  C1 PASS | lag kernel 0.0117 moments 0.0158  C3 PASS | G_bb kernel 0.04142 moments 0.0426  C4 PASS
+         quasi-steady lag at the kernel's own G, slope and environment 0.0150; kernel/it 0.776  C2 PASS
+  + 500  slope kernel 0.892 moments 0.883  C1 PASS | lag kernel 0.0047 moments 0.0047  C3 PASS | G_bb kernel 0.01968 moments 0.02204  C4 PASS
+         quasi-steady lag at the kernel's own G, slope and environment 0.0047; kernel/it 1.007  C2 PASS
+  +1000  slope kernel 0.943 moments 0.941  C1 PASS | lag kernel 0.0032 moments 0.0016  C3 PASS | G_bb kernel 0.008811 moments 0.01193  C4 PASS
+         quasi-steady lag at the kernel's own G, slope and environment 0.0017; kernel/it 1.870  C2 FAIL
+  +1500  slope kernel 0.960 moments 0.961  C1 PASS | lag kernel -0.0008 moments 0.0010  C3 PASS | G_bb kernel 0.005849 moments 0.008638  C4 PASS
+         quasi-steady lag at the kernel's own G, slope and environment 0.0011; kernel/it -0.769  C2 FAIL
+  runs alive at the end: 40/40
+
+── B: cost ω_b = 1 ──
+  at the move: kernel mean slope -0.001 (SD among runs 0.031), G = [0.170 -0.000; -0.000 0.058]; moments slope 0.000, G = [0.174 0.000; 0.000 0.059]; phenotypic SD 0.816
+  + 250  slope kernel 0.236 moments 0.216  C1 PASS | lag kernel 0.1125 moments 0.1109  C3 PASS | G_bb kernel 0.03486 moments 0.03573  C4 PASS
+  + 500  slope kernel 0.344 moments 0.307  C1 PASS | lag kernel 0.0810 moments 0.0733  C3 PASS | G_bb kernel 0.01724 moments 0.0203  C4 PASS
+  +1000  slope kernel 0.474 moments 0.415  C1 PASS | lag kernel 0.0552 moments 0.0477  C3 PASS | G_bb kernel 0.00809 moments 0.01138  C4 PASS
+  +1500  slope kernel 0.557 moments 0.493  C1 PASS | lag kernel 0.0422 moments 0.0373  C3 PASS | G_bb kernel 0.005499 moments 0.008238  C4 PASS
+  runs alive at the end: 40/40
+
+── C5 ──
+  scenario A: final slope kernel 0.960, moments 0.961, both above 0.8  PASS
+  scenario B: final slope kernel 0.557, moments 0.493, each at least 0.05 below scenario A's  PASS
+
+28 of 30 criteria pass (1.3 min)

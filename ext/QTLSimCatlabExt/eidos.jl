@@ -299,6 +299,35 @@ function eidos_fecundity_reproduce(code::AbstractString = eidos_images()[:reprod
     EidosCode(:reproduce, eidos_splice(code, EIDOS_UNIFORM_PARENTS, EIDOS_WEIGHTED_PARENTS, "reproduce"))
 end
 
+# Phenotypic plasticity (QTLSim `Plasticity`, a reaction norm of fixed slope), which QTSim
+# lacks. `slim_script` splices it into the image of `select` only when a deme or a step uses
+# it, so that the other models are unchanged. As in the kernel (QTLSim.express_plasticity!)
+# the norm is expressed once the optimum of the generation is set: every phenotype gains
+# (b/B)·θ_{t−τ}, and the cost multiplies every fitness. The deme's record of its last
+# cueLag + 1 optima (CUES, the latest first) is deme state on @POP@; before the first
+# generation the environment is taken to have been the first one seen.
+const EIDOS_DEVIATION = "    x = standardise ? (pheno - THETA) / sd(pheno) else pheno - THETA;\n"
+const EIDOS_FITNESS = "    W = drift ? rep(1.0, size(adults)) else dnorm(x, 0.0, OMEGA) / (0.4 / OMEGA);\n"
+const EIDOS_PLASTICITY = """
+    // plasticity: the reaction norm z = g + b ε + e, with the environment ε = θ/B as it was
+    // cueLag generations ago
+    cues = @POP@.getValue("CUES");
+    if (isNULL(cues)) cues = rep(THETA, cueLag + 1);
+    cues = c(THETA, cues)[0:cueLag];
+    @POP@.setValue("CUES", cues);
+    pheno = pheno + (plasticity / optSlope) * cues[cueLag];
+"""
+const EIDOS_PLASTICITY_COST = "    if (!drift) W = W * exp(-(plasticity^2) / (2 * plastCostSD^2));   // the cost of plasticity\n"
+
+"The Eidos image of `select` (by default QTSim's) with a reaction norm of fixed slope added."
+function eidos_plastic_select(code::AbstractString = eidos_images()[:select].code)
+    code = eidos_splice(code, EIDOS_DEVIATION, EIDOS_PLASTICITY * EIDOS_DEVIATION, "select")
+    EidosCode(:select, eidos_splice(code, EIDOS_FITNESS, EIDOS_FITNESS * EIDOS_PLASTICITY_COST, "select"))
+end
+
+"Whether a step of the life cycle `f` carries a parameter of the reaction norm."
+plastic_steps(f) = any(g -> !(g isa ObExpr) && any(k -> k in QTLSim.PLASTICITY_FIELDS, keys(stepparams(g))), stepsof(f))
+
 # --- steps with parameters, and demes with parameters of their own ---------
 
 "The Eidos constant of `slim_script` that holds each field of `Params` a step can override."
@@ -310,7 +339,8 @@ const EIDOS_CONSTANT = Dict{Symbol,String}(
     :Sample => "sampleEvery", :ChangeFitnessGen => "changeGen", :ChangeFitnessSD => "changeSD",
     :MutationScalar => "m", :MutationRatePerGamete => "rate", :Selection => "selection",
     :PopSize => "N", :PhenotypeVar => "VP", :Heritability => "h2", :InitFitnessSD => "initOmega",
-    :NoQTL => "L", :NoGenerations => "NGEN")
+    :NoQTL => "L", :NoGenerations => "NGEN",
+    :Plasticity => "plasticity", :OptimumSlope => "optSlope", :CueLag => "cueLag", :PlasticityCostSD => "plastCostSD")
 
 """
 Replace whole-word identifiers in the code of an Eidos fragment, leaving its comments
@@ -410,7 +440,7 @@ eidos_migrate(k, graph::Bool) = graph ? EidosMeta(k, collect(1:k), migration_gra
 
 eidos_literal(x::Bool) = x ? "T" : "F"
 eidos_literal(x::Integer) = string(x)
-eidos_literal(x::AbstractFloat) = repr(Float64(x))
+eidos_literal(x::AbstractFloat) = isinf(x) ? (x > 0 ? "INF" : "-INF") : repr(Float64(x))
 eidos_literal(x::Symbol) = string('"', x, '"')
 eidos_literal(x::AbstractVector) = "c(" * join(eidos_literal.(x), ", ") * ")"
 
@@ -463,6 +493,8 @@ function slim_model(f, ps::Vector{Params}, images, migration_rate)
             throw(ArgumentError("the lowering to Eidos draws mutations with rmvnorm, which needs a positive definite mutational covariance"))
     end
     model = model_of(p)
+    model isa ReactionNormModel &&
+        throw(ArgumentError("a heritable reaction norm (ReactionNorm) has no lowering to Eidos yet; the kernel and the moments have"))
     table = eidos_images(model)
     # QTLSim's fluctuating moves: in the image of the plain select when a deme uses one, and
     # their constants when a deme or a step does
@@ -477,6 +509,10 @@ function slim_model(f, ps::Vector{Params}, images, migration_rate)
         builtin[:select] = eidos_fecundity_select(get(builtin, :select, table[:select]).code)
         builtin[:reproduce] = eidos_fecundity_reproduce(table[:reproduce].code)
     end
+    # phenotypic plasticity: in the image of the plain select when a deme or a step uses it,
+    # with its constants
+    plastic = any(q -> q.Plasticity != 0, ps) || plastic_steps(f)
+    plastic && (builtin[:select] = eidos_plastic_select(get(builtin, :select, table[:select]).code))
     isempty(builtin) || (images = merge(builtin, Dict{Any,Any}(images)))
     stepmoves = any(g -> !(g isa ObExpr) && get(stepparams(g), :MoveType, :none) in FLUCTUATING_MOVES, stepsof(f))
     # a constant whose value differs between demes is a vector, one value per deme, and deme state
@@ -491,6 +527,8 @@ function slim_model(f, ps::Vector{Params}, images, migration_rate)
                 (migration_rate isa AbstractMatrix ? "MIG" => vec(permutedims(Float64.(migration_rate))) :
                  "migRate" => Float64(migration_rate)))
     fecund && (defaults = (defaults..., "selection" => value(:Selection)))
+    plastic && (defaults = (defaults..., "plasticity" => value(:Plasticity), "optSlope" => value(:OptimumSlope),
+                            "cueLag" => value(:CueLag), "plastCostSD" => value(:PlasticityCostSD)))
     traits && (defaults = (defaults..., eidos_trait_constants(p)...))
     (fluctuating || stepmoves) &&
         (defaults = (defaults..., "moveNoiseSD" => value(:MoveNoiseSD), "moveAutocorr" => value(:MoveAutocorr),

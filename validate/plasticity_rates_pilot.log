@@ -1,0 +1,26 @@
+Pilot without plasticity (b = 0), 8 replicates, to place the grid of rates; 3 threads
+L100 fixed: survival by rate 1.00 1.00 1.00 1.00 1.00 0.00 0.00 0.00 0.00 0.00 0.00
+   rates 0.002 0.0033 0.00545 0.00899 0.0148 0.0245 0.0404 0.0667 0.11 0.182 0.3
+   k50 = 0.01907 per generation (0.1101 phenotypic SD)
+L100 bh: survival by rate 1.00 1.00 1.00 1.00 0.75 0.00 0.00 0.00 0.00 0.00 0.00
+   rates 0.002 0.0033 0.00545 0.00899 0.0148 0.0245 0.0404 0.0667 0.11 0.182 0.3
+   k50 = 0.01523 per generation (0.0879 phenotypic SD)
+L500 fixed: survival by rate 1.00 1.00 1.00 1.00 1.00 1.00 1.00 0.00 0.00 0.00 0.00
+   rates 0.002 0.0033 0.00545 0.00899 0.0148 0.0245 0.0404 0.0667 0.11 0.182 0.3
+   k50 = 0.0519 per generation (0.2321 phenotypic SD)
+L500 bh: survival by rate 1.00 1.00 1.00 1.00 1.00 1.00 0.00 0.00 0.00 0.00 0.00
+   rates 0.002 0.0033 0.00545 0.00899 0.0148 0.0245 0.0404 0.0667 0.11 0.182 0.3
+   k50 = 0.03146 per generation (0.1407 phenotypic SD)
+Pilot without plasticity (b = 0), 12 replicates, to place the grid of rates (second stage: within the first stage's brackets); 3 threads
+L100 fixed: survival by rate 1.00 1.00 1.00 1.00 1.00 1.00 1.00 0.92 0.83 0.50 0.08 0.00
+   rates 0.0148 0.0155 0.0162 0.017 0.0178 0.0186 0.0195 0.0204 0.0214 0.0224 0.0234 0.0245
+   k50 = 0.02219 per generation (0.1281 phenotypic SD)
+L100 bh: survival by rate 1.00 1.00 1.00 1.00 1.00 0.83 0.42 0.08 0.00 0.00 0.00 0.00
+   rates 0.00899 0.00985 0.0108 0.0118 0.0129 0.0142 0.0155 0.017 0.0186 0.0204 0.0224 0.0245
+   k50 = 0.0153 per generation (0.0883 phenotypic SD)
+L500 fixed: survival by rate 1.00 1.00 1.00 1.00 1.00 0.83 0.25 0.00 0.00 0.00 0.00 0.00
+   rates 0.0404 0.0423 0.0443 0.0463 0.0485 0.0507 0.0531 0.0556 0.0582 0.0609 0.0637 0.0667
+   k50 = 0.05212 per generation (0.2331 phenotypic SD)
+L500 bh: survival by rate 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 0.92 0.83 0.25 0.00
+   rates 0.0245 0.0256 0.0268 0.0281 0.0294 0.0308 0.0322 0.0337 0.0352 0.0369 0.0386 0.0404
+   k50 = 0.03774 per generation (0.1688 phenotypic SD)

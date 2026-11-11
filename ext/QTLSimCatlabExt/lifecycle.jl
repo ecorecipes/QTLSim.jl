@@ -216,6 +216,9 @@ function lower(f, target::Symbol; images = Dict{Symbol,Any}(), record = nothing,
         table[:select] = eidos_fecundity_select(table[:select].code)
         table[:reproduce] = eidos_fecundity_reproduce(table[:reproduce].code)
     end
+    # likewise a select step with its own reaction norm (Plasticity and its fields)
+    target === :eidos && m isa OneTraitModel && plastic_steps(f) &&
+        (table[:select] = eidos_plastic_select(table[:select].code))
     table = merge!(Dict{Any,Any}(table), Dict{Any,Any}(images))
     gens = Dict{Any,Any}()
     for g in stepsof(f)

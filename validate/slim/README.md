@@ -53,6 +53,11 @@ port of QTSim written by hand, run for run, and against QTSim itself, in distrib
   G matrix and genetic correlation at equilibrium (one locus), lag vector and G under a
   move along (1, 2) (ten loci); KS tests, 40 runs each, about 20 minutes on 3 threads;
   exits 1 if any p < 0.001; last result in `valid_traits.log`.
+- `compare_plasticity.jl` — the kernel against the generated SLiM model with a reaction
+  norm of fixed slope (`Plasticity`), which QTSim lacks: a perfect cue under a continuous
+  move; a cue 5 generations old with a periodic optimum; a cost under Beverton–Holt (time
+  to extinction); two demes, one with a step's own slope. KS tests, 40 runs each, about
+  85 minutes on 3 threads; exits 1 if any p < 0.001; last result in `valid_plasticity.log`.
 - `three_way_confirm.jl` — the large pre-specified test of QTSim vs the generated SLiM model
   vs the kernel (40,000 runs each, about 2.5 h on 8 threads); result in `three_way_confirm.log`.
 - `slim.jl` — `find_slim()`: `ENV["SLIM"]`, else `slim/build/slim` next to the package's
@@ -159,6 +164,14 @@ both, 583 and 562 generations after the move on average (p = 0.26). Moving 0.01 
 R = 1.5, a rate every population survives at a fixed size: all 40 die in both, after
 1341 and 1326 generations (p = 0.57). QTSim has a fixed size, so the kernel is the
 reference here.
+
+**Phenotypic plasticity (2026-11-11, `compare_plasticity.jl`, `valid_plasticity.log`, 40 runs
+each):** the kernel and the generated SLiM model with a reaction norm of fixed slope. Lag,
+genetic variance and survivors under a continuous move with b/B = 0.5, KS p 0.76–0.99; lag
+mean and SD under a periodic optimum with a cue 5 generations old, p 0.76–0.91; with a cost
+under Beverton–Holt all 80 runs died, time to extinction 749 vs 768 generations (p = 0.40);
+two demes, one with a step's own slope, each deme's lag p 0.26–0.40. No discrepancy
+(smallest p 0.26).
 
 **Several traits (2026-11-07, `compare_traits.jl`, `valid_traits.log`, 40 runs each):** the
 kernel and the generated SLiM model with two pleiotropic traits. One diploid locus at
