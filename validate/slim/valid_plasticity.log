@@ -1,0 +1,27 @@
+QTLSim kernel vs generated SLiM model, phenotypic plasticity, R = 40 runs each, 3 threads
+
+── 1. b/B = 0.5, perfect cue; the optimum moving 0.01 per generation from 2000 ──
+  extinctions                              kernel 0/40  SLiM 0/40
+  genetic variance, gens 1500-1999         kernel   0.06479 ± 0.011    SLiM   0.06392 ± 0.013    KS p = 0.759
+  θ − z̄, gens 2250-2499                    kernel     1.115 ± 0.14     SLiM     1.089 ± 0.12     KS p = 0.759
+  genetic variance, gens 2250-2499         kernel   0.07831 ± 0.013    SLiM   0.07732 ± 0.012    KS p = 0.988
+  survivors, gens 2250-2499                kernel     970.5 ± 5.7      SLiM     971.6 ± 4.9      KS p = 0.759
+
+── 2. b = 1, B = 2, cue 5 generations old; periodic optimum (A = 0.3, P = 40) on a trend of 0.005 ──
+  extinctions                              kernel 0/40  SLiM 0/40
+  θ − z̄, mean over gens 2100-2499          kernel    0.4905 ± 0.1      SLiM    0.4987 ± 0.097    KS p = 0.913
+  θ − z̄, SD over gens 2100-2499            kernel    0.2093 ± 0.02     SLiM    0.2114 ± 0.026    KS p = 0.759
+  survivors, gens 2100-2499                kernel     989.8 ± 2        SLiM     989.6 ± 1.9      KS p = 0.759
+
+── 3. b = 0.6 with the cost ω_b = 1; Beverton-Holt R = 2; the optimum moving 0.03 per generation ──
+  extinct within 2000 generations          kernel 40/40  SLiM 40/40
+  generations after the move               kernel       749 ± 98       SLiM     767.9 ± 78       KS p = 0.400
+  population size, gens 1500-1999          kernel     795.9 ± 3.8      SLiM     796.3 ± 3.5      KS p = 0.759
+  survivors, gens 1500-1999                kernel     661.8 ± 3.3      SLiM     662.2 ± 3.1      KS p = 0.400
+
+── 4. two demes, no migration: deme 1 with a step's own slope 0.5 (cue 2 generations old), deme 2 without ──
+  deme 1: θ − z̄, gens 2250-2499            kernel     1.136 ± 0.11     SLiM      1.17 ± 0.14     KS p = 0.400
+  deme 2: θ − z̄, gens 2250-2499            kernel     2.261 ± 0.2      SLiM      2.23 ± 0.21     KS p = 0.263
+
+smallest p = 0.263: no discrepancy  (85.8 min)
+exit 0

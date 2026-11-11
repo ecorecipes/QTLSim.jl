@@ -101,6 +101,7 @@ parameters and tables of images:
 QTLSim.Model
 OneTraitModel
 TraitModel
+ReactionNormModel
 model_of
 step_schema
 QTLSim.step_fields
@@ -178,6 +179,24 @@ expected_lag2
 lag_load
 ```
 
+Phenotypic plasticity, a linear reaction norm (Chevin, Lande and Mace 2010; Lande 2009; see
+[Phenotypic plasticity](plasticity_design.md)). `steady_lag`, `critical_rate`,
+`red_noise_lag_var`, `expected_lag2` and `lag_load` above take the slope, the optimum's
+slope and the cue's delay:
+
+```@docs
+plasticity_ratio
+plasticity_cost
+QTLSim.isplastic
+sustainable_rate
+red_noise_lag_autocov
+reaction_norm_response
+reaction_norm_lag
+QTLSim.plastic_cue!
+QTLSim.express_plasticity!
+QTLSim.select_norm!
+```
+
 Several traits with pleiotropy (Lande 1979, 1980; Schluter 1996):
 
 ```@docs
@@ -210,6 +229,60 @@ fst_stepping_stone
 pair_recombination
 QTLSim.pair_classes
 QTLSim.migration_mixing
+```
+
+## Ancestry
+
+Identity by descent read off the block pool, which costs nothing, and recorded pedigrees,
+which are off by default (`src/ancestry.jl`, `validate/coalescence.jl`). Two chromosomes
+that hold the same block are identical by descent over it, without an intervening mutation
+or crossover inside the block; chromosomes that hold different blocks may still be
+identical by descent ([`shared_blocks`](@ref) says exactly what block identity means).
+
+```@docs
+tag_founders!
+shared_blocks
+ibd_fraction
+ibd_sharing
+ibd_fst
+```
+
+A pedigree records, for every offspring chromosome, the parental chromosomes it copies and
+the crossovers between them, with the mutations and the migrations, as tree-sequence
+tables. From it come the complete ancestry of every locus and the realised coalescence
+times that [`deme_coalescence`](@ref) predicts.
+
+```@docs
+record_pedigree!
+Pedigree
+QTLSim.Ancestry
+stop_recording!
+simplify!
+samples
+pedigree_time
+pedigree_bytes
+marginal_tree
+mrca
+tmrca
+allele
+alleles
+pedigree_ibd
+pair_coalescence
+PairCoalescence
+coalescence_cdf
+coalescence_mean
+coalescence_transform
+```
+
+Tree-sequence tables in tskit's data model and text format. tskit is not a dependency and
+the files have not been loaded into it; they are checked in Julia.
+
+```@docs
+tskit_tables
+write_tskit
+read_tskit
+check_tables
+table_tmrca
 ```
 
 ## The categorical layer

@@ -22,8 +22,10 @@ include("params.jl")
 include("models.jl")
 include("qtsim_io.jl")
 include("blocks.jl")
+include("pedigree.jl")
 include("model.jl")
 include("traits.jl")
+include("plasticity.jl")
 include("theory.jl")
 include("traits_theory.jl")
 include("multilocus.jl")
@@ -33,6 +35,7 @@ include("local_alleles.jl")
 include("spectrum.jl")
 include("init.jl")
 include("migration.jl")
+include("ancestry.jl")
 include("categorical.jl")
 include("sweep.jl")
 
@@ -43,7 +46,9 @@ export Params, World, genomes, setgenomes!, simulate, run!, generation!, init_en
        mutational_covariance, selection_covariance, selection_shape, move_direction, traitvalues,
        read_qtsim_options, write_qtsim_options
 # models: the families of lowerings of the one life cycle, and their step parameters
-export OneTraitModel, TraitModel, model_of, step_schema
+export OneTraitModel, TraitModel, ReactionNormModel, model_of, step_schema
+# phenotypic plasticity (Chevin, Lande and Mace 2010)
+export plasticity_ratio, plasticity_cost, red_noise_lag_autocov, sustainable_rate, reaction_norm_response, reaction_norm_lag
 # analytical predictions
 export selection_variance, gaussian_vg, gaussian_vg_exact, gaussian_vg_loci, multilocus_equilibrium, effective_size, house_of_cards_vg,
        house_of_gauss_vg, rare_alleles_vg, house_of_cards_G, house_of_gauss_G, rare_alleles_G,
@@ -61,6 +66,12 @@ export island_migration, stepping_stone
 # neutral differentiation among demes (F_ST, Q_ST)
 export backward_migration, deme_coalescence, neutral_deme_variances, exchange_origins, qst_island, island_variances, fst_stepping_stone,
        pair_recombination
+# ancestry: identity by descent from block ids, recorded pedigrees, coalescence times, tree-sequence tables
+export tag_founders!, shared_blocks, ibd_fraction, ibd_sharing, ibd_fst,
+       Pedigree, record_pedigree!, stop_recording!, simplify!, samples, pedigree_time, pedigree_bytes,
+       marginal_tree, mrca, tmrca, allele, alleles, pedigree_ibd,
+       PairCoalescence, pair_coalescence, coalescence_cdf, coalescence_mean, coalescence_transform,
+       tskit_tables, write_tskit, read_tskit, check_tables, table_tmrca
 # the categorical layer (implemented by QTLSimCatlabExt; load Catlab to use it)
 export lifecycle, withparams, lower, slim_script, operators, operator, demes, run_composed, migrate!,
        migration, totalpop, ndemes, population_schema, lift, lower!, genotypes, phenotypes,

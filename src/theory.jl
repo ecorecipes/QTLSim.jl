@@ -88,12 +88,20 @@ pace with an optimum moving `k` per generation: `k (V_G + V_s)/V_G` (Lande; Bür
 Lynch 1995). The response to a lag `λ` is `V_G λ/(V_G + V_s)` per generation, which equals
 `k` at that lag (Lean `steady_lag_response`). With `p`, `k = MoveFitnessSD` and
 `V_s` = [`selection_variance`](@ref)`(p)`, for `MoveType = :continuous`.
+
+With phenotypic plasticity, a reaction norm of slope `b` where the optimum has slope `B` on
+the environment (`Plasticity` and `OptimumSlope` of `p`), the plastic response tracks
+`b/B` of the optimum's move and the genotype has to follow the rest, at `(1 − b/B) k` per
+generation, so the lag is `(1 − b/B) k (V_G + V_s)/V_G` (after Chevin, Lande and Mace 2010;
+derived here from the recursion `ḡ' = ḡ + β (θ − ḡ − (b/B) θ_{t−τ})`). A constant delay `τ`
+of the cue (`CueLag`) does not change it: the genotype makes up the constant shortfall.
 """
-steady_lag(k::Real; VG::Real, Vs::Real) = k * (VG + Vs) / VG
-steady_lag(p::Params; VG::Real) = steady_lag(p.MoveFitnessSD; VG, Vs = selection_variance(p))
+steady_lag(k::Real; VG::Real, Vs::Real, b::Real = 0, B::Real = 1) = (1 - b / B) * k * (VG + Vs) / VG
+steady_lag(p::Params; VG::Real) =
+    steady_lag(p.MoveFitnessSD; VG, Vs = selection_variance(p), b = p.Plasticity, B = p.OptimumSlope)
 
 """
-    critical_rate(; n, VG, ω, VE, sd50, N)
+    critical_rate(; n, VG, ω, VE, sd50, N, b = 0, B = 1, ωb = Inf)
 
 Bürger and Lynch's critical rate of environmental change, as the paper's results table
 computes it, in units of the phenotypic standard deviation `sd50` at 50% mortality:
@@ -105,8 +113,20 @@ where `n` is the number of survivors at the table's generation 10,047 and `V_G` 
 genetic variance just before the move. `NaN` where the table has none: `n < 3`, or
 `B₀ ≤ 1`. (The paper's equation 2 is printed without the factor 2 and with `V_s + V_G` for
 `V_λ`; this form reproduces its table to machine precision, see vignette 09.)
+
+With phenotypic plasticity of slope `b`, where the optimum has slope `B` on the environment,
+the genotype has to follow only `(1 − b/B)` of the optimum's move, and a cost of plasticity
+multiplies the largest growth factor `B₀` by `exp(−b²/(2ω_b²))`:
+
+    k_c(b) = V_G/(V_G + V_s) · √(2 V_λ (ln B₀ − b²/(2ω_b²))) / |1 − b/B|,
+
+`NaN` when the cost leaves no growth and `Inf` at `b = B`. Without a cost the critical rate
+is that without plasticity divided by `|1 − b/B|`. This is the discrete-generation form of
+Chevin, Lande and Mace's (2010) critical rate, derived here from the steady lag
+([`steady_lag`](@ref)); see also [`sustainable_rate`](@ref).
 """
-function critical_rate(; n::Real, VG::Real, ω::Real, VE::Real, sd50::Real, N::Real)
+function critical_rate(; n::Real, VG::Real, ω::Real, VE::Real, sd50::Real, N::Real,
+                       b::Real = 0, B::Real = 1, ωb::Real = Inf)
     n >= 3 || return NaN
     No = N * (2n - 3) / (2n * (n - 2))          # offspring per surviving parent
     Vk = 2No * (1 - 2No / N)                    # variance in offspring number
@@ -114,7 +134,9 @@ function critical_rate(; n::Real, VG::Real, ω::Real, VE::Real, sd50::Real, N::R
     Vs = ω^2 + VE
     Vλ = Vs + VG + Vs / (2Ne)
     B0 = No * ω / sqrt(Vλ)
-    B0 > 1 ? VG / (VG + Vs) * sqrt(2Vλ * log(B0)) / sd50 : NaN
+    B0 > 1 || return NaN
+    lnB = log(B0) - b^2 / (2ωb^2)
+    lnB > 0 ? VG / (VG + Vs) * sqrt(2Vλ * lnB) / sd50 / abs(1 - b / B) : NaN
 end
 
 """
@@ -163,7 +185,7 @@ function periodic_response(P::Real; VG::Real, Vs::Real)
 end
 
 """
-    red_noise_lag_var(σ, ρ; VG, Vs)
+    red_noise_lag_var(σ, ρ; VG, Vs, b = 0, B = 1, τ = 0)
 
 The stationary variance of the lag `θ − z̄` when the optimum is AR(1) noise with
 standard deviation `σ` and autocorrelation `ρ`, `θ_t = ρ θ_{t−1} + σ√(1 − ρ²) ξ_t`, and the
@@ -173,10 +195,42 @@ mean follows `z̄_{t+1} = z̄_t + β (θ_t − z̄_t)` with `β = V_G/(V_G + V_s
 
 White noise (`ρ = 0`) gives `2σ²/(2 − β)`, more than `σ²`, as the mean chases noise
 that has already gone; slowly wandering noise (`ρ → 1`) is tracked and the lag vanishes.
+
+With plasticity (`b`, `B`, and a cue `τ` generations old, see [`steady_lag`](@ref)) the lag
+is `λ_t = L_t − φ L_{t−τ}`, `φ = b/B`, with `L` the lag without plasticity (the response is
+linear), so its variance is `(1 + φ²) Γ(0) − 2φ Γ(τ)`, `Γ` the autocovariance of `L`
+([`red_noise_lag_autocov`](@ref)). A perfect cue (`τ = 0`) gives `(1 − φ)²` times the
+variance without plasticity; an old cue of a fast-changing environment (`ρ^τ → 0`) makes
+plasticity add noise, `(1 + φ²)` times it.
 """
-function red_noise_lag_var(σ::Real, ρ::Real; VG::Real, Vs::Real)
+function red_noise_lag_var(σ::Real, ρ::Real; VG::Real, Vs::Real, b::Real = 0, B::Real = 1, τ::Integer = 0)
     β = VG / (VG + Vs)
-    2σ^2 * (1 - ρ) / ((2 - β) * (1 - ρ * (1 - β)))
+    Γ0 = 2σ^2 * (1 - ρ) / ((2 - β) * (1 - ρ * (1 - β)))
+    b == 0 && return Γ0
+    φ = b / B
+    (1 + φ^2) * Γ0 - 2φ * red_noise_lag_autocov(σ, ρ, τ; VG, Vs)
+end
+
+"""
+    red_noise_lag_autocov(σ, ρ, h; VG, Vs)
+
+The autocovariance `Γ(h) = Cov(L_t, L_{t−h})`, `h ≥ 0` generations apart, of the lag
+`L = θ − z̄` behind an AR(1) optimum (see [`red_noise_lag_var`](@ref), which is `Γ(0)`).
+With `a = 1 − β`, the lag obeys `L_{t+1} = a L_t + θ_{t+1} − θ_t`, so
+`Γ(h + 1) = a Γ(h) − (1 − ρ) ρ^h c₀` with `c₀ = Cov(θ_t, L_t) = σ² (1 − ρ)/(1 − a ρ)`, and
+
+    Γ(h) = a^h Γ(0) − (1 − ρ) c₀ (a^h − ρ^h)/(a − ρ)
+
+(`h a^{h−1}` for the last factor when `a = ρ`).
+"""
+function red_noise_lag_autocov(σ::Real, ρ::Real, h::Integer; VG::Real, Vs::Real)
+    h >= 0 || throw(ArgumentError("the autocovariance is for a delay h ≥ 0; got $h"))
+    a = 1 - VG / (VG + Vs)
+    Γ0 = red_noise_lag_var(σ, ρ; VG, Vs)
+    h == 0 && return Γ0
+    c0 = σ^2 * (1 - ρ) / (1 - a * ρ)
+    geo = a == ρ ? h * a^(h - 1) : (a^h - ρ^h) / (a - ρ)
+    a^h * Γ0 - (1 - ρ) * c0 * geo
 end
 
 """
@@ -190,14 +244,24 @@ for `:periodic`, the cycle's mean squared lag `(lag_amplitude·A)²/2`
 ([`periodic_response`](@ref)). For `:continuous` it is the squared steady lag. The
 trend and the fluctuation add because the response is linear and the fluctuation has
 mean zero (over a cycle, for `:periodic`).
+
+With plasticity (`Plasticity`, `OptimumSlope`, `CueLag` of `p`) the trend's lag is
+[`steady_lag`](@ref)'s, the red-noise variance [`red_noise_lag_var`](@ref)'s with `b`, `B`
+and `τ`, and the cycle's squared amplitude is multiplied by `1 + φ² − 2φ cos(2π τ/P)`,
+`φ = b/B`: the genotype follows `θ_t − φ θ_{t−τ}`, a sine wave of that relative amplitude.
 """
 function expected_lag2(p::Params; VG::Real)
     Vs = selection_variance(p)
     p.MoveType in (:continuous, :red_noise, :periodic) ||
         throw(ArgumentError("expected_lag2 is for an exogenous optimum (:continuous, :red_noise, :periodic), got :$(p.MoveType)"))
-    trend = steady_lag(p.MoveFitnessSD; VG, Vs)^2
-    p.MoveType === :red_noise && return trend + red_noise_lag_var(p.MoveNoiseSD, p.MoveAutocorr; VG, Vs)
-    p.MoveType === :periodic && return trend + (periodic_response(p.MovePeriod; VG, Vs).lag_amplitude * p.MoveAmplitude)^2 / 2
+    b, B, τ = p.Plasticity, p.OptimumSlope, p.CueLag
+    trend = steady_lag(p.MoveFitnessSD; VG, Vs, b, B)^2
+    p.MoveType === :red_noise && return trend + red_noise_lag_var(p.MoveNoiseSD, p.MoveAutocorr; VG, Vs, b, B, τ)
+    if p.MoveType === :periodic
+        cyc = (periodic_response(p.MovePeriod; VG, Vs).lag_amplitude * p.MoveAmplitude)^2 / 2
+        φ = b / B
+        return trend + (b == 0 ? cyc : cyc * (1 + φ^2 - 2φ * cos(2π * τ / p.MovePeriod)))
+    end
     trend
 end
 
@@ -207,9 +271,13 @@ end
 The expected lag load on the log scale: the mean of `ln W̄(0) − ln W̄(λ)` for a lag λ,
 `E[λ²]/(2(ω² + V_P))` with `V_P = VG + V_E`, ω the initial width and `E[λ²]` from
 [`expected_lag2`](@ref). Gaussian selection of width ω on `z ~ N(z̄, V_P)` gives
-`ln W̄(λ) = ln W̄(0) − λ²/(2(ω² + V_P))` (Lande and Shannon 1996).
+`ln W̄(λ) = ln W̄(0) − λ²/(2(ω² + V_P))` (Lande and Shannon 1996). With plasticity the
+lag is the plastic population's, and the cost of plasticity adds `b²/(2ω_b²)`.
 """
-lag_load(p::Params; VG::Real) = expected_lag2(p; VG) / (2 * (initFitSD(p)^2 + VG + envVar(p)))
+function lag_load(p::Params; VG::Real)
+    l = expected_lag2(p; VG) / (2 * (initFitSD(p)^2 + VG + envVar(p)))
+    p.Plasticity == 0 ? l : l + p.Plasticity^2 / (2 * p.PlasticityCostSD^2)
+end
 
 # --- demographic stochasticity along a deterministic trajectory --------------------------
 

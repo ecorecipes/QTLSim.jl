@@ -138,6 +138,9 @@ function check_init(p::Params)
     p.Demography === :fixed || bad("is for a fixed population size; Demography = :$(p.Demography)")
     p.Selection === :viability || bad("is for viability selection; Selection = :$(p.Selection)")
     p.StandardisePhenotype && bad("does not cover StandardisePhenotype")
+    # a fixed reaction norm leaves the phenotypes unchanged while the optimum is at 0, but its
+    # cost lowers the mean fitness, which the stationary spectrum does not include
+    (p.Plasticity != 0 && isfinite(p.PlasticityCostSD)) && bad("does not cover a cost of plasticity (PlasticityCostSD = $(p.PlasticityCostSD))")
     p
 end
 
@@ -281,7 +284,8 @@ without the genealogy of the alleles within a locus. A burn-in restores those (s
 `spectrum` takes a `stationary_spectrum(p)` computed before, and a numeric `target` avoids
 solving the moments equilibrium, for many draws of one `p` (as [`replicate`](@ref) does).
 
-One diploid trait, fixed size, viability selection, no `StandardisePhenotype`; anything
+One diploid trait, fixed size, viability selection, no `StandardisePhenotype`, and a
+fixed reaction norm (`Plasticity`) only without a cost (`PlasticityCostSD = Inf`); anything
 else is an `ArgumentError`.
 """
 equilibrium_genomes(p::Params, rng::AbstractRNG; target = :genic, mean = :stationary, spectrum = stationary_spectrum(p)) =

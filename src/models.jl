@@ -52,20 +52,44 @@ struct TraitModel <: Model
 end
 
 """
+    ReactionNormModel()
+
+A heritable linear reaction norm (`Params` `ReactionNorm = true`, `NoTraits = 2`): an
+individual carries two heritable values, as in [`TraitModel`](@ref)`(2)`, its elevation
+and (the deviation from `Plasticity` of) its slope, but has one phenotype,
+`z = a + b·ε + e`, on which selection acts, with the optimum a number as in
+[`OneTraitModel`](@ref). Its images are `TraitModel(2)`'s for every step but `select`
+(and, in the moments, `record`), which read the pair through the linear map
+`(a, b) ↦ a + b·ε` of the generation's environment. See `docs/src/plasticity_design.md`.
+"""
+struct ReactionNormModel <: Model end
+
+"""
     model_of(p::Params) -> Model
 
-The model a `Params` belongs to: [`OneTraitModel`](@ref) when `NoTraits = 1`, otherwise
+The model a `Params` belongs to: [`OneTraitModel`](@ref) when `NoTraits = 1`,
+[`ReactionNormModel`](@ref) when `ReactionNorm` is set, otherwise
 [`TraitModel`](@ref)`(NoTraits)`.
 """
-model_of(p::Params) = p.NoTraits == 1 ? OneTraitModel() : TraitModel(p.NoTraits)
+model_of(p::Params) = p.NoTraits == 1 ? OneTraitModel() : p.ReactionNorm ? ReactionNormModel() : TraitModel(p.NoTraits)
 model_of(m::Model) = m
 
 "The number of traits of a model."
 ntraits(::OneTraitModel) = 1
 ntraits(m::TraitModel) = m.n
+ntraits(::ReactionNormModel) = 2
+
+# the fields of Params that place a default Params in a model (for checking a step's fields)
+model_fields(m::Model) = (NoTraits = ntraits(m),)
+model_fields(::ReactionNormModel) = (NoTraits = 2, ReactionNorm = true)
 
 Base.show(io::IO, ::OneTraitModel) = print(io, "OneTraitModel()")
 Base.show(io::IO, m::TraitModel) = print(io, "TraitModel(", m.n, ")")
+Base.show(io::IO, ::ReactionNormModel) = print(io, "ReactionNormModel()")
+
+# the fields of Params of a reaction norm, which `select` reads: the optimum of the generation,
+# the measure of the environment, is set there
+const PLASTICITY_FIELDS = (:Plasticity, :OptimumSlope, :CueLag, :PlasticityCostSD)
 
 # the fields of Params a step's image reads, in every model
 const STEP_FIELDS_SHARED = Dict{Symbol,Tuple}(
@@ -86,7 +110,12 @@ The fields of `Params` each step of the life cycle can override in `model` (see
 [`step_schema`](@ref)).
 """
 step_fields(::OneTraitModel) =
-    merge(STEP_FIELDS_SHARED, Dict{Symbol,Tuple}(:select => (STEP_FIELDS_SHARED[:select]..., :StandardisePhenotype)))
+    merge(STEP_FIELDS_SHARED, Dict{Symbol,Tuple}(:select => (STEP_FIELDS_SHARED[:select]..., :StandardisePhenotype,
+                                                              PLASTICITY_FIELDS...)))
+step_fields(::ReactionNormModel) =
+    merge(STEP_FIELDS_SHARED, Dict{Symbol,Tuple}(
+        :select => (STEP_FIELDS_SHARED[:select]..., PLASTICITY_FIELDS...),
+        :mutate => (STEP_FIELDS_SHARED[:mutate]..., :MutCorr, :MutCov)))
 step_fields(::TraitModel) =
     merge(STEP_FIELDS_SHARED, Dict{Symbol,Tuple}(
         :select => (STEP_FIELDS_SHARED[:select]..., :SelCorr, :MoveDirection, :MoveNoiseCov, :FluctDirection),
@@ -122,6 +151,7 @@ covariance matrix `Ω` (in place of `ω² S`); in both, `migrate`'s `rate`.
 step_own_params(::OneTraitModel) = Dict{Symbol,NamedTuple}(
     :select => (ω = v -> check_real(:ω, v; positive = true), θ = v -> check_real(:θ, v)),
     :migrate => (rate = v -> check_rate(:rate, v),))
+step_own_params(::ReactionNormModel) = step_own_params(OneTraitModel())
 step_own_params(m::TraitModel) = Dict{Symbol,NamedTuple}(
     :select => (ω = v -> check_real(:ω, v; positive = true), θ = v -> check_vector(:θ, v, m.n),
                 Ω = v -> check_pd(:Ω, v, m.n)),
@@ -170,6 +200,6 @@ function checkstep(m::Model, name::Symbol, params::NamedTuple)
         throw(ArgumentError("Ω is the whole fitness covariance; give it or ω and SelCorr to $name"))
     pf = NamedTuple(k => v for (k, v) in pairs(params) if k in fields)
     q = isempty(pf) ? nothing :
-        checkparams(Params(Params(; InitFitnessSD = 1.0, ChangeFitnessSD = 1.0, NoTraits = ntraits(m)); pf...))
+        checkparams(Params(Params(; InitFitnessSD = 1.0, ChangeFitnessSD = 1.0, model_fields(m)...); pf...))
     NamedTuple(k => (haskey(own, k) ? own[k](v) : getfield(q, k)) for (k, v) in pairs(params))
 end

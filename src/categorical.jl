@@ -70,7 +70,9 @@ parameters of `p` and `migration_rate` are the defaults, which `slim -d "NAME=va
 overrides (`N`, `VP`, `h2`, `m`, `rate`, `L`, `RECOMB`, `NGEN`, `sampleEvery`, `moveGen`,
 `moveSD`, `moveType`, `changeGen`, `changeSD`, `initOmega`, `drift`, `standardise`,
 `demography`, `growthRate`, `migRate` or `MIG`, and with a fluctuating move
-`moveNoiseSD`, `moveAutocorr`, `moveAmplitude` and `movePeriod`). The Eidos images of
+`moveNoiseSD`, `moveAutocorr`, `moveAmplitude` and `movePeriod`, and with phenotypic
+plasticity (`Plasticity`, in a deme or a step) `plasticity`, `optSlope`, `cueLag` and
+`plastCostSD`). The Eidos images of
 the steps cover diploids (`Ploidy = 2`) with any number of loci, recombining as QTSim
 does (`CrossoverModel = :qtsim`); with several demes, each row of output ends with the
 deme. The life cycle must return each deme to its place: braidings must cancel.
@@ -390,6 +392,15 @@ deme: `var_among`, `between` and the Q_STs are 0. Generation 0's Q_ST is 0/0, Na
 matrices (`within`, `var_among`, `between`), `qst` a vector per trait, and `pairs` a matrix of
 matrices. `optimum` (one deme) is a vector of optimum vectors. A fluctuating move lowers to
 its expected optimum, as for one trait.
+
+**Phenotypic plasticity**: with a reaction norm of fixed slope (`Plasticity`) the mean
+phenotype is the mean genotype plus the plastic part `(b/B)·θ_{t−τ}`, the lag is taken from
+it, and the cost multiplies the mean fitness; the steady state under a moving optimum is
+[`steady_lag`](@ref)'s. A heritable reaction norm (`ReactionNorm`, `NoTraits = 2`) lowers
+with the table of `ReactionNormModel()`: the moments of elevation and slope under
+[`reaction_norm_response`](@ref), with the multilocus Gaussian model (`loci = :multilocus`,
+which `:auto` is there, or `:aggregate`); `trait_mean` is then the mean phenotype and the
+mean slope, and `optimum` a vector of numbers.
 """
 function run_moments end
 

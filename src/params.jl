@@ -59,6 +59,26 @@ Some fields have no QTSim counterpart, or behave differently:
   `MoveNoiseSD²·f fᵀ` ([`move_noise_covariance`](@ref)). `FluctDirection` and
   `MoveNoiseCov` are Julia-only, for several traits. See the design note
   `traits_design.md`.
+- `Plasticity`, `OptimumSlope`, `CueLag` and `PlasticityCostSD` (Julia-only; off with
+  `Plasticity = 0`, the default): phenotypic plasticity, a linear reaction norm
+  `z = g + b·ε + e` with slope `b = Plasticity`, after Chevin, Lande and Mace (2010). The
+  environment `ε` is measured by the optimum it sets, `θ = B·ε` with `B = OptimumSlope`, so
+  the plastic part of the phenotype is `(b/B)·θ`: a fraction `b/B` of the optimum's
+  displacement from the origin of the trait's scale is tracked without any genetic
+  change. The cue is the environment `CueLag = τ` generations before selection
+  (`τ = 0`: a perfect cue; the environment before the run is taken to be the first one
+  seen), so `z_t = g + (b/B)·θ_{t−τ} + e`. A cost of plasticity multiplies every fitness
+  by `exp(−b²/(2ω_b²))`, `ω_b = PlasticityCostSD` (`Inf`: no cost): stabilising selection
+  on the slope around 0. The reaction norm is expressed in `select`, once the optimum of
+  the generation is set ([`select!`](@ref)). It needs an optimum with its own trajectory:
+  `:continuous`, `:red_noise`, `:periodic`, or none; QTSim's `:phenotype` and `:fitness`
+  moves re-anchor the optimum to the mean phenotype every generation, which a plastic
+  shift would only carry along, and are rejected.
+- `ReactionNorm = true` with `NoTraits = 2` (Julia-only): a heritable reaction norm. Trait
+  1 is the elevation `a` and trait 2 the slope: an individual's slope is `Plasticity + g₂`,
+  its phenotype `z = g₁ + (Plasticity + g₂)·ε + e` with `ε = θ_{t−τ}/B`, selection acts on
+  `z` (one-dimensional, width `ω`) and the cost on the individual's slope. `MutCov` gives
+  the mutational covariance of elevation and slope. See `plasticity_design.md`.
 """
 Base.@kwdef struct Params
     NoGenerations::Int          = 20000
@@ -87,6 +107,12 @@ Base.@kwdef struct Params
     Demography::Symbol          = :fixed   # :fixed (QTSim: refill to PopSize) | :beverton_holt — Julia-only
     GrowthRate::Float64         = 2.0      # R, offspring per survivor at low density (:beverton_holt)
     Selection::Symbol           = :viability  # :viability (QTSim: survive iff U < W) | :fecundity (mate ∝ W) — Julia-only
+    # phenotypic plasticity, a linear reaction norm z = g + b·ε + e — Julia-only; off with Plasticity = 0
+    Plasticity::Float64         = 0.0      # b, the slope of the reaction norm on the environment ε
+    OptimumSlope::Float64       = 1.0      # B, the optimum's slope on the environment: θ = B·ε
+    CueLag::Int                 = 0        # τ, generations from the cue that sets the plastic response to selection
+    PlasticityCostSD::Float64   = Inf      # ω_b, width of stabilising selection on the slope (the cost of plasticity); Inf ⇒ no cost
+    ReactionNorm::Bool          = false    # a heritable reaction norm: NoTraits = 2, trait 1 the elevation, trait 2 the slope
     # several traits with pleiotropy — Julia-only; with NoTraits = 1 the rest are unused
     NoTraits::Int               = 1        # n, traits each locus affects
     MutCorr::Float64            = 0.0      # r_μ, mutational correlation between every two traits
@@ -189,12 +215,61 @@ function checkparams(p::Params)
     (p.ChangeFitnessGen == -1 || p.ChangeFitnessSD > 0) ||
         bad("ChangeFitnessSD must be positive when ChangeFitnessGen is set, got $(p.ChangeFitnessSD)")
     checktraits(p, bad)
+    checkplasticity(p, bad)
     if p.InitFitnessSD == -1
         envVar(p) > 0 && p.MutationScalar > 0 ||
             bad("the analytical fitness width (InitFitnessSD = -1) needs Heritability < 1 and MutationScalar > 0; set InitFitnessSD")
     else
         p.InitFitnessSD > 0 || bad("InitFitnessSD must be -1 (analytical) or positive, got $(p.InitFitnessSD)")
     end
+    p
+end
+
+# --- phenotypic plasticity ---------------------------------------------------
+
+"""
+    isplastic(p)
+
+Whether `p` has a reaction norm: a fixed slope `Plasticity ≠ 0`, or a heritable one
+(`ReactionNorm`).
+"""
+isplastic(p::Params) = p.Plasticity != 0 || p.ReactionNorm
+
+"""
+    plasticity_ratio(p) -> b/B
+
+The fraction `Plasticity/OptimumSlope` of a displacement of the optimum that the plastic
+response tracks (Chevin, Lande and Mace 2010: reaction norm slope `b`, environmental
+sensitivity of selection `B`). 0 without plasticity, 1 for perfect plasticity.
+"""
+plasticity_ratio(p::Params) = p.Plasticity / p.OptimumSlope
+
+"""
+    plasticity_cost(p; b = p.Plasticity)
+
+The factor `exp(−b²/(2ω_b²))` by which the cost of plasticity multiplies fitness, with
+`ω_b = PlasticityCostSD`; 1 without a cost (`ω_b = Inf`) or without plasticity.
+"""
+plasticity_cost(p::Params; b::Real = p.Plasticity) = exp(-b^2 / (2 * p.PlasticityCostSD^2))
+
+# checkparams for the plasticity fields
+function checkplasticity(p::Params, bad)
+    isfinite(p.Plasticity) || bad("Plasticity must be finite, got $(p.Plasticity)")
+    isfinite(p.OptimumSlope) && p.OptimumSlope != 0 || bad("OptimumSlope must be finite and nonzero, got $(p.OptimumSlope)")
+    p.CueLag >= 0 || bad("CueLag must be non-negative, got $(p.CueLag)")
+    p.PlasticityCostSD > 0 || bad("PlasticityCostSD must be positive (Inf for no cost), got $(p.PlasticityCostSD)")
+    if p.ReactionNorm
+        p.NoTraits == 2 || bad("ReactionNorm needs NoTraits = 2 (trait 1 the elevation, trait 2 the slope), got NoTraits = $(p.NoTraits)")
+        isempty(p.MoveDirection) && isempty(p.FluctDirection) && isempty(p.MoveNoiseCov) ||
+            bad("with ReactionNorm the optimum is that of the phenotype, a number: leave MoveDirection, FluctDirection and MoveNoiseCov unset")
+        p.SelCorr == 0 && isempty(p.SelCov) ||
+            bad("with ReactionNorm selection acts on the one phenotype: leave SelCorr and SelCov unset (the cost is PlasticityCostSD)")
+    elseif p.NoTraits > 1
+        p.Plasticity == 0 || bad("Plasticity with NoTraits > 1 needs ReactionNorm = true (and NoTraits = 2)")
+    end
+    isplastic(p) && p.MoveFitnessSDGen != -1 && p.MoveType in (:phenotype, :fitness) &&
+        bad("plasticity needs an optimum with its own trajectory (MoveType :continuous, :red_noise or :periodic); " *
+            ":$(p.MoveType) re-anchors the optimum to the mean phenotype every generation")
     p
 end
 

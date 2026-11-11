@@ -2420,4 +2420,521 @@ end
     @test_throws ArgumentError equilibrium_genomes(p, rng; target = -1.0)
     @test_throws ArgumentError equilibrium_genomes(p, rng; mean = :optimum)
     @test_throws ArgumentError equilibrium_world(p, rng; burnin = -1)
+    # plasticity (src/plasticity.jl): a fixed reaction norm without a cost is the same model
+    # while the optimum is at 0, so the draw is the same; a cost is not covered
+    pp = Params(p; Plasticity = 0.5, CueLag = 2)
+    @test stationary_spectrum(pp) == stationary_spectrum(p)
+    @test equilibrium_genomes(pp, MersenneTwister(4)) == equilibrium_genomes(p, MersenneTwister(4))
+    op = simulate(pp; seed = 6, init = :equilibrium, burnin = 10)
+    @test op.start == 30 && !op.extinct && op.gen == 30:59
+    @test_throws ArgumentError stationary_spectrum(Params(pp; PlasticityCostSD = 2.0))
+    @test_throws ArgumentError equilibrium_world(Params(p; NoTraits = 2, ReactionNorm = true), rng; burnin = 5)
+end
+
+@testset "ancestry: block identity, pedigrees, coalescence times, tree-sequence tables (src/ancestry.jl)" begin
+    L = lifecycle()
+    base = Params(PopSize = 24, NoQTL = 12, Ploidy = 2, NoGenerations = 30, RecombPoissonMean = 1.0,
+                  MutationRatePerGamete = 0.03, PhenotypeVar = 1.0, Heritability = 0.5, MutationScalar = 0.01)
+    samealleles(ped, w) = (s = samples(ped); G = genomes(w); P = size(G, 2);
+        all(alleles(ped, l)[s.node[P*(i-1)+c]] === G[l, c, i] for l in axes(G, 1), c in 1:P, i in 1:w.N))
+
+    @testset "recording changes nothing; off by default and allocation-free" begin
+        alloc(w, rng) = @allocated generation!(w, rng)
+        for p in (base, Params(base; Ploidy = 1), Params(base; CrossoverModel = :all, RecombPoissonMean = 3.0),
+                  Params(base; Selection = :fecundity), Params(base; Demography = :beverton_holt, GrowthRate = 2.0),
+                  Params(base; NoTraits = 2, MutCorr = 0.5))
+            plain = World(p); a = run!(plain, MersenneTwister(4))
+            @test plain.anc === nothing
+            for every in (0, 7)
+                w = World(p); ped = record_pedigree!(w; simplify_every = every)
+                @test run!(w, MersenneTwister(4)) == a               # the same run, bit for bit
+                @test genomes(w) == genomes(plain)
+                @test check_tables(ped)                              # complete cover when never simplified
+                @test (every == 0) == (ped.nsimplified == 0)
+                @test pedigree_time(ped) == p.NoGenerations
+                p.NoTraits == 1 ? (@test samealleles(ped, w)) :      # every allele rebuilt from the pedigree, bit for bit
+                    (@test all(alleles(ped, l; trait = r)[samples(ped).node[2(i-1)+c]] === genomes(w)[r, l, c, i]
+                               for r in 1:2, l in 1:p.NoQTL, c in 1:2, i in 1:w.N))
+                QTLSim.check_blocks(w)
+            end
+            # without a pedigree a generation still allocates nothing
+            w = World(Params(p; NoGenerations = 10^6)); rng = MersenneTwister(1); init_env!(w, rng)
+            for _ in 1:300; generation!(w, rng); end
+            @test minimum(alloc(w, rng) for _ in 1:50) == 0
+        end
+    end
+
+    @testset "a pedigree checked by hand" begin
+        # two diploids of four loci; founders' chromosomes are nodes 1, 2 (individual 1) and 3, 4
+        w = World(Params(base; PopSize = 2, NoQTL = 4)); ped = record_pedigree!(w)
+        a = w.anc
+        @test a.nodes == [1 3; 2 4] && ped.node_time == zeros(4)
+        # offspring 1: a gamete of parent 1 that starts on its chromosome 1 and switches after the
+        # second locus, and chromosome 2 of parent 2; offspring 2: chromosome 1 of each parent
+        QTLSim.newborn!(a, 1, 1, 2)
+        QTLSim.inherit!(a, 1, 1, 1, 1, [1], 1); QTLSim.inherit!(a, 2, 1, 2, 2)
+        QTLSim.newborn!(a, 2, 1, 2)
+        QTLSim.inherit!(a, 1, 2, 1, 1); QTLSim.inherit!(a, 2, 2, 2, 1)
+        swapbuffers!(w)
+        @test collect(zip(ped.left, ped.right, ped.parent, ped.child)) ==
+              [(0, 2, 1, 5), (2, 4, 2, 5), (0, 4, 4, 6), (0, 4, 1, 7), (0, 4, 3, 8)]
+        @test samples(ped).node == [5, 6, 7, 8] && samples(ped).ind == [3, 3, 4, 4]
+        @test (ped.ind_p1[3], ped.ind_p2[3]) == (1, 2)
+        @test marginal_tree(ped, 2) == [0, 0, 0, 0, 1, 4, 1, 3]
+        @test marginal_tree(ped, 3) == [0, 0, 0, 0, 2, 4, 1, 3]
+        @test tmrca(ped, 1, 5, 7) == 1 && tmrca(ped, 2, 5, 7) == 1      # copies of node 1
+        @test tmrca(ped, 3, 5, 7) === nothing && tmrca(ped, 1, 5, 6) === nothing
+        pc = pair_coalescence(ped)
+        @test pc.t == 1 && pc.nloci == 4
+        @test pc.W == reshape([0, 8], 2, 1)               # the two copies in an individual: never the same founder
+        @test pc.S == reshape([2, 14], 2, 1, 1)           # of 4 pairs × 4 loci, nodes 5 and 7 at loci 1 and 2
+        @test coalescence_cdf(pc, 1).S == [2 / 16;;] && coalescence_mean(pc).S == [1.0;;]
+        @test check_tables(ped)
+        simplify!(ped)                                    # leaves the samples and node 1, over loci 1:2
+        @test ped.node_time == [0, 1, 1, 1, 1] && samples(ped).node == [2, 3, 4, 5]
+        @test collect(zip(ped.left, ped.right, ped.parent, ped.child)) == [(0, 2, 1, 2), (0, 2, 1, 4)]
+        @test pair_coalescence(ped).S == pc.S && pair_coalescence(ped).W == pc.W
+        @test check_tables(ped)
+        @test_throws ErrorException check_tables(ped; complete = true)
+        @test_throws ArgumentError record_pedigree!(w)    # already recording
+        stop_recording!(ped); @test w.anc === nothing
+    end
+
+    @testset "simplification keeps every marginal tree" begin
+        for p in (base, Params(base; CrossoverModel = :all, RecombPoissonMean = 3.0), Params(base; Ploidy = 1))
+            w0 = World(p); full = record_pedigree!(w0); run!(w0, MersenneTwister(8))
+            w1 = World(p); simp = record_pedigree!(w1; simplify_every = 4); run!(w1, MersenneTwister(8))
+            a, b = pair_coalescence(full), pair_coalescence(simp)
+            @test a.W == b.W && a.S == b.S
+            @test sum(a.S) == p.NoQTL * (p.Ploidy == 2 ? 48 * 47 ÷ 2 - 24 : 24 * 23 ÷ 2)   # every pair once
+            s0, s1 = samples(full).node, samples(simp).node
+            @test all(tmrca(full, l, s0[i], s0[j]) == tmrca(simp, l, s1[i], s1[j])
+                      for l in (1, 5, 12), i in 1:3:length(s0), j in 2:5:length(s0) if i != j)
+            before = pedigree_bytes(simp)
+            simplify!(simp)
+            @test pedigree_bytes(simp) <= before < pedigree_bytes(full)
+            c = pair_coalescence(simp)
+            @test a.W == c.W && a.S == c.S && samealleles(simp, w1)
+            @test length(simp.node_time) <= length(s1) + p.NoQTL * (length(s1) - 1)
+        end
+    end
+
+    @testset "identity of blocks against the pedigree" begin
+        w = World(base); @test ibd_sharing(w).deme == [1.0]             # one founding block of zeros
+        @test tag_founders!(w) == 2 * 24 * w.pool.nb && ibd_sharing(w).deme == [0.0]
+        QTLSim.check_blocks(w)
+        # blocks of one locus, tagged founders: the same block iff identical by descent without mutation
+        w = World(base; blocksize = 1); ped = record_pedigree!(w); run!(w, MersenneTwister(2))
+        s = samples(ped)
+        chr(n) = (i = (n - 1) ÷ 2 + 1; c = (n - 1) % 2 + 1; (i, c))
+        nsame = 0
+        for l in 1:base.NoQTL
+            lab = pedigree_ibd(ped, l)
+            for x in 1:length(lab), y in x+1:length(lab)
+                same = shared_blocks(w, chr(x)..., chr(y)...)[l]
+                nsame += same
+                same == (lab[x] == lab[y]) || error("locus $l, chromosomes $x and $y: block $same, pedigree $(lab[x] == lab[y])")
+            end
+        end
+        @test nsame > 100
+        sh = ibd_sharing(w)
+        @test sh.deme[1] ≈ nsame / (base.NoQTL * (48 * 47 ÷ 2)) rtol = 0.05   # ind pairs are 24 of 1128
+        pc = pair_coalescence(ped)
+        @test coalescence_cdf(pc, pc.t).S[1] >= sh.deme[1]                   # mutation only lowers block identity
+        # default blocks: the same block implies identity by descent without mutation at every locus of it
+        w = World(base); ped = record_pedigree!(w); run!(w, MersenneTwister(3))
+        pool = w.pool
+        nsame = nibd = 0
+        for k in 1:pool.nb, l in (k-1)*pool.B+1:min(k * pool.B, pool.L)
+            lab = pedigree_ibd(ped, l; block = (k-1)*pool.B+1:min(k * pool.B, pool.L))
+            for x in 1:length(lab), y in x+1:length(lab)
+                same = shared_blocks(w, chr(x)..., chr(y)...)[k]
+                nsame += same; nibd += lab[x] == lab[y]
+                same && lab[x] != lab[y] && error("block $k, locus $l: the same block without identity by descent")
+            end
+        end
+        @test 0 < nsame <= nibd
+        # after simplification a mutation is kept on the lineage of its own locus only
+        simplify!(ped)
+        @test_throws ArgumentError pedigree_ibd(ped, 1; block = 1:pool.B)
+        @test pedigree_ibd(ped, 1) isa Vector{Int32}
+        @test ibd_fraction(w, 1, 1, 1, 1) == 1.0
+        @test_throws ArgumentError shared_blocks(w, 1, 1, World(base), 1, 1)
+    end
+
+    @testset "metapopulations: migration, demes, the categorical layer" begin
+        k = 3
+        p = Params(base; PopSize = 10, Drift = true)
+        cycle = foldl(⊗, fill(L.generation, k)) ⋅ L.migrate(k)
+        plain = p ⊗ demes(k)
+        a = run_composed(plain, MersenneTwister(6); cycle, migration_rate = 0.2)
+        s = p ⊗ demes(k); ped = record_pedigree!(s; simplify_every = 0)
+        @test run_composed(s, MersenneTwister(6); cycle, migration_rate = 0.2) == a
+        @test all(genomes(s.demes[d]) == genomes(plain.demes[d]) for d in 1:k)
+        @test length(ped.mig_ind) > 0 && iseven(length(ped.mig_ind))
+        smp = samples(ped)
+        @test ped.ind_deme[smp.ind] == smp.deme                    # everyone is where its migrations took it
+        @test all(ped.ind_time[smp.ind] .== p.NoGenerations)
+        # a migrant's deme history: born in ind_birth, moved by its migrations in order
+        where = copy(ped.ind_birth)
+        for e in eachindex(ped.mig_ind)
+            @test where[ped.mig_ind[e]] == ped.mig_from[e]
+            where[ped.mig_ind[e]] = ped.mig_to[e]
+        end
+        @test where == ped.ind_deme
+        @test check_tables(ped)
+        pc = pair_coalescence(ped)
+        @test size(pc.S) == (p.NoGenerations + 1, k, k) && pc.S[:, 1, 2] == pc.S[:, 2, 1]
+        @test sum(pc.S[:, 1, 2]) == p.NoQTL * 20 * 20 && sum(pc.W[:, 3]) == p.NoQTL * 10
+        @test all(samealleles_d -> samealleles_d, [begin
+                      G = genomes(s.demes[d]); n = smp.node[smp.deme .== d]
+                      all(alleles(ped, l)[n[2(i-1)+c]] === G[l, c, i] for l in 1:p.NoQTL, c in 1:2, i in 1:10)
+                  end for d in 1:k])
+        # the same run by hand, generation! on each deme and then migrate!, with simplification
+        s2 = p ⊗ demes(k); ped2 = record_pedigree!(s2; simplify_every = 5)
+        rng = MersenneTwister(6); foreach(w -> init_env!(w, rng), s2.demes)
+        for _ in 1:p.NoGenerations
+            foreach(w -> generation!(w, rng), s2.demes)
+            migrate!(s2, rng; rate = 0.2)
+        end
+        pc2 = pair_coalescence(ped2)
+        @test ped2.nsimplified == 6 && pc2.W == pc.W && pc2.S == pc.S
+        @test samples(ped2).deme == smp.deme
+        # identity by descent among demes, from blocks and from the pedigree
+        f = ibd_fst(s); cdf = coalescence_cdf(pc, pc.t)
+        g = ibd_fst([cdf.S[d, d] for d in 1:k], cdf.S)
+        @test 0 < f.fst < 1 && 0 < g.fst < 1 && f.f_within <= g.f_within && f.f_between <= g.f_between
+        @test ibd_sharing(s).between == ibd_sharing(s.demes).between
+        @test ibd_fst([0.5, 0.5], [0.0 0.1; 0.1 0.0]).fst ≈ (0.5 - 0.3) / (1 - 0.3)
+        # migration between a recorded and an unrecorded population is refused
+        v = World(p; pool = s.demes[1].pool)
+        @test_throws ArgumentError QTLSim.exchange_genomes!(s.demes[1], 1, v, 1)
+        # a copy of a recording World records nothing
+        @test all(w -> w.anc === nothing, (s.demes[1] ⊗ demes(2)).demes)
+    end
+
+    @testset "tree-sequence tables: text round trip, the same trees" begin
+        w = World(base); ped = record_pedigree!(w; simplify_every = 10); run!(w, MersenneTwister(9))
+        for simplified in (false, true)
+            simplified && simplify!(ped)
+            tb = tskit_tables(ped)
+            @test check_tables(tb)
+            dir = mktempdir()
+            write_tskit(dir, ped)
+            back = read_tskit(dir)
+            @test back == tb && check_tables(back)
+            @test readline(joinpath(dir, "nodes.txt")) == "id\tis_sample\ttime\tpopulation\tindividual"
+            @test readline(joinpath(dir, "edges.txt")) == "id\tleft\tright\tparent\tchild"
+            @test readlines(joinpath(dir, "populations.txt"))[2] == "0\teyJuYW1lIjoiZGVtZV8xIn0="   # {"name":"deme_1"}
+            s = samples(ped).node
+            @test sum(tb.nodes.is_sample) == length(s) && all(tb.nodes.time[s] .== 0)
+            @test all(table_tmrca(back, l, s[i] - 1, s[j] - 1) == tmrca(ped, l, s[i], s[j])
+                      for l in (1, 6, 12), i in 1:5:length(s), j in 3:7:length(s) if i != j)
+            # a mutation's derived state is the allele of its node after it
+            x = alleles(ped, Int(tb.sites.position[1]) + 1)
+            last = Dict(tb.mutations.node[m] => tb.mutations.derived_state[m] for m in eachindex(tb.mutations.site) if tb.mutations.site[m] == 0)
+            @test all(parse(Float64, v) === x[n+1] for (n, v) in last)
+        end
+        # broken tables are caught
+        tb = tskit_tables(ped)
+        bad = merge(tb, (edges = merge(tb.edges, (parent = reverse(tb.edges.parent),)),))
+        @test_throws ErrorException check_tables(bad)
+        @test QTLSim._unbase64(QTLSim._base64("{\"name\":\"deme_12\"}")) == "{\"name\":\"deme_12\"}"
+        @test QTLSim._base64("Man") == "TWFu" && QTLSim._base64("Ma") == "TWE=" && QTLSim._base64("M") == "TQ=="
+    end
+end
+
+@testset "phenotypic plasticity: a reaction norm of fixed slope (kernel, moments, Eidos, theory)" begin
+    L = lifecycle(); g = L.generation
+    same(a, b; but = ()) = all(getfield(a, k) == getfield(b, k) for k in keys(a) if !(k in but))
+    base = Params(NoGenerations = 1500, PopSize = 500, Ploidy = 2, NoQTL = 20, MutationRatePerGamete = 0.01,
+                  MoveType = :continuous, MoveFitnessSDGen = 1000, MoveFitnessSD = 0.02, RecombPoissonMean = 3.0,
+                  InitFitnessSD = 1.0, PhenotypeVar = 1.0, Heritability = 0.5)
+    short = Params(base; NoGenerations = 150, MoveFitnessSDGen = 50, PopSize = 200)
+
+    # --- off by default, and nothing changes without it
+    @test Params().Plasticity == 0 && Params().OptimumSlope == 1 && Params().CueLag == 0 &&
+          Params().PlasticityCostSD == Inf && !Params().ReactionNorm
+    @test !QTLSim.isplastic(Params()) && plasticity_ratio(Params()) == 0 && plasticity_cost(Params()) == 1
+    # a slope with the optimum at the origin throughout adds exactly zero: the plastic path is
+    # the default path, bit for bit (the default path itself is checked against the dense
+    # reference kernel and the golden SLiM files above)
+    still = Params(short; MoveFitnessSDGen = -1)
+    @test same(simulate(still; seed = 5), simulate(Params(still; Plasticity = 0.7, CueLag = 2); seed = 5))
+    # the cost alone thins the survivors
+    @test mean(simulate(Params(still; Plasticity = 1.0, PlasticityCostSD = 1.0); seed = 5).mean_fitness) <
+          0.7 * mean(simulate(still; seed = 5).mean_fitness)
+    # no allocation per generation with plasticity, as without
+    alloc(w, rng) = @allocated generation!(w, rng)
+    for q in (short, Params(short; Plasticity = 0.5, CueLag = 3, PlasticityCostSD = 2.0))
+        w = World(q); rng = MersenneTwister(1); init_env!(w, rng)
+        for _ in 1:80; generation!(w, rng); end
+        alloc(w, rng)
+        @test alloc(w, rng) == 0
+    end
+
+    # --- the kernel expresses z = g + e + (b/B) θ_{t−τ}, exactly
+    q = Params(short; Plasticity = 1.2, OptimumSlope = 2.0, CueLag = 3)
+    w = World(q); rng = MersenneTwister(2); init_env!(w, rng)
+    θs = Float64[]
+    ok = true
+    for t in 0:99
+        w.gen = t
+        develop!(w)
+        @test w.plastic == 0
+        z0 = copy(w.phenotype)
+        select!(w, rng)
+        push!(θs, w.θ)
+        cue = θs[max(t + 1 - 3, 1)]              # before the run: the first environment seen
+        ok &= w.phenotype ≈ z0 .+ 0.6 * cue && w.plastic ≈ 0.6 * cue
+        z1 = copy(w.phenotype)
+        QTLSim.express_plasticity!(w)            # a second expression in a generation changes nothing
+        ok &= w.phenotype == z1
+        w.extinct && break
+        reproduce!(w, rng); mutate!(w, rng); swapbuffers!(w)
+    end
+    @test ok && θs[end] ≈ 0.02 * 50
+
+    # --- with a perfect cue and no cost, z − θ = g + e − (1 − b/B)θ: the run at rate k with slope
+    # b is the run without plasticity at rate (1 − b/B)k (the same survivors and genotypes,
+    # the fitnesses equal to rounding; the optimum and the phenotypes differ)
+    ra = simulate(Params(short; MoveFitnessSD = 0.04, Plasticity = 1.5, OptimumSlope = 2.0); seed = 6)
+    rb = simulate(Params(short; MoveFitnessSD = 0.01); seed = 6)
+    @test ra.nsurv == rb.nsurv && ra.geno_var == rb.geno_var && ra.mean_fitness ≈ rb.mean_fitness
+    @test ra.theta .- ra.pheno_mean ≈ rb.theta .- rb.pheno_mean && ra.theta[end] ≈ 4 * rb.theta[end]
+
+    # --- checkparams
+    @test_throws ArgumentError World(Params(short; Plasticity = 0.5, MoveType = :phenotype))
+    @test_throws ArgumentError World(Params(short; Plasticity = 0.5, MoveType = :fitness))
+    @test World(Params(short; Plasticity = 0.5, MoveType = :phenotype, MoveFitnessSDGen = -1)) isa World
+    @test_throws ArgumentError World(Params(short; Plasticity = Inf))
+    @test_throws ArgumentError World(Params(short; OptimumSlope = 0.0))
+    @test_throws ArgumentError World(Params(short; CueLag = -1))
+    @test_throws ArgumentError World(Params(short; PlasticityCostSD = 0.0))
+    @test_throws ArgumentError World(Params(short; NoTraits = 2, Plasticity = 0.5))
+    @test_throws ArgumentError write_qtsim_options(IOBuffer(), Params(short; Plasticity = 0.5))
+
+    # --- theory: exact reductions at b = 0
+    VG, Vs = 0.11, 1.5
+    @test steady_lag(0.02; VG, Vs) === 0.02 * (VG + Vs) / VG
+    @test steady_lag(0.02; VG, Vs, b = 0.0, B = 3.0) === steady_lag(0.02; VG, Vs)
+    @test steady_lag(base; VG) === steady_lag(0.02; VG, Vs = selection_variance(base))
+    @test red_noise_lag_var(0.3, 0.6; VG, Vs, b = 0, τ = 4) === red_noise_lag_var(0.3, 0.6; VG, Vs)
+    kw = (n = 400, VG = 0.11, ω = 1.0, VE = 0.5, sd50 = 0.9, N = 1000)
+    @test critical_rate(; kw..., b = 0.0, B = 2.0, ωb = 0.5) === critical_rate(; kw...)
+    fl = Params(base; MoveType = :red_noise, MoveNoiseSD = 0.3, MoveAutocorr = 0.6)
+    pe = Params(base; MoveType = :periodic, MoveAmplitude = 0.4, MovePeriod = 30.0)
+    for q0 in (base, fl, pe)
+        @test expected_lag2(Params(q0; OptimumSlope = 2.0, CueLag = 3); VG) === expected_lag2(q0; VG)
+        @test lag_load(Params(q0; OptimumSlope = 2.0, CueLag = 3, PlasticityCostSD = 1.0); VG) === lag_load(q0; VG)
+    end
+    # with plasticity: the lag and the critical rate scale by 1 − b/B and its inverse
+    @test steady_lag(0.02; VG, Vs, b = 0.5, B = 2.0) ≈ 0.75 * steady_lag(0.02; VG, Vs)
+    @test critical_rate(; kw..., b = 0.5, B = 2.0) ≈ critical_rate(; kw...) / 0.75
+    @test critical_rate(; kw..., b = 0.5, B = 2.0, ωb = 1.0) < critical_rate(; kw..., b = 0.5, B = 2.0)
+    @test critical_rate(; kw..., b = 2.0, B = 2.0) == Inf
+    @test isnan(critical_rate(; kw..., b = 2.0, B = 1.0, ωb = 0.1))          # the cost leaves no growth
+    # the autocovariance of the lag behind red noise, against the lag's moving-average form
+    # L_t = θ_t − β Σ_{j ≥ 1} (1 − β)^{j−1} θ_{t−j}, and the variance of L_t − φ L_{t−τ}
+    σ, ρ = 0.3, 0.6
+    β = VG / (VG + Vs)
+    c = [1.0; [-β * (1 - β)^(j - 1) for j in 1:2000]]
+    Γ(h) = σ^2 * sum(c[i] * sum(c[j] * ρ^abs(i - j + h) for j in eachindex(c)) for i in eachindex(c))
+    for h in (0, 1, 3)
+        @test red_noise_lag_autocov(σ, ρ, h; VG, Vs) ≈ Γ(h) rtol = 1e-8
+    end
+    @test red_noise_lag_autocov(σ, 1 - β, 3; VG, Vs) ≈ red_noise_lag_autocov(σ, 1 - β + 1e-9, 3; VG, Vs) rtol = 1e-6
+    @test red_noise_lag_var(σ, ρ; VG, Vs, b = 0.5, B = 2.0) ≈ 0.75^2 * red_noise_lag_var(σ, ρ; VG, Vs)
+    @test red_noise_lag_var(σ, ρ; VG, Vs, b = 0.5, B = 2.0, τ = 3) ≈ (1 + 0.25^2) * Γ(0) - 2 * 0.25 * Γ(3) rtol = 1e-8
+    # an old cue of white noise makes plasticity add noise
+    @test red_noise_lag_var(σ, 0.0; VG, Vs, b = 0.5, τ = 5) > red_noise_lag_var(σ, 0.0; VG, Vs)
+    @test expected_lag2(Params(pe; Plasticity = 0.5); VG) ≈
+          0.25 * expected_lag2(pe; VG)                                       # a perfect cue: (1 − φ)² throughout
+    @test lag_load(Params(base; Plasticity = 0.5, PlasticityCostSD = 1.0); VG) ≈
+          lag_load(Params(base; Plasticity = 0.5); VG) + 0.125
+
+    # --- the sustainable rate is the moments recursion's threshold (density regulation)
+    bh = Params(base; Demography = :beverton_holt, GrowthRate = 2.0, PopSize = 1000, NoGenerations = 3000, MoveFitnessSDGen = 10)
+    V0 = gaussian_vg_exact(bh)               # the aggregate recursion's fixed point: V_G then stays put
+    k0 = sustainable_rate(bh; VG = V0)
+    @test sustainable_rate(Params(bh; Plasticity = 0.5); VG = V0) ≈ 2k0
+    @test sustainable_rate(Params(bh; Plasticity = 0.5, OptimumSlope = 2.0); VG = V0) ≈ k0 / 0.75
+    @test k0 / 0.75 > sustainable_rate(Params(bh; Plasticity = 0.5, OptimumSlope = 2.0, PlasticityCostSD = 1.0); VG = V0) > 0
+    @test sustainable_rate(Params(bh; Plasticity = 3.0, PlasticityCostSD = 0.5); VG = V0) == 0
+    @test sustainable_rate(Params(bh; Demography = :fixed); VG = V0) > k0       # a fixed size dies only at 2/N
+    for q in (bh, Params(bh; Plasticity = 0.5), Params(bh; Plasticity = 0.6, OptimumSlope = 2.0, PlasticityCostSD = 1.0, CueLag = 2))
+        kc = sustainable_rate(q; VG = V0)
+        @test !run_moments(Params(q; MoveFitnessSD = 0.98kc); VG = V0, loci = :aggregate).extinct
+        @test run_moments(Params(q; MoveFitnessSD = 1.02kc); VG = V0, loci = :aggregate).extinct
+    end
+
+    # --- kernel against the moments lowering and the theory: the steady lag under a moving
+    # optimum, mean of 8 runs, generations 1401-1500. Tolerances: the kernel's lag within 8% of
+    # the steady lag at the kernel's own V_G, and within 40% of the moments lowering's (whose
+    # V_G does not fall under the move as the kernel's does: 36% without plasticity, 4-11% with
+    # it, where the lag is smaller); mean fitness within 3%
+    w = 1401:1500
+    lags = Dict{Any,Float64}()
+    for (b, B, τ, cost) in ((0.0, 1.0, 0, Inf), (0.5, 1.0, 0, Inf), (1.0, 2.0, 4, Inf), (0.5, 1.0, 0, 1.0))
+        q = Params(base; Plasticity = b, OptimumSlope = B, CueLag = τ, PlasticityCostSD = cost)
+        rs = [simulate(q; seed) for seed in 1:8]
+        m = run_moments(q; erosion = true)
+        lagk = mean(mean(r.theta[w] .- r.pheno_mean[w]) for r in rs)
+        lagm = mean(m.theta[w] .- m.pheno_mean[w])
+        VGk = mean(mean(r.geno_var[w]) for r in rs)
+        lags[(b, B, τ, cost)] = lagk
+        @test lagk ≈ steady_lag(q; VG = VGk) rtol = 0.08
+        @test lagk ≈ lagm rtol = 0.4
+        @test lagm ≈ steady_lag(q; VG = m.geno_var[end]) rtol = 0.01
+        @test mean(mean(r.mean_fitness[w]) for r in rs) ≈ mean(m.mean_fitness[w]) rtol = 0.03
+        # the moments' mean phenotype is the mean genotype plus the plastic part
+        @test m.pheno_mean[end] - m.theta[end] ≈ -lagm rtol = 0.05
+    end
+    # plasticity at least halves the lag here (b/B = 1/2; more, as V_G falls less), and a
+    # delayed cue of a steadily moving optimum makes no difference
+    @test lags[(0.5, 1.0, 0, Inf)] < 0.5 * lags[(0.0, 1.0, 0, Inf)]
+    @test lags[(1.0, 2.0, 4, Inf)] ≈ lags[(0.5, 1.0, 0, Inf)] rtol = 0.1
+
+    # --- a step's own reaction norm: the run of Params with it, in the kernel and the moments
+    over = (Plasticity = 0.8, OptimumSlope = 2.0, CueLag = 2, PlasticityCostSD = 1.5)
+    @test all(k -> k in step_schema(OneTraitModel())[:select], keys(over))
+    @test !(:Plasticity in step_schema(OneTraitModel())[:develop]) && !(:Plasticity in step_schema(TraitModel(2))[:select])
+    @test same(run!(World(Params(short; over...)), MersenneTwister(3)),
+               run_composed(World(short), MersenneTwister(3); cycle = withparams(g; over...)))
+    @test same(run_moments(Params(short; over...)), run_moments(short; cycle = withparams(g; over...)))
+    @test same(run!(World(Params(short; over...)), MersenneTwister(3)),
+               run_composed(World(Params(short; over...)), MersenneTwister(3)))
+    @test_throws ArgumentError withparams(L.develop; Plasticity = 0.5)
+    @test_throws ArgumentError withparams(g, TraitModel(2); Plasticity = 0.5)
+    # two demes, one plastic: each deme keeps its own cue
+    pl = Params(short; Plasticity = 0.5, CueLag = 1)
+    s = run_moments([pl, short]; cycle = g ⊗ g, loci = :multilocus)
+    @test s.pheno_mean[s.deme .== 1] ≈ run_moments(pl; loci = :multilocus).pheno_mean
+    @test s.pheno_mean[s.deme .== 2] ≈ run_moments(short; loci = :multilocus).pheno_mean
+    sk = run_composed([pl, short] ⊗ demes(2), MersenneTwister(4); cycle = g ⊗ g)
+    lagof(d) = mean((sk.theta .- sk.pheno_mean)[(sk.deme .== d) .& (sk.gen .>= 100)])
+    @test lagof(1) < 0.75 * lagof(2)
+
+    # --- Eidos: spliced in only when used
+    plain = slim_script(g, short)
+    @test !occursin("plasticity", plain) && !occursin("CUES", plain)
+    sp = slim_script(g, Params(short; over...))
+    @test occursin("defineConstant(\"plasticity\", 0.8)", sp) && occursin("defineConstant(\"cueLag\", 2)", sp) &&
+          occursin("defineConstant(\"optSlope\", 2.0)", sp) && occursin("defineConstant(\"plastCostSD\", 1.5)", sp)
+    @test occursin("pheno = pheno + (plasticity / optSlope) * cues[cueLag];", sp) && occursin("p1.setValue(\"CUES\", cues);", sp)
+    @test occursin("defineConstant(\"plastCostSD\", INF)", slim_script(g, Params(short; Plasticity = 0.5)))
+    # the rest of the model is the plain one's
+    strip(s) = filter(l -> !occursin(r"plasticity|optSlope|cueLag|plastCostSD|cues|CUES|// cueLag", l), split(s, '\n'))
+    @test strip(sp) == strip(plain)
+    # a step's slope is a literal; per-deme slopes are deme state
+    st = slim_script(withparams(g; Plasticity = 0.3), short)
+    @test occursin("pheno = pheno + (0.3 / optSlope) * cues[cueLag];", st) && occursin("defineConstant(\"plasticity\", 0.0)", st)
+    @test occursin("(0.3 / optSlope)", Ext.lower(withparams(L.select; Plasticity = 0.3), :eidos).code)
+    sd = slim_script(g ⊗ g, [Params(short; Plasticity = 0.5), short])
+    @test occursin("defineConstant(\"plasticity\", c(0.5, 0.0))", sd) && occursin("p2.getValue(\"plasticity\")", sd)
+    @test Ext.eidos_literal(Inf) == "INF" && Ext.eidos_literal(-Inf) == "-INF"
+end
+
+@testset "phenotypic plasticity: a heritable reaction norm (ReactionNormModel)" begin
+    L = lifecycle(); g = L.generation
+    same(a, b; but = ()) = all(getfield(a, k) == getfield(b, k) for k in keys(a) if !(k in but))
+    base = Params(NoGenerations = 1500, PopSize = 500, Ploidy = 2, NoQTL = 20, MutationRatePerGamete = 0.01,
+                  MoveType = :continuous, MoveFitnessSDGen = 1000, MoveFitnessSD = 0.02, RecombPoissonMean = 3.0,
+                  InitFitnessSD = 1.0, PhenotypeVar = 1.0, Heritability = 0.5)
+    Vm = muteVar(base)
+    rn = Params(base; NoTraits = 2, ReactionNorm = true, Plasticity = 0.2, MutCov = [Vm 0.0; 0.0 Vm / 4], PlasticityCostSD = 3.0)
+    @test model_of(rn) == ReactionNormModel() && QTLSim.ntraits(ReactionNormModel()) == 2 && QTLSim.isplastic(rn)
+    @test sprint(show, ReactionNormModel()) == "ReactionNormModel()"
+    @test_throws ArgumentError World(Params(base; ReactionNorm = true))                        # needs two heritable values
+    @test_throws ArgumentError World(Params(rn; NoTraits = 3, MutCov = zeros(0, 0)))
+    @test_throws ArgumentError World(Params(rn; SelCorr = 0.3))
+    @test_throws ArgumentError World(Params(rn; MoveDirection = [0.0, 1.0]))
+    @test_throws ArgumentError World(Params(rn; MoveType = :phenotype))
+    @test :Plasticity in step_schema(ReactionNormModel())[:select] && :MutCov in step_schema(ReactionNormModel())[:mutate]
+
+    # --- the kernel: z = g₁ + (b₀ + g₂) ε + e₁, fitness on z and the cost on the slope
+    short = Params(rn; NoGenerations = 120, MoveFitnessSDGen = 40, PopSize = 200, CueLag = 1, OptimumSlope = 2.0)
+    w = World(short); rng = MersenneTwister(1); init_env!(w, rng)
+    prev = 0.0
+    for t in 0:99
+        w.gen = t
+        develop!(w); select!(w, rng)
+        ε = (t == 0 ? w.θ : prev) / 2
+        G, E, Z = traitvalues(w; what = :genotype), traitvalues(w; what = :env), traitvalues(w)
+        @test Z[2, :] ≈ 0.2 .+ G[2, :] && Z[1, :] ≈ G[1, :] .+ Z[2, :] .* ε .+ E[1, :]
+        @test w.fitness[1:w.N] ≈ QTLSim.TRAIT_FITNESS_PEAK .* exp.(-(Z[1, :] .- w.θ) .^ 2 ./ 2 .- Z[2, :] .^ 2 ./ 18)
+        prev = w.θ
+        reproduce!(w, rng); mutate!(w, rng); swapbuffers!(w)
+    end
+    a = run!(World(short), MersenneTwister(2))
+    @test same(a, run_composed(World(short), MersenneTwister(2)))
+    @test same(a, run_composed(World(Params(short; CueLag = 0)), MersenneTwister(2); cycle = withparams(g, short; CueLag = 1)))
+    @test same(run!(World(Params(short; MutCov = [Vm 0.0; 0.0 Vm])), MersenneTwister(2)),
+               run_composed(World(short), MersenneTwister(2); cycle = withparams(g, short; MutCov = [Vm 0.0; 0.0 Vm])))
+    @test length(a.trait_mean[1]) == 2 && size(a.gmatrix[1]) == (2, 2)
+    @test a.pheno_mean ≈ first.(a.trait_mean) && a.theta .- a.pheno_mean ≈ first.(a.trait_lag)
+    alloc(w, rng) = @allocated generation!(w, rng)
+    alloc(w, rng)
+    @test alloc(w, rng) == 0
+    # the wrong model's images refuse the population
+    @test_throws ArgumentError lower(g, :kernel; model = TraitModel(2))(World(short), MersenneTwister(1))
+    @test_throws ArgumentError lower(g, :kernel; model = ReactionNormModel())(World(Params(base; NoTraits = 2)), MersenneTwister(1))
+    @test_throws ArgumentError slim_script(g, short)
+    @test_throws ArgumentError run_moments(short; loci = :rare_alleles)
+
+    # --- theory: one generation of selection on the norm
+    G = [0.2 0.03; 0.03 0.05]
+    r = reaction_norm_response(G, 0.7; ω = 1.0, VE = 0.5, θ = 1.3, abar = 0.4, bbar = 0.6)
+    v = [1.0, 0.7]
+    s = 1.0 + 0.5 + v' * G * v
+    @test r.Δ ≈ G * v .* ((1.3 - 0.4 - 0.42) / s) && r.Gs ≈ G - (G * v) * (G * v)' ./ s
+    @test r.Wbar ≈ sqrt(1 / s) * exp(-(1.3 - 0.82)^2 / (2s)) && r.zbar ≈ 0.82 && r.Vz ≈ s - 1
+    # without genetic variance in the slope it is one trait's selection, and the lag is steady_lag's
+    r1 = reaction_norm_response([0.2 0.0; 0.0 0.0], 0.7; ω = 1.0, VE = 0.5, θ = 1.3, abar = 0.4, bbar = 0.6)
+    @test r1.Δ ≈ [0.2 * (1.3 - 0.82) / 1.7, 0.0]
+    @test reaction_norm_lag([0.2 0.0; 0.0 0.0], 0.7; k = 0.02, B = 2.0, bbar = 0.6, ω = 1.0, VE = 0.5) ≈
+          steady_lag(0.02; VG = 0.2, Vs = 1.5, b = 0.6, B = 2.0)
+    # with a cost: Monte Carlo of the selected parents' genotypes
+    rc = reaction_norm_response(G, 0.7; ω = 1.0, VE = 0.5, θ = 1.3, abar = 0.4, bbar = 0.6, ωb = 0.8)
+    rng = MersenneTwister(7)
+    C = QTLSim.psd_sqrt(G)
+    n = 400_000
+    X = C * randn(rng, 2, n) .+ [0.4, 0.6]
+    z = X[1, :] .+ 0.7 .* X[2, :] .+ sqrt(0.5) .* randn(rng, n)
+    W = exp.(-(z .- 1.3) .^ 2 ./ 2 .- X[2, :] .^ 2 ./ (2 * 0.64))
+    @test mean(W) ≈ rc.Wbar rtol = 0.01
+    @test mean(W .^ 2) ≈ rc.W2bar rtol = 0.01
+    μs = X * W ./ sum(W)
+    @test μs ≈ [0.4, 0.6] .+ rc.Δ atol = 0.003
+    D = X .- μs
+    @test (D .* W') * D' ./ sum(W) ≈ rc.Gs atol = 0.003
+    @test rc.Gs ≈ G - G * rc.K * G
+
+    # --- kernel against the moments lowering (8 runs): under a sustained move the slope
+    # evolves toward B = 1 as the environment leaves the reference, and its variance is used
+    # up. Tolerances: mean slope within 0.1, lag within 0.1 phenotypic SD (absolute), G_aa 25%
+    q = Params(rn; PlasticityCostSD = Inf)
+    rs = [simulate(q; seed) for seed in 1:8]
+    m = run_moments(q; erosion = true)
+    @test m.trait_mean[1000] ≈ [0.0, 0.2] atol = 1e-12                     # nothing moves the means before the move
+    for t in (1200, 1500)
+        @test mean(r.trait_mean[t][2] - r.trait_mean[1000][2] for r in rs) ≈ m.trait_mean[t][2] - 0.2 atol = 0.1
+        @test mean(mean(x[1] for x in r.trait_lag[t-49:t]) for r in rs) ≈ mean(x[1] for x in m.trait_lag[t-49:t]) atol = 0.1
+    end
+    @test m.trait_mean[1500][2] > 0.7                                      # plasticity has evolved
+    @test m.gmatrix[1500][2, 2] < 0.5 * m.gmatrix[1000][2, 2]
+    @test mean(r.gmatrix[1500][2, 2] for r in rs) < 0.5 * mean(r.gmatrix[1000][2, 2] for r in rs)
+    @test mean(r.gmatrix[1000][1, 1] for r in rs) ≈ m.gmatrix[1000][1, 1] rtol = 0.25
+    # the quasi-steady lag of the moments, at their own G, slope and environment
+    t = 1300
+    @test m.trait_lag[t][1] ≈ reaction_norm_lag(m.gmatrix[t] .* (499 / 500), m.theta[t]; k = 0.02, bbar = m.trait_mean[t][2],
+                                                ω = 1.0, VE = 0.5) rtol = 0.15
+    # a cost holds the slope below B
+    mc = run_moments(rn; erosion = true)
+    @test 0.2 < mc.trait_mean[1500][2] < m.trait_mean[1500][2]
+    # a step's own optimum and width, in the moments
+    mθ = run_moments(Params(rn; MoveFitnessSDGen = -1, NoGenerations = 50); cycle = withparams(g, rn; θ = 0.5, ω = 0.8))
+    @test all(==(0.0), mθ.theta) && mθ.trait_mean[end][1] > 0
+    mo = run_moments(Params(rn; NoGenerations = 30); optimum = fill(0.4, 30))
+    @test all(==(0.4), mo.theta)
 end
