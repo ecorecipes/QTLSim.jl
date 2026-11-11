@@ -57,5 +57,5 @@ QTLSim validate/symbolic/check_spectrum.jl (Symbolics 7.48.0)
   neutral, N = 100: spectrum_vg·(N−1)/N = (2N − 1/(2N))V_m (ratio 0.999980) ok
   neutral, N = 250: spectrum_vg·(N−1)/N = (2N − 1/(2N))V_m (ratio 0.999981) ok
 
-45 checks, 0 failed; 5 s
+45 checks, 0 failed; 4 s
 PASS

@@ -66,5 +66,5 @@ QTLSim validate/symbolic/check_plasticity.jl (Symbolics 7.48.0)
       reaction_norm_lag: the mean phenotype then moves k per generation (vᵀΔ + b̄ k/B = k) ok
       reaction_norm_lag without genetic variance in the slope is steady_lag ok
 
-58 checks, 0 failed; 8 s
+58 checks, 0 failed; 3 s
 PASS

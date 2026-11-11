@@ -18,5 +18,5 @@ QTLSim validate/symbolic/check_demography.jl (Symbolics 7.48.0)
   rescue_probability, no shift (RW̄=1.70): 1 − q^N₀, q the least root of φ(q) = q ok
   extinction_distribution(:branching), constant W̄, K → ∞: P(extinct) → q^N₀ ok
 
-14 checks, 0 failed; 2 s
+14 checks, 0 failed; 1 s
 PASS
