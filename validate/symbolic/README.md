@@ -62,6 +62,17 @@ job. `common.jl` holds the shared helpers.
   (adults) and `K(RW̄ − 1)/(R − 1)` (survivors) and their stability, against
   `expected_offspring`; the thinned Poisson pgf of the Galton–Watson process, against
   `rescue_probability` and `extinction_distribution(:branching)`.
+- `check_plasticity.jl` (58) — phenotypic plasticity (src/plasticity.jl and the plasticity
+  keywords of src/theory.jl): the steady lag `(1 − b/B) k/β` for every delay of the cue and
+  the exact reductions at `b = 0`; the sustainable and critical rates (`W̄ = W_min` at the
+  steady lag, the factor `1/|1 − b/B|`, the cost in `ln B₀`); the lag behind red noise as
+  `L′ = aL + θ′ − θ`, its autocovariance and the variance of `L_t − φL_{t−τ}`, and the cycle's
+  factor `1 + φ² − 2φ cos ντ`; a heritable reaction norm: `G_s = (I + GQ)⁻¹G = G − GKG`
+  (exactly, in rational arithmetic, with a cost), the Sherman–Morrison form without one, the
+  equilibria in a constant environment, the quasi-steady lag and `ε·Δb̄ → (1 − b̄/B)k`, the
+  mean fitness with the cost by quadrature; spot checks of `steady_lag`, `critical_rate`,
+  `sustainable_rate`, `red_noise_lag_var`, `red_noise_lag_autocov`, `expected_lag2`,
+  `lag_load`, `reaction_norm_response` and `reaction_norm_lag`.
 
 Square roots are handled by reducing a polynomial in `r = √D` modulo `r² = D`. Large
 rational identities are checked by substituting a closed form into the equations it

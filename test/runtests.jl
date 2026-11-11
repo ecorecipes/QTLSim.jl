@@ -2365,6 +2365,14 @@ end
     end
     @test ok && θs[end] ≈ 0.02 * 50
 
+    # --- with a perfect cue and no cost, z − θ = g + e − (1 − b/B)θ: the run at rate k with slope
+    # b is the run without plasticity at rate (1 − b/B)k (the same survivors and genotypes,
+    # the fitnesses equal to rounding; the optimum and the phenotypes differ)
+    ra = simulate(Params(short; MoveFitnessSD = 0.04, Plasticity = 1.5, OptimumSlope = 2.0); seed = 6)
+    rb = simulate(Params(short; MoveFitnessSD = 0.01); seed = 6)
+    @test ra.nsurv == rb.nsurv && ra.geno_var == rb.geno_var && ra.mean_fitness ≈ rb.mean_fitness
+    @test ra.theta .- ra.pheno_mean ≈ rb.theta .- rb.pheno_mean && ra.theta[end] ≈ 4 * rb.theta[end]
+
     # --- checkparams
     @test_throws ArgumentError World(Params(short; Plasticity = 0.5, MoveType = :phenotype))
     @test_throws ArgumentError World(Params(short; Plasticity = 0.5, MoveType = :fitness))
@@ -2374,6 +2382,7 @@ end
     @test_throws ArgumentError World(Params(short; CueLag = -1))
     @test_throws ArgumentError World(Params(short; PlasticityCostSD = 0.0))
     @test_throws ArgumentError World(Params(short; NoTraits = 2, Plasticity = 0.5))
+    @test_throws ArgumentError write_qtsim_options(IOBuffer(), Params(short; Plasticity = 0.5))
 
     # --- theory: exact reductions at b = 0
     VG, Vs = 0.11, 1.5

@@ -77,6 +77,7 @@ parameters and tables of images:
 QTLSim.Model
 OneTraitModel
 TraitModel
+ReactionNormModel
 model_of
 step_schema
 QTLSim.step_fields
@@ -152,6 +153,24 @@ periodic_response
 red_noise_lag_var
 expected_lag2
 lag_load
+```
+
+Phenotypic plasticity, a linear reaction norm (Chevin, Lande and Mace 2010; Lande 2009; see
+[Phenotypic plasticity](plasticity_design.md)). `steady_lag`, `critical_rate`,
+`red_noise_lag_var`, `expected_lag2` and `lag_load` above take the slope, the optimum's
+slope and the cue's delay:
+
+```@docs
+plasticity_ratio
+plasticity_cost
+QTLSim.isplastic
+sustainable_rate
+red_noise_lag_autocov
+reaction_norm_response
+reaction_norm_lag
+QTLSim.plastic_cue!
+QTLSim.express_plasticity!
+QTLSim.select_norm!
 ```
 
 Several traits with pleiotropy (Lande 1979, 1980; Schluter 1996):

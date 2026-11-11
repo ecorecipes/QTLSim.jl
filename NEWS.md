@@ -8,6 +8,29 @@ All notable changes to QTLSim.jl are recorded here. The format follows
 
 ### Added
 
+- **Phenotypic plasticity: a linear reaction norm** (`Plasticity`, `OptimumSlope`, `CueLag`,
+  `PlasticityCostSD`; off by default, and then the kernel's output, its allocations and
+  `slim_script`'s output are unchanged). `z = g + b·ε + e` with the environment measured by
+  the optimum, `θ = B·ε`, and a cue `τ` generations old, so that the plastic part of the
+  phenotype is `(b/B)·θ_{t−τ}` (after Chevin, Lande and Mace 2010); a cost of plasticity
+  multiplies fitness by `exp(−b²/(2ω_b²))`. The norm is expressed in `select`, where the
+  optimum of the generation is set, so its fields are parameters of `select`
+  (`withparams(L.select; Plasticity = 0.5)`), and demes can have their own. All three
+  lowerings: the kernel, `run_moments` and `slim_script`
+  (`validate/slim/compare_plasticity.jl`). QTSim's `:phenotype` and `:fitness` moves
+  re-anchor the optimum to the mean phenotype and are rejected with plasticity.
+  Theory, derived from the moments recursion: `steady_lag`, `critical_rate`,
+  `red_noise_lag_var`, `expected_lag2` and `lag_load` take the slope, the optimum's slope
+  and the cue's delay and reduce exactly to their old values at `b = 0`;
+  `red_noise_lag_autocov`; `sustainable_rate`, the rate at which the steady lag brings the
+  mean fitness to the demography's threshold. Without a cost the lag scales by `1 − b/B`
+  and the sustainable rate by `1/|1 − b/B|`.
+- **A heritable reaction norm** (`ReactionNorm = true`, `NoTraits = 2`; a third model,
+  `ReactionNormModel()`): elevation and slope are the two heritable values of the model of
+  several traits, the phenotype is `z = a + b·ε + e`, selection acts on `z` and the cost on
+  the slope. Kernel and moments lowerings; `reaction_norm_response`, `reaction_norm_lag`.
+  The design note is `docs/src/plasticity_design.md`; the algebra is checked in
+  `validate/symbolic/check_plasticity.jl`.
 - **Locally favoured alleles in metapopulations: `run_moments(...; loci = :rare_local)`**
   (`src/local_alleles.jl`). The rare-alleles closure takes every mutant to be deleterious
   wherever it is; under local adaptation with migration, demes lag behind different

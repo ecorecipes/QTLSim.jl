@@ -1,0 +1,70 @@
+QTLSim validate/symbolic/check_plasticity.jl (Symbolics 7.48.0)
+
+(a) the steady lag with a fixed slope, and the reductions at b = 0
+  the lag θ − z̄ of a genotype moving at (1 − φ)k is constant in t          ok
+  ḡ′ − ḡ = β·lag at lag = (1 − φ)k/β, for every delay τ of the cue         ok
+  recursion iterated, b/B=0.12 τ=0: lag → steady_lag(k; VG, Vs, b, B)      ok
+      steady_lag(p; VG) is that with p's Plasticity and OptimumSlope       ok
+  recursion iterated, b/B=-0.11 τ=4: lag → steady_lag(k; VG, Vs, b, B)     ok
+      steady_lag(p; VG) is that with p's Plasticity and OptimumSlope       ok
+  recursion iterated, b/B=-0.16 τ=1: lag → steady_lag(k; VG, Vs, b, B)     ok
+      steady_lag(p; VG) is that with p's Plasticity and OptimumSlope       ok
+  b = 0: steady_lag === k (V_G + V_s)/V_G, also with B ≠ 1                 ok
+  b = 0: critical_rate === the table's form, whatever B and ω_b            ok
+  b = 0: red_noise_lag_var === 2σ²(1 − ρ)/((2 − β)(1 − ρ(1 − β))), whatever τ ok
+  b = 0: expected_lag2 and lag_load ignore OptimumSlope, CueLag and PlasticityCostSD (===), all three moves ok
+
+(b) the sustainable rate and the critical rate
+  the steady lag at k_max = V_G/s·√(2 s ℓ)/(1 − φ) is √(2 s ℓ): W̄ = W_min there ok
+  sustainable_rate (fixed size, b/B=0.50, ω_b=Inf): W̄ at its steady lag is W_min ok
+      without a cost it is 1/|1 − b/B| times the rate without plasticity   ok
+      and so is critical_rate                                              ok
+  sustainable_rate (Beverton–Holt, b/B=0.21, ω_b=Inf): W̄ at its steady lag is W_min ok
+      without a cost it is 1/|1 − b/B| times the rate without plasticity   ok
+      and so is critical_rate                                              ok
+  sustainable_rate (fixed size, b/B=0.12, ω_b=2.7): W̄ at its steady lag is W_min ok
+  sustainable_rate (Beverton–Holt, b/B=0.36, ω_b=1.5): W̄ at its steady lag is W_min ok
+  critical_rate with a cost: V_G/(V_G + V_s)·√(2V_λ(ln B₀ − b²/(2ω_b²)))/|1 − b/B|/sd50 ok
+
+(c) fluctuating optima: red noise and a cycle, with a delayed cue
+  c₀ = Cov(θ_t, L_t) = σ²(1 − βρ/(1 − aρ)) = σ²(1 − ρ)/(1 − aρ)            ok
+  Γ(0): (1 − a²)Γ(0) = 2σ²(1 − ρ) − 2a(1 − ρ)c₀, the variance of L′ = aL + θ′ − θ ok
+  Γ(h + 1) = aΓ(h) − (1 − ρ)ρ^h c₀ for h = 0…5, with Σ_j a^{h−1−j}ρ^j = (a^h − ρ^h)/(a − ρ) ok
+  τ = 0: (1 + φ²)Γ(0) − 2φΓ(0) = (1 − φ)²Γ(0)                              ok
+  a cycle: |1 − φ e^{−iντ}|² = (1 − φ cos x)² + φ² sin² x = 1 + φ² − 2φ cos x (sin² = 1 − cos²) ok
+  red_noise_lag_autocov(σ, ρ=0.64, h=6) against the moving-average sum     ok
+  red_noise_lag_var with b/B=0.62, τ=6: (1 + φ²)Γ(0) − 2φΓ(τ)              ok
+  a cycle of period 189 iterated: mean squared lag = expected_lag2(p; VG)  ok
+  red_noise_lag_autocov(σ, ρ=0.04, h=1) against the moving-average sum     ok
+  red_noise_lag_var with b/B=1.23, τ=1: (1 + φ²)Γ(0) − 2φΓ(τ)              ok
+  a cycle of period 97 iterated: mean squared lag = expected_lag2(p; VG)   ok
+  red_noise_lag_autocov(σ, ρ=0.30, h=2) against the moving-average sum     ok
+  red_noise_lag_var with b/B=0.16, τ=2: (1 + φ²)Γ(0) − 2φΓ(τ)              ok
+  a cycle of period 103 iterated: mean squared lag = expected_lag2(p; VG)  ok
+
+(d) a heritable reaction norm
+  no cost: (I + G Q)(G − G v vᵀ G/s) = G, Q = v vᵀ/(ω² + V_E), s = ω² + V_E + vᵀGv ok
+  no cost: Δ = G_s v λ/(ω² + V_E) = G v λ/s                                ok
+  the quasi-steady lag: vᵀΔ + b̄ k/B = k at λ = (1 − b̄/B) k s/(vᵀGv)        ok
+  far from the reference environment ε·Δb̄ → (1 − b̄/B) k (so d b̄/dt ≈ (B − b̄)/t) ok
+  with a cost (20 rational cases): G_s = (I + GQ)⁻¹G = G − G K G, K = Q(I + GQ)⁻¹, both symmetric ok
+  with a cost, a constant environment: Δ = 0 at λ = 0, b̄ = 0 (the slope is lost), not at λ = 0, b̄ ≠ 0 ok
+  without a cost: Δ = 0 on the whole line ā + b̄ε = θ                       ok
+  reaction_norm_response without a cost: Δ = G v λ/s, G_s = G − G v vᵀ G/s, W̄ = ω/√s·exp(−λ²/2s) ok
+      with a cost: G_s = (I + GQ)⁻¹G and Δ = G_s (v λ/(ω² + V_E) − e₂ b̄/ω_b²) ok
+      its mean fitness E[exp(−(z−θ)²/2ω²)·exp(−b²/2ω_b²)], by quadrature   ok
+      reaction_norm_lag: the mean phenotype then moves k per generation (vᵀΔ + b̄ k/B = k) ok
+      reaction_norm_lag without genetic variance in the slope is steady_lag ok
+  reaction_norm_response without a cost: Δ = G v λ/s, G_s = G − G v vᵀ G/s, W̄ = ω/√s·exp(−λ²/2s) ok
+      with a cost: G_s = (I + GQ)⁻¹G and Δ = G_s (v λ/(ω² + V_E) − e₂ b̄/ω_b²) ok
+      its mean fitness E[exp(−(z−θ)²/2ω²)·exp(−b²/2ω_b²)], by quadrature   ok
+      reaction_norm_lag: the mean phenotype then moves k per generation (vᵀΔ + b̄ k/B = k) ok
+      reaction_norm_lag without genetic variance in the slope is steady_lag ok
+  reaction_norm_response without a cost: Δ = G v λ/s, G_s = G − G v vᵀ G/s, W̄ = ω/√s·exp(−λ²/2s) ok
+      with a cost: G_s = (I + GQ)⁻¹G and Δ = G_s (v λ/(ω² + V_E) − e₂ b̄/ω_b²) ok
+      its mean fitness E[exp(−(z−θ)²/2ω²)·exp(−b²/2ω_b²)], by quadrature   ok
+      reaction_norm_lag: the mean phenotype then moves k per generation (vᵀΔ + b̄ k/B = k) ok
+      reaction_norm_lag without genetic variance in the slope is steady_lag ok
+
+58 checks, 0 failed; 8 s
+PASS

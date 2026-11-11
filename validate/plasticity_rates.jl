@@ -17,9 +17,16 @@
 # Plasticity: b/B ∈ {0, 0.25, 0.5, 0.75} with B = 1 (OptimumSlope), a perfect cue
 # (CueLag = 0); without a cost, and with the cost ω_b = 0.5 (PlasticityCostSD; fitness
 # times exp(−b²/(2ω_b²)) = 0.88, 0.61, 0.32 for the three slopes).
-# Rates: nine rates per cell, k = K50_PILOT[L, demography] × {0.4, 0.55, 0.7, 0.85, 1, 1.15,
-# 1.3, 1.6, 2.2} / (1 − b/B): the same grid of EFFECTIVE rates (1 − b/B)·k in every cell, so
-# that under the theory's scaling the survival curves of the no-cost cells coincide.
+# Rates: eleven rates per cell, k = K50_PILOT[L, demography] × {0.6, 0.8, 0.88, 0.94, 0.97, 1,
+# 1.03, 1.06, 1.12, 1.25, 1.6} / (1 − b/B): the same grid of EFFECTIVE rates (1 − b/B)·k in
+# every no-cost cell, so that under the theory's scaling their survival curves coincide.
+# (The grid first written here was {0.4, …, 2.2} in nine steps; the pilot's second stage,
+# still b = 0 only, showed that survival falls from 1 to 0 within about ±10% of k50, so the
+# grid was made finer around 1 before any run with plasticity.) In the cells with a cost the
+# grid is multiplied by the predicted effect of the cost, sustainable_rate(b, cost)·(1 − b/B)/
+# sustainable_rate(0) at the nominal V_G = h²V_P, so that it brackets the prediction; if the
+# prediction is off by more than the grid's span the half-survival rate is not bracketed,
+# and the cell fails.
 # Replicates: 40 burn-ins per (parameter set, demography). Without a cost the burn-in does
 # not depend on the slope (the optimum is at the origin, so the plastic part is exactly 0;
 # tested bitwise in test/runtests.jl), so each burn-in is shared by all four slopes and all
@@ -29,7 +36,7 @@
 #
 # ── Measures ──────────────────────────────────────────────────────────────────────────
 # survival: alive 2000 generations after the move. k50: the rate at which half survive,
-# from a logistic regression of survival on ln k over a cell's nine rates (maximum
+# from a logistic regression of survival on ln k over a cell's eleven rates (maximum
 # likelihood), k50 = exp(−a/c) for logit P(survive) = a + c ln k. Intervals: 95% percentile
 # intervals from 1000 bootstrap resamples of the replicates (blocks: a replicate's whole set
 # of rates; for ratios within the no-cost design the same resampled replicates in numerator
@@ -57,8 +64,17 @@
 #
 # END OF PRE-SPECIFICATION
 #
+# Notes added after the run (the pre-specification above is unchanged):
+# - The first pass of the analysis stopped on a programming error in the printing of the
+#   results (`mean(...; init)`, which Statistics.mean does not take), after the runs were in
+#   the CSV. It was fixed (`meanor`) and the analysis rerun on the same rows; no run was
+#   repeated and no criterion changed.
+# - P1 and P3 test an identity, not an approximation: with a perfect cue and no cost,
+#   z − θ = g + e − (1 − b/B)θ, so a plastic population at rate k is, in distribution, a
+#   population without plasticity at rate (1 − b/B)k. They check the implementation.
+#
 # Run from the package root, at most 3 threads (about 1.5 CPU-hours):
-#   julia -t 3 --project=. validate/plasticity_rates.jl pilot     # places the grid (b = 0 only)
+#   julia -t 3 --project=. validate/plasticity_rates.jl pilot [fine]   # places the grid (b = 0 only)
 #   julia -t 3 --project=. validate/plasticity_rates.jl [SEED0]   # the experiment; resumes from its CSV
 # Writes validate/plasticity_rates.csv (one row per run) and prints the analysis, logged in
 # validate/plasticity_rates.log.
@@ -68,7 +84,7 @@ using QTLSim, Statistics, Random, Printf
 const BURN = 10_000
 const CAP = 2_000
 const NREP = 40
-const GRID = (0.4, 0.55, 0.7, 0.85, 1.0, 1.15, 1.3, 1.6, 2.2)
+const GRID = (0.6, 0.8, 0.88, 0.94, 0.97, 1.0, 1.03, 1.06, 1.12, 1.25, 1.6)
 const SLOPES = (0.0, 0.25, 0.5, 0.75)
 const COST = 0.5
 const SETS = (L100 = Params(Sample = 10, PopSize = 1000, Ploidy = 2, NoQTL = 100, RecombPoissonMean = 3.0,
@@ -78,8 +94,16 @@ const SETS = (L100 = Params(Sample = 10, PopSize = 1000, Ploidy = 2, NoQTL = 100
                             PhenotypeVar = 0.05, Heritability = 0.3, MutationScalar = 0.008,
                             MutationRatePerGamete = 1e-4, InitFitnessSD = 3.0, MoveType = :continuous))
 const DEMS = (fixed = (Demography = :fixed,), bh = (Demography = :beverton_holt, GrowthRate = 2.0))
-# half-survival rates of the pilot (b = 0, 8 replicates, plasticity_rates_pilot.log), per generation
-const K50_PILOT = Dict((:L100, :fixed) => NaN, (:L100, :bh) => NaN, (:L500, :fixed) => NaN, (:L500, :bh) => NaN)
+# half-survival rates of the pilot's second stage (b = 0, 12 replicates, plasticity_rates_pilot.log), per generation
+const K50_PILOT = Dict((:L100, :fixed) => 0.02219, (:L100, :bh) => 0.0153, (:L500, :fixed) => 0.05212, (:L500, :bh) => 0.03774)
+
+"The predicted effect of the cost on the half-survival effective rate, at the nominal V_G = h²V_P (1 without a cost)."
+function costfactor(set, dem, b)
+    p0 = Params(SETS[set]; DEMS[dem]...)
+    f = sustainable_rate(Params(p0; Plasticity = b, PlasticityCostSD = COST); VG = geneticVar(p0)) * (1 - b) /
+        sustainable_rate(p0; VG = geneticVar(p0))
+    f > 0 ? f : 1.0
+end
 
 "Burn in a population of `p` for BURN generations; the World, or `nothing` if it died."
 function burnin(p::Params, seed)
@@ -204,6 +228,7 @@ function k50(rs)
     c < 0 ? exp(-a / c) : NaN
 end
 
+meanor(itr) = (v = collect(itr); isempty(v) ? NaN : mean(v))
 quant(v, q) = (w = sort(filter(isfinite, v)); isempty(w) ? NaN : w[clamp(round(Int, q * length(w) + 0.5), 1, length(w))])
 ci(v) = (quant(v, 0.025), quant(v, 0.975))
 
@@ -227,7 +252,8 @@ function analyse(rows, seed0)
                 vg0 / (vg0 + envVar(p0)), mean(r.n0 for r in base))
         @printf("  b = 0: k50 = %.4g per generation [%.4g, %.4g] = %.4f phenotypic SD; deterministic sustainable_rate %.4g (k50/it %.2f)\n",
                 kb, ci(boot0)..., kb / sdp, sustainable_rate(p0; VG = vg0), kb / sustainable_rate(p0; VG = vg0))
-        println("  survival by effective rate (1 − b/B)k, as multiples of the pilot's k50: ", join(GRID, "  "))
+        println("  survival by effective rate (1 − b/B)k, as multiples of the pilot's k50 (with a cost: times the predicted effect of the cost, ",
+                join((@sprintf("%.3f", costfactor(set, dem, b)) for b in SLOPES[2:end]), ", "), "): ", join(GRID, "  "))
         for cost in (false, true), b in SLOPES
             cost && b == 0 && continue
             rs = cell(set, dem, cost, b)
@@ -265,7 +291,7 @@ function analyse(rows, seed0)
                         b, kc, ratio, lo, hi, pred, ratio / pred, lo / pred, hi / pred, verdict(:P1, ok), flag)
             else
                 pc = Params(p0; Plasticity = b, PlasticityCostSD = COST)
-                vgc = mean(r.vg0 for r in rs if isfinite(r.vg0); init = NaN)
+                vgc = meanor(r.vg0 for r in rs if isfinite(r.vg0))
                 dead = mean(r.n0 == 0 for r in rs)
                 pred = sustainable_rate(pc; VG = isfinite(vgc) ? vgc : vg0) / sustainable_rate(p0; VG = vg0)
                 if pred == 0
@@ -290,7 +316,7 @@ function analyse(rows, seed0)
             end
             ok = all(x -> isfinite(x) && 0.85 <= x <= 1.15, ratios)
             @printf("    b/B = %.2f       %.3f, %.3f at the two lowest rates (lag at b = 0: %.3g, %.3g phenotypic SD)  P3 %s\n", b, ratios...,
-                    (mean(r.lag for r in base if isapprox(r.keff, k; rtol = 1e-9) && isfinite(r.lag); init = NaN) / sdp for k in ks)...,
+                    (meanor(r.lag for r in base if isapprox(r.keff, k; rtol = 1e-9) && isfinite(r.lag)) / sdp for k in ks)...,
                     verdict(:P3, ok))
         end
     end
@@ -301,14 +327,20 @@ function analyse(rows, seed0)
     all(v -> v[1] == v[2], values(npass))
 end
 
-function pilot()
-    println("Pilot without plasticity (b = 0), 8 replicates, to place the grid of rates; $(Threads.nthreads()) threads")
+# the pilot's second stage: the rates between which survival fell from 1 to 0 in its first
+const PILOT_BRACKET = Dict((:L100, :fixed) => (0.0148, 0.0245), (:L100, :bh) => (0.00899, 0.0245),
+                           (:L500, :fixed) => (0.0404, 0.0667), (:L500, :bh) => (0.0245, 0.0404))
+
+function pilot(fine::Bool)
+    nrep = fine ? 12 : 8
+    println("Pilot without plasticity (b = 0), $nrep replicates, to place the grid of rates", fine ? " (second stage: within the first stage's brackets)" : "",
+            "; $(Threads.nthreads()) threads")
     for set in keys(SETS), dem in keys(DEMS)
         p = Params(SETS[set]; DEMS[dem]..., NoGenerations = BURN)
-        rates = exp.(range(log(0.002), log(0.3); length = 11))
-        out = Vector{Any}(undef, 8)
-        Threads.@threads :greedy for rep in 1:8
-            w0 = burnin(p, 555_000 + rep + 100 * findfirst(==((set, dem)), [(s, d) for s in keys(SETS) for d in keys(DEMS)]))
+        rates = fine ? exp.(range(log.(PILOT_BRACKET[(set, dem)])...; length = 12)) : exp.(range(log(0.002), log(0.3); length = 11))
+        out = Vector{Any}(undef, nrep)
+        Threads.@threads :greedy for rep in 1:nrep
+            w0 = burnin(p, (fine ? 666_000 : 555_000) + rep + 100 * findfirst(==((set, dem)), [(s, d) for s in keys(SETS) for d in keys(DEMS)]))
             out[rep] = [(rate = k, extinct = w0 === nothing ? true : branch(w0, k, 0.0, 777_000 + 100rep + i).extinct)
                         for (i, k) in enumerate(rates)]
         end
@@ -322,7 +354,7 @@ end
 
 function main()
     if !isempty(ARGS) && ARGS[1] == "pilot"
-        return pilot()
+        return pilot(length(ARGS) > 1 && ARGS[2] == "fine")
     end
     seed0 = isempty(ARGS) ? 20_261_110 : parse(Int, ARGS[1])
     any(isnan, values(K50_PILOT)) && error("run the pilot and enter its half-survival rates in K50_PILOT first")
@@ -332,7 +364,8 @@ function main()
         rates = b -> [K50_PILOT[(set, dem)] * g / (1 - b) for g in GRID]
         push!(jobs, (; set, dem, cost = false, bs = collect(SLOPES), rep, rates))
         for b in SLOPES[2:end]
-            push!(jobs, (; set, dem, cost = true, bs = [b], rep, rates))
+            f = costfactor(set, dem, b)
+            push!(jobs, (; set, dem, cost = true, bs = [b], rep, rates = bb -> [K50_PILOT[(set, dem)] * f * g / (1 - bb) for g in GRID]))
         end
     end
     println("Plasticity and the sustainable rate of change: kernel, $(NREP) burn-ins per cell, seeds from $seed0, ",
@@ -345,4 +378,4 @@ function main()
     ok || exit(1)
 end
 
-abspath(PROGRAM_FILE) == @__FILE__ && main()
+abspath(PROGRAM_FILE) == (@__FILE__) && main()

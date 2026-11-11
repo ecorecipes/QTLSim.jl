@@ -90,12 +90,14 @@ directly. The population is also an attributed C-set (ACSet, `lift`, `lower!`).
   and its `0.4/ω` fitness normalisation. Genomes are shared blocks of about √`NoQTL` loci,
   so a generation of 1000 diploids takes 0.25 ms at 100 loci and 0.78 ms at 5000, 1.9 to
   17 times faster than QTSim (one thread, Apple M3 Pro; `validate/benchmark.log`).
-- **Models**: `OneTraitModel()` and `TraitModel(n)`, two families of lowerings of the
-  one life cycle, with step parameters typed by the model (`step_schema`).
+- **Models**: `OneTraitModel()`, `TraitModel(n)` and `ReactionNormModel()`, families of
+  lowerings of the one life cycle, with step parameters typed by the model (`step_schema`).
 - **Beyond QTSim** (off by default): Beverton–Holt density regulation
   (`Demography = :beverton_holt`), fecundity selection (`Selection = :fecundity`),
   periodic and red-noise optima, metapopulations with island and stepping-stone
-  migration, and `NoTraits = n` traits with mutational and selection covariances.
+  migration, `NoTraits = n` traits with mutational and selection covariances, and
+  phenotypic plasticity (`Plasticity`: a linear reaction norm with a cue and a cost, in
+  all three lowerings; `ReactionNorm` makes the norm heritable).
 - **Theory**: Gaussian, multilocus and rare-alleles equilibria of the genetic variance,
   house of cards, the steady lag and critical rate under a moving optimum, fluctuating
   optima, extinction-time distributions and rescue probability, neutral F_ST/Q_ST among
