@@ -69,6 +69,25 @@
 #   results (`mean(...; init)`, which Statistics.mean does not take), after the runs were in
 #   the CSV. It was fixed (`meanor`) and the analysis rerun on the same rows; no run was
 #   repeated and no criterion changed.
+# - Run 1 (seeds from 20261110) ran all 640 jobs (12,320 runs, validate/plasticity_rates.csv)
+#   in 610.6 min of wall clock; the machine slept during jobs 540-640, which took most of
+#   that. Its analysis then crashed at the line above (stderr kept in
+#   plasticity_rates_run1.err). The analysis was rerun from the CSV on 2026-11-11 with the fix;
+#   plasticity_rates.log is that rerun. Result: P1 12/12, P3 12/12, P2 8/12.
+# - Why P2 fails, found after the run (the criteria are unchanged): the cost lowers the
+#   genetic variance before the move. Viability selection with every fitness times
+#   exp(−b²/(2ω_b²)) leaves fewer parents (more drift), and under Beverton–Holt a smaller
+#   population too: V_G at the move falls 15%/33%/58% (L100, fixed size, b/B = 0.25/0.5/0.75),
+#   5%/27%/54% (L500, fixed), and 22%/72% (L100) and 15%/66% (L500) under Beverton–Holt,
+#   where N at the move falls to about 340 at b/B = 0.5. The grid's cost factor (costfactor)
+#   used the nominal V_G for every cell, so it ignored this and sat too high: under
+#   Beverton–Holt at b/B = 0.5 every run died even at the lowest rate (k50 not bracketed,
+#   NaN, below 0.63·k50(0)); the prediction there, with the realised V_G, was 0.29–0.36·k50(0),
+#   the same direction. At fixed size the prediction, which does use each cell's realised V_G,
+#   underestimates the costly cells' k50 by 0.5–39% (more at larger slopes): the deterministic
+#   threshold is 5–7 times the observed k50 at fixed size, and k50 responds less than
+#   proportionally to V_G there. A fresh-seed confirmation was not run: no model or criterion
+#   was changed.
 # - P1 and P3 test an identity, not an approximation: with a perfect cue and no cost,
 #   z − θ = g + e − (1 − b/B)θ, so a plastic population at rate k is, in distribution, a
 #   population without plasticity at rate (1 − b/B)k. They check the implementation.

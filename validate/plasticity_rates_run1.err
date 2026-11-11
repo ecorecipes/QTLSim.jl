@@ -1,0 +1,59 @@
+  20/640 jobs, 1.5 min
+  40/640 jobs, 2.8 min
+  60/640 jobs, 4.3 min
+  80/640 jobs, 5.6 min
+  100/640 jobs, 6.8 min
+  120/640 jobs, 8.3 min
+  140/640 jobs, 9.8 min
+  160/640 jobs, 11.5 min
+  180/640 jobs, 12.5 min
+  200/640 jobs, 13.2 min
+  220/640 jobs, 13.9 min
+  240/640 jobs, 14.7 min
+  260/640 jobs, 15.5 min
+  280/640 jobs, 16.2 min
+  300/640 jobs, 16.9 min
+  320/640 jobs, 17.7 min
+  340/640 jobs, 19.2 min
+  360/640 jobs, 20.5 min
+  380/640 jobs, 22.0 min
+  400/640 jobs, 23.5 min
+  420/640 jobs, 25.0 min
+  440/640 jobs, 26.5 min
+  460/640 jobs, 27.8 min
+  480/640 jobs, 29.1 min
+  500/640 jobs, 29.9 min
+  520/640 jobs, 30.8 min
+  540/640 jobs, 49.3 min
+  560/640 jobs, 153.0 min
+  580/640 jobs, 274.4 min
+  600/640 jobs, 396.4 min
+  620/640 jobs, 507.4 min
+  640/640 jobs, 610.6 min
+ERROR: LoadError: MethodError: no method matching mean(::Base.Generator{Base.Iterators.Filter{var"#analyse##45#analyse##46", Vector{@NamedTuple{set::Symbol, dem::Symbol, cost::Bool, b::Float64, rep::Int64, rate::Float64, keff::Float64, extinct::Bool, text::Int64, vg0::Float64, n0::Int64, lag::Float64, vgmove::Float64}}}, var"#analyse##43#analyse##44"}; init::Float64)
+This method does not support all of the given keyword arguments (and may not support any).
+
+Closest candidates are:
+  mean(::Any, !Matched::AbstractArray; dims) got unsupported keyword argument "init"
+   @ Statistics ~/.julia/packages/Statistics/2IU8F/src/Statistics.jl:104
+  mean(::Any, !Matched::Any) got unsupported keyword argument "init"
+   @ Statistics ~/.julia/packages/Statistics/2IU8F/src/Statistics.jl:61
+  mean(::Any) got unsupported keyword argument "init"
+   @ Statistics ~/.julia/packages/Statistics/2IU8F/src/Statistics.jl:44
+  ...
+
+Stacktrace:
+ [1] analyse(rows::Vector{NamedTuple}, seed0::Int64)
+   @ Main ~/Projects/quantitative_genetics/wt-plastic/validate/plasticity_rates.jl:284
+ [2] main()
+   @ Main ~/Projects/quantitative_genetics/wt-plastic/validate/plasticity_rates.jl:366
+ [3] top-level scope
+   @ ~/Projects/quantitative_genetics/wt-plastic/validate/plasticity_rates.jl:371
+ [4] include(mod::Module, _path::String)
+   @ Base ./Base.jl:306
+ [5] exec_options(opts::Base.JLOptions)
+   @ Base ./client.jl:317
+ [6] _start()
+   @ Base ./client.jl:550
+in expression starting at /Users/lshsf3/Projects/quantitative_genetics/wt-plastic/validate/plasticity_rates.jl:371
+exit 1

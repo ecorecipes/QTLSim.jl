@@ -24,7 +24,14 @@ All notable changes to QTLSim.jl are recorded here. The format follows
   and the cue's delay and reduce exactly to their old values at `b = 0`;
   `red_noise_lag_autocov`; `sustainable_rate`, the rate at which the steady lag brings the
   mean fitness to the demography's threshold. Without a cost the lag scales by `1 − b/B`
-  and the sustainable rate by `1/|1 − b/B|`.
+  and the sustainable rate by `1/|1 − b/B|`; with a perfect cue and no cost this is exact
+  (a plastic population at rate k is, in distribution, one without plasticity at rate
+  (1 − b/B)k). `validate/plasticity_rates.jl` (pre-specified, 12,320 kernel runs in a
+  published-like regime): without a cost the half-survival rate rose 1.33, 2.0 and 4.0-fold
+  for b/B = 0.25, 0.5, 0.75 (12/12 cells within 2% of 1/(1 − b/B)); with a cost
+  (ω_b = 0.5) the gain fell to 1.2–2.1-fold at a fixed size and vanished or reversed under
+  Beverton–Holt (R = 2). The deterministic prediction of the cost's effect failed 4 of 12
+  cells, because the cost also erodes V_G before the move.
 - **A heritable reaction norm** (`ReactionNorm = true`, `NoTraits = 2`; a third model,
   `ReactionNormModel()`): elevation and slope are the two heritable values of the model of
   several traits, the phenotype is `z = a + b·ε + e`, selection acts on `z` and the cost on

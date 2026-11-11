@@ -186,7 +186,26 @@ threshold cost an intermediate plasticity maximises the critical rate).
   slopes, the Eidos splice, and the heritable norm against Monte Carlo and the moments.
 - `validate/symbolic/check_plasticity.jl`: the algebra above.
 - `validate/slim/compare_plasticity.jl`: kernel against the generated SLiM model.
-- `validate/plasticity_rates.jl`: the pre-specified experiment on sustainable rates.
+- `validate/plasticity_rates.jl`: the pre-specified experiment on sustainable rates
+  (`plasticity_rates.log`, 12,320 kernel runs: two published-like parameter sets with 100
+  and 500 loci, fixed size and Beverton–Holt R = 2, b/B = 0, 0.25, 0.5, 0.75, with and
+  without a cost ω_b = 0.5, 40 burn-ins of 10,000 generations per cell, censored 2000
+  generations after the move). Without a cost the half-survival rate rose by 1.33–1.35,
+  1.98–2.03 and 3.99–4.07 times (95% bootstrap intervals within 1.32–1.38, 1.95–2.07 and
+  3.93–4.13), against the predicted 1.33, 2 and 4: all 12 cells pass the 15% criterion,
+  as they must, since the correspondence above is exact. With the cost the gain shrinks:
+  at fixed size 1.24–1.26, 1.46–1.55 and 2.11–2.13 times; under Beverton–Holt 1.03–1.06
+  times at b/B = 0.25, below 0.63 (every run died on the grid) at 0.5, and extinction
+  before the move at 0.75. The deterministic prediction of the cost's effect failed 4 of
+  12 cells: the cost also lowers V_G before the move (more drift among fewer survivors,
+  and under Beverton–Holt a population of about 340), which the grid did not allow for.
+  See the script's header.
+- `validate/reaction_norm.jl` (`reaction_norm.log`): the heritable norm, kernel against the
+  moments lowering, 40 runs; 28 of 30 criteria pass. The mean slope (0.2 → 0.96 without a
+  cost, → 0.56 with ω_b = 1) is within 0.07 of the moments at every time, the lag within
+  0.01 phenotypic SD, G_bb within a factor 1.5. The two failures are the quasi-steady lag
+  formula late in the move (1000 and 1500 generations), where the lag has fallen to 0.003
+  and below, and the formula's ratio is noise.
 
 ## For Lean
 
