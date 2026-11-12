@@ -99,6 +99,28 @@
 # showed arm B close to arm 0 and arm C close to arm A in every cell, i.e. a small pre-move
 # effect. The criteria were written before the pilot and are kept as they are.
 #
+# Notes added after the main run (2026-11-11; nothing above changed, no run repeated):
+# - Run 1 (seeds from 7_000_000_000): 480 burn-ins, 15,840 branches, 64 min on 3 threads;
+#   plasticity_erosion.log. H1 0/8, H2 0/8, H3 0/8, H4 8/8. Verdict: REFUTED. The state the
+#   cost leaves at the move (V_G 0.28–0.81 of the no-cost value, and N about 340 under
+#   Beverton–Holt at b/B = 0.5) accounts for only 3–9% of the cost's effect on k50
+#   (share_pre 0.028–0.085, every interval below 0.11); populations burnt in with the cost
+#   and relieved of it at the move (arm B) sustain 0.88–0.99 of the no-cost k50 despite
+#   that V_G. The cost acts after the move (M_post 91–97% of D_A; interaction within
+#   ±0.03), and it acts 2.1–6.6 times more strongly than the deterministic fitness margin
+#   of sustainable_rate (T_fit) says. H4: the plastic correspondence plays no part (A′/A
+#   0.988–1.015). k50 hardly depends on V_G at the move (H3: 2–10% of the proportional
+#   effect), as the post hoc look at plasticity_rates.csv suggested (no cross-replicate
+#   elasticity). No confirmation run on fresh seeds: no model or criterion was changed.
+# - Post hoc, from the log's k50 (not pre-specified): with c = b²/(2ω_b²) the log-fitness
+#   cost, the post-move arm C gives k50_C/k50_0 ≈ 1 − c/M with nearly the same M within a
+#   demography: M = 2.19, 2.48 (L100), 2.04, 2.34 (L500) at a fixed size (b/B = 0.5, 0.75),
+#   and 0.59, 0.63 (L100), 0.63, 0.63 (L500) under Beverton–Holt (b/B = 0.25, 0.5). Under
+#   Beverton–Holt M is close to the deterministic margin ln(R·W̄(0)) ≈ 0.68, but the
+#   dependence is linear in it, not the square root of sustainable_rate; at a fixed size
+#   M is about a third of ln(W̄(0)·N/Ploidy) ≈ 6.2. A pre-specified test of this form
+#   (more costs, ω_b) would be the next step.
+#
 # Run from the package root, at most 3 threads (pilot about 0.4 CPU-hours, main about
 # 2 CPU-hours):
 #   julia -t 3 --project=vignettes validate/plasticity_erosion.jl posthoc   # from plasticity_rates.csv

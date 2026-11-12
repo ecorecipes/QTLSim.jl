@@ -88,6 +88,10 @@
 #   threshold is 5–7 times the observed k50 at fixed size, and k50 responds less than
 #   proportionally to V_G there. A fresh-seed confirmation was not run: no model or criterion
 #   was changed.
+#   That explanation was then tested in a pre-specified factorial on fresh seeds
+#   (validate/plasticity_erosion.jl and .log, 2026-11-11) and REFUTED: the V_G (and N) the
+#   cost leaves at the move accounts for only 3–9% of its effect on k50; the cost acts after
+#   the move, 2–7 times more strongly than the deterministic fitness margin says.
 # - P1 and P3 test an identity, not an approximation: with a perfect cue and no cost,
 #   z − θ = g + e − (1 − b/B)θ, so a plastic population at rate k is, in distribution, a
 #   population without plasticity at rate (1 − b/B)k. They check the implementation.
