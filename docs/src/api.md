@@ -189,6 +189,8 @@ plasticity_ratio
 plasticity_cost
 QTLSim.isplastic
 sustainable_rate
+drift_critical_rate
+half_survival_rate
 red_noise_lag_autocov
 reaction_norm_response
 reaction_norm_lag
