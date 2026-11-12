@@ -8,6 +8,37 @@ All notable changes to QTLSim.jl are recorded here. The format follows
 
 ### Added
 
+- **The critical rate under drift** (`src/critical.jl`; roadmap F8 and the open problem of
+  `validate/plasticity_erosion.jl`). `drift_critical_rate(p; cost)`: the lag lowers mean
+  fitness, so fewer adults breed (`N W̄` at a fixed size, the Beverton–Holt equilibrium
+  `K(RW̄ − 1)/(R − 1)`), drift lowers `V_G` (the house-of-Gauss variance at that `N_e`),
+  and the lag grows; the critical rate is the largest steady response `V_G λ/(V_G + V_s)`
+  over lags, above which the feedback runs away. A log-fitness cost `c` lowers the
+  breeders as the lag load does, so by the envelope theorem
+  `k_c(c)/k_c(0) = 1 − c/M + O(c²)`, `M = λ*²/s`, twice the lag load at the critical lag:
+  linear in the cost, not the square root of `sustainable_rate`. `half_survival_rate(p;
+  cost, horizon)`: the rate at which half the populations survive `horizon` generations,
+  from the moments lowering with drift (the allele-frequency spectrum by default) plus
+  `extinction_distribution`, by bisection (needs Catlab). `sustainable_rate`'s docstring now
+  says it is a fixed-V_G threshold, not the half-survival rate. No default or existing
+  number changed (`house_of_gauss_vg` unchanged).
+  - `validate/symbolic/check_critical.jl` (35 checks): the envelope theorem, the power-law
+    case, the elasticities, and the code's `M` against `1/(κν)` and finite differences.
+  - `validate/critical_rate_posthoc.log` (existing data only): on the erosion test's cells
+    the predicted cost ratio is within 0.05 of the observed in 7 of 8; on the paper's 710
+    populations in four demographies the half-survival rate is 0.29–1.06 ×
+    `drift_critical_rate` (falling with the number of loci) against 0.07–0.56 ×
+    `sustainable_rate`.
+  - `validate/critical_rate.jl` (pre-specified, fresh seeds; 960 burn-ins × 13 rates, 100
+    and 500 loci, fixed size and Beverton–Holt R = 5, 2, 1.5, log costs up to 1): the cost
+    ratio `k50(c)/k50(0)` is within 0.054 of `drift_critical_rate`'s in 24 of 24 cells; the
+    linear form fits better than the square root in 8 of 8 groups, with `M_obs/M` 1.09–1.22
+    (the theory's `M` is about 18% low; its ratio errors lean the same way in 21 of 24);
+    `sustainable_rate`'s ratio is within 0.06 in 0 of 24. `half_survival_rate` is within
+    0.75–1.33 of the kernel in 26 of 32 cells (100 loci 0.89–1.11; 500 loci 0.68–1.09,
+    failing under R = 5 without a cost and R = 2, 1.5 without or with a small cost). Verdicts SUPPORTED by the
+    pre-set counts.
+
 - **Populations initialised from theory** (`src/init.jl`; roadmap F1). `stationary_spectrum(p)`
   is the stationary allele-frequency spectrum of mutation, stabilising selection at a fixed
   optimum and drift (infinite sites, linkage equilibrium, a closed form solved for V_G);

@@ -84,11 +84,14 @@ envelope theorem `k(cost)/k(0) = 1 − cost/M + O(cost²)` (`s` held fixed), so 
 the critical rate linearly, with `M` twice the lag load at the critical lag.
 
 This is a deterministic threshold, not the rate at which half of finite populations survive
-a finite time: in QTSim's regime the half-survival rate of the kernel is 0.3–1.06 times it
-(lower with more loci; vignettes 09 and 11's populations, post hoc), against 0.07–0.55
-times [`sustainable_rate`](@ref). Its prediction of the RELATIVE effect of a cost is the
-part tested in `validate/critical_rate.jl`; [`half_survival_rate`](@ref) predicts the
-half-survival rate itself.
+a finite time: in QTSim's regime the kernel's half-survival rate within 2000 generations
+is 0.29–1.06 times it (lower with more loci; the paper's 710 populations in vignettes 09
+and 11, `validate/critical_rate_posthoc.log`), against 0.07–0.56 times
+[`sustainable_rate`](@ref); [`half_survival_rate`](@ref) predicts it. What it predicts well
+is the RELATIVE effect of a cost (`validate/critical_rate.jl`, pre-specified, fresh seeds:
+`k50(c)/k50(0)` within 0.054 of `k(c)/k(0)` in 24 of 24 cells, fixed size and Beverton–Holt
+R = 5, 2, 1.5, 100 and 500 loci; the linear form beats the square root in all 8 groups).
+The error has a sign: the observed scale `M` is 1.09–1.22 times `λ²/s`.
 """
 function drift_critical_rate(p::Params; cost::Real = -log(plasticity_cost(p)))
     p.NoTraits == 1 || throw(ArgumentError("drift_critical_rate is for one trait; NoTraits = $(p.NoTraits)"))
@@ -132,9 +135,13 @@ times, between [`drift_critical_rate`](@ref)`/8` and twice it. Requires Catlab.
 Returns `(; k50, kc)`, `kc` being `drift_critical_rate(p; cost).k`. Each evaluation is one
 moments run of `burnin + horizon` generations (about 10 s with the spectrum).
 
-Accuracy (`validate/critical_rate.jl`): see that log. Post hoc, on the four cells of
-`validate/plasticity_erosion.jl` without a cost, observed/predicted was 1.08 and 0.94 (100
-loci, fixed size and Beverton–Holt R = 2) and 0.77 and 0.69 (500 loci).
+`k50 = Inf` if half survive at twice `kc`, 0 if not at `kc/8`.
+
+Accuracy (`validate/critical_rate.jl`, pre-specified, fresh seeds; 32 cells, fixed size and
+Beverton–Holt R = 5, 2, 1.5, log costs up to 1): the kernel's half-survival rate over this
+prediction is 0.89–1.11 with 100 loci (16 of 16 within 0.75–1.33) and 0.68–1.09 with 500
+(10 of 16; it over-predicts under Beverton–Holt, R = 5 without a cost and R = 2 and 1.5 without or with a small cost,
+0.68–0.74).
 """
 function half_survival_rate(p::Params; cost::Real = -log(plasticity_cost(p)), horizon::Integer = 2000,
                             burnin::Integer = 2000, loci::Symbol = :spectrum, VG::Real = house_of_gauss_vg(p),

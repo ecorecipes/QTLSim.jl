@@ -79,6 +79,26 @@
 #
 # END OF PRE-SPECIFICATION
 #
+# Notes added after run 1 (2026-11-11; nothing above changed, no run repeated):
+# - Run 1 (seeds from 9_100_000_000): 960 burn-ins, 12,480 branches, 59 min on 3 threads for
+#   the sweep plus about 25 min for the 32 predictions; critical_rate.log. C1 24/24, C2 8/8,
+#   C3 26/32. Verdicts: relative effect of a cost SUPPORTED, linear-margin form SUPPORTED,
+#   half_survival_rate SUPPORTED (by the pre-set count; the script exits 1 because not every
+#   cell passes).
+# - C1: |ρ_obs − ρ_pred| ≤ 0.054 everywhere, but the error has a sign: ρ_obs ≥ ρ_pred in 21 of
+#   24 cells, growing as ρ falls (+0.03 to +0.05 at the largest costs). So M_obs/M_theory is
+#   1.09–1.22 in every group (C2 passes, but near its upper bound): the theory's M = λ*²/s is
+#   about 18% low throughout. The linear form beats the square root of sustainable_rate in
+#   all 8 groups (SSE 3.5× to 10⁴× smaller); sustainable_rate's ratio is within 0.06 in 0 of 24
+#   (errors −0.07 to −0.37).
+# - C3: all 16 cells with 100 loci pass (obs/pred 0.89–1.11); with 500 loci the fixed-size and
+#   R = 5 cells pass (0.77–1.09) except R = 5 without a cost (0.737), and R = 2 and 1.5 fail
+#   in 5 of 8 (0.68–0.74), passing only with the larger costs. The failures are
+#   the post hoc look's (0.69–0.77 at 500 loci): the spectrum model over-predicts the
+#   half-survival rate with 500 loci, less so as a cost makes drift dominate.
+# - k50/drift_critical_rate: 0.77–1.03 with 100 loci, 0.44–0.75 with 500 (mostly rising with the cost
+#   in every group); k50/sustainable_rate 0.08–0.43.
+#
 # Run from the package root, at most 3 threads (estimate: about 960 jobs × 7–10 s, 2–3
 # CPU-hours, plus about 30 min for the 32 half_survival_rate predictions):
 #   julia -t 3 --project=vignettes validate/critical_rate.jl posthoc   # existing data only
