@@ -88,7 +88,8 @@ All notable changes to QTLSim.jl are recorded here. The format follows
   for b/B = 0.25, 0.5, 0.75 (12/12 cells within 2% of 1/(1 − b/B)); with a cost
   (ω_b = 0.5) the gain fell to 1.2–2.1-fold at a fixed size and vanished or reversed under
   Beverton–Holt (R = 2). The deterministic prediction of the cost's effect failed 4 of 12
-  cells, because the cost also erodes V_G before the move.
+  cells. The likely cause, inferred after the run and not yet tested, is that the cost also
+  erodes V_G before the move.
 - **A heritable reaction norm** (`ReactionNorm = true`, `NoTraits = 2`; a third model,
   `ReactionNormModel()`): elevation and slope are the two heritable values of the model of
   several traits, the phenotype is `z = a + b·ε + e`, selection acts on `z` and the cost on
