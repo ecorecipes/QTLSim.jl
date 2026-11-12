@@ -2047,6 +2047,13 @@ end
     @test_throws ArgumentError slim_script(g ⊗ g ⋅ L.migrate(2), [p, Params(p; SelCorr = 0.2)])
     # what the Eidos lowering cannot do with several traits
     @test_throws ArgumentError slim_script(g, Params(p; MutCorr = 1.0))                 # rmvnorm needs M ≻ 0
+    # regression: a fixed-slope reaction norm with several traits (refused by checkparams) failed
+    # inside the Eidos splice of select with an internal error; it is refused before any code
+    pp = Params(p; Plasticity = 0.2, MoveType = :continuous)
+    for q in (pp, Params(pp; Selection = :fecundity), Params(pp; PlasticityCostSD = 1.0), Params(pp; CueLag = 2))
+        @test_throws ArgumentError QTLSim.checkparams(q)
+        @test_throws ArgumentError slim_script(g, q)
+    end
     θstep = withparams(g; θ = 0.1)
     @test_throws ArgumentError slim_script(θstep, p)
     @test_throws ArgumentError run_composed(World(p), MersenneTwister(1); cycle = θstep)
@@ -2983,16 +2990,23 @@ end
         old = p.NoTraits == 1 ? legacy_one(ps, cycle) : legacy_traits(ps, cycle)
         @test new === old
         n += 1
-        # the Params-only rule (QTLSim.moments_loci, multilocus_equilibrium's default)
-        @test QTLSim.moments_loci(p) === legacy_loci(p)
+        # the Params-only rule (QTLSim.moments_loci, multilocus_equilibrium's default); the
+        # legacy rule gave :rare_local for a heritable reaction norm, fixed below
+        @test QTLSim.moments_loci(p) === (p.ReactionNorm ? :multilocus : legacy_loci(p))
     end
     @test n == 4 * 2 * 3 * 3
-    # the one case where the declarations and the Params-only rule differ, kept as found: a
-    # heritable reaction norm, whose moments run with :multilocus, has moments_loci = :rare_local
+    # regression: a heritable reaction norm, whose moments run with :multilocus, had
+    # moments_loci = :rare_local (support matrix, 2026-11-11); now the declarations decide
     rn = models[4]
     @test QTLSim.auto_closure(QTLSim.closure_context(rn)) === :multilocus
-    @test QTLSim.moments_loci(rn) === :rare_local
+    @test QTLSim.moments_loci(rn) === :multilocus
     @test Ext.resolve_trait_loci([rn], g, :auto)[1] === :multilocus
+    # so multilocus_equilibrium's default is the multilocus model; without drift its elevation
+    # entry is the reaction norm's run_moments at ε = 0 (a fixed optimum at 0)
+    rq = Params(rn; PopSize = 1000, NoQTL = 20, NoGenerations = 3000, MoveType = :continuous, MoveFitnessSD = 0.0)
+    eq = multilocus_equilibrium(rq)
+    @test eq.VG == multilocus_equilibrium(rq; loci = :multilocus).VG
+    @test eq.VG[1, 1] ≈ run_moments(rq).gmatrix[end][1, 1] rtol = 1e-9
     # the declarations: ranks increase along the order, every arrow points to a coarser closure
     cs = QTLSim.closures()
     @test [c.name for c in cs] == [:aggregate, :multilocus, :rare_alleles, :rare_local, :spectrum]
@@ -3006,10 +3020,8 @@ end
     L = lifecycle(); g = L.generation
     base = Params(PopSize = 30, NoQTL = 5, NoGenerations = 4, MutationScalar = 0.01, MutationRatePerGamete = 0.01)
     models = [base, Params(base; NoTraits = 2, MutCorr = 0.3), Params(base; NoTraits = 2, ReactionNorm = true, Plasticity = 0.2)]
-    # a gap found when the domains were declared, kept as found (reported): several traits in
-    # several demes accept loci = :spectrum, whose guard is only on the one-deme path, and run
-    # the rare-alleles closure
-    gap(p, k, c, uniform) = c === :spectrum && model_of(p) isa TraitModel && k > 1 && uniform
+    # regression: several traits in several demes accepted loci = :spectrum (its guard was only on
+    # the one-deme path) and ran the rare-alleles closure; every probe now runs exactly in the domain
     for p0 in models, ploidy in (1, 2), k in (1, 3), between in (false, true), uniform in (true, false)
         p = Params(p0; Ploidy = ploidy)
         gm = withparams(g, p; MutationScalar = 0.02)
@@ -3024,10 +3036,18 @@ end
                 e isa ArgumentError || rethrow()
                 false
             end
-            @test runs == (c.domain(ctx) || (gap(p, k, c.name, uniform) && !between))
+            @test runs == c.domain(ctx)
             c.auto(ctx) && c.name !== :multilocus && @test c.domain(ctx)     # the automatic domain is in the domain
         end
     end
+    # every path into the spectrum with matrices is refused: several traits in several demes,
+    # and the trait recursion called directly, with one trait or several, in one deme
+    p2 = models[2]
+    @test_throws ArgumentError run_moments(fill(p2, 3); cycle = foldl(⊗, fill(g, 3)) ⋅ L.migrate(3), loci = :spectrum,
+                                           migration_rate = 0.01)
+    @test_throws ArgumentError run_moments(p2; cycle = foldl(⊗, fill(g, 3)) ⋅ L.migrate(3), loci = :spectrum)
+    @test_throws ArgumentError Ext.run_trait_moments(p2; loci = :spectrum)
+    @test_throws ArgumentError Ext.run_trait_moments(base; loci = :spectrum)
 end
 
 @testset "declared model morphisms: generated reduction tests" begin

@@ -238,6 +238,10 @@ All notable changes to QTLSim.jl are recorded here. The format follows
   of four demes with local optima in the house-of-cards regime: there it predicts under
   half the kernel's within-deme variance (`validate/rare_alleles_traits.jl`).
 
+### Fixed
+
+- Three gaps the support matrix found: `QTLSim.moments_loci` (so `multilocus_equilibrium`'s default) of a heritable reaction norm is `:multilocus`, as `run_moments` uses (was `:rare_local`); `loci = :spectrum` with several traits in several demes (or `run_trait_moments` directly) throws an `ArgumentError` instead of running the rare-alleles closure; `slim_script` checks the parameters (`checkparams`) before generating code, so two traits with `Plasticity` (or `StandardisePhenotype`) are refused cleanly instead of failing in the Eidos splice.
+
 ## [0.1.0] - unreleased
 
 First release. QTLSim.jl is a Julia port of QTSim, the C simulation (Andrew Meade,

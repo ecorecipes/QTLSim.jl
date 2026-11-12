@@ -495,6 +495,9 @@ function slim_model(f, ps::Vector{Params}, images, migration_rate)
     model = model_of(p)
     model isa ReactionNormModel &&
         throw(ArgumentError("a heritable reaction norm (ReactionNorm) has no lowering to Eidos yet; the kernel and the moments have"))
+    # the parameters the kernel would refuse (e.g. Plasticity with several traits) are refused
+    # here too, before any image is spliced
+    foreach(QTLSim.checkparams, ps)
     table = eidos_images(model)
     # QTLSim's fluctuating moves: in the image of the plain select when a deme uses one, and
     # their constants when a deme or a step does

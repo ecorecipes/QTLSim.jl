@@ -50,20 +50,20 @@ generates the script; it does not run SLiM), and the moments lowering with each 
 | red-noise optimum | ✓ [36] | ✓ [36] | ○ | ○ | ○ | ○ | ✗ [35] |
 | periodic optimum | ✓ [36] | ✓ [36] | ○ | ○ | ○ | ○ | ✗ [35] |
 | width change (ChangeFitnessGen) | ○ | ○ | ○ | ○ | ○ | ○ | ✗ [35] |
-| StandardisePhenotype | ✗ [37] | ○ | ✗ [37] | ✗ [37] | ✗ [37] | ✗ [37] | ✗ [35] |
+| StandardisePhenotype | ✗ [37] | ✗ [37] | ✗ [37] | ✗ [37] | ✗ [37] | ✗ [37] | ✗ [35] |
 | neutral (Drift) | ○ | ○ | ○ | ○ | ○ | ○ | ✗ [35] |
 | haploid | ○ | ✗ [13] | ○ | ○ | ○ | ○ | ✗ [35] |
 | every crossover point (:all) | ○ | ✗ [15] | ○ | ○ | ○ | ○ | ✗ [35] |
 | Beverton–Holt demography | ○ | ○ | ○ | ○ | ○ | ○ | ✗ [35] |
 | fecundity selection | ○ | ○ | ○ | ○ | ○ | ○ | ✗ [35] |
-| plasticity, fixed slope | ✗ [38] | ! [39] | ✗ [38] | ✗ [38] | ✗ [38] | ✗ [38] | ✗ [35] |
-| plasticity with a cost | ✗ [38] | ! [39] | ✗ [38] | ✗ [38] | ✗ [38] | ✗ [38] | ✗ [35] |
-| plasticity with a delayed cue | ✗ [38] | ! [39] | ✗ [38] | ✗ [38] | ✗ [38] | ✗ [38] | ✗ [35] |
+| plasticity, fixed slope | ✗ [38] | ✗ [38] | ✗ [38] | ✗ [38] | ✗ [38] | ✗ [38] | ✗ [35] |
+| plasticity with a cost | ✗ [38] | ✗ [38] | ✗ [38] | ✗ [38] | ✗ [38] | ✗ [38] | ✗ [35] |
+| plasticity with a delayed cue | ✗ [38] | ✗ [38] | ✗ [38] | ✗ [38] | ✗ [38] | ✗ [38] | ✗ [35] |
 | a step's own parameters (withparams θ) | ○ | ○ | ○ | ○ | ○ | ○ | ✗ [35] |
-| 3 demes, island migration | ✓ [40] | ○ | ○ | ✓ [41] | ○ | ○ | ○ |
-| 3 demes, stepping stone (matrix) | ○ | ○ | ○ | ○ | ○ | ○ | ○ |
-| 3 demes, their own Params | ○ | ○ | ○ | ○ | ○ | ○ | ○ |
-| 3 demes, drift among demes (between) | – | – | ✗ [27] | ✓ [41] | ○ | ✓ [42] | ✗ [29] |
+| 3 demes, island migration | ✓ [39] | ○ | ○ | ✓ [40] | ○ | ○ | ✗ [41] |
+| 3 demes, stepping stone (matrix) | ○ | ○ | ○ | ○ | ○ | ○ | ✗ [41] |
+| 3 demes, their own Params | ○ | ○ | ○ | ○ | ○ | ○ | ✗ [41] |
+| 3 demes, drift among demes (between) | – | – | ✗ [27] | ✓ [40] | ○ | ✓ [42] | ✗ [29] |
 
 ## Reaction norm
 
@@ -130,9 +130,9 @@ generates the script; it does not run SLiM), and the moments lowering with each 
 36. validated by slim/compare_traits_fluctuating.jl
 37. Params: StandardisePhenotype is for one trait
 38. Params: Plasticity with NoTraits > 1 needs ReactionNorm = true (and NoTraits = 2)
-39. the Eidos image of select has changed; update the fecundity splice
-40. validated by trait_moments_demes.jl, rare_alleles_traits.jl (D)
-41. validated by trait_moments_demes.jl
+39. validated by trait_moments_demes.jl, rare_alleles_traits.jl (D)
+40. validated by trait_moments_demes.jl
+41. loci = :spectrum is for one trait in one deme; NoTraits = 2, 3 demes
 42. validated by local_adaptation.jl (D1, D2)
 43. a heritable reaction norm (ReactionNorm) has no lowering to Eidos yet; the kernel and the moments have
 44. the moments of a heritable reaction norm are Gaussian (loci = :multilocus or :aggregate); got :rare_alleles

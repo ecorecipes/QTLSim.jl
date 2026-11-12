@@ -292,8 +292,10 @@ with drift), `genic` its genic part and `ld = VG − genic` the contribution of 
 disequilibrium. `loci` is the moments lowering's: the default `:auto` resolves as in
 `run_moments` ([`QTLSim.moments_loci`](@ref)), to `:rare_alleles` for one trait (the rare-alleles closure of src/rare_alleles.jl, [`rare_alleles_vg`](@ref)) and
 to `:rare_local` for several (for one population the closure of src/rare_alleles_traits.jl,
-[`rare_alleles_G`](@ref)); `loci = :multilocus` is the multilocus Gaussian model
-([`gaussian_vg_loci`](@ref), [`gaussian_G_loci`](@ref)).
+[`rare_alleles_G`](@ref)), and to `:multilocus` for a heritable reaction norm; `loci = :multilocus` is the multilocus Gaussian model
+([`gaussian_vg_loci`](@ref), [`gaussian_G_loci`](@ref)). A heritable reaction norm is
+iterated as two traits under the fitness covariance: without drift its elevation entry is
+`run_moments`' at `ε = 0`, its slope entry is not the reaction norm's.
 """
 function multilocus_equilibrium(p::Params; drift::Bool = false, loci::Symbol = :auto, tol::Real = 1e-14, maxiter::Integer = 10^7)
     p.Drift && throw(ArgumentError("no equilibrium without selection (Drift = true)"))

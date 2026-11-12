@@ -450,10 +450,13 @@ function run_trait_moments(ps::AbstractVector{Params}; cycle = lifecycle().gener
     foreach(QTLSim.checkparams, ps)
     check_loci(loci, between)
     p = ps[1]
-    if p.ReactionNorm        # a heritable reaction norm: the multilocus Gaussian model (plasticity.jl)
+    if p.ReactionNorm       # a heritable reaction norm: the multilocus Gaussian model (plasticity.jl)
         loci in (:auto, :multilocus, :aggregate) ||
             throw(ArgumentError("the moments of a heritable reaction norm are Gaussian (loci = :multilocus or :aggregate); got :$loci"))
     end
+    # the spectrum is one diploid trait in one deme (src/closures.jl); every path of several
+    # traits, and of one trait run with matrices, comes here
+    loci === :spectrum && throw(ArgumentError("loci = :spectrum is for one trait in one deme; NoTraits = $(p.NoTraits), $k deme$(k == 1 ? "" : "s")"))
     # :auto is :multilocus there, as the declarations say (the rare-alleles closures exclude a reaction norm)
     loci, α2 = resolve_trait_loci(collect(Params, ps), cycle, loci)
     between && check_between(ps, origins)

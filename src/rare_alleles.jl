@@ -104,7 +104,9 @@ which gives
   population it is `:rare_alleles`, far better than the multilocus Gaussian in the
   house-of-cards regime (`validate/rare_alleles_traits.jl`, T cells); for demes with local
   optima and migration it is within 15% of the kernel's within-deme G where `:rare_alleles`
-  gives under half of it (`validate/local_adaptation.jl`, D1; D2 too).
+  gives under half of it (`validate/local_adaptation.jl`, D1; D2 too);
+- `:multilocus` for a heritable reaction norm (`ReactionNorm = true`), whose moments are
+  Gaussian (the rare-alleles closures exclude it).
 `run_moments` resolves `:auto` to `:multilocus` when the `mutate` steps of the life
 cycle carry different `MutationScalar` or `MutationRatePerGamete`, as no one `α²` then
 describes the mutations; when they all carry the same, `α²` is theirs. The demes of a
@@ -112,11 +114,6 @@ metapopulation each have their own `α²`.
 """
 function moments_loci(p::Params, loci::Symbol = :auto)
     loci === :auto || return loci
-    # The rule written before the declarations gave :rare_local for every Params of several
-    # traits, a heritable reaction norm included, whose moments the lowering runs with the
-    # multilocus model (`run_trait_moments`), as the declarations say. Kept, as found
-    # (reported, not changed): `multilocus_equilibrium` of a reaction norm uses it.
-    p.ReactionNorm && return :rare_local
     auto_closure(closure_context(p))
 end
 
