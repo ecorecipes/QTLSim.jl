@@ -41,5 +41,5 @@ QTLSim validate/symbolic/check_critical.jl (Symbolics 7.48.0)
   _house_of_gauss(p, 2N) = house_of_gauss_vg(p) (nsurv = N)                ok
   a cost lowers the critical rate; plasticity without a cost divides it by 1 − b/B ok
 
-35 checks, 0 failed; 60 s
+35 checks, 0 failed; 58 s
 PASS

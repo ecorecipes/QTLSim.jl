@@ -31,9 +31,9 @@ All notable changes to QTLSim.jl are recorded here. The format follows
   domain; `loci = :auto` is now `QTLSim.auto_closure`, the finest closure whose automatic
   domain contains the context (model, demes, ploidy, one law of mutation effects,
   `between`). It gives exactly the earlier choices (a test enumerates 72 contexts against
-  the earlier rule) except for one case kept as found: `QTLSim.moments_loci(p)` of a
-  heritable reaction norm is still `:rare_local`, while `run_moments` uses `:multilocus`, as
-  the declarations say. `model_morphisms()` and `QTLSim.closure_order()` declare 8 maps (one
+  the earlier rule) except for one case, since fixed (see Fixed): `QTLSim.moments_loci(p)` of a heritable
+  reaction norm said `:rare_local` while `run_moments` used `:multilocus`, as the
+  declarations say. `model_morphisms()` and `QTLSim.closure_order()` declare 8 maps (one
   trait into two independent traits, the projection to trait 1, k demes to one, plastic to
   plain at rate (1 − φ)k, and four arrows between closures) with 21 reductions, from which
   a testset is generated; another checks the declared domains against `run_moments`'

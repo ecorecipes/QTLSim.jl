@@ -79,5 +79,5 @@ QTLSim validate/symbolic/check_closures.jl (Symbolics 7.48.0)
   marginal fitness by quadrature = exp(aλ/s − a²/(2s)), a=-0.10 λ=1.36     ok
   marginal fitness by quadrature = exp(aλ/s − a²/(2s)), a=0.06 λ=0.70      ok
 
-73 checks, 0 failed; 22 s
+73 checks, 0 failed; 19 s
 PASS
