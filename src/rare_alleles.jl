@@ -87,7 +87,9 @@ end
 
 The model of the loci that the moments lowering ([`run_moments`](@ref)) and
 [`multilocus_equilibrium`](@ref) use when asked for `loci`: any value but `:auto` is
-returned as it is, and `:auto`, the default, resolves to
+returned as it is, and `:auto`, the default, is read from the declared closures
+([`QTLSim.auto_closure`](@ref) of [`QTLSim.closure_context`](@ref)`(p)`, src/closures.jl),
+which gives
 - `:rare_alleles`, the rare-alleles closure (src/rare_alleles.jl), for one trait, diploid or
   haploid (clones; src/rare_alleles_traits.jl, within 4% of the kernel in all 8 haploid
   cells of `validate/rare_alleles_traits.jl` on two seed sets, up to 3000× closer than the
@@ -110,8 +112,12 @@ metapopulation each have their own `α²`.
 """
 function moments_loci(p::Params, loci::Symbol = :auto)
     loci === :auto || return loci
-    p.NoTraits > 1 && return :rare_local
-    :rare_alleles
+    # The rule written before the declarations gave :rare_local for every Params of several
+    # traits, a heritable reaction norm included, whose moments the lowering runs with the
+    # multilocus model (`run_trait_moments`), as the declarations say. Kept, as found
+    # (reported, not changed): `multilocus_equilibrium` of a reaction norm uses it.
+    p.ReactionNorm && return :rare_local
+    auto_closure(closure_context(p))
 end
 
 # α² for the rare-alleles closure, 0 for the multilocus Gaussian model

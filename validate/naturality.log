@@ -1,0 +1,60 @@
+QTLSim validate/naturality.jl: the table of naturality cases (validate/naturality_cases.jl)
+threads 3; 11 of 11 cases
+
+moments_loci G1: L = 10, N = 1000, :qtsim, μ = 0.01  (:kernel → :moments, band, 12 replicates; from validate/moments_loci.jl, criterion G1 (log: PASS, ratio 0.960))
+  mean geno_var over 10000:10:19990    kernel  1.9575 ± 0.014          moments 2.014                   -2.81%                   tol 0.1  ok
+  verdict PASS; expected PASS: reproduced (19 s)
+
+moments_loci, house of cards: L = 10, N = 1000, :qtsim, μ = 1e-4  (:kernel → :moments, band, 12 replicates; from validate/moments_loci.jl, expectation (not a criterion): kernel < 85% of the multilocus prediction (log: ratio 0.094, confirmed); the G1 tolerance applied to it fails)
+  mean geno_var over 10000:10:19990    kernel  0.20059 ± 0.0081        moments 2.014                   -90.0%                   tol 0.1  FAIL
+  verdict FAIL; expected FAIL: reproduced (14 s)
+
+moments_regimes R1: N = 100, 4Nμ = 1, L = 10, V_s = 50.5  (:kernel → :moments, band, 16 replicates; from validate/moments_regimes.jl, criterion R1 (log: PASS, ratio 1.015))
+  mean geno_var over 10000:10:29990    kernel  0.73647 ± 0.011         moments 0.72528                 1.54%                    tol 0.15  ok
+  verdict PASS; expected PASS: reproduced (3 s)
+
+moments_regimes R1: N = 1000, 4Nμ = 0.1, L = 1000, V_s = 5.5  (:kernel → :moments, band, 16 replicates; from validate/moments_regimes.jl, criterion R1 (log: FAIL, ratio 0.721; the same in the fresh-seed run))
+  mean geno_var over 10000:10:29990    kernel  0.756 ± 0.0064          moments 1.0749                  -29.7%                   tol 0.15  FAIL
+  verdict FAIL; expected FAIL: reproduced (65 s)
+
+moments_demes C: local optima, k = 5  (:kernel → :moments, band, 100 replicates; from validate/moments_demes.jl, scenario C (log: PASS; −3.5%, +6.3%, +7.1%; 300 replicates))
+  V_W (within demes) over 2000:10:3990 kernel  0.90041 ± 0.0065        moments 0.93278                 -3.47%                   tol 0.1  ok
+  var of deme means over 2000:10:3990  kernel  1.0009 ± 0.008          moments 0.94379                 6.05%                    tol 0.15  ok
+  Q_ST over 2000:10:3990               kernel  0.30586 ± 0.00082       moments 0.28608                 6.91%                    tol 0.15  ok
+  verdict PASS; expected PASS: reproduced (24 s)
+
+moments_demes A: neutral, k = 5  (:kernel → :moments, z, 100 replicates; from validate/moments_demes.jl, scenario A (log: PASS; z = −1.36, −0.30, 0.91; 300 replicates))
+  V_W (within demes) over 2000:10:3990 kernel  0.91306 ± 0.0099        moments 0.93443                 z = -2.15                tol 4.0  ok
+  var of deme means over 2000:10:3990  kernel  0.18404 ± 0.0028        moments 0.19112                 z = -2.52                tol 4.0  ok
+  Q_ST over 2000:10:3990               kernel  0.071172 ± 0.00065      moments 0.072195                z = -1.57                tol 4.0  ok
+  verdict PASS; expected PASS: reproduced (18 s)
+
+neutral metapopulation: moments = neutral_deme_variances, every generation  (:moments → :theory, exact, 1 replicates; from test/runtests.jl, "between = true" (exact to 1e-10); Lean Differentiation.lean)
+  V_W, every generation                moments [299 values]            theory  [299 values]            max rel. diff. 1.3e-14   tol 1.0e-10  ok
+  var of deme means, every generation  moments [299 values]            theory  [299 values]            max rel. diff. 2.4e-14   tol 1.0e-10  ok
+  verdict PASS; expected PASS: reproduced (3 s)
+
+rare_alleles_traits T: two traits, L = 20, μ = 1e-3  (:kernel → :moments, band, 24 replicates; from validate/rare_alleles_traits.jl, criterion T-A (log: ok; −9.6%, −5.9%, −5.7%))
+  G11 over 3000:10:7990                kernel  0.085385 ± 0.0012       moments 0.078565                8.68%                    tol 0.2  ok
+  G12 over 3000:10:7990                kernel  0.023566 ± 0.00054      moments 0.020232                5.04%                    tol 0.1  ok
+  G22 over 3000:10:7990                kernel  0.058871 ± 0.00092      moments 0.055615                5.85%                    tol 0.2  ok
+  verdict PASS; expected PASS: reproduced (18 s)
+
+rare_alleles_traits D1: two traits, 4 demes, local optima, :rare_alleles  (:kernel → :moments, band, 48 replicates; from validate/rare_alleles_traits.jl, criterion D-A (log: FAIL on G11 and G22; the same in the fresh-seed run))
+  G11 over 2000:10:3990                kernel  0.82571 ± 0.014         moments 0.34207                 141.0%                   tol 0.15  FAIL
+  G12 over 2000:10:3990                kernel  0.11302 ± 0.008         moments 0.072716                12.9%                    tol 0.15  ok
+  G22 over 2000:10:3990                kernel  0.54527 ± 0.014         moments 0.28747                 89.7%                    tol 0.15  FAIL
+  verdict FAIL; expected FAIL: reproduced (27 s)
+
+local_adaptation D1: two traits, 4 demes, local optima, :rare_local  (:kernel → :moments, band, 36 replicates; from validate/local_adaptation.jl, criterion A on D1 (log: ok; +0.8%, −4.6%, −9.1%))
+  G11 over 2000:10:3990                kernel  0.87447 ± 0.018         moments 0.85512                 2.26%                    tol 0.15  ok
+  G12 over 2000:10:3990                kernel  0.14417 ± 0.011         moments 0.087727                8.74%                    tol 0.15  ok
+  G22 over 2000:10:3990                kernel  0.56717 ± 0.011         moments 0.48773                 16.3%                    tol 0.15  ok
+  verdict PASS; expected PASS: reproduced (22 s)
+
+compare_demography: Beverton–Holt equilibrium, kernel vs SLiM  (:kernel → :slim, ks, 40 replicates; from validate/slim/compare_demography.jl, equilibrium scenario (log: KS p = 0.913, 0.913; no discrepancy))
+  mean popsize over 4000:4999          kernel  970.81 ± 0.26           slim    970.8 ± 0.3             p = 0.913                tol 0.001  ok
+  mean geno_var over 4000:4999         kernel  0.095658 ± 0.0026       slim    0.089369 ± 0.0022       p = 0.0546               tol 0.001  ok
+  verdict PASS; expected PASS: reproduced (612 s)
+
+total 826 s; 11 verdicts reproduced, 0 not reproduced, 0 skipped

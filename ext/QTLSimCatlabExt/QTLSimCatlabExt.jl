@@ -23,7 +23,7 @@ using Catlab: @present, @acset_type, FreeSchema, FreeSymmetricMonoidalCategory, 
               add_part!, set_subpart!, nparts, incident, functor, head, args, dom, codom, Hom,
               GATExpr, ObExpr
 import Catlab: ⋅, ⊗, compose, id, otimes, braid, munit
-using Statistics: mean, var
+using Statistics: mean, var, std
 using LinearAlgebra: I, det, dot
 using Random: randperm, Xoshiro
 
@@ -36,5 +36,8 @@ include("moments.jl")
 include("trait_moments.jl")
 include("spectrum.jl")
 include("plasticity.jl")
+include("naturality.jl")
+include("morphisms.jl")
+include("support.jl")
 
 end # module

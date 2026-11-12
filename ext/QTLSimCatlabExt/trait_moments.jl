@@ -391,22 +391,20 @@ end
 # `resolve_loci`: the mutate steps of the life cycle must carry the same mutation fields
 # (MutationScalar, MutationRatePerGamete, MutCorr, MutCov), which then set C; otherwise
 # `:auto` is :multilocus and an explicit :rare_alleles an error.
-function resolve_trait_loci(ps::AbstractVector{Params}, cycle, loci::Symbol)
+function resolve_trait_loci(ps::AbstractVector{Params}, cycle, loci::Symbol; between::Bool = false)
     loci in (:multilocus, :aggregate) && return loci, Any[0.0 for _ in ps]
     fields = (:MutationScalar, :MutationRatePerGamete, :MutCorr, :MutCov)
     fs = unique([NamedTuple(k => v for (k, v) in pairs(stepparams(g)) if k in fields)
                  for g in stepsof(cycle) if !(g isa ObExpr) && stepname(g) === :mutate])
+    if loci === :auto       # read from the declared closures (src/closures.jl)
+        loci = QTLSim.auto_closure(QTLSim.closure_context(ps[1]; ndemes = length(ps), uniform_mutation = length(fs) <= 1, between))
+        loci in (:multilocus, :aggregate) && return loci, Any[0.0 for _ in ps]
+    end
     if length(fs) > 1
-        loci === :auto && return :multilocus, Any[0.0 for _ in ps]
         throw(ArgumentError("loci = :rare_alleles needs one law of mutation effects per deme; the mutate steps of the " *
                             "life cycle carry different mutation fields"))
     end
     qs = isempty(fs) ? ps : [Params(q; only(fs)...) for q in ps]
-    if loci === :auto
-        rs = unique([QTLSim.moments_loci(q) for q in qs])
-        length(rs) == 1 && rs[1] in (:rare_alleles, :rare_local) || return :multilocus, Any[0.0 for _ in ps]
-        loci = rs[1]
-    end
     loci, Any[QTLSim.mutation_effect_covariance(q) for q in qs]
 end
 
@@ -455,8 +453,8 @@ function run_trait_moments(ps::AbstractVector{Params}; cycle = lifecycle().gener
     if p.ReactionNorm        # a heritable reaction norm: the multilocus Gaussian model (plasticity.jl)
         loci in (:auto, :multilocus, :aggregate) ||
             throw(ArgumentError("the moments of a heritable reaction norm are Gaussian (loci = :multilocus or :aggregate); got :$loci"))
-        loci === :auto && (loci = :multilocus)
     end
+    # :auto is :multilocus there, as the declarations say (the rare-alleles closures exclude a reaction norm)
     loci, α2 = resolve_trait_loci(collect(Params, ps), cycle, loci)
     between && check_between(ps, origins)
     n = p.NoTraits

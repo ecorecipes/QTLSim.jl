@@ -29,6 +29,7 @@ include("plasticity.jl")
 include("theory.jl")
 include("traits_theory.jl")
 include("multilocus.jl")
+include("closures.jl")
 include("rare_alleles.jl")
 include("rare_alleles_traits.jl")
 include("local_alleles.jl")
@@ -36,6 +37,7 @@ include("spectrum.jl")
 include("init.jl")
 include("migration.jl")
 include("ancestry.jl")
+include("naturality.jl")
 include("categorical.jl")
 include("sweep.jl")
 
@@ -78,5 +80,9 @@ export lifecycle, withparams, lower, slim_script, operators, operator, demes, ru
        genome_from_acset, run_moments
 # sweeps and replicates on all threads, with a resumable CSV cache
 export sweep, replicate
+# naturality as the validation harness (roadmap C2; implemented by QTLSimCatlabExt)
+export NaturalityCase, NaturalityResult, check_naturality, naturality_steps
+# morphisms between models and the closures of the moments lowering, declared as data (roadmap C7)
+export model_morphisms, explain, support_matrix, support_markdown
 
 end # module

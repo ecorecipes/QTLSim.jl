@@ -516,7 +516,7 @@ function genome_from_acset end
 
 const CATEGORICAL = (lifecycle, withparams, lower, slim_script, operators, operator, demes,
                      run_composed, migrate!, migration, totalpop, ndemes, population_schema,
-                     lift, lower!, genotypes, phenotypes, genome_from_acset, run_moments)
+                     lift, lower!, genotypes, phenotypes, genome_from_acset, run_moments, check_naturality, naturality_steps, model_morphisms, closure_order, explain, support_matrix, support_markdown)
 
 function __init__()
     Base.Experimental.register_error_hint(MethodError) do io, exc, argtypes, kwargs

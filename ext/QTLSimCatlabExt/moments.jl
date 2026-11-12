@@ -523,28 +523,25 @@ function mutate_fields(cycle)
 end
 
 # `loci` resolved for the demes `ps` and the life cycle `cycle`, with the rare-alleles
-# effect variance α² of each deme (zeros unless :rare_alleles). `:auto` is
-# `QTLSim.moments_loci` of every deme (with the mutate steps' fields), :rare_alleles if all
-# of them are, and :multilocus if the mutate steps carry different mutation fields (then no
-# one α² describes the mutations; an explicit :rare_alleles is an error there).
-function resolve_loci(ps::AbstractVector{Params}, cycle, loci::Symbol)
+# effect variance α² of each deme (zeros unless :rare_alleles). `:auto` is read from the
+# declared closures (src/closures.jl, `QTLSim.auto_closure`): the finest closure whose
+# automatic domain contains the context, here :rare_alleles for one trait in one deme,
+# :rare_local for one trait in several demes, and :multilocus if the mutate steps carry
+# different mutation fields (then no one α² describes the mutations; an explicit
+# :rare_alleles is an error there).
+function resolve_loci(ps::AbstractVector{Params}, cycle, loci::Symbol; between::Bool = false)
     loci in (:multilocus, :aggregate) && return loci, zeros(length(ps))
     loci === :spectrum && return loci, zeros(length(ps))         # the spectrum takes α² from Params (spectrum.jl)
     mf = mutate_fields(cycle)
+    if loci === :auto
+        loci = QTLSim.auto_closure(QTLSim.closure_context(ps[1]; ndemes = length(ps), uniform_mutation = mf !== nothing, between))
+        loci in (:multilocus, :aggregate) && return loci, zeros(length(ps))
+    end
     if mf === nothing
-        loci === :auto && return :multilocus, zeros(length(ps))
         throw(ArgumentError("loci = :rare_alleles needs one law of mutation effects per deme; the mutate steps of the " *
                             "life cycle carry different MutationScalar or MutationRatePerGamete"))
     end
     qs = isempty(mf) ? ps : [Params(q; mf...) for q in ps]
-    if loci === :auto
-        rs = unique([QTLSim.moments_loci(q) for q in qs])
-        length(rs) == 1 && rs[1] in (:rare_alleles, :rare_local) || return :multilocus, zeros(length(ps))
-        loci = rs[1]
-        # one trait, several demes: the closure with locally favoured alleles, which is exactly
-        # :rare_alleles for a common optimum or no migration (validate/local_adaptation.jl)
-        loci === :rare_alleles && length(ps) > 1 && (loci = :rare_local)
-    end
     loci, [QTLSim.rare_alleles_effect(q, loci) for q in qs]
 end
 
