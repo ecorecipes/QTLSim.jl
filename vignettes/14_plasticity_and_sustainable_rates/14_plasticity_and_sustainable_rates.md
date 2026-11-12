@@ -396,9 +396,30 @@ the pre-move loss accounts for only 3–9% of the cost’s effect. The cost
 does its damage *after* the move, 2–7 times more strongly than the
 fitness-margin term of `sustainable_rate` predicts; the correspondence
 itself plays no part (the same constant fitness cost without plasticity
-gives the same `k50`, within 2%). A form that fits, found after that run
-and not yet tested, is a half-survival rate falling linearly in the
-log-fitness margin rather than with its square root.
+gives the same `k50`, within 2%).
+
+The likely reason is a known feedback that `sustainable_rate` leaves
+out: the lag and the cost both lower the number of breeders, drift then
+lowers `V_G`, and the lag grows. Bürger and Lynch
+([1995](#ref-BurgerLynch1995)) described it from simulations as the main
+reason their fixed-variance critical rate overestimates persistence, Xu
+and Shen ([2026](#ref-XuShen2026)) define a critical rate as the maximum
+over steady states with drift-reduced variance (continuous time,
+logistic growth), and Polechová and Barton
+([2015](#ref-PolechovaBarton2015)) and Polechová
+([2026](#ref-Polechova2026)) treat the analogue along spatial gradients.
+`drift_critical_rate` is a discrete-generation implementation matched to
+QTSim’s life cycle. To first order a constant log cost `c` lowers either
+kind of critical rate by a fraction `c/M`, `M` being twice the lag load
+at the critical lag; for `sustainable_rate` the square root expands to
+`1 − c/(2 ln(W̄₀/W_min))`, the same linear form. The difference is the
+scale: drift makes the critical lag, and so `M`, 2.5–7 times smaller in
+the cells tested, so the same cost removes several times more of the
+rate. In a later pre-specified test (`validate/critical_rate.jl`, fresh
+seeds, observed cost ratios down to 0.25) a ratio linear in the cost
+fitted the kernel’s `k50(c)/k50(0)` better than a square root in 8 of 8
+groups, `drift_critical_rate`’s ratio was within 0.054 in 24 of 24
+cells, and `sustainable_rate`’s was within tolerance in 0 of 24.
 
 ## The cost trade-off
 
@@ -727,6 +748,14 @@ unreliable cue the best slope is smaller still.
 
 <div id="refs" class="references csl-bib-body hanging-indent">
 
+<div id="ref-BurgerLynch1995" class="csl-entry">
+
+Bürger, Reinhard, and Michael Lynch. 1995. “Evolution and Extinction in
+a Changing Environment: A Quantitative-Genetic Analysis.” *Evolution* 49
+(1): 151–63. <https://doi.org/10.1111/j.1558-5646.1995.tb05967.x>.
+
+</div>
+
 <div id="ref-Chevin2010" class="csl-entry">
 
 Chevin, Luis-Miguel, Russell Lande, and Georgina M. Mace. 2010.
@@ -752,6 +781,32 @@ Pagel, Mark, Jacob D. Gardner, and Andrew Meade. 2025.
 Maximum Sustainable Rates of Change in Agreement with Data from Field
 Populations.” *Scientific Reports* 15.
 <https://doi.org/10.1038/s41598-025-24445-2>.
+
+</div>
+
+<div id="ref-Polechova2026" class="csl-entry">
+
+Polechová, Jitka. 2026. “Evolution of Species’ Range and Niche in
+Changing Environments.” *Proceedings of the National Academy of Sciences
+of the USA* 123 (19): e2604510123.
+<https://doi.org/10.1073/pnas.2604510123>.
+
+</div>
+
+<div id="ref-PolechovaBarton2015" class="csl-entry">
+
+Polechová, Jitka, and Nicholas H. Barton. 2015. “Limits to Adaptation
+Along Environmental Gradients.” *Proceedings of the National Academy of
+Sciences of the USA* 112 (20): 6401–6.
+<https://doi.org/10.1073/pnas.1421515112>.
+
+</div>
+
+<div id="ref-XuShen2026" class="csl-entry">
+
+Xu, Kuangyi, and Hao Shen. 2026. *Eco-Evolutionary Feedbacks Generate
+Bistability in Population Persistence Under Gradual Environmental
+Change*. bioRxiv preprint.
 
 </div>
 

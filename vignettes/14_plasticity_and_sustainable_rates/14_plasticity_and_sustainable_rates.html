@@ -2438,14 +2438,6 @@ window.Quarto = {
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">CairoMakie</span>, <span class="bu">Printf</span>, <span class="bu">Random</span>, <span class="bu">Statistics</span></span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>CairoMakie.<span class="fu">activate!</span>(<span class="kw">type</span> <span class="op">=</span> <span class="st">&quot;png&quot;</span>)</span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>L <span class="op">=</span> <span class="fu">lifecycle</span>(); g <span class="op">=</span> L.generation            <span class="co"># QTSim&#39;s generation, Zygotes → Zygotes</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-stdout">
-<div class="ansi-escaped-output">
-<pre><span class="ansi-green-fg ansi-bold">Precompiling</span> packages...
-   3270.3 ms<span class="ansi-green-fg">  ✓ </span>QTLSim → QTLSimCatlabExt
-  1 dependency successfully precompiled in 4 seconds. 125 already precompiled.
-</pre>
-</div>
-</div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>develop⋅select⋅reproduce⋅record⋅rescale⋅mutate⋅swap: Zygotes → Zygotes</code></pre>
 </div>
@@ -2899,7 +2891,8 @@ Figure 1: Survival 2000 generations after the move against the rate of change o
 </tbody>
 </table>
 <p>P2 passes in 8 of 12 cells and fails in 4, as in <code>validate/plasticity_rates.log</code>. At a fixed size the cost is less harmful than predicted, increasingly so at larger slopes (observed/predicted up to 1.39), and the two fixed-size cells at <code>b/B = 0.75</code> fail on that side. Under Beverton–Holt at <code>b/B = 0.5</code> every population died even at the lowest rate of the grid, so the half-survival rate is not bracketed (it is below 0.63 of <code>k50(0)</code>); the grid had been placed using the nominal <code>V_G</code>, and the prediction with the realised <code>V_G</code>, 0.29–0.36, lies below it, in the same direction as the observation.</p>
-<p>What the table shows directly is that the cost lowers the genetic variance at the move, before the optimum has moved at all: by 5–58% at a fixed size and by 15–72% under Beverton–Holt, where the population also shrinks (to about 340 at <code>b/B = 0.5</code>). That lost variance seemed the obvious reason P2 fails, but a later pre-specified test refutes it (<code>validate/plasticity_erosion.jl</code>, fresh seeds, all four failed cells): populations that pay the cost only <em>before</em> the move start it with 28–81% of the variance yet sustain 0.88–0.99 of the no-cost <code>k50</code>, so the pre-move loss accounts for only 3–9% of the cost’s effect. The cost does its damage <em>after</em> the move, 2–7 times more strongly than the fitness-margin term of <code>sustainable_rate</code> predicts; the correspondence itself plays no part (the same constant fitness cost without plasticity gives the same <code>k50</code>, within 2%). A form that fits, found after that run and not yet tested, is a half-survival rate falling linearly in the log-fitness margin rather than with its square root.</p>
+<p>What the table shows directly is that the cost lowers the genetic variance at the move, before the optimum has moved at all: by 5–58% at a fixed size and by 15–72% under Beverton–Holt, where the population also shrinks (to about 340 at <code>b/B = 0.5</code>). That lost variance seemed the obvious reason P2 fails, but a later pre-specified test refutes it (<code>validate/plasticity_erosion.jl</code>, fresh seeds, all four failed cells): populations that pay the cost only <em>before</em> the move start it with 28–81% of the variance yet sustain 0.88–0.99 of the no-cost <code>k50</code>, so the pre-move loss accounts for only 3–9% of the cost’s effect. The cost does its damage <em>after</em> the move, 2–7 times more strongly than the fitness-margin term of <code>sustainable_rate</code> predicts; the correspondence itself plays no part (the same constant fitness cost without plasticity gives the same <code>k50</code>, within 2%).</p>
+<p>The likely reason is a known feedback that <code>sustainable_rate</code> leaves out: the lag and the cost both lower the number of breeders, drift then lowers <code>V_G</code>, and the lag grows. <span class="citation" data-cites="BurgerLynch1995">Bürger and Lynch (<a href="#ref-BurgerLynch1995" role="doc-biblioref">1995</a>)</span> described it from simulations as the main reason their fixed-variance critical rate overestimates persistence, <span class="citation" data-cites="XuShen2026">Xu and Shen (<a href="#ref-XuShen2026" role="doc-biblioref">2026</a>)</span> define a critical rate as the maximum over steady states with drift-reduced variance (continuous time, logistic growth), and <span class="citation" data-cites="PolechovaBarton2015">Polechová and Barton (<a href="#ref-PolechovaBarton2015" role="doc-biblioref">2015</a>)</span> and <span class="citation" data-cites="Polechova2026">Polechová (<a href="#ref-Polechova2026" role="doc-biblioref">2026</a>)</span> treat the analogue along spatial gradients. <code>drift_critical_rate</code> is a discrete-generation implementation matched to QTSim’s life cycle. To first order a constant log cost <code>c</code> lowers either kind of critical rate by a fraction <code>c/M</code>, <code>M</code> being twice the lag load at the critical lag; for <code>sustainable_rate</code> the square root expands to <code>1 − c/(2 ln(W̄₀/W_min))</code>, the same linear form. The difference is the scale: drift makes the critical lag, and so <code>M</code>, 2.5–7 times smaller in the cells tested, so the same cost removes several times more of the rate. In a later pre-specified test (<code>validate/critical_rate.jl</code>, fresh seeds, observed cost ratios down to 0.25) a ratio linear in the cost fitted the kernel’s <code>k50(c)/k50(0)</code> better than a square root in 8 of 8 groups, <code>drift_critical_rate</code>’s ratio was within 0.054 in 24 of 24 cells, and <code>sustainable_rate</code>’s was within tolerance in 0 of 24.</p>
 </section>
 </section>
 <section id="the-cost-trade-off" class="level2">
@@ -3153,6 +3146,9 @@ Figure 4: The mean squared lag behind red noise (σ = 0.5, ρ = 0.8) with a rea
 </section>
 
 <div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-BurgerLynch1995" class="csl-entry" role="listitem">
+Bürger, Reinhard, and Michael Lynch. 1995. <span>“Evolution and Extinction in a Changing Environment: A Quantitative-Genetic Analysis.”</span> <em>Evolution</em> 49 (1): 151–63. <a href="https://doi.org/10.1111/j.1558-5646.1995.tb05967.x">https://doi.org/10.1111/j.1558-5646.1995.tb05967.x</a>.
+</div>
 <div id="ref-Chevin2010" class="csl-entry" role="listitem">
 Chevin, Luis-Miguel, Russell Lande, and Georgina M. Mace. 2010. <span>“Adaptation, Plasticity, and Extinction in a Changing Environment: Towards a Predictive Theory.”</span> <em>PLoS Biology</em> 8 (4): e1000357. <a href="https://doi.org/10.1371/journal.pbio.1000357">https://doi.org/10.1371/journal.pbio.1000357</a>.
 </div>
@@ -3161,6 +3157,15 @@ Lande, Russell. 2009. <span>“Adaptation to an Extraordinary Environment by Evo
 </div>
 <div id="ref-Pagel2025" class="csl-entry" role="listitem">
 Pagel, Mark, Jacob D. Gardner, and Andrew Meade. 2025. <span>“Quantitative-Genetic Analysis of Directional Adaptation Suggests Low Maximum Sustainable Rates of Change in Agreement with Data from Field Populations.”</span> <em>Scientific Reports</em> 15. <a href="https://doi.org/10.1038/s41598-025-24445-2">https://doi.org/10.1038/s41598-025-24445-2</a>.
+</div>
+<div id="ref-Polechova2026" class="csl-entry" role="listitem">
+Polechová, Jitka. 2026. <span>“Evolution of Species’ Range and Niche in Changing Environments.”</span> <em>Proceedings of the National Academy of Sciences of the USA</em> 123 (19): e2604510123. <a href="https://doi.org/10.1073/pnas.2604510123">https://doi.org/10.1073/pnas.2604510123</a>.
+</div>
+<div id="ref-PolechovaBarton2015" class="csl-entry" role="listitem">
+Polechová, Jitka, and Nicholas H. Barton. 2015. <span>“Limits to Adaptation Along Environmental Gradients.”</span> <em>Proceedings of the National Academy of Sciences of the USA</em> 112 (20): 6401–6. <a href="https://doi.org/10.1073/pnas.1421515112">https://doi.org/10.1073/pnas.1421515112</a>.
+</div>
+<div id="ref-XuShen2026" class="csl-entry" role="listitem">
+Xu, Kuangyi, and Hao Shen. 2026. <em>Eco-Evolutionary Feedbacks Generate Bistability in Population Persistence Under Gradual Environmental Change</em>. bioRxiv preprint.
 </div>
 </div></section></div></main>
 <!-- /main column -->

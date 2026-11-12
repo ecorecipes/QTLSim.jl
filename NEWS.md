@@ -49,10 +49,17 @@ All notable changes to QTLSim.jl are recorded here. The format follows
   fitness, so fewer adults breed (`N W̄` at a fixed size, the Beverton–Holt equilibrium
   `K(RW̄ − 1)/(R − 1)`), drift lowers `V_G` (the house-of-Gauss variance at that `N_e`),
   and the lag grows; the critical rate is the largest steady response `V_G λ/(V_G + V_s)`
-  over lags, above which the feedback runs away. A log-fitness cost `c` lowers the
+  over lags, above which the feedback runs away. The feedback is known (Bürger and Lynch
+  1995, from simulations), and a critical rate as the maximum over steady states with
+  drift-reduced variance is in Xu and Shen (2026, bioRxiv preprint, continuous time,
+  logistic growth; spatial analogues in Polechová and Barton 2015 and Polechová 2026);
+  `drift_critical_rate` is a discrete-generation implementation matched to QTSim's life
+  cycle, tested against the kernel. A log-fitness cost `c` lowers the
   breeders as the lag load does, so by the envelope theorem
-  `k_c(c)/k_c(0) = 1 − c/M + o(c)` (O(c²) when k_c is twice differentiable; proved in Lean as `ratio_linear`), `M = λ*²/s`, twice the lag load at the critical lag:
-  linear in the cost, not the square root of `sustainable_rate`. `half_survival_rate(p;
+  `k_c(c)/k_c(0) = 1 − c/M + o(c)` (O(c²) when k_c is twice differentiable; proved in Lean as `ratio_linear`), `M = λ*²/s`, twice the lag load at the critical lag.
+  `sustainable_rate`'s fixed-V_G threshold has the same first-order form,
+  `1 − c/(2 ln(W̄(0)/W_min))`; drift makes the critical lag, and so `M`, 2.5–7 times
+  smaller in the tested cells, so a cost bites several times harder. `half_survival_rate(p;
   cost, horizon)`: the rate at which half the populations survive `horizon` generations,
   from the moments lowering with drift (the allele-frequency spectrum by default) plus
   `extinction_distribution`, by bisection (needs Catlab). `sustainable_rate`'s docstring now
@@ -67,8 +74,9 @@ All notable changes to QTLSim.jl are recorded here. The format follows
     `sustainable_rate`.
   - `validate/critical_rate.jl` (pre-specified, fresh seeds; 960 burn-ins × 13 rates, 100
     and 500 loci, fixed size and Beverton–Holt R = 5, 2, 1.5, log costs up to 1): the cost
-    ratio `k50(c)/k50(0)` is within 0.054 of `drift_critical_rate`'s in 24 of 24 cells; the
-    linear form fits better than the square root in 8 of 8 groups, with `M_obs/M` 1.09–1.22
+    ratio `k50(c)/k50(0)` is within 0.054 of `drift_critical_rate`'s in 24 of 24 cells;
+    over the tested range (observed ratios down to 0.25) a ratio linear in the cost fits
+    better than a square root in 8 of 8 groups, with `M_obs/M` 1.09–1.22
     (the theory's `M` is about 18% low; its ratio errors lean the same way in 21 of 24);
     `sustainable_rate`'s ratio is within 0.06 in 0 of 24. `half_survival_rate` is within
     0.75–1.33 of the kernel in 26 of 32 cells (100 loci 0.89–1.11; 500 loci 0.68–1.09,

@@ -203,14 +203,29 @@ threshold cost an intermediate plasticity maximises the critical rate).
   for 3–9% of the cost's effect on k50; the cost acts after the move, 2–7 times more
   strongly than `sustainable_rate`'s fitness-margin term predicts. `sustainable_rate`
   therefore mispredicts a cost of plasticity. See the script's header. The explanation is a
-  feedback `sustainable_rate` leaves out: the lag and the cost both lower the number of
-  breeders, drift then lowers `V_G`, and the lag grows. [`drift_critical_rate`](@ref) is
-  the critical rate of that feedback; by the envelope theorem a log cost `c` lowers it by
-  the factor `1 − c/M`, `M = λ*²/s` (linear, not the square root). In
-  `validate/critical_rate.jl` (pre-specified, fresh seeds) its cost ratio is within 0.054
-  of the kernel's in 24 of 24 cells and the linear form fits better in 8 of 8 groups (the
-  observed `M` 9–22% above `λ*²/s`); [`half_survival_rate`](@ref) predicts the
-  half-survival rate itself (26 of 32 cells within 0.75–1.33).
+  known feedback that `sustainable_rate` leaves out: the lag and the cost both lower the
+  number of breeders, drift then lowers `V_G`, and the lag grows. Bürger and Lynch (1995)
+  described it from simulations as the main reason their fixed-variance critical rate
+  overestimates persistence (see also Kopp and Matuszewski 2014); Xu and Shen (2026,
+  bioRxiv preprint, "Eco-evolutionary feedbacks generate bistability in population
+  persistence under gradual environmental change") define a critical rate as the maximum
+  over steady states with drift-reduced variance, in continuous time with logistic growth;
+  Polechová and Barton (2015) and Polechová (2026) treat the analogue along spatial
+  gradients. [`drift_critical_rate`](@ref) is a discrete-generation implementation of that
+  feedback matched to QTSim's life cycle (breeders `N W̄` at a fixed size or
+  `K(RW̄ − 1)/(R − 1)` under Beverton–Holt, house-of-Gauss `V_G`, `effective_size`), tested
+  against the kernel. By the envelope theorem (derived here) a log cost `c` lowers it by
+  the factor `1 − c/M + o(c)`, `M = λ*²/s`, twice the lag load at the critical lag. The
+  fixed-`V_G` threshold has the same first-order form, `√(1 − c/L₀) = 1 − c/(2L₀) + O(c²)`,
+  `L₀ = ln(W̄(0)/W_min)`; the difference is the scale: drift makes the critical lag, and so
+  `M`, much smaller (1.75–1.79 at a fixed size, 0.31–1.09 under Beverton–Holt, 2.5–7 times
+  below `2L₀`), so a cost bites several times harder. In `validate/critical_rate.jl`
+  (pre-specified, fresh seeds) its cost ratio is within 0.054 of the kernel's in 24 of 24
+  cells; over the tested range (observed cost ratios down to 0.25) a ratio linear in the
+  cost fitted better than a square root in 8 of 8 groups (the observed `M` 9–22% above
+  `λ*²/s`), and `sustainable_rate`'s predicted ratio was within tolerance in 0 of 24 cells;
+  [`half_survival_rate`](@ref) predicts the half-survival rate itself (26 of 32 cells
+  within 0.75–1.33).
 - `validate/reaction_norm.jl` (`reaction_norm.log`): the heritable norm, kernel against the
   moments lowering, 40 runs; 28 of 30 criteria pass. The mean slope (0.2 → 0.96 without a
   cost, → 0.56 with ω_b = 1) is within 0.07 of the moments at every time, the lag within

@@ -316,8 +316,24 @@ pay the cost only *before* the move start it with 28–81% of the variance yet s
 cost's effect. The cost does its damage *after* the move, 2–7 times more strongly than
 the fitness-margin term of `sustainable_rate` predicts; the correspondence itself plays
 no part (the same constant fitness cost without plasticity gives the same `k50`, within
-2%). A form that fits, found after that run and not yet tested, is a half-survival rate
-falling linearly in the log-fitness margin rather than with its square root.
+2%).
+
+The likely reason is a known feedback that `sustainable_rate` leaves out: the lag and the
+cost both lower the number of breeders, drift then lowers `V_G`, and the lag grows.
+@BurgerLynch1995 described it from simulations as the main reason their fixed-variance
+critical rate overestimates persistence, @XuShen2026 define a critical rate as the maximum
+over steady states with drift-reduced variance (continuous time, logistic growth), and
+@PolechovaBarton2015 and @Polechova2026 treat the analogue along spatial gradients.
+`drift_critical_rate` is a discrete-generation implementation matched to QTSim's life
+cycle. To first order a constant log cost `c` lowers either kind of critical rate by a
+fraction `c/M`, `M` being twice the lag load at the critical lag; for `sustainable_rate`
+the square root expands to `1 − c/(2 ln(W̄₀/W_min))`, the same linear form. The difference
+is the scale: drift makes the critical lag, and so `M`, 2.5–7 times smaller in the cells
+tested, so the same cost removes several times more of the rate. In a later pre-specified
+test (`validate/critical_rate.jl`, fresh seeds, observed cost ratios down to 0.25) a ratio
+linear in the cost fitted the kernel's `k50(c)/k50(0)` better than a square root in 8 of 8
+groups, `drift_critical_rate`'s ratio was within 0.054 in 24 of 24 cells, and
+`sustainable_rate`'s was within tolerance in 0 of 24.
 
 ## The cost trade-off
 
