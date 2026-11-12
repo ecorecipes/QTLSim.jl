@@ -197,9 +197,12 @@ threshold cost an intermediate plasticity maximises the critical rate).
   at fixed size 1.24–1.26, 1.46–1.55 and 2.11–2.13 times; under Beverton–Holt 1.03–1.06
   times at b/B = 0.25, below 0.63 (every run died on the grid) at 0.5, and extinction
   before the move at 0.75. The deterministic prediction of the cost's effect failed 4 of
-  12 cells. A likely cause, inferred from the per-cell table after the run and not yet
-  tested: the cost also lowers V_G before the move (more drift among fewer survivors,
-  and under Beverton–Holt a population of about 340), which the grid did not allow for.
+  12 cells. The cost also lowers V_G before the move (more drift among fewer survivors,
+  and under Beverton–Holt a population of about 340), but that is not why: in
+  `validate/plasticity_erosion.jl` (pre-specified, fresh seeds) the pre-move loss accounts
+  for 3–9% of the cost's effect on k50; the cost acts after the move, 2–7 times more
+  strongly than `sustainable_rate`'s fitness-margin term predicts. `sustainable_rate`
+  therefore mispredicts a cost of plasticity (open).
   See the script's header.
 - `validate/reaction_norm.jl` (`reaction_norm.log`): the heritable norm, kernel against the
   moments lowering, 40 runs; 28 of 30 criteria pass. The mean slope (0.2 → 0.96 without a

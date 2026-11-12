@@ -2438,6 +2438,14 @@ window.Quarto = {
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">CairoMakie</span>, <span class="bu">Printf</span>, <span class="bu">Random</span>, <span class="bu">Statistics</span></span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>CairoMakie.<span class="fu">activate!</span>(<span class="kw">type</span> <span class="op">=</span> <span class="st">&quot;png&quot;</span>)</span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>L <span class="op">=</span> <span class="fu">lifecycle</span>(); g <span class="op">=</span> L.generation            <span class="co"># QTSim&#39;s generation, Zygotes → Zygotes</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<div class="ansi-escaped-output">
+<pre><span class="ansi-green-fg ansi-bold">Precompiling</span> packages...
+   3270.3 ms<span class="ansi-green-fg">  ✓ </span>QTLSim → QTLSimCatlabExt
+  1 dependency successfully precompiled in 4 seconds. 125 already precompiled.
+</pre>
+</div>
+</div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>develop⋅select⋅reproduce⋅record⋅rescale⋅mutate⋅swap: Zygotes → Zygotes</code></pre>
 </div>
@@ -2891,7 +2899,7 @@ Figure 1: Survival 2000 generations after the move against the rate of change o
 </tbody>
 </table>
 <p>P2 passes in 8 of 12 cells and fails in 4, as in <code>validate/plasticity_rates.log</code>. At a fixed size the cost is less harmful than predicted, increasingly so at larger slopes (observed/predicted up to 1.39), and the two fixed-size cells at <code>b/B = 0.75</code> fail on that side. Under Beverton–Holt at <code>b/B = 0.5</code> every population died even at the lowest rate of the grid, so the half-survival rate is not bracketed (it is below 0.63 of <code>k50(0)</code>); the grid had been placed using the nominal <code>V_G</code>, and the prediction with the realised <code>V_G</code>, 0.29–0.36, lies below it, in the same direction as the observation.</p>
-<p>What the table shows directly is that the cost lowers the genetic variance at the move, before the optimum has moved at all: by 5–58% at a fixed size and by 15–72% under Beverton–Holt, where the population also shrinks (to about 340 at <code>b/B = 0.5</code>). That this is <em>why</em> P2 fails is an inference made after the run, not a pre-specified test: fewer survivors per generation means more drift, and a smaller population more still, and the prediction allowed for the lower <code>V_G</code> but not for how the half-survival rate responds to it (at a fixed size the deterministic threshold is 5–7 times the observed <code>k50</code>, and <code>k50</code> responds less than proportionally to <code>V_G</code>). No model or criterion was changed after the run, and no fresh-seed confirmation was made.</p>
+<p>What the table shows directly is that the cost lowers the genetic variance at the move, before the optimum has moved at all: by 5–58% at a fixed size and by 15–72% under Beverton–Holt, where the population also shrinks (to about 340 at <code>b/B = 0.5</code>). That lost variance seemed the obvious reason P2 fails, but a later pre-specified test refutes it (<code>validate/plasticity_erosion.jl</code>, fresh seeds, all four failed cells): populations that pay the cost only <em>before</em> the move start it with 28–81% of the variance yet sustain 0.88–0.99 of the no-cost <code>k50</code>, so the pre-move loss accounts for only 3–9% of the cost’s effect. The cost does its damage <em>after</em> the move, 2–7 times more strongly than the fitness-margin term of <code>sustainable_rate</code> predicts; the correspondence itself plays no part (the same constant fitness cost without plasticity gives the same <code>k50</code>, within 2%). A form that fits, found after that run and not yet tested, is a half-survival rate falling linearly in the log-fitness margin rather than with its square root.</p>
 </section>
 </section>
 <section id="the-cost-trade-off" class="level2">

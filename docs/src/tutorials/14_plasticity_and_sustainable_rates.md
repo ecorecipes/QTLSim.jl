@@ -389,14 +389,18 @@ the observation.
 What the table shows directly is that the cost lowers the genetic
 variance at the move, before the optimum has moved at all: by 5–58% at a
 fixed size and by 15–72% under Beverton–Holt, where the population also
-shrinks (to about 340 at `b/B = 0.5`). That this is *why* P2 fails is an
-inference made after the run, not a pre-specified test: fewer survivors
-per generation means more drift, and a smaller population more still,
-and the prediction allowed for the lower `V_G` but not for how the
-half-survival rate responds to it (at a fixed size the deterministic
-threshold is 5–7 times the observed `k50`, and `k50` responds less than
-proportionally to `V_G`). No model or criterion was changed after the
-run, and no fresh-seed confirmation was made.
+shrinks (to about 340 at `b/B = 0.5`). That lost variance seemed the
+obvious reason P2 fails, but a later pre-specified test refutes it
+(`validate/plasticity_erosion.jl`, fresh seeds, all four failed cells):
+populations that pay the cost only *before* the move start it with
+28–81% of the variance yet sustain 0.88–0.99 of the no-cost `k50`, so
+the pre-move loss accounts for only 3–9% of the cost’s effect. The cost
+does its damage *after* the move, 2–7 times more strongly than the
+fitness-margin term of `sustainable_rate` predicts; the correspondence
+itself plays no part (the same constant fitness cost without plasticity
+gives the same `k50`, within 2%). A form that fits, found after that run
+and not yet tested, is a half-survival rate falling linearly in the
+log-fitness margin rather than with its square root.
 
 ## The cost trade-off
 
