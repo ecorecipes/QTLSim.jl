@@ -24,7 +24,7 @@
 # Writing u = λ²/(2s) + c, W̄ = W̄₀e^{−u}, so n, N_e and V_G depend on λ and c only through
 # u, and ln k = ln λ + H(u) (s held at its value at λ*). The first-order condition
 # 1/λ + H′(u)λ/s = 0 and the envelope theorem give d ln k_c/dc = H′(u*) = −s/λ*²:
-#     k_c(c)/k_c(0) = 1 − c/M + O(c²),   M = λ*²/s = 2 × (the lag load at the critical lag).
+#     k_c(c)/k_c(0) = 1 − c/M + o(c) (O(c²) if k_c is twice differentiable; Lean: ratio_linear, powerLaw_linear),   M = λ*²/s = 2 × (the lag load at the critical lag).
 # The linear-in-cost form arises because the cost acts through the number of breeders, as
 # the load does; the square root of `sustainable_rate` arises only where V_G does not
 # depend on N_e (H′ → 0 except at a hard fitness floor). Symbolic checks:

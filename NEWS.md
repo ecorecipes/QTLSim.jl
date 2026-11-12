@@ -51,7 +51,7 @@ All notable changes to QTLSim.jl are recorded here. The format follows
   and the lag grows; the critical rate is the largest steady response `V_G λ/(V_G + V_s)`
   over lags, above which the feedback runs away. A log-fitness cost `c` lowers the
   breeders as the lag load does, so by the envelope theorem
-  `k_c(c)/k_c(0) = 1 − c/M + O(c²)`, `M = λ*²/s`, twice the lag load at the critical lag:
+  `k_c(c)/k_c(0) = 1 − c/M + o(c)` (O(c²) when k_c is twice differentiable; proved in Lean as `ratio_linear`), `M = λ*²/s`, twice the lag load at the critical lag:
   linear in the cost, not the square root of `sustainable_rate`. `half_survival_rate(p;
   cost, horizon)`: the rate at which half the populations survive `horizon` generations,
   from the moments lowering with drift (the allele-frequency spectrum by default) plus
