@@ -28,7 +28,8 @@ end
 
 pages = Any["Home" => "index.md", "Parameters" => "parameters.md", "Output" => "output.md",
              "Running QTSim input files" => "reproducing.md", "Several traits" => "traits_design.md",
-             "Phenotypic plasticity" => "plasticity_design.md"]
+             "Phenotypic plasticity" => "plasticity_design.md",
+             "Naturality and model morphisms" => "naturality_design.md", "Support matrix" => "support.md"]
 tutorials = tutorial_pages()
 isempty(tutorials) || push!(pages, "Tutorials" => tutorials)
 push!(pages, "API reference" => "api.md")

@@ -8,6 +8,42 @@ All notable changes to QTLSim.jl are recorded here. The format follows
 
 ### Added
 
+- **Naturality as the validation harness** (roadmap C2; `src/naturality.jl`,
+  `ext/QTLSimCatlabExt/naturality.jl`, `docs/src/naturality_design.md`). Agreement between
+  two backends is a naturality square of the lowering functors, σ ∘ K(f) = M(f) ∘ σ; a
+  square is now data, a `NaturalityCase` (life cycle, parameters, the two backends among
+  `:kernel`, `:slim`, `:moments`, `:theory`, statistics with their tolerances, the criterion
+  — `:band`, `:z`, `:exact` or `:ks`, the scripts' rules — replicates, horizon, and the
+  verdict the ported script recorded). `check_naturality(case)` (or
+  `check_naturality(cycle, p; from, to, statistic, tolerance, …)`) runs it and says whether
+  the verdict was reproduced; `naturality_steps(p; loci)` checks the square of every step of
+  one generation from matched states (a linkage-equilibrium kernel population and its
+  moments), so a disagreement is localised to the step whose square fails: with
+  `loci = :aggregate` the square of `reproduce` fails, with `:multilocus` none does.
+  `validate/naturality_cases.jl` holds 11 cases ported from `moments_loci.jl`,
+  `moments_regimes.jl`, `moments_demes.jl`, `rare_alleles_traits.jl`,
+  `local_adaptation.jl`, the neutral exact test and `slim/compare_demography.jl` (three of
+  them recorded failures); `validate/naturality.jl` runs them (`naturality.log`). The
+  scripts and their logs are unchanged.
+- **Closures and model morphisms declared as data** (roadmap C7; `src/closures.jl`,
+  `ext/QTLSimCatlabExt/morphisms.jl`). `QTLSim.closures()` declares each closure of the
+  moments lowering with its rank in the order of refinements, its domain and its automatic
+  domain; `loci = :auto` is now `QTLSim.auto_closure`, the finest closure whose automatic
+  domain contains the context (model, demes, ploidy, one law of mutation effects,
+  `between`). It gives exactly the earlier choices (a test enumerates 72 contexts against
+  the earlier rule) except for one case kept as found: `QTLSim.moments_loci(p)` of a
+  heritable reaction norm is still `:rare_local`, while `run_moments` uses `:multilocus`, as
+  the declarations say. `model_morphisms()` and `QTLSim.closure_order()` declare 8 maps (one
+  trait into two independent traits, the projection to trait 1, k demes to one, plastic to
+  plain at rate (1 − φ)k, and four arrows between closures) with 21 reductions, from which
+  a testset is generated; another checks the declared domains against `run_moments`'
+  guards.
+- **Support matrix and `explain`** (roadmap F11; `ext/QTLSimCatlabExt/support.jl`,
+  `docs/src/support.md`, `scripts/support_matrix.jl`). `support_matrix()` probes 20
+  features × 3 models × 7 columns (kernel, SLiM, five closures) on tiny populations, so
+  "unsupported" is exactly where a guard throws, and reads the result against declared
+  validation evidence; `support_markdown` writes the docs page, which a test keeps current.
+  `explain(p; cycle)` says which model, closure and backends apply, and why.
 - **Populations initialised from theory** (`src/init.jl`; roadmap F1). `stationary_spectrum(p)`
   is the stationary allele-frequency spectrum of mutation, stabilising selection at a fixed
   optimum and drift (infinite sites, linkage equilibrium, a closed form solved for V_G);

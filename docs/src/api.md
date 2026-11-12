@@ -127,7 +127,8 @@ metapopulations whose demes lag behind different optima, `loci = :rare_local`
 `QTLSim.local_gain` of locally favoured alleles; it equals `:rare_alleles` for one deme, a
 common optimum and no migration. The default,
 `loci = :auto`, is the rare-alleles closure for one trait (diploid, or haploid clones) and
-`:rare_local` for several traits (`QTLSim.moments_loci`); `multilocus_equilibrium`
+`:rare_local` for several traits and for one trait in several demes, read from the declared
+closures (`QTLSim.moments_loci`, `QTLSim.auto_closure`); `multilocus_equilibrium`
 takes the same default.
 Under a moving optimum, the allele-frequency spectrum (`loci = :spectrum`,
 src/spectrum.jl, `validate/vg_move.jl`) follows how sweeps, drift and linked selection
@@ -333,6 +334,52 @@ lower!
 genotypes
 phenotypes
 genome_from_acset
+```
+
+### Naturality: validation as data
+
+A statistic σ maps one backend's states to another's; agreement between backends is a
+naturality square σ ∘ K(f) = M(f) ∘ σ, exact for some life cycles and within a closure's
+error for others. A square is a [`NaturalityCase`](@ref), a row of the table of cases in
+`validate/naturality_cases.jl`; see [Naturality and model morphisms](naturality_design.md).
+
+```@docs
+NaturalityCase
+NaturalityResult
+check_naturality
+naturality_steps
+QTLSim.first_failure
+QTLSim.Statistic
+QTLSim.window_mean
+QTLSim.metapop_mean
+QTLSim.gmatrix_mean
+QTLSim.qst_stat
+QTLSim.ks_pvalue
+```
+
+### Closures and model morphisms, declared as data
+
+The closures of the moments lowering, their domains and the order of refinements, and the
+maps between models, each with the reductions it must satisfy (the tests are generated from
+them). `loci = :auto` is the finest closure whose automatic domain contains the model and
+the life cycle. The [support matrix](support.md) is generated from the same declarations
+and the code's own guards.
+
+```@docs
+QTLSim.ClosureContext
+QTLSim.closure_context
+QTLSim.ClosureDecl
+QTLSim.closures
+QTLSim.auto_closure
+QTLSim.closure_reasons
+QTLSim.ModelMorphism
+QTLSim.Reduction
+QTLSim.check_reduction
+model_morphisms
+QTLSim.closure_order
+explain
+support_matrix
+support_markdown
 ```
 
 ### Types of the extension
