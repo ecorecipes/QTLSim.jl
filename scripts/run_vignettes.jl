@@ -18,7 +18,7 @@ import REPL
 
 const ROOT = normpath(joinpath(@__DIR__, ".."))
 const VIG = joinpath(ROOT, "vignettes")
-const DEFAULT = ["01", "02", "03", "04", "05", "06", "10", "12", "13"]
+const DEFAULT = ["01", "02", "03", "04", "05", "06", "10", "12", "13", "14"]
 
 """
     chunks(qmd) -> Vector{(line, options, code)}

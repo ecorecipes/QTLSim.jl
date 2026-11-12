@@ -132,6 +132,7 @@ on every change.
 11. [Density regulation in the paper's populations](tutorials/11_demography_in_the_papers_populations.md)
 12. [Metapopulations and migration](tutorials/12_metapopulations.md)
 13. [Several traits and pleiotropy](tutorials/13_multiple_traits.md)
+14. [Plasticity and sustainable rates of change](tutorials/14_plasticity_and_sustainable_rates.md)
 
 ## Proofs in Lean
 

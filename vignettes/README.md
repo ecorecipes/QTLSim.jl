@@ -20,6 +20,7 @@ Each vignette lives in its own directory `NN_name/NN_name.qmd` and is rendered w
 | `11_demography_in_the_papers_populations` | vignette 09's 710 populations rerun with density regulation (R = 5, 2, 1.5): how survival, time to extinction and the sustainable rate move from the paper's fixed-size estimates |
 | `12_metapopulations` | demes and migration: building metapopulations, how the kernel's migration exchanges individuals, neutral Q_ST among demes against exact island and stepping-stone theory, local adaptation (Q_ST > F_ST), and the moments lowering's prediction of the variance among demes |
 | `13_multiple_traits` | several traits with pleiotropy: the model as a second family of lowerings of the same life cycle, the G matrix at equilibrium against theory, correlated response and the line of least resistance, the mutational correlation, local adaptation of demes in two traits, a fluctuating optimum vector, and the kernel against SLiM |
+| `14_plasticity_and_sustainable_rates` | phenotypic plasticity: a reaction norm of fixed slope expressed in `select`, the exact correspondence of a plastic population at rate k with a non-plastic one at (1 − b/B)k, survival against the rate of change from the 12,320-run experiment (and where the prediction of a cost fails), the cost trade-off, a heritable slope (kernel against moments), and a delayed cue under red noise |
 
 ## Rendering
 

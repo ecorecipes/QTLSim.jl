@@ -142,7 +142,7 @@ unpacked).
 
 The [documentation](https://ecorecipes.github.io/QTLSim.jl/dev/) has reference pages on
 the parameters, the output, running QTSim's input files and several traits, the API, and
-thirteen tutorials rendered from the Quarto vignettes in [`vignettes/`](vignettes/):
+fourteen tutorials rendered from the Quarto vignettes in [`vignettes/`](vignettes/):
 
 1. [Getting started](https://ecorecipes.github.io/QTLSim.jl/dev/tutorials/01_getting_started/)
 2. [Mutation–selection balance](https://ecorecipes.github.io/QTLSim.jl/dev/tutorials/02_mutation_selection_balance/)
@@ -157,6 +157,7 @@ thirteen tutorials rendered from the Quarto vignettes in [`vignettes/`](vignette
 11. [Density regulation in the paper's populations](https://ecorecipes.github.io/QTLSim.jl/dev/tutorials/11_demography_in_the_papers_populations/)
 12. [Metapopulations and migration](https://ecorecipes.github.io/QTLSim.jl/dev/tutorials/12_metapopulations/)
 13. [Several traits and pleiotropy](https://ecorecipes.github.io/QTLSim.jl/dev/tutorials/13_multiple_traits/)
+14. [Plasticity and sustainable rates of change](https://ecorecipes.github.io/QTLSim.jl/dev/tutorials/14_plasticity_and_sustainable_rates/)
 
 ## Proofs in Lean
 

@@ -95,6 +95,13 @@ All notable changes to QTLSim.jl are recorded here. The format follows
   the slope. Kernel and moments lowerings; `reaction_norm_response`, `reaction_norm_lag`.
   The design note is `docs/src/plasticity_design.md`; the algebra is checked in
   `validate/symbolic/check_plasticity.jl`.
+- **Vignette 14, plasticity and sustainable rates of change**
+  (`vignettes/14_plasticity_and_sustainable_rates`): where the reaction norm sits in the
+  life cycle, the exact correspondence in the kernel (same seed, same survivors and V_G),
+  survival against the rate from `validate/plasticity_rates.csv` (read from the cache, not
+  rerun) with the P2 failures, the cost trade-off from `sustainable_rate`, a heritable
+  slope (kernel against moments, 8 runs per scenario), and a delayed cue under red noise
+  (illustrative, 54 runs). About 45 s of code on three threads; run in CI's `vignettes` job.
 - **Locally favoured alleles in metapopulations: `run_moments(...; loci = :rare_local)`**
   (`src/local_alleles.jl`). The rare-alleles closure takes every mutant to be deleterious
   wherever it is; under local adaptation with migration, demes lag behind different
