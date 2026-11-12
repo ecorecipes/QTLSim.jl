@@ -202,8 +202,15 @@ threshold cost an intermediate plasticity maximises the critical rate).
   `validate/plasticity_erosion.jl` (pre-specified, fresh seeds) the pre-move loss accounts
   for 3–9% of the cost's effect on k50; the cost acts after the move, 2–7 times more
   strongly than `sustainable_rate`'s fitness-margin term predicts. `sustainable_rate`
-  therefore mispredicts a cost of plasticity (open).
-  See the script's header.
+  therefore mispredicts a cost of plasticity. See the script's header. The explanation is a
+  feedback `sustainable_rate` leaves out: the lag and the cost both lower the number of
+  breeders, drift then lowers `V_G`, and the lag grows. [`drift_critical_rate`](@ref) is
+  the critical rate of that feedback; by the envelope theorem a log cost `c` lowers it by
+  the factor `1 − c/M`, `M = λ*²/s` (linear, not the square root). In
+  `validate/critical_rate.jl` (pre-specified, fresh seeds) its cost ratio is within 0.054
+  of the kernel's in 24 of 24 cells and the linear form fits better in 8 of 8 groups (the
+  observed `M` 9–22% above `λ*²/s`); [`half_survival_rate`](@ref) predicts the
+  half-survival rate itself (26 of 32 cells within 0.75–1.33).
 - `validate/reaction_norm.jl` (`reaction_norm.log`): the heritable norm, kernel against the
   moments lowering, 40 runs; 28 of 30 criteria pass. The mean slope (0.2 → 0.96 without a
   cost, → 0.56 with ω_b = 1) is within 0.07 of the moments at every time, the lag within

@@ -144,9 +144,17 @@ with the population's own growth factor in place of `B₀` and without their all
 the variance of the lag ([`critical_rate`](@ref) is the form of the paper's table), and
 the discrete-generation counterpart of Chevin, Lande and Mace's (2010) critical rate with
 plasticity: without a cost, plasticity multiplies it by `1/|1 − b/B|`; a cost lowers
-`ln(W̄(0)/W_min)` by `b²/(2ω_b²)`, so that an intermediate slope can be best. It is
-deterministic: demographic and genetic stochasticity, and the change of `V_G` under a
-moving optimum, make real populations die at lower rates.
+`ln(W̄(0)/W_min)` by `b²/(2ω_b²)`, so that an intermediate slope can be best.
+
+What it is: a deterministic threshold for a population whose genetic variance stays at
+`VG` whatever the lag. What it is not: the rate at which half of finite populations
+survive. Under a moving optimum the lag removes breeders, drift then lowers `V_G`, and the
+lag grows, a feedback this threshold leaves out; in QTSim's regime the kernel's
+half-survival rate within 2000 generations is 0.07–0.56 times this rate (0.14–0.39 in
+`validate/plasticity_rates.log`; the paper's 710 populations in vignettes 09 and 11, in
+`validate/critical_rate_posthoc.log`), and a cost lowers it several times more than the
+fitness-margin term here says (`validate/plasticity_erosion.log`). The feedback's critical
+rate is [`drift_critical_rate`](@ref), the half-survival rate [`half_survival_rate`](@ref).
 """
 function sustainable_rate(p::Params; VG::Real, ω::Real = initFitSD(p), b::Real = p.Plasticity)
     s = ω^2 + VG + envVar(p)

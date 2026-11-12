@@ -3,7 +3,7 @@
 #
 #     julia --project=validate/symbolic validate/symbolic/check_all.jl
 
-const FILES = ["check_closures.jl", "check_spectrum.jl", "check_traits.jl", "check_fst.jl", "check_demography.jl", "check_plasticity.jl", "check_init.jl"]
+const FILES = ["check_closures.jl", "check_spectrum.jl", "check_traits.jl", "check_fst.jl", "check_demography.jl", "check_plasticity.jl", "check_init.jl", "check_critical.jl"]
 
 t0 = time()
 nfail = Dict{String,Int}()
