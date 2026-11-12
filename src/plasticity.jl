@@ -142,8 +142,8 @@ and the population persists while `W̄ > W_min`: `1/R` under `Demography = :beve
 0 when `W̄(0) ≤ W_min` and `Inf` at `b = B`. It is Bürger and Lynch's (1995) critical rate
 with the population's own growth factor in place of `B₀` and without their allowance for
 the variance of the lag ([`critical_rate`](@ref) is the form of the paper's table), and
-the discrete-generation counterpart of Chevin, Lande and Mace's (2010) critical rate with
-plasticity: without a cost, plasticity multiplies it by `1/|1 − b/B|`; a cost lowers
+analogous to Chevin, Lande and Mace's (2010) critical rate with plasticity (their
+equations were not checked here; the formulas come from the package's own recursion): without a cost, plasticity multiplies it by `1/|1 − b/B|`; a cost lowers
 `ln(W̄(0)/W_min)` by `b²/(2ω_b²)`, so that an intermediate slope can be best.
 
 What it is: a deterministic threshold for a population whose genetic variance stays at
