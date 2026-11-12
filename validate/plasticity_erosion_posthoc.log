@@ -1,0 +1,39 @@
+POST HOC (not pre-specified): plasticity_rates.csv (run 1 of plasticity_rates.jl), no new runs
+
+L100 fixed: V_G at the move 0.1360 (replicates 0.0848–0.1833), N 1000; k50 (b = 0) 0.02262
+  elasticity of k50 with respect to a replicate's V_G at the move (no-cost runs, all slopes, by effective rate): 0.006 [-0.017, 0.035]
+  b/B = 0.25 cost: V_G at the move ×0.85, N 1000; observed k50 ratio (effective) 0.928; theory: fitness margin alone 0.990, V_G alone 0.853, both (P2) 0.844; observed/P2 1.10; margin × (V_G ratio)^e 0.989
+      V_G in generations 500–2000 after the move at effective rate 0.01318: 0.09964 (cost, 40 alive) vs 0.1101 (no cost at 0.01331, 120 alive): ×0.91
+      V_G in generations 500–2000 after the move at effective rate 0.01757: 0.07936 (cost, 40 alive) vs 0.09128 (no cost at 0.01775, 160 alive): ×0.87
+  b/B = 0.50 cost: V_G at the move ×0.67, N 1000; observed k50 ratio (effective) 0.731; theory: fitness margin alone 0.959, V_G alone 0.674, both (P2) 0.646; observed/P2 1.13; margin × (V_G ratio)^e 0.957
+      V_G in generations 500–2000 after the move at effective rate 0.01277: 0.06228 (cost, 40 alive) vs 0.1101 (no cost at 0.01331, 120 alive): ×0.57
+      V_G in generations 500–2000 after the move at effective rate 0.01702: 0.0478 (cost, 12 alive) vs 0.09128 (no cost at 0.01775, 160 alive): ×0.52
+  b/B = 0.75 cost: V_G at the move ×0.42, N 1000; observed k50 ratio (effective) 0.526; theory: fitness margin alone 0.905, V_G alone 0.419, both (P2) 0.379; observed/P2 1.39; margin × (V_G ratio)^e 0.900
+      V_G in generations 500–2000 after the move at effective rate 0.01205: 0.02694 (cost, 12 alive) vs 0.1101 (no cost at 0.01331, 120 alive): ×0.24
+
+L100 bh: V_G at the move 0.1283 (replicates 0.0808–0.2391), N 979; k50 (b = 0) 0.01455
+  elasticity of k50 with respect to a replicate's V_G at the move (no-cost runs, all slopes, by effective rate): 0.043 [0.008, 0.066]
+  b/B = 0.25 cost: V_G at the move ×0.78, N 860; observed k50 ratio (effective) 0.774; theory: fitness margin alone 0.904, V_G alone 0.779, both (P2) 0.704; observed/P2 1.10; margin × (V_G ratio)^e 0.895
+      V_G in generations 500–2000 after the move at effective rate 0.008306: 0.09282 (cost, 40 alive) vs 0.1157 (no cost at 0.00918, 160 alive): ×0.80
+      V_G in generations 500–2000 after the move at effective rate 0.01108: 0.07569 (cost, 24 alive) vs 0.1004 (no cost at 0.01224, 160 alive): ×0.75
+  b/B = 0.50 cost: V_G at the move ×0.28, N 346; observed k50 ratio (effective) NaN; theory: fitness margin alone 0.521, V_G alone 0.279, both (P2) 0.146; observed/P2 NaN; margin × (V_G ratio)^e 0.493
+  b/B = 0.75 cost: every burn-in died
+
+L500 fixed: V_G at the move 0.3233 (replicates 0.2549–0.3776), N 1000; k50 (b = 0) 0.05113
+  elasticity of k50 with respect to a replicate's V_G at the move (no-cost runs, all slopes, by effective rate): -0.015 [-0.038, 0.010]
+  b/B = 0.25 cost: V_G at the move ×0.95, N 1000; observed k50 ratio (effective) 0.941; theory: fitness margin alone 0.990, V_G alone 0.946, both (P2) 0.937; observed/P2 1.00; margin × (V_G ratio)^e 0.991
+      V_G in generations 500–2000 after the move at effective rate 0.03096: 0.2239 (cost, 40 alive) vs 0.253 (no cost at 0.03127, 160 alive): ×0.89
+      V_G in generations 500–2000 after the move at effective rate 0.04127: 0.1778 (cost, 40 alive) vs 0.2055 (no cost at 0.0417, 160 alive): ×0.87
+  b/B = 0.50 cost: V_G at the move ×0.73, N 1000; observed k50 ratio (effective) 0.773; theory: fitness margin alone 0.959, V_G alone 0.732, both (P2) 0.702; observed/P2 1.10; margin × (V_G ratio)^e 0.963
+      V_G in generations 500–2000 after the move at effective rate 0.02999: 0.1559 (cost, 40 alive) vs 0.253 (no cost at 0.03127, 160 alive): ×0.62
+      V_G in generations 500–2000 after the move at effective rate 0.03998: 0.1026 (cost, 4 alive) vs 0.2055 (no cost at 0.0417, 160 alive): ×0.50
+  b/B = 0.75 cost: V_G at the move ×0.46, N 1000; observed k50 ratio (effective) 0.533; theory: fitness margin alone 0.905, V_G alone 0.466, both (P2) 0.422; observed/P2 1.26; margin × (V_G ratio)^e 0.915
+      V_G in generations 500–2000 after the move at effective rate 0.0283: 0.07149 (cost, 3 alive) vs 0.253 (no cost at 0.03127, 160 alive): ×0.28
+
+L500 bh: V_G at the move 0.3200 (replicates 0.2352–0.4019), N 965; k50 (b = 0) 0.03751
+  elasticity of k50 with respect to a replicate's V_G at the move (no-cost runs, all slopes, by effective rate): 0.018 [-0.012, 0.048]
+  b/B = 0.25 cost: V_G at the move ×0.85, N 845; observed k50 ratio (effective) 0.798; theory: fitness margin alone 0.902, V_G alone 0.854, both (P2) 0.771; observed/P2 1.04; margin × (V_G ratio)^e 0.899
+      V_G in generations 500–2000 after the move at effective rate 0.02048: 0.2237 (cost, 40 alive) vs 0.2733 (no cost at 0.02264, 160 alive): ×0.82
+      V_G in generations 500–2000 after the move at effective rate 0.02731: 0.175 (cost, 40 alive) vs 0.2349 (no cost at 0.03019, 160 alive): ×0.75
+  b/B = 0.50 cost: V_G at the move ×0.34, N 330; observed k50 ratio (effective) NaN; theory: fitness margin alone 0.505, V_G alone 0.345, both (P2) 0.178; observed/P2 NaN; margin × (V_G ratio)^e 0.495
+  b/B = 0.75 cost: every burn-in died
