@@ -35,6 +35,7 @@
 
 include(joinpath(@__DIR__, "gsl_locked.jl"))     # QTSIM, SIMDIR, ROOT, read_qtsim_opts
 using XLSX, HypothesisTests, Statistics, Random, Printf
+include(joinpath(@__DIR__, "published_table.jl"))   # load_master, match_row
 
 const CAP   = length(ARGS) >= 1 ? parse(Int, ARGS[1]) : 2000
 const SCALE = length(ARGS) >= 2 ? parse(Float64, ARGS[2]) : 1.0
@@ -49,29 +50,6 @@ const STRATA = [("QT0100-Possion3.0", 100, 3, 150, (:qtsim, :all)), ("QT0100-Pos
                 ("QT0500-Possion3.0", 500, 3,  90, (:qtsim, :all)), ("QT0500-Possion5.0", 500, 5,  90, (:qtsim, :all)),
                 ("QT1000-Possion3.0", 1000, 3, 45, (:qtsim, :all)), ("QT1000-Possion5.0", 1000, 5, 45, (:qtsim, :all)),
                 ("QT5000-Possion3.0", 5000, 3, 12, (:qtsim,)),      ("QT5000-Possion5.0", 5000, 5, 12, (:qtsim,))]
-
-# --- published table -----------------------------------------------------
-function load_master()
-    dt = XLSX.readtable(MASTER, "Master output file")
-    lab = string.(dt.column_labels)
-    c(name) = dt.data[findfirst(==(name), lab)]
-    num(x) = x isa AbstractString ? parse(Float64, x) : Float64(x)     # some cells are stored as text
-    I(name) = round.(Int, num.(c(name))); F(name) = num.(c(name))
-    (L = I("No. Loci"), u = I("recombination u=3,5"), H = F("Heritability"),
-     PV = F("PhenotypeVar"), MS = F("MutationScalar Vm/Ve"), d = F("d_env"),
-     T = I("Generations to extinction"), surv = I("Extinct (0,1)"),
-     pm = F("Phenotype Mean at 10000"), gv = F("Genotype Var at 10000"), ns = I("P Survived at 10000"))
-end
-
-function match_row(tab, L, u, q::Params)
-    hits = findall(i -> tab.L[i] == L && tab.u[i] == u &&
-                        abs(tab.H[i] - q.Heritability) < 1e-9 && abs(tab.PV[i] - q.PhenotypeVar) < 1e-9 &&
-                        # some rows round MutationScalar or d_env to 3 significant figures
-                        abs(tab.d[i] - q.MoveFitnessSD) <= 5e-3 * q.MoveFitnessSD &&
-                        abs(tab.MS[i] - q.MutationScalar) <= 5e-3 * q.MutationScalar,
-                   eachindex(tab.L))
-    length(hits) == 1 ? hits[1] : 0
-end
 
 # --- QTSim run on an unmodified shipped file -------------------------------
 function qtsim_shipped(path)
@@ -99,7 +77,7 @@ end
 function sweep_main()
     isfile(QTSIM) || error(qtsim_missing())
     t0 = time()
-    tab = load_master()
+    tab = load_master(MASTER)
     @printf("published table: %d runs loaded (%.0f s); CAP=%d generations after the move; SCALE=%.2f; %d threads\n",
             length(tab.L), time() - t0, CAP, SCALE, Threads.nthreads())
 

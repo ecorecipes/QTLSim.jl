@@ -65,6 +65,23 @@ sweep
 replicate
 ```
 
+## Parameters as an object, and an emulator of the published sweep
+
+`QTLSim.Para` sees a prediction as a function of some continuous parameters of a
+`Params`; [`sensitivities`](@ref) gives its elasticities by finite differences (roadmap
+C3). [`emulate`](@ref) predicts a run of the published sweep's protocol from the moments
+lowering with drift and demographic stochasticity along its trajectory, without
+simulating it (roadmap F4); `validate/emulator.jl` tests it against the published table
+under the pre-specified criteria of `validate/emulator_criteria.md`. Needs Catlab.
+
+```@docs
+QTLSim.Para
+sensitivities
+emulate
+emulated_half_survival_rate
+emulate_sweep
+```
+
 ## QTSim options files
 
 ```@docs

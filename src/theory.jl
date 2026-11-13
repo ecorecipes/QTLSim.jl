@@ -794,7 +794,20 @@ equilibrium is proportional to `1/ρ` for each pair (`validate/moments_loci_run1
 """
 pair_recombination(p::Params) = pair_recombination(p.NoQTL, p.RecombPoissonMean; model = p.CrossoverModel)
 
+# memoised: it depends only on (L, mean, model) and takes ~10 ms at 5000 loci, and the
+# rare-alleles units (gaussian_units) ask for it on every evaluation
 function pair_recombination(L::Integer, mean::Real; model::Symbol = :qtsim)
+    key = (Int(L), Float64(mean), model)
+    v = lock(() -> get(_PAIR_RECOMBINATION, key, nothing), _PAIR_CLASSES_LOCK)
+    v === nothing || return v
+    v = _pair_recombination(L, mean; model)
+    lock(() -> (_PAIR_RECOMBINATION[key] = v), _PAIR_CLASSES_LOCK)
+    v
+end
+
+const _PAIR_RECOMBINATION = Dict{Tuple{Int,Float64,Symbol},Float64}()
+
+function _pair_recombination(L::Integer, mean::Real; model::Symbol = :qtsim)
     model in (:qtsim, :all) || throw(ArgumentError("model is :qtsim or :all; got :$model"))
     L <= 1 && return 0.0
     npairs = L * (L - 1) / 2
