@@ -21,7 +21,7 @@ Requires Catlab.
 function lifecycle end
 
 """
-    lower(f, target; images = Dict(), record = nothing, migration_rate = 0.0, model = OneTraitModel())
+    lower(f, target; images = Dict(), record = nothing, migration_rate = 0.0, model = OneTraitModel(), typed = false)
 
 The image of the life-cycle morphism `f` under the lowering functor to `target`:
 `:kernel` gives an operator on a [`World`](@ref), `:eidos` a fragment of Eidos code for
@@ -54,7 +54,16 @@ a function `(state, rng) -> state` for `:kernel` and `:moments`, a string of Eid
 the generator `s`, gives that step its own image. Eidos steps keep a deme's state on its
 subpopulation: `@POP@.getValue("THETA")` and `@POP@.getValue("OMEGA")` are its optimum
 and fitness width, set with `setValue`, and the steps before `select` leave `adults`,
-`genotype` and `pheno` defined. Requires Catlab.
+`genotype` and `pheno` defined.
+
+The targets are categories (roadmap C1): each image is checked when `f` is lowered — it
+must be a morphism of the target (an `Operator` or `DemeOp` for `:kernel` and `:moments`,
+an `EidosCode` or `EidosMeta` for `:eidos`), act on as many demes as its step has stages,
+and be callable as the backend calls it — so a wrong image is an `ArgumentError` here, not
+when a run reaches it. With `typed = true` the result is a `Morph{target}`, the image with
+its domain and codomain stages; `LoweringCategory{target}()` declares the target as a model
+of Catlab's `ThSymmetricMonoidalCategory` (test/laws.jl checks the laws on random
+composites). Requires Catlab.
 """
 function lower end
 

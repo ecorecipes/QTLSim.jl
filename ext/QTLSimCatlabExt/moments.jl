@@ -355,9 +355,9 @@ end
 
 isextinct(s::DemeMoments) = all(isextinct, s.demes)
 
-id(s::Stage{:moments}) = nfactors(s) == 1 ? Operator(:id, (m, rng) -> m) :
+id_image(s::Stage{:moments}) = nfactors(s) == 1 ? Operator(:id, (m, rng) -> m) :
                          DemeOp(nfactors(s), collect(1:nfactors(s)), (st, d, rng) -> st)
-braid(a::Stage{:moments}, b::Stage{:moments}) =
+braid_image(a::Stage{:moments}, b::Stage{:moments}) =
     DemeOp(nfactors(a) + nfactors(b), braid_perm(nfactors(a), nfactors(b)), (st, d, rng) -> st)
 
 """

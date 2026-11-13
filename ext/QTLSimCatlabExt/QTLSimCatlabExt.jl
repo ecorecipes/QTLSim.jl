@@ -21,7 +21,7 @@ import QTLSim: operators, operator, demes, run_composed, migrate!, migration, to
                genome_from_acset, lifecycle, withparams, lower, slim_script, run_moments
 using Catlab: @present, @acset_type, FreeSchema, FreeSymmetricMonoidalCategory, add_parts!,
               add_part!, set_subpart!, nparts, incident, functor, head, args, dom, codom, Hom,
-              GATExpr, ObExpr
+              GATExpr, ObExpr, @instance, ThSymmetricMonoidalCategory
 import Catlab: ⋅, ⊗, compose, id, otimes, braid, munit
 using Statistics: mean, var, std
 using LinearAlgebra: I, det, dot
@@ -33,6 +33,7 @@ include("eidos.jl")
 include("eidos_traits.jl")
 include("lifecycle.jl")
 include("moments.jl")
+include("typed.jl")
 include("trait_moments.jl")
 include("spectrum.jl")
 include("plasticity.jl")

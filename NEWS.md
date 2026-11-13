@@ -8,6 +8,26 @@ All notable changes to QTLSim.jl are recorded here. The format follows
 
 ### Added
 
+- **The targets of the lowerings are categories** (roadmap C1; `ext/QTLSimCatlabExt/typed.jl`).
+  The lowering functor now lands in `(Stage{B}, Morph{B})`: a `Morph{B}` is an image with
+  its domain and codomain stages. Each generator's image is checked when the life cycle is
+  lowered (a morphism of the target, acting on as many demes as its step has stages,
+  callable as the backend calls it), so a wrong image is an `ArgumentError` at `lower`
+  instead of a failure mid-run; composites check that their stages meet.
+  `lower(f, target; typed = true)` returns the `Morph` (by default `lower` returns the image,
+  as before). `LoweringCategory{B}()` declares each target (`:kernel`, `:eidos`,
+  `:moments`) as a GATlab model of `ThSymmetricMonoidalCategory`. `test/laws.jl` checks the
+  laws on random composites: associativity, units and functoriality exactly in all three
+  targets (random bracketings of the steps' images with identities inserted, against the
+  image of the whole composite: the same population bit for bit, the same Eidos text, the
+  same moments); the braiding an involution; interchange and the braiding's naturality
+  exactly in the moments lowering and, since they reorder the demes' random draws, in law
+  in the kernel (Welch z over 150 replicates per side, |z| < 4, with a check that the test
+  tells apart two composites that differ in law). Catlab normalises associativity in the
+  syntax but not interchange or the braiding's naturality, so those tests are not
+  syntactic. Also fixed on the way: an Eidos lowering given a non-Eidos image, or a moments
+  lowering given a `DemeOp`, now reports why.
+
 - **Naturality as the validation harness** (roadmap C2; `src/naturality.jl`,
   `ext/QTLSimCatlabExt/naturality.jl`, `docs/src/naturality_design.md`). Agreement between
   two backends is a naturality square of the lowering functors, σ ∘ K(f) = M(f) ∘ σ; a
