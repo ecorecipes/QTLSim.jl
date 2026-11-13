@@ -24,7 +24,7 @@ closure). Every script of `validate/` checks some such square on some cells.
 
 A square is a [`NaturalityCase`](@ref): the life cycle (`cycle`, a morphism; `nothing` is
 QTSim's generation), the parameters (`params`, one per deme for a metapopulation), the two
-backends (`from`, `to` among `:kernel`, `:slim`, `:moments`, `:theory`), the statistics
+backends (`from`, `to` among `:kernel`, `:slim`, `:qtsim`, `:moments`, `:theory`), the statistics
 (`statistic => tolerance` pairs of [`QTLSim.Statistic`](@ref)s, each a function of a
 backend's output table, the same function for the backends that share columns), the
 criterion, the number of replicates of the stochastic side, the horizon, options for the
@@ -37,6 +37,8 @@ criteria are the scripts' rules, written before the runs:
 | `:z` | stochastic → deterministic (exact predictions) | `|mean − prediction|/SE ≥ tol` |
 | `:exact` | deterministic → deterministic | the largest relative difference (a vector: every generation) exceeds `tol` |
 | `:ks` | stochastic → stochastic | the two-sample Kolmogorov–Smirnov p-value is below `tol` |
+| `:welch` | stochastic → stochastic | Welch's \|t\| of the replicates' values is at least `tol` |
+| `:diff` | stochastic → deterministic | the point difference \|mean − prediction\| exceeds `tol·scale` (no allowance for sampling error) |
 
 [`check_naturality`](@ref) runs a case and returns a [`NaturalityResult`](@ref) (per
 statistic the two sides with standard errors, the measure, pass/fail, and whether the
@@ -52,8 +54,8 @@ replications of some of their cells (the harness's seeds are its own).
 
 ### The ported rows
 
-`validate/naturality.log` (2026-11-11, 3 threads, 826 s; 612 s of it the SLiM case): every
-verdict reproduced, on the harness's own seeds (replicate r draws from `Xoshiro(seed + r)`).
+`validate/naturality.log` (2026-11-11 for these eleven rows, 3 threads, 826 s; rerun 2026-11-13 with the
+nine rows below, 4 threads, 1052 s, 72 CPU-minutes, the same numbers for these rows): every verdict reproduced, on the harness's own seeds (replicate r draws from `Xoshiro(seed + r)`).
 
 | case (script, cell) | backends, criterion | statistics: harness (script's log) | verdict |
 |:--|:--|:--|:--|
@@ -72,6 +74,53 @@ verdict reproduced, on the harness's own seeds (replicate r draws from `Xoshiro(
 The percentages are (kernel − prediction)/prediction (the scripts report some of them the
 other way round); in the `local_adaptation` row G₂₂ is 16% off and passes only because the
 rule fails a cell when the whole CI is outside the band, as the script's rule does.
+
+### QTSim as a backend, and the remaining families (2026-11-13)
+
+`:qtsim` is a stochastic backend: each replicate writes an options file with
+`write_qtsim_options` and its own seed, runs the C reference (`ENV["QTSIM"]`, the bundled
+build `reference/QTSim/build/QTSim`, or the paper's binary `../Repository/Code/QTSim/src/QTSim`;
+`options.qtsim.qtsim` overrides) and parses its tab-separated table into the kernel's
+columns `gen`, `pheno_mean`, `geno_var`, `nsurv`, `theta`, `omega` and `popsize` (fixed),
+with `extinct` set when QTSim prints `Pop all died.` QTSim prints six decimals and no line
+for the generation in which the population died (the kernel records none either). It runs
+QTSim's model only: a case with several demes, a life cycle other than QTSim's generation
+(steps with their own parameters included), or a Julia-only setting (drift, several
+traits, a reaction norm or plasticity, a fluctuating move, `CrossoverModel = :all`, density
+regulation, fecundity selection) is an `ArgumentError` before anything runs, since QTSim
+would silently run another model.
+
+Two criteria were added for the scripts that use them: `:welch` (two stochastic backends,
+Welch's t of the replicates' values, fails when |t| ≥ tol; `compare_to_qtsim.jl`) and
+`:diff` (stochastic → deterministic, the point difference alone, fails when
+|mean − prediction| > tol·scale, no allowance for sampling error; `reaction_norm.jl`). A
+statistic may return `missing` for a replicate; `QTLSim.surviving(s)` does so on extinct
+runs, as the scripts summarise surviving runs only, and the result reports how many
+replicates were used. New statistics: `QTLSim.lag_mean(window; squared)` (θ − z̄ or its
+square) and `QTLSim.persistence(start)` (generations from `start` to the last record, plus
+one: the scripts' "generations after the move").
+
+| case (script, cell) | backends, criterion | statistics: harness (script's log) | verdict |
+|:--|:--|:--|:--|
+| `compare_to_qtsim.jl` A, stabilising equilibrium | kernel → QTSim, Welch \|t\| < 4, R = 40 | V_G t = 0.84 (script −0.22) | PASS, as recorded |
+| `compare_to_qtsim.jl` B, directional (phenotype move) | as above, R = 24 | V_G t = 0.96, advance 1.16, survival −0.76 (script −1.66, +0.27, −0.33) | PASS, as recorded |
+| `slim/compare_fluctuating.jl` periodic A = 0.1, P = 200 | kernel → SLiM, KS p ≥ 0.001, R = 40 | lag², V_G, survivors p = 0.99, 0.91, 1.0 (log 0.029, 0.573, 0.759) | PASS, as logged |
+| `slim/compare_fluctuating.jl` red noise σ = 0.1, ρ = 0.9 | as above | lag², V_G, survivors, SD θ, autocorr. θ p = 0.57, 0.40, 0.91, 0.57, 0.76 (log 0.99, 0.76, 0.91, 0.91, 0.91) | PASS, as logged |
+| periodic optimum (test/fluctuating.jl) | moments → `expected_lag2`, exact 1e-3 | 2.1e-13 | PASS, as tested |
+| `slim/compare_demography.jl` R = 2, move 0.02 | kernel → SLiM, KS p ≥ 0.001, R = 20 (script 40) | extinction time, size before the move p = 0.82, 0.56 (log 0.263, 0.573) | PASS, as logged |
+| `slim/compare_plasticity.jl` 1: b/B = 0.5, move 0.01 | kernel → SLiM, KS p ≥ 0.001, R = 20 (script 40) | V_G before, lag, V_G, survivors p = 0.56, 0.98, 0.56, 0.98 (log 0.759, 0.759, 0.988, 0.759) | PASS, as logged |
+| `reaction_norm.jl` A, C1 at +250, +500 | kernel → moments (`:multilocus`, erosion), \|Δ\| ≤ 0.1, R = 40 | slope 0.765 vs 0.772, 0.880 vs 0.883 (log 0.781, 0.892 vs the same) | PASS, as logged |
+| `fst.jl` island k = 4, Nm = 1 | kernel → `neutral_deme_variances` with `migrate!`'s pair law, z < 4, R = 400 | V_W, among, Q_ST z = −0.59, −0.45, −0.03 (log −2.57, −2.11, −0.57) | PASS, as logged |
+
+`compare_to_qtsim.jl` has no committed log; its verdict is that of CI's QTSim parity job
+and of a rerun of its fixed seeds here. The `fst.jl` row's prediction is the script's
+exactly (the same Monte Carlo estimate of `migrate!`'s law of pairs' origins, seed 7002),
+but its z omits the prediction's Monte Carlo SE that the script folded in, so it is
+slightly stricter. Not ported: `reaction_norm.jl`'s two recorded failures (C2, the lag
+against the quasi-steady lag at each run's own G and slope, a function of the same kernel
+runs rather than of a second backend); `coalescence.jl` (needs pedigree recording in the
+kernel runner, and its statistics are per pair of genomes); `slim/three_way_confirm.jl`
+(40,000 runs per program).
 
 
 ### The square of each step
@@ -226,6 +275,8 @@ parameters. Kept as found (reported, not fixed).
   evidence from the naturality table rather than declaring it by hand; per-step squares
   for several traits and several demes; making the `ArgumentError` guards themselves read
   the closures' domains (they are only checked against them).
-- C2: most scripts are not ported (the fluctuating optimum, demography, plasticity, F_ST
-  and coalescence scripts, the QTSim comparisons); QTSim as a backend of the harness.
+- C2: every family has at least one ported cell; not ported are `coalescence.jl`, the
+  pre-specified 40,000-run `slim/three_way_confirm.jl`, `published_sweep.jl` (the paper's
+  table as a backend), and recorded failures that compare a run with a function of itself
+  (`reaction_norm.jl` C2).
 - F11: tests split by topic; the categorical layer as its own package.

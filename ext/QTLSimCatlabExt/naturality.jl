@@ -82,6 +82,82 @@ function run_backend(::Val{:slim}, c::NaturalityCase, seed; script)
     (; (n => cols[n] for n in names)..., extinct = occursin("Pop all died.", out))
 end
 
+"""
+The QTSim executable for the harness: `ENV["QTSIM"]`, the build of the bundled source
+(`reference/QTSim/build/QTSim`), or the binary in the paper's code beside the package
+(`../Repository/Code/QTSim/src/QTSim`), as validate/qtsim.jl's `find_qtsim`; `nothing` if
+none is found.
+"""
+function harness_qtsim()
+    pkg = dirname(dirname(pathof(QTLSim)))
+    for path in (get(ENV, "QTSIM", ""), joinpath(pkg, "reference", "QTSim", "build", "QTSim"),
+                 joinpath(pkg, "..", "Repository", "Code", "QTSim", "src", "QTSim"))
+        isfile(path) && return path
+    end
+    nothing
+end
+
+# The :qtsim backend runs the C reference on QTSim's own model only: one deme, QTSim's
+# generation, and none of the Julia-only parameters (QTSim would silently run another model).
+function check_qtsim_case(c::NaturalityCase)
+    case_ndemes(c) == 1 || throw(ArgumentError("the :qtsim backend runs one deme; this case has $(case_ndemes(c))"))
+    c.cycle === nothing || c.cycle == lifecycle().generation ||
+        throw(ArgumentError("the :qtsim backend runs QTSim's generation only (cycle = nothing or lifecycle().generation); " *
+                            "QTSim cannot run another life cycle or steps with their own parameters"))
+    p = case_params(c)
+    p = p isa Params ? p : only(p)
+    bad = String[]
+    p.NoTraits == 1 || push!(bad, "NoTraits = $(p.NoTraits)")
+    p.ReactionNorm && push!(bad, "ReactionNorm = true")
+    p.Plasticity == 0 || push!(bad, "Plasticity = $(p.Plasticity)")
+    isinf(p.PlasticityCostSD) || push!(bad, "PlasticityCostSD = $(p.PlasticityCostSD)")
+    p.MoveType in (:phenotype, :fitness, :continuous) || push!(bad, "MoveType = :$(p.MoveType)")
+    p.CrossoverModel === :qtsim || push!(bad, "CrossoverModel = :$(p.CrossoverModel)")
+    p.Drift && push!(bad, "Drift = true")
+    p.Demography === :fixed || push!(bad, "Demography = :$(p.Demography)")
+    p.Selection === :viability || push!(bad, "Selection = :$(p.Selection)")
+    isempty(bad) || throw(ArgumentError("QTSim cannot express the Julia-only setting(s) " * join(bad, ", ") *
+                                        "; the :qtsim backend runs QTSim's model only"))
+    exe = get(option(c, :qtsim), :qtsim, harness_qtsim())
+    exe === nothing && throw(ArgumentError("QTSim not found: set ENV[\"QTSIM\"] or options.qtsim.qtsim, or build it with " *
+                                           "`make -C reference/QTSim`"))
+    exe
+end
+
+"""
+    parse_qtsim(out::AbstractString, p::Params)
+
+QTSim's printed table (`Output`: generation, mean phenotype, mean/SD, genetic variance,
+survivors, optimum, width, …) as the kernel's columns `gen`, `pheno_mean`, `geno_var`,
+`nsurv`, `theta`, `omega` and `popsize` (QTSim's size is fixed), with `extinct` true if
+it printed `Pop all died.` QTSim prints with six decimals (`%f`) and does not print the
+generation in which the population died.
+"""
+function parse_qtsim(out::AbstractString, p::Params)
+    lines = split(out, '\n')
+    h = findfirst(l -> startswith(l, "Generation\t"), lines)
+    h === nothing && error("no table in QTSim's output:\n", first(out, 2000))
+    rows = [split(l, '\t') for l in lines[h+1:end] if occursin(r"^\d+\t", l)]
+    col(j, T) = T[parse(T, r[j]) for r in rows]
+    (gen = col(1, Int), pheno_mean = col(2, Float64), geno_var = col(4, Float64), nsurv = col(5, Int),
+     theta = col(6, Float64), omega = col(7, Float64), popsize = fill(p.PopSize, length(rows)),
+     extinct = any(l -> startswith(l, "Pop all died."), lines))
+end
+
+# one run of QTSim: an options file written by `write_qtsim_options` with the replicate's seed
+function run_backend(::Val{:qtsim}, c::NaturalityCase, seed; exe)
+    p = case_params(c)
+    p = p isa Params ? p : only(p)
+    opts = tempname() * ".txt"
+    write_qtsim_options(opts, p; seed)
+    out = try
+        read(`$exe $opts`, String)
+    finally
+        rm(opts; force = true)
+    end
+    parse_qtsim(out, p)
+end
+
 function slim_file(c::NaturalityCase)
     p, cyc = case_params(c), case_cycle(c)
     path = tempname() * ".slim"
@@ -93,12 +169,14 @@ end
 function backend_outputs(backend::Symbol, c::NaturalityCase, seed, ntasks)
     backend in STOCHASTIC_BACKENDS || return Any[run_backend(Val(backend), c, seed)]
     script = backend === :slim ? slim_file(c) : nothing
+    exe = backend === :qtsim ? check_qtsim_case(c) : nothing
     outs = Vector{Any}(undef, c.replicates)
     next = Threads.Atomic{Int}(1)
     work() = while true
         r = Threads.atomic_add!(next, 1)
         r > c.replicates && break
-        outs[r] = backend === :slim ? run_backend(Val(:slim), c, seed + r; script) : run_backend(Val(backend), c, seed + r)
+        outs[r] = backend === :slim ? run_backend(Val(:slim), c, seed + r; script) :
+                  backend === :qtsim ? run_backend(Val(:qtsim), c, seed + r; exe) : run_backend(Val(backend), c, seed + r)
     end
     tasks = [Threads.@spawn work() for _ in 1:max(1, min(ntasks, c.replicates))]
     foreach(wait, tasks)
@@ -108,6 +186,7 @@ end
 
 function check_naturality(c::NaturalityCase; seed::Integer = c.seed, ntasks::Integer = Threads.nthreads(), verbose::Bool = false)
     check_case(c)
+    :qtsim in (c.from, c.to) && check_qtsim_case(c)       # before anything runs
     t0 = time()
     fouts = backend_outputs(c.from, c, seed, ntasks)
     touts = backend_outputs(c.to, c, seed + 1_000_000, ntasks)
