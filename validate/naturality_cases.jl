@@ -45,7 +45,7 @@ G_entries(window; within = false) =
      QTLSim.gmatrix_mean(2, 2, window; within) => 0.0]
 with_tol(stats, tols) = [s => t for ((s, _), t) in zip(stats, tols)]
 
-# the neutral metapopulation of test/runtests.jl ("between = true"): 4 demes of 30, island migration
+# the neutral metapopulation of test/demes.jl ("between = true"): 4 demes of 30, island migration
 const NEUTRAL = Params(Ploidy = 2, NoQTL = 20, PhenotypeVar = 1.0, Heritability = 0.5, MutationScalar = 0.002,
                        MutationRatePerGamete = 0.05, Drift = true, PopSize = 30, NoGenerations = 300, Sample = 1)
 function neutral_theory(c)
@@ -103,7 +103,7 @@ const NATURALITY_CASES = NaturalityCase[
                       QTLSim.qst_stat(CENSUS, 5, 100) => 4.0],
         options = (migration_rate = 0.01, moments = (between = true, loci = :multilocus)), replicates = 100, seed = 60_000),
     NaturalityCase(name = "neutral metapopulation: moments = neutral_deme_variances, every generation",
-        source = "test/runtests.jl, \"between = true\" (exact to 1e-10); Lean Differentiation.lean",
+        source = "test/demes.jl, \"between = true\" (exact to 1e-10); Lean Differentiation.lean",
         cycle = foldl(⊗, fill(NG, 4)) ⋅ NL.migrate(4), params = fill(NEUTRAL, 4), from = :moments, to = :theory,
         criterion = :exact, statistics = [neutral_stat(:within) => 1e-10, neutral_stat(:among) => 1e-10],
         options = (migration_rate = island_migration(4, 0.02), moments = (between = true, origins = :exchange),

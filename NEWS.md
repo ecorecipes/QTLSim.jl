@@ -234,6 +234,11 @@ All notable changes to QTLSim.jl are recorded here. The format follows
 
 ### Changed
 
+- **Tests split by topic** (roadmap F11). `test/runtests.jl` is now a header and a runner; the
+  75 testsets moved unchanged into 17 files `test/<topic>.jl`. Run a subset with
+  `Pkg.test(test_args = ["traits", "demes"])`, as arguments to `test/runtests.jl`, or in
+  `ENV["QTLSIM_TEST"]`; Aqua runs only with the full suite. Every topic passes alone.
+
 - **Several traits: `loci = :auto` resolves to `:rare_local`** (was `:multilocus`), by the
   rule fixed before `validate/local_adaptation.jl` ran: the closure passes the accuracy and
   "no worse, better in the house of cards" criteria in D1 and D2, and for one population it

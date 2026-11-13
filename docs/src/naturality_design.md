@@ -63,7 +63,7 @@ verdict reproduced, on the harness's own seeds (replicate r draws from `Xoshiro(
 | `moments_regimes.jl` R1: N = 1000, 4Nμ = 0.1, L = 1000, V_s = 5.5 | as above | V_G −29.7% (log −27.9%) | FAIL, as logged |
 | `moments_demes.jl` C: local optima, k = 5 | kernel → moments (`between`), band 10/15/15%, R = 100 (log 300) | V_W −3.5%, among +6.1%, Q_ST +6.9% (log −3.5, +6.3, +7.1%) | PASS, as logged |
 | `moments_demes.jl` A: neutral, k = 5 | kernel → moments (`between`), z < 4, R = 100 | z = −2.15, −2.52, −1.57 (log −1.36, −0.30, 0.91) | PASS, as logged |
-| neutral metapopulation (test/runtests.jl) | moments → `neutral_deme_variances`, exact 1e-10, every generation | 1.3e-14, 2.4e-14 | PASS, as tested |
+| neutral metapopulation (test/demes.jl) | moments → `neutral_deme_variances`, exact 1e-10, every generation | 1.3e-14, 2.4e-14 | PASS, as tested |
 | `rare_alleles_traits.jl` T: two traits, L = 20, μ = 1e-3 | kernel → moments (`:rare_alleles`), band 20/10/20%, R = 24 | G₁₁ +8.7%, G₁₂ +5.0%, G₂₂ +5.9% | PASS, as logged |
 | `rare_alleles_traits.jl` D1, `:rare_alleles` | kernel → moments (`between`), band 15%, R = 48 | G₁₁ +141%, G₁₂ +12.9%, G₂₂ +89.7% | FAIL on G₁₁ and G₂₂, as logged |
 | `local_adaptation.jl` D1, `:rare_local` | as above, R = 36 | G₁₁ +2.3%, G₁₂ +8.7%, G₂₂ +16.3% (within the CI rule) | PASS, as logged |

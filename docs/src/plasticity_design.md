@@ -180,7 +180,7 @@ threshold cost an intermediate plasticity maximises the critical rate).
 
 ## Validation
 
-- `test/runtests.jl`: the default path bit for bit (a slope with the optimum at the origin
+- `test/plasticity.jl`: the default path bit for bit (a slope with the optimum at the origin
   adds exactly zero), no allocation, the kernel's expression of the norm, reductions at
   `b = 0` (`===`), kernel against moments and theory, steps and demes with their own
   slopes, the Eidos splice, and the heritable norm against Monte Carlo and the moments.

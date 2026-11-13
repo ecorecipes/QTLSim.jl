@@ -1,0 +1,132 @@
+# Tests: theory. Included by runtests.jl, which loads the packages and defines `Ext` and
+# the operators; run alone with `julia --project=vignettes test/runtests.jl theory`.
+
+@testset "theory: equilibrium variance, lag, critical rate" begin
+    p = Params(PopSize=1000, NoQTL=100, Ploidy=2, PhenotypeVar=0.02, Heritability=0.4,
+               MutationScalar=0.004, MutationRatePerGamete=1e-4, InitFitnessSD=2.0)
+    @test selection_variance(p) ≈ 2.0^2 + 0.012
+    @test round(gaussian_vg(p), digits = 4) == 0.0139           # vignette 02's Gaussian prediction
+    V = gaussian_vg_exact(p)                                    # the fixed point of the Gaussian recursion
+    @test V^2 ≈ muteVar(p) * (selection_variance(p) + V) && V > gaussian_vg(p)
+    @test effective_size(1000, 1000) ≈ 4000 / (2 * 999 / 1000 + 2) && effective_size(1000, 100) < 1000
+    @test house_of_cards_vg(p) < house_of_cards_vg(Params(p; NoQTL = 1000)) < 4 * 1000 * 1e-4 * selection_variance(p)
+    @test steady_lag(0.01; VG = 0.5, Vs = 1.5) ≈ 0.04
+    @test steady_lag(Params(p; MoveFitnessSD = 0.01); VG = 0.5) ≈ 0.01 * (0.5 + selection_variance(p)) / 0.5
+    kc(VG) = critical_rate(; n = 500, VG, ω = 5.0, VE = 0.01, sd50 = 0.1, N = 1000)
+    @test 0 < kc(0.01) < kc(0.02) && isnan(critical_rate(; n = 2, VG = 0.01, ω = 5.0, VE = 0.01, sd50 = 0.1, N = 1000))
+    Γ = QTLSim.Distributions.Gamma(1.201, 0.004635)
+    m = [0.001, 0.004, 0.01]; r = [0.02, 0.03, 0.04]
+    a = mutation_adjusted(r, m, Γ)
+    @test mean(a ./ r) ≈ 1                                      # weights relative to their mean
+    @test a ./ r ≈ QTLSim.Distributions.pdf.(Γ, m) ./ mean(QTLSim.Distributions.pdf.(Γ, m))
+end
+
+@testset "the moments lowering: the theory as a third functor" begin
+    L = lifecycle(); g = L.generation
+    p = Params(PopSize=1000, NoQTL=1, Ploidy=2, NoGenerations=3000, PhenotypeVar=0.02, Heritability=0.5,
+               MutationScalar=0.02, MutationRatePerGamete=0.5, InitFitnessSD=0.3)
+    # the default, loci = :auto, is the rare-alleles closure for one diploid trait with
+    # mutations, and :multilocus (the multilocus Gaussian model) on request
+    o = run_moments(p)
+    @test QTLSim.moments_loci(p) === :rare_alleles && QTLSim.moments_loci(p, :multilocus) === :multilocus
+    @test o.geno_var == run_moments(p; loci = :rare_alleles).geno_var == run_moments(p; loci = :auto).geno_var
+    @test o.geno_var[end] ≈ rare_alleles_vg(p) rtol = 1e-6           # converges to the rare-alleles fixed point
+    om = run_moments(p; loci = :multilocus)
+    @test om.geno_var[end] ≈ gaussian_vg_loci(p) rtol = 1e-6         # and the multilocus model to its own
+    # one diploid locus: half of selection's reduction (between the haplotypes) is not inherited
+    @test gaussian_vg_loci(p) ≈ QTLSim.gaussian_vg_closed(2muteVar(p), selection_variance(p)) > gaussian_vg_exact(p)
+    # the legacy aggregate recursion converges to gaussian_vg_exact, which the multilocus
+    # model is for one haploid locus (or haploid clones of any number of loci)
+    @test run_moments(p; loci = :aggregate).geno_var[end] ≈ gaussian_vg_exact(p) rtol = 1e-6
+    ph = Params(p; Ploidy = 1, NoQTL = 20)
+    @test QTLSim.moments_loci(ph) === :rare_alleles                   # haploids default to the closure for clones
+    @test run_moments(ph).geno_var == run_moments(ph; loci = :rare_alleles).geno_var
+    @test run_moments(ph; loci = :multilocus).geno_var ≈ run_moments(ph; loci = :aggregate).geno_var rtol = 1e-9
+    @test gaussian_vg_loci(ph) ≈ gaussian_vg_exact(ph)
+    @test_throws ArgumentError run_moments(p; loci = :other)
+    @test_throws ArgumentError run_moments(p; loci = :aggregate, between = true)
+    @test o.pheno_var[end] ≈ o.geno_var[end] + envVar(p)
+    @test all(0 .< o.mean_fitness .<= 1) && o.nsurv[1] == round(Int, 1000 * o.mean_fitness[1])
+    # a continuous move: the lag converges to Lande's steady lag
+    pc = Params(p; MoveFitnessSDGen = 1000, MoveFitnessSD = 0.001, MoveType = :continuous)
+    oc = run_moments(pc)
+    @test oc.theta[end] - oc.pheno_mean[end] ≈ steady_lag(pc; VG = oc.geno_var[end]) rtol = 1e-6
+    @test !oc.extinct
+    # faster than the population can follow: deterministic extinction after the move
+    ox = run_moments(Params(pc; MoveFitnessSD = 0.1))
+    @test ox.extinct && ox.extinct_gen > 1000
+    # drift: no selection, the variance grows by m·V_E per generation
+    od = run_moments(Params(p; Drift = true, NoGenerations = 10))
+    @test od.geno_var ≈ muteVar(p) .* (0:9)
+    # the lowering is a functor: the generation's image is the composite of the steps' images
+    steps = (:develop, :select, :reproduce, :record, :rescale, :mutate, :swap)
+    Ext_ = Ext
+    for cov in (nothing, Ext_.DemeCov(p, [1000.0], [0.003]; drift = false), Ext_.DemeCov(p, [1000.0], [0.003]))
+        m1 = Ext_.Moments(p; VG = 0.003, cov); m2 = deepcopy(m1)
+        lower(g, :moments)(m1, nothing)
+        foldl(Catlab.compose, (lower(getfield(L, s), :moments) for s in steps))(m2, nothing)
+        @test (m1.zbar, m1.VG, m1.θ, m1.gen) == (m2.zbar, m2.VG, m2.θ, m2.gen)
+    end
+    @test lower(g ⊗ g ⋅ L.migrate(2), :moments) isa Ext_.DemeOp        # several demes (see below)
+    @test_throws ArgumentError run_moments(p; cycle = L.develop)
+end
+
+@testset "the multilocus Gaussian model: genic variance, LD, recombination, drift" begin
+    L = lifecycle(); g = L.generation
+    p = Params(PopSize = 1000, NoQTL = 50, Ploidy = 2, NoGenerations = 20_000, PhenotypeVar = 1.0, Heritability = 0.5,
+               MutationScalar = 0.01, MutationRatePerGamete = 0.01)
+    Vm, Vs = muteVar(p), selection_variance(p)
+    # without drift: V²/(V_s + V) = 2L·V_m, whatever the crossover model
+    V = gaussian_vg_loci(p)
+    @test V^2 / (Vs + V) ≈ 2 * 50 * Vm
+    @test V ≈ gaussian_vg_exact(Params(p; MutationScalar = 100 * p.MutationScalar, InitFitnessSD = initFitSD(p))) rtol = 1e-12
+    for q in (p, Params(p; CrossoverModel = :all), Params(p; RecombPoissonMean = 5.0))
+        @test run_moments(Params(q; NoGenerations = 100_000, Sample = 100); loci = :multilocus).geno_var[end] ≈ V rtol = 1e-6
+        e = multilocus_equilibrium(q; loci = :multilocus)
+        @test e.VG ≈ V rtol = 1e-6
+        @test e.ld < 0 && e.genic ≈ e.VG - e.ld
+        # the LD at equilibrium: −ω_c b/ρ_c per haplotype in each pair class, b = L V_m/2
+        ω, ρ = QTLSim.pair_classes(q)
+        @test sum(ω) ≈ 1 && ω[1] == 1 / 50 && ρ[1] == 0
+        @test sum(ω[2:end] .* ρ[2:end]) / (1 - 1 / 50) ≈ pair_recombination(q) rtol = 1e-10
+        @test e.ld ≈ -50 * Vm * sum(ω[2:end] ./ ρ[2:end]) rtol = 1e-6
+    end
+    # less recombination, more LD, the same V_G
+    @test multilocus_equilibrium(Params(p; RecombPoissonMean = 0.5); loci = :multilocus).ld < multilocus_equilibrium(p; loci = :multilocus).ld
+    # drift: erosion = true and between = true (one deme) are the same recursion, and its
+    # fixed point is gaussian_vg_loci(p; drift = true), below the deterministic one
+    a, b = run_moments(p; erosion = true, loci = :multilocus), run_moments(p; between = true, loci = :multilocus)
+    @test a.geno_var == b.geno_var
+    @test a.geno_var[end] ≈ gaussian_vg_loci(p; drift = true) rtol = 1e-6
+    @test run_moments(p; erosion = true).geno_var == run_moments(p; between = true).geno_var    # also by default
+    @test gaussian_vg_loci(p; drift = true) < V
+    # selection: the genic reduction is the sum of the loci's shares, (H/L)²/s each, and the
+    # survivors' variance is V − V²/s
+    H, s, Lq = 0.7, 3.0, 50
+    st = QTLSim.hap_init(2H, Inf, 2, 2)
+    st2, β = QTLSim.hap_select(st, 1 / s, Inf, [1 / Lq, 1 - 1 / Lq], 2)
+    @test st[1][1] - st2[1][1] ≈ sum((H / Lq)^2 / s for _ in 1:Lq) && β ≈ 2H / s
+    @test QTLSim.hap_vpop(st2, Inf, 2) ≈ 2H - (2H)^2 / s
+    # recombination turns the LD back into variance: one generation of mating at ρ = 1
+    # restores the haplotypes' LE, losing only the between-haplotype part
+    st3 = QTLSim.hap_reproduce(st2, Inf, [0.0, 1.0], 2)
+    @test st3[1][2] ≈ st2[2][2] && st3[1][1] == st2[1][1]
+    # pair classes: one locus has only the genic class; two loci are split by one point
+    @test QTLSim.pair_classes(Params(p; NoQTL = 1)) == ([1.0], [0.0])
+    ωa, ρa = QTLSim.pair_classes(Params(p; NoQTL = 2, RecombPoissonMean = 0.7))
+    @test ωa ≈ [0.5, 0.5] && ρa ≈ [0.0, 0.7 * exp(-0.7)]
+    # a continuous move: Lande's steady lag with the multilocus V_G
+    pc = Params(p; NoGenerations = 30_000, MoveFitnessSDGen = 20_000, MoveFitnessSD = 0.01, MoveType = :continuous)
+    oc = run_moments(pc; loci = :multilocus)
+    @test oc.theta[end] - oc.pheno_mean[end] ≈ steady_lag(pc; VG = oc.geno_var[end]) rtol = 1e-6
+    # several demes without migration are independent copies of one, drift or not
+    for erosion in (false, true)
+        @test run_moments(Params(p; NoGenerations = 300); cycle = g ⊗ g, erosion).geno_var[1:2:end] ==
+              run_moments(Params(p; NoGenerations = 300); erosion).geno_var
+    end
+    @test_throws ArgumentError run_moments([p, Params(p; Ploidy = 1)]; cycle = g ⊗ g)
+    # haploid drift is clonal: V_G loses 1/n per generation, not 1/(2n)
+    ph = Params(p; Ploidy = 1, NoQTL = 1, Drift = true, NoGenerations = 30, MutationScalar = 0.0, InitFitnessSD = 1.0)
+    oh = run_moments(ph; VG = 1.0, erosion = true)
+    @test oh.geno_var ≈ [(1 - 1 / 1000)^t * 1000 / 999 for t in 0:29]      # expected sample variances
+end
