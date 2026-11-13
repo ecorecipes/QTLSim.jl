@@ -356,7 +356,11 @@ QTLSim.window_mean
 QTLSim.metapop_mean
 QTLSim.gmatrix_mean
 QTLSim.qst_stat
+QTLSim.lag_mean
+QTLSim.persistence
+QTLSim.surviving
 QTLSim.ks_pvalue
+QTLSim.welch_t
 ```
 
 ### Closures and model morphisms, declared as data

@@ -30,14 +30,18 @@
 # in Lean (see docs/src/naturality_design.md for the claims that would need lemmas).
 
 """
-    QTLSim.Statistic(name, f; kernel = f, moments = f, slim = f, theory = f, scale = nothing)
+    QTLSim.Statistic(name, f; kernel = f, moments = f, slim = f, qtsim = f, theory = f, scale = nothing)
 
 A statistic σ of a naturality square: for each backend, a function from the output of
-one run (the columns of [`run!`](@ref) or [`run_moments`](@ref), SLiM's printed table, or a
-theory table) to a number, or for an exact comparison a vector. `scale`, a function of the
-target backend's output, sets the width of the tolerance band (default: the absolute
-value of the target's statistic). Ready-made statistics: [`QTLSim.window_mean`](@ref),
-[`QTLSim.metapop_mean`](@ref), [`QTLSim.gmatrix_mean`](@ref), [`QTLSim.qst_stat`](@ref).
+one run (the columns of [`run!`](@ref) or [`run_moments`](@ref), SLiM's or QTSim's printed
+table, or a theory table) to a number, or for an exact comparison a vector. `scale`, a
+function of the target backend's output, sets the width of the tolerance band (default:
+the absolute value of the target's statistic). A statistic may return `missing` for a
+replicate it does not apply to (an extinct run, see [`QTLSim.surviving`](@ref)): such
+replicates are left out of the mean, and the result reports how many were used.
+Ready-made statistics: [`QTLSim.window_mean`](@ref), [`QTLSim.metapop_mean`](@ref),
+[`QTLSim.gmatrix_mean`](@ref), [`QTLSim.qst_stat`](@ref), [`QTLSim.lag_mean`](@ref),
+[`QTLSim.persistence`](@ref).
 """
 struct Statistic
     name::String
@@ -47,9 +51,9 @@ struct Statistic
     combine::Union{Nothing,Function}
 end
 
-Statistic(name::AbstractString, f::Function; kernel = f, moments = f, slim = f, theory = f, scale = nothing) =
-    Statistic(String(name), Dict{Symbol,Function}(:kernel => kernel, :moments => moments, :slim => slim, :theory => theory),
-              scale, Statistic[], nothing)
+Statistic(name::AbstractString, f::Function; kernel = f, moments = f, slim = f, qtsim = f, theory = f, scale = nothing) =
+    Statistic(String(name), Dict{Symbol,Function}(:kernel => kernel, :moments => moments, :slim => slim, :qtsim => qtsim,
+                                                  :theory => theory), scale, Statistic[], nothing)
 
 """
     QTLSim.Statistic(name, parts::Vector{Statistic}, combine; scale = nothing)
@@ -108,6 +112,41 @@ function metapop_mean(what::Symbol, window; name = "$(what == :within ? "V_W (wi
 end
 
 """
+    QTLSim.lag_mean(window; squared = false, name)
+
+The mean lag θ − z̄ of the mean phenotype behind the optimum over the recorded generations
+in `window` (with `squared = true`, the mean squared lag (θ − z̄)², as
+validate/slim/compare_fluctuating.jl measures tracking of a fluctuating optimum): the same
+function of the `theta` and `pheno_mean` columns of the kernel, SLiM, QTSim and the
+moments lowering.
+"""
+lag_mean(window; squared::Bool = false, name = squared ? "mean (θ − z̄)² over $window" : "mean θ − z̄ over $window") =
+    Statistic(name, out -> (ix = inwindow(out, window); isempty(ix) ? NaN :
+                            mean(squared ? (out.theta[i] - out.pheno_mean[i])^2 : out.theta[i] - out.pheno_mean[i] for i in ix)))
+
+"""
+    QTLSim.persistence(start; name)
+
+The number of generations from `start` (the generation the optimum starts to move) to the
+last recorded generation, plus one: for a population that died, its time to extinction
+after `start` (the "generations after the move" of validate/slim/compare_demography.jl and
+compare_plasticity.jl); for one that survived, the run's length after `start`. Meaningful
+with `Sample = 1`.
+"""
+persistence(start::Integer; name = "generations after $start") = Statistic(name, out -> out.gen[end] + 1 - start)
+
+"""
+    QTLSim.surviving(s::Statistic; name)
+
+The statistic `s` on the runs that did not die (`missing` on an extinct run, which the
+harness then leaves out), as validate/compare_to_qtsim.jl summarises only surviving runs.
+"""
+surviving(s::Statistic; name = s.name) =
+    isderived(s) ? Statistic(name, map(q -> surviving(q), s.parts), s.combine; scale = s.scale) :
+    Statistic(name, Dict{Symbol,Function}(b => (out -> get(out, :extinct, false) ? missing : f(out)) for (b, f) in s.of),
+              s.scale, Statistic[], nothing)
+
+"""
     QTLSim.gmatrix_mean(i, j, window; within = false, scale = nothing)
 
 Entry `(i, j)` of the mean G matrix over the recorded generations in `window` (the
@@ -142,8 +181,9 @@ qst_stat(window, k, N; name = "Q_ST over $window") =
 A naturality square as data: one row of the table of validation cases
 (validate/naturality_cases.jl). `cycle` is the life-cycle morphism (`nothing`: QTSim's
 generation; for `k` demes a morphism on `Zygotes^⊗k`), `params` a `Params` or one per
-deme, `from` and `to` two of the backends `:kernel`, `:slim` (stochastic: replicated),
-`:moments` and `:theory` (deterministic: run once). `statistics` is a vector of
+deme, `from` and `to` two of the backends `:kernel`, `:slim`, `:qtsim` (stochastic:
+replicated; `:qtsim` is the C reference, for QTSim's generation of one deme with
+parameters QTSim can express) and `:moments` and `:theory` (deterministic: run once). `statistics` is a vector of
 `statistic => tolerance` pairs ([`QTLSim.Statistic`](@ref)), and `criterion` how each is
 compared, with its tolerance written before the run:
 
@@ -152,17 +192,24 @@ compared, with its tolerance written before the run:
   `|mean − pred| − 1.96 SE > tol·scale` (the rule of validate/moments_loci.jl and its
   successors);
 - `:z`: the same pair, `|mean − pred|/SE < tol` (for exact predictions: neutral cases);
+- `:diff`: the same pair, the point estimate alone, `|mean − pred| ≤ tol·scale`, with no
+  allowance for sampling error (the rule of validate/reaction_norm.jl; give the statistic
+  `scale = _ -> 1.0` for an absolute tolerance);
 - `:exact`: two deterministic backends, the largest relative difference over the
   statistic's values (a vector: every generation) at most `tol`;
 - `:ks`: two stochastic backends, a two-sample Kolmogorov–Smirnov test of the replicates'
-  values, p ≥ `tol` (the rule of validate/slim/compare_*.jl).
+  values, p ≥ `tol` (the rule of validate/slim/compare_*.jl);
+- `:welch`: two stochastic backends, Welch's t of the replicates' means, `|t| < tol` (the
+  rule of validate/compare_to_qtsim.jl).
 
 `horizon` replaces `NoGenerations`; `options` passes keywords to the backends:
 `options.kernel` and `options.moments` (for example `(loci = :multilocus, erosion = true)`,
-`between = true`), `options.slim` (`slim`, the executable), `options.migration_rate`
-(both), and `options.theory`, a function of the case giving the theory's table. `expected`
-is the verdict of the script the case was ported from on the same cell (`:pass` or
-`:fail`), so [`check_naturality`](@ref) reports whether it was reproduced.
+`between = true`), `options.slim` (`slim`, the executable), `options.qtsim` (`qtsim`, the
+executable), `options.migration_rate` (both), and `options.theory`, a function of the
+case giving the theory's table. `expected` is the verdict of the script the case was
+ported from on the same cell (`:pass` or `:fail`), so [`check_naturality`](@ref) reports
+whether it was reproduced. `note` is printed with the result (for example, that the case
+runs fewer replicates than the script).
 """
 Base.@kwdef struct NaturalityCase
     name::String
@@ -184,16 +231,17 @@ end
 Base.show(io::IO, c::NaturalityCase) = print(io, "NaturalityCase(\"", c.name, "\": :", c.from, " → :", c.to, ", ",
                                               length(c.statistics), " statistic", length(c.statistics) == 1 ? "" : "s", ")")
 
-const STOCHASTIC_BACKENDS = (:kernel, :slim)
-const BACKENDS = (:kernel, :slim, :moments, :theory)
+const STOCHASTIC_BACKENDS = (:kernel, :slim, :qtsim)
+const BACKENDS = (:kernel, :slim, :qtsim, :moments, :theory)
 
 """
     NaturalityResult
 
 What [`check_naturality`](@ref) returns: the `case`, one row per statistic (`statistic`,
-`tolerance`, the `from` backend's value and standard error, the `to` backend's, the
-`measure` the criterion uses — relative error, z, largest relative difference or KS p —
-and `pass`), whether every statistic passed (`pass`), whether that is the verdict the case
+`tolerance`, the `from` backend's value, standard error and number of replicates used
+(`from_n`; fewer than `replicates` when the statistic is `missing` on some), the `to`
+backend's, the `measure` the criterion uses — relative error, z, largest relative
+difference, KS p or Welch's t — and `pass`), whether every statistic passed (`pass`), whether that is the verdict the case
 expected (`reproduced`), the replicates' values (`values`) and the time taken.
 """
 struct NaturalityResult
@@ -211,13 +259,16 @@ function Base.show(io::IO, ::MIME"text/plain", r::NaturalityResult)
     c = r.case
     println(io, c.name, "  (:", c.from, " → :", c.to, ", ", c.criterion, ", ", c.replicates, " replicates",
             isempty(c.source) ? "" : "; from $(c.source)", ")")
+    isempty(c.note) || println(io, "  note: ", c.note)
     for x in r.rows
         m = c.criterion === :band ? string(sig(100x.measure, 3), "%") :
+            c.criterion === :diff ? string("Δ/scale = ", sig(x.measure, 3)) :
             c.criterion === :z ? string("z = ", sig(x.measure, 3)) :
+            c.criterion === :welch ? string("t = ", sig(x.measure, 3)) :
             c.criterion === :ks ? string("p = ", sig(x.measure, 3)) : string("max rel. diff. ", sig(x.measure, 2))
         println(io, "  ", rpad(x.statistic, 36), " ", rpad(string(c.from), 8), rpad(fmtvalue(x.from, x.from_se), 24),
                 rpad(string(c.to), 8), rpad(fmtvalue(x.to, x.to_se), 24), rpad(m, 24), " tol ", x.tolerance, "  ",
-                x.pass ? "ok" : "FAIL")
+                x.pass ? "ok" : "FAIL", fmtused(x, c))
     end
     print(io, "  verdict ", r.pass ? "PASS" : "FAIL", "; expected ", c.expected === :pass ? "PASS" : "FAIL", ": ",
           r.reproduced ? "reproduced" : "NOT reproduced", " (", round(Int, r.seconds), " s)")
@@ -225,6 +276,14 @@ end
 Base.show(io::IO, r::NaturalityResult) = print(io, "NaturalityResult(\"", r.case.name, "\", ", r.pass ? "pass" : "fail", ")")
 
 fmtvalue(x::Real, se) = isnan(se) ? sig(x) : string(sig(x), " ± ", sig(se, 2))
+# the replicates a statistic was computed on, when some were left out (`missing`)
+function fmtused(x, c)
+    parts = String[]
+    for (b, n) in ((c.from, get(x, :from_n, -1)), (c.to, get(x, :to_n, -1)))
+        b in STOCHASTIC_BACKENDS && 0 <= n < c.replicates && push!(parts, "$b $n of $(c.replicates)")
+    end
+    isempty(parts) ? "" : string("  (replicates used: ", join(parts, ", "), ")")
+end
 fmtvalue(x, se) = string("[", length(x), " values]")
 
 # --- comparing the two sides of a square (no Catlab needed) -----------------------------
@@ -234,13 +293,16 @@ fmtvalue(x, se) = string("[", length(x), " values]")
 function replicate_estimate(s::Statistic, backend, outs; nboot = 2000, rng = Xoshiro(20261111))
     if isderived(s)
         P = [statvalue(q, backend, o) for o in outs, q in s.parts]
+        P = P[[!any(ismissing, P[i, :]) for i in axes(P, 1)], :]       # the replicates where every part applies
         n = size(P, 1)
+        n == 0 && return (value = NaN, se = NaN, samples = Float64[], n = 0)
         v = s.combine((mean(P[:, j]) for j in axes(P, 2))...)
         boot = [(ix = rand(rng, 1:n, n); s.combine((mean(P[ix, j]) for j in axes(P, 2))...)) for _ in 1:nboot]
-        return (value = v, se = std(boot), samples = Float64[])
+        return (value = v, se = std(boot), samples = Float64[], n = n)
     end
-    x = [statvalue(s, backend, o) for o in outs]
-    (value = mean(x), se = length(x) > 1 ? std(x) / sqrt(length(x)) : NaN, samples = x)
+    x = Float64[v for v in (statvalue(s, backend, o) for o in outs) if !ismissing(v)]
+    isempty(x) && return (value = NaN, se = NaN, samples = Float64[], n = 0)
+    (value = mean(x), se = length(x) > 1 ? std(x) / sqrt(length(x)) : NaN, samples = x, n = length(x))
 end
 
 """
@@ -261,6 +323,17 @@ function ks_pvalue(x::AbstractVector{<:Real}, y::AbstractVector{<:Real})
     ccdf(Kolmogorov(), sqrt(n * m / (n + m)) * D)
 end
 
+"""
+    QTLSim.welch_t(x, y)
+
+Welch's t statistic of samples `x` and `y`, `(x̄ − ȳ)/√(s²_x/n + s²_y/m + eps())`, as
+validate/compare_to_qtsim.jl computes it (`NaN` if either has fewer than two values).
+"""
+function welch_t(x::AbstractVector{<:Real}, y::AbstractVector{<:Real})
+    (length(x) < 2 || length(y) < 2) && return NaN
+    (mean(x) - mean(y)) / sqrt(var(x) / length(x) + var(y) / length(y) + eps())
+end
+
 function relerr_max(a, b)
     a, b = vec(collect(Float64, a)), vec(collect(Float64, b))
     length(a) == length(b) || return Inf
@@ -275,30 +348,38 @@ function compare_stat(criterion, s::Statistic, tol, from, to, fouts, touts)
         return (statistic = s.name, tolerance = tol, from = a, from_se = NaN, to = b, to_se = NaN, measure = d, pass = isfinite(d) && d <= tol)
     elseif criterion === :ks
         x = replicate_estimate(s, from, fouts); y = replicate_estimate(s, to, touts)
-        pv = ks_pvalue(x.samples, y.samples)
-        return (statistic = s.name, tolerance = tol, from = x.value, from_se = x.se, to = y.value, to_se = y.se, measure = pv,
-                pass = pv >= tol)
+        pv = x.n > 0 && y.n > 0 ? ks_pvalue(x.samples, y.samples) : NaN
+        return (statistic = s.name, tolerance = tol, from = x.value, from_se = x.se, from_n = x.n, to = y.value, to_se = y.se,
+                to_n = y.n, measure = pv, pass = pv >= tol)
+    elseif criterion === :welch
+        x = replicate_estimate(s, from, fouts); y = replicate_estimate(s, to, touts)
+        t = welch_t(x.samples, y.samples)
+        return (statistic = s.name, tolerance = tol, from = x.value, from_se = x.se, from_n = x.n, to = y.value, to_se = y.se,
+                to_n = y.n, measure = t, pass = isfinite(t) && abs(t) < tol)
     end
     x = replicate_estimate(s, from, fouts)
     pred = statvalue(s, to, only(touts))
     scale = s.scale === nothing ? abs(pred) : s.scale(only(touts))
     d = x.value - pred
     if criterion === :band
-        return (statistic = s.name, tolerance = tol, from = x.value, from_se = x.se, to = pred, to_se = NaN,
+        return (statistic = s.name, tolerance = tol, from = x.value, from_se = x.se, from_n = x.n, to = pred, to_se = NaN,
                 measure = d / scale, pass = isfinite(d) && !(abs(d) - 1.96x.se > tol * scale))
+    elseif criterion === :diff
+        return (statistic = s.name, tolerance = tol, from = x.value, from_se = x.se, from_n = x.n, to = pred, to_se = NaN,
+                measure = d / scale, pass = isfinite(d) && abs(d) <= tol * scale)
     elseif criterion === :z
         z = d / x.se
-        return (statistic = s.name, tolerance = tol, from = x.value, from_se = x.se, to = pred, to_se = NaN, measure = z,
-                pass = isfinite(z) && abs(z) < tol)
+        return (statistic = s.name, tolerance = tol, from = x.value, from_se = x.se, from_n = x.n, to = pred, to_se = NaN,
+                measure = z, pass = isfinite(z) && abs(z) < tol)
     end
-    throw(ArgumentError("criterion is :band, :z, :exact or :ks; got :$criterion"))
+    throw(ArgumentError("criterion is :band, :diff, :z, :exact, :ks or :welch; got :$criterion"))
 end
 
 function check_case(c::NaturalityCase)
     c.from in BACKENDS && c.to in BACKENDS || throw(ArgumentError("the backends are $(join(BACKENDS, ", ")); got :$(c.from), :$(c.to)"))
     c.expected in (:pass, :fail) || throw(ArgumentError("expected is :pass or :fail; got :$(c.expected)"))
     sf, st = c.from in STOCHASTIC_BACKENDS, c.to in STOCHASTIC_BACKENDS
-    want = sf && st ? (:ks,) : sf ? (:band, :z) : st ? () : (:exact,)
+    want = sf && st ? (:ks, :welch) : sf ? (:band, :diff, :z) : st ? () : (:exact,)
     isempty(want) && throw(ArgumentError("put the stochastic backend first: from = :$(c.to), to = :$(c.from)"))
     c.criterion in want ||
         throw(ArgumentError("from :$(c.from) to :$(c.to) the criterion is $(join((":$w" for w in want), " or ")); got :$(c.criterion)"))

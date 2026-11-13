@@ -28,6 +28,28 @@ All notable changes to QTLSim.jl are recorded here. The format follows
   syntactic. Also fixed on the way: an Eidos lowering given a non-Eidos image, or a moments
   lowering given a `DemeOp`, now reports why.
 
+- **The naturality harness covers every validation family** (roadmap C2). A `:qtsim`
+  backend runs the C reference (`ENV["QTSIM"]`, the bundled build or the paper's binary;
+  `options.qtsim.qtsim`) on an options file written by `write_qtsim_options`, one seed per
+  replicate, and parses its table into the kernel's columns (`gen`, `pheno_mean`,
+  `geno_var`, `nsurv`, `theta`, `omega`, `popsize`, `extinct` on `Pop all died.`); it runs
+  QTSim's generation of one deme only and rejects other life cycles, several demes and the
+  Julia-only settings (drift, several traits, plasticity, fluctuating moves, `:all`
+  crossovers, density regulation, fecundity selection) with an `ArgumentError` before
+  anything runs. Two criteria: `:welch` (two stochastic backends, |t| < tol, the rule of
+  `compare_to_qtsim.jl`) and `:diff` (the point difference alone, the rule of
+  `reaction_norm.jl`). A statistic may return `missing` for a replicate
+  (`QTLSim.surviving(s)`: extinct runs left out, as the scripts do); the result reports how
+  many replicates were used. New statistics `QTLSim.lag_mean(window; squared)` and
+  `QTLSim.persistence(start)`, and `QTLSim.welch_t`; a case's `note` is printed. Nine new
+  cases in `validate/naturality_cases.jl`: `compare_to_qtsim.jl` A and B (kernel vs
+  QTSim), `slim/compare_fluctuating.jl` periodic and red noise, the periodic moments
+  against `expected_lag2` (test/fluctuating.jl), `slim/compare_demography.jl`'s moving
+  optimum, `slim/compare_plasticity.jl` scenario 1, `reaction_norm.jl` C1 and `fst.jl`'s
+  island k = 4, Nm = 1 against `neutral_deme_variances` fed `migrate!`'s own law of pairs'
+  origins; every recorded verdict reproduced on the harness's own seeds
+  (`validate/naturality.log`).
+
 - **Naturality as the validation harness** (roadmap C2; `src/naturality.jl`,
   `ext/QTLSimCatlabExt/naturality.jl`, `docs/src/naturality_design.md`). Agreement between
   two backends is a naturality square of the lowering functors, σ ∘ K(f) = M(f) ∘ σ; a

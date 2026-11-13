@@ -1,60 +1,114 @@
 QTLSim validate/naturality.jl: the table of naturality cases (validate/naturality_cases.jl)
-threads 3; 11 of 11 cases
+threads 4; 20 of 20 cases
 
 moments_loci G1: L = 10, N = 1000, :qtsim, μ = 0.01  (:kernel → :moments, band, 12 replicates; from validate/moments_loci.jl, criterion G1 (log: PASS, ratio 0.960))
   mean geno_var over 10000:10:19990    kernel  1.9575 ± 0.014          moments 2.014                   -2.81%                   tol 0.1  ok
-  verdict PASS; expected PASS: reproduced (19 s)
+  verdict PASS; expected PASS: reproduced (15 s)
 
 moments_loci, house of cards: L = 10, N = 1000, :qtsim, μ = 1e-4  (:kernel → :moments, band, 12 replicates; from validate/moments_loci.jl, expectation (not a criterion): kernel < 85% of the multilocus prediction (log: ratio 0.094, confirmed); the G1 tolerance applied to it fails)
   mean geno_var over 10000:10:19990    kernel  0.20059 ± 0.0081        moments 2.014                   -90.0%                   tol 0.1  FAIL
-  verdict FAIL; expected FAIL: reproduced (14 s)
+  verdict FAIL; expected FAIL: reproduced (11 s)
 
 moments_regimes R1: N = 100, 4Nμ = 1, L = 10, V_s = 50.5  (:kernel → :moments, band, 16 replicates; from validate/moments_regimes.jl, criterion R1 (log: PASS, ratio 1.015))
   mean geno_var over 10000:10:29990    kernel  0.73647 ± 0.011         moments 0.72528                 1.54%                    tol 0.15  ok
-  verdict PASS; expected PASS: reproduced (3 s)
+  verdict PASS; expected PASS: reproduced (2 s)
 
 moments_regimes R1: N = 1000, 4Nμ = 0.1, L = 1000, V_s = 5.5  (:kernel → :moments, band, 16 replicates; from validate/moments_regimes.jl, criterion R1 (log: FAIL, ratio 0.721; the same in the fresh-seed run))
   mean geno_var over 10000:10:29990    kernel  0.756 ± 0.0064          moments 1.0749                  -29.7%                   tol 0.15  FAIL
-  verdict FAIL; expected FAIL: reproduced (65 s)
+  verdict FAIL; expected FAIL: reproduced (43 s)
 
 moments_demes C: local optima, k = 5  (:kernel → :moments, band, 100 replicates; from validate/moments_demes.jl, scenario C (log: PASS; −3.5%, +6.3%, +7.1%; 300 replicates))
   V_W (within demes) over 2000:10:3990 kernel  0.90041 ± 0.0065        moments 0.93278                 -3.47%                   tol 0.1  ok
   var of deme means over 2000:10:3990  kernel  1.0009 ± 0.008          moments 0.94379                 6.05%                    tol 0.15  ok
   Q_ST over 2000:10:3990               kernel  0.30586 ± 0.00082       moments 0.28608                 6.91%                    tol 0.15  ok
-  verdict PASS; expected PASS: reproduced (24 s)
+  verdict PASS; expected PASS: reproduced (19 s)
 
 moments_demes A: neutral, k = 5  (:kernel → :moments, z, 100 replicates; from validate/moments_demes.jl, scenario A (log: PASS; z = −1.36, −0.30, 0.91; 300 replicates))
   V_W (within demes) over 2000:10:3990 kernel  0.91306 ± 0.0099        moments 0.93443                 z = -2.15                tol 4.0  ok
   var of deme means over 2000:10:3990  kernel  0.18404 ± 0.0028        moments 0.19112                 z = -2.52                tol 4.0  ok
   Q_ST over 2000:10:3990               kernel  0.071172 ± 0.00065      moments 0.072195                z = -1.57                tol 4.0  ok
-  verdict PASS; expected PASS: reproduced (18 s)
+  verdict PASS; expected PASS: reproduced (13 s)
 
-neutral metapopulation: moments = neutral_deme_variances, every generation  (:moments → :theory, exact, 1 replicates; from test/runtests.jl, "between = true" (exact to 1e-10); Lean Differentiation.lean)
+neutral metapopulation: moments = neutral_deme_variances, every generation  (:moments → :theory, exact, 1 replicates; from test/demes.jl, "between = true" (exact to 1e-10); Lean Differentiation.lean)
   V_W, every generation                moments [299 values]            theory  [299 values]            max rel. diff. 1.3e-14   tol 1.0e-10  ok
   var of deme means, every generation  moments [299 values]            theory  [299 values]            max rel. diff. 2.4e-14   tol 1.0e-10  ok
-  verdict PASS; expected PASS: reproduced (3 s)
+  verdict PASS; expected PASS: reproduced (2 s)
 
 rare_alleles_traits T: two traits, L = 20, μ = 1e-3  (:kernel → :moments, band, 24 replicates; from validate/rare_alleles_traits.jl, criterion T-A (log: ok; −9.6%, −5.9%, −5.7%))
   G11 over 3000:10:7990                kernel  0.085385 ± 0.0012       moments 0.078565                8.68%                    tol 0.2  ok
   G12 over 3000:10:7990                kernel  0.023566 ± 0.00054      moments 0.020232                5.04%                    tol 0.1  ok
   G22 over 3000:10:7990                kernel  0.058871 ± 0.00092      moments 0.055615                5.85%                    tol 0.2  ok
-  verdict PASS; expected PASS: reproduced (18 s)
+  verdict PASS; expected PASS: reproduced (14 s)
 
 rare_alleles_traits D1: two traits, 4 demes, local optima, :rare_alleles  (:kernel → :moments, band, 48 replicates; from validate/rare_alleles_traits.jl, criterion D-A (log: FAIL on G11 and G22; the same in the fresh-seed run))
   G11 over 2000:10:3990                kernel  0.82571 ± 0.014         moments 0.34207                 141.0%                   tol 0.15  FAIL
   G12 over 2000:10:3990                kernel  0.11302 ± 0.008         moments 0.072716                12.9%                    tol 0.15  ok
   G22 over 2000:10:3990                kernel  0.54527 ± 0.014         moments 0.28747                 89.7%                    tol 0.15  FAIL
-  verdict FAIL; expected FAIL: reproduced (27 s)
+  verdict FAIL; expected FAIL: reproduced (25 s)
 
 local_adaptation D1: two traits, 4 demes, local optima, :rare_local  (:kernel → :moments, band, 36 replicates; from validate/local_adaptation.jl, criterion A on D1 (log: ok; +0.8%, −4.6%, −9.1%))
   G11 over 2000:10:3990                kernel  0.87447 ± 0.018         moments 0.85512                 2.26%                    tol 0.15  ok
   G12 over 2000:10:3990                kernel  0.14417 ± 0.011         moments 0.087727                8.74%                    tol 0.15  ok
   G22 over 2000:10:3990                kernel  0.56717 ± 0.011         moments 0.48773                 16.3%                    tol 0.15  ok
-  verdict PASS; expected PASS: reproduced (22 s)
+  verdict PASS; expected PASS: reproduced (21 s)
 
 compare_demography: Beverton–Holt equilibrium, kernel vs SLiM  (:kernel → :slim, ks, 40 replicates; from validate/slim/compare_demography.jl, equilibrium scenario (log: KS p = 0.913, 0.913; no discrepancy))
   mean popsize over 4000:4999          kernel  970.81 ± 0.26           slim    970.8 ± 0.3             p = 0.913                tol 0.001  ok
   mean geno_var over 4000:4999         kernel  0.095658 ± 0.0026       slim    0.089369 ± 0.0022       p = 0.0546               tol 0.001  ok
-  verdict PASS; expected PASS: reproduced (612 s)
+  verdict PASS; expected PASS: reproduced (445 s)
 
-total 826 s; 11 verdicts reproduced, 0 not reproduced, 0 skipped
+compare_to_qtsim A: stabilising equilibrium, kernel vs QTSim  (:kernel → :qtsim, welch, 40 replicates; from validate/compare_to_qtsim.jl, scenario A (no committed log; CI's QTSim parity job passes it; its fixed seeds rerun here 2026-11-13: t = −0.22, consistent))
+  mean geno_var over 3000:3999         kernel  0.0064243 ± 1.8e-5      qtsim   0.0064029 ± 1.7e-5      t = 0.844                tol 4.0  ok
+  verdict PASS; expected PASS: reproduced (12 s)
+
+compare_to_qtsim B: directional adaptation, kernel vs QTSim  (:kernel → :qtsim, welch, 24 replicates; from validate/compare_to_qtsim.jl, scenario B (no committed log; CI's QTSim parity job passes it; its fixed seeds rerun here 2026-11-13: t = −1.66, +0.27, −0.33; no extinctions))
+  mean geno_var over 4000:4999         kernel  0.0053286 ± 0.0011      qtsim   0.0040491 ± 0.0007      t = 0.961                tol 4.0  ok
+  phenotypic advance                   kernel  4.3415 ± 0.14           qtsim   4.1335 ± 0.12           t = 1.16                 tol 4.0  ok
+  survival fraction                    kernel  0.84744 ± 0.0003        qtsim   0.84774 ± 0.00026       t = -0.758               tol 4.0  ok
+  verdict PASS; expected PASS: reproduced (11 s)
+
+compare_fluctuating: periodic, A = 0.1, P = 200, kernel vs SLiM  (:kernel → :slim, ks, 40 replicates; from validate/slim/compare_fluctuating.jl, first scenario (valid_fluctuating.log: KS p = 0.029, 0.573, 0.759; no discrepancy))
+  mean (θ − z̄)² over 1500:2999         kernel  0.0011807 ± 1.3e-5      slim    0.0011802 ± 1.4e-5      p = 0.988                tol 0.001  ok
+  mean geno_var over 1500:2999         kernel  0.0064225 ± 1.7e-5      slim    0.0064306 ± 1.6e-5      p = 0.913                tol 0.001  ok
+  mean nsurv over 1500:2999            kernel  912.22 ± 0.091          slim    912.17 ± 0.087          p = 1.0                  tol 0.001  ok
+  verdict PASS; expected PASS: reproduced (21 s)
+
+compare_fluctuating: red noise, σ = 0.1, ρ = 0.9, kernel vs SLiM  (:kernel → :slim, ks, 40 replicates; from validate/slim/compare_fluctuating.jl, third scenario (valid_fluctuating.log: KS p = 0.988, 0.759, 0.913, 0.913, 0.913; no discrepancy))
+  mean (θ − z̄)² over 1500:2999         kernel  0.0067296 ± 7.6e-5      slim    0.0066976 ± 8.6e-5      p = 0.573                tol 0.001  ok
+  mean geno_var over 1500:2999         kernel  0.0064141 ± 1.9e-5      slim    0.0064604 ± 2.0e-5      p = 0.4                  tol 0.001  ok
+  mean nsurv over 1500:2999            kernel  889.61 ± 0.31           slim    889.47 ± 0.35           p = 0.913                tol 0.001  ok
+  SD of θ over 1500:2999               kernel  0.099321 ± 0.00072      slim    0.098109 ± 0.00076      p = 0.573                tol 0.001  ok
+  lag-1 autocorrelation of θ           kernel  0.89779 ± 0.0014        slim    0.89561 ± 0.0018        p = 0.759                tol 0.001  ok
+  verdict PASS; expected PASS: reproduced (21 s)
+
+periodic optimum: moments = expected_lag2  (:moments → :theory, exact, 1 replicates; from test/fluctuating.jl, "fluctuating optima" (the moments lowering's mean squared lag over 2000-3999 ≈ expected_lag2 at the same V_G, rtol = 1e-3; the test passes))
+  mean (θ − z̄)² over 2000:3999         moments 0.0010792               theory  0.0010792               max rel. diff. 2.1e-13   tol 0.001  ok
+  verdict PASS; expected PASS: reproduced (0 s)
+
+compare_demography: Beverton–Holt R = 2, optimum moving 0.02, kernel vs SLiM  (:kernel → :slim, ks, 20 replicates; from validate/slim/compare_demography.jl, second scenario (valid_demography.log: 40/40 extinct in both; KS p = 0.263, 0.573; no discrepancy))
+  note: 20 replicates per backend, the script's 40 (cost: ~25 CPU-s per SLiM run)
+  generations after 5000               kernel  564.75 ± 16.0           slim    577.35 ± 15.0           p = 0.819                tol 0.001  ok
+  mean popsize over 4000:4999          kernel  978.57 ± 0.29           slim    978.73 ± 0.32           p = 0.56                 tol 0.001  ok
+  verdict PASS; expected PASS: reproduced (242 s)
+
+compare_plasticity 1: b/B = 0.5, optimum moving 0.01, kernel vs SLiM  (:kernel → :slim, ks, 20 replicates; from validate/slim/compare_plasticity.jl, scenario 1 (valid_plasticity.log: KS p = 0.759, 0.759, 0.988, 0.759; no discrepancy))
+  note: 20 replicates per backend, the script's 40
+  mean geno_var over 1500:1999         kernel  0.058574 ± 0.0027       slim    0.064637 ± 0.0029       p = 0.56                 tol 0.001  ok
+  mean θ − z̄ over 2250:2499            kernel  1.1255 ± 0.037          slim    1.1536 ± 0.04           p = 0.978                tol 0.001  ok
+  mean geno_var over 2250:2499         kernel  0.072354 ± 0.0026       slim    0.075492 ± 0.0037       p = 0.56                 tol 0.001  ok
+  mean nsurv over 2250:2499            kernel  970.03 ± 1.5            slim    968.54 ± 1.7            p = 0.978                tol 0.001  ok
+  verdict PASS; expected PASS: reproduced (111 s)
+
+reaction_norm A: heritable reaction norm, no cost, kernel vs moments (C1)  (:kernel → :moments, diff, 40 replicates; from validate/reaction_norm.jl, scenario A, criterion C1 at +250 and +500 (reaction_norm.log: PASS; slope kernel 0.781 vs moments 0.772, 0.892 vs 0.883))
+  mean slope at +250                   kernel  0.7648 ± 0.012          moments 0.77162                 Δ/scale = -0.00682       tol 0.1  ok
+  mean slope at +500                   kernel  0.87951 ± 0.0094        moments 0.88277                 Δ/scale = -0.00327       tol 0.1  ok
+  verdict PASS; expected PASS: reproduced (9 s)
+
+fst: neutral island k = 4, Nm = 1, kernel vs deme_coalescence  (:kernel → :theory, z, 400 replicates; from validate/fst.jl, section 2, island k=4 Nm=1.0 (fst.log: PASS; z = −2.57, −2.11, −0.57))
+  note: z uses the simulation's SE only; fst.jl also folded in the prediction's Monte Carlo SE (for the variance among deme means 0.00053 against the simulation's 0.0017), so this z is slightly larger
+  V_W (within demes) over 1250:10:2490 kernel  0.39471 ± 0.0031        theory  0.39654                 z = -0.589               tol 4.0  ok
+  var of deme means over 1250:10:2490  kernel  0.1507 ± 0.0016         theory  0.15143                 z = -0.447               tol 4.0  ok
+  Q_ST over 1250:10:2490               kernel  0.11947 ± 0.0008        theory  0.11949                 z = -0.0304              tol 4.0  ok
+  verdict PASS; expected PASS: reproduced (13 s)
+
+total 1052 s; 20 verdicts reproduced, 0 not reproduced, 0 skipped

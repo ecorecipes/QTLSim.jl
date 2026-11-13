@@ -4,9 +4,10 @@
 #
 # Usage (from the package root; Catlab comes from the vignettes environment):
 #     julia -t 3 --project=vignettes validate/naturality.jl [pattern]
-# runs the cases whose name contains `pattern` (all by default; the SLiM case is skipped
-# when SLiM is not found). Writes validate/naturality.log when every case is run; exits 1
-# if a verdict is not reproduced.
+# runs the cases whose name contains `pattern` (all by default; the SLiM cases are skipped
+# when SLiM is not found, the QTSim cases when QTSim is not: ENV["SLIM"], ENV["QTSIM"]).
+# Writes validate/naturality.log when every case is run; exits 1 if a verdict is not
+# reproduced.
 
 using QTLSim, Statistics, Random
 import Catlab
@@ -28,6 +29,9 @@ t0 = time()
 for c in cases
     if (c.from === :slim || c.to === :slim) && Ext.harness_slim() === nothing
         push!(skipped, c.name); say("\nSKIPPED (no SLiM): ", c.name); continue
+    end
+    if (c.from === :qtsim || c.to === :qtsim) && Ext.harness_qtsim() === nothing
+        push!(skipped, c.name); say("\nSKIPPED (no QTSim): ", c.name); continue
     end
     r = check_naturality(c)
     say()

@@ -173,6 +173,81 @@ end
     @test_throws ArgumentError naturality_steps(Params(ps; NoTraits = 2))
 end
 
+@testset "naturality harness: Welch's t, point differences, missing replicates, lag and persistence, :qtsim" begin
+    S = QTLSim.Statistic("x", out -> out.x)
+    # Welch's t, as validate/compare_to_qtsim.jl computes it
+    a, b = [1.0, 2.0, 3.0, 4.0], [2.0, 4.0, 6.0]
+    @test QTLSim.welch_t(a, b) ≈ (2.5 - 4.0) / sqrt(var(a) / 4 + var(b) / 3 + eps())
+    @test isnan(QTLSim.welch_t([1.0], b))
+    outs = [(x = v,) for v in (1.0, 1.2, 0.8, 1.1, 0.9)]
+    @test QTLSim.compare_stat(:welch, S, 4.0, :kernel, :qtsim, outs, outs).pass
+    r = QTLSim.compare_stat(:welch, S, 4.0, :kernel, :qtsim, outs, [(x = v + 1,) for v in (1.0, 1.2, 0.8, 1.1, 0.9)])
+    @test !r.pass && r.measure < -4
+    @test QTLSim.check_case(NaturalityCase(name = "x", params = Params(), to = :qtsim, criterion = :welch,
+                                           statistics = [S => 4.0])) isa NaturalityCase
+    @test_throws ArgumentError QTLSim.check_case(NaturalityCase(name = "x", params = Params(), to = :qtsim, criterion = :band,
+                                                                statistics = [S => 4.0]))
+    # :diff: the point estimate alone, no allowance for sampling error
+    A = QTLSim.Statistic("x", out -> out.x; scale = _ -> 1.0)
+    @test QTLSim.compare_stat(:diff, A, 0.1, :kernel, :moments, outs, [(x = 1.09,)]).pass
+    @test !QTLSim.compare_stat(:diff, A, 0.1, :kernel, :moments, outs, [(x = 1.11,)]).pass
+    @test QTLSim.compare_stat(:band, A, 0.1, :kernel, :moments, outs, [(x = 1.11,)]).pass      # the band allows 1.96 SE
+    # `missing` leaves a replicate out, and the count is reported
+    Sv = QTLSim.surviving(S)
+    mixed = [(x = 1.0, extinct = false), (x = 99.0, extinct = true), (x = 3.0, extinct = false)]
+    e = QTLSim.replicate_estimate(Sv, :kernel, mixed)
+    @test e.value == 2.0 && e.n == 2 && e.samples == [1.0, 3.0]
+    @test QTLSim.replicate_estimate(Sv, :kernel, [(x = 1.0, extinct = true)]).n == 0
+    D = QTLSim.surviving(QTLSim.Statistic("ratio", [QTLSim.Statistic("a", o -> o.a), QTLSim.Statistic("b", o -> o.b)], (a, b) -> a / b))
+    @test QTLSim.replicate_estimate(D, :kernel, [(a = 1.0, b = 2.0, extinct = false), (a = 9.0, b = 1.0, extinct = true)]).value == 0.5
+    c = NaturalityCase(name = "x", params = Params(), to = :qtsim, criterion = :welch, statistics = [Sv => 4.0], replicates = 3)
+    row = QTLSim.compare_stat(:welch, Sv, 4.0, :kernel, :qtsim, mixed, mixed)
+    @test row.from_n == 2 && occursin("kernel 2 of 3", QTLSim.fmtused(row, c))
+    # the lag θ − z̄ and its square, and the generations after a start
+    tab = (gen = [0, 1, 2, 3], theta = [0.0, 1.0, 2.0, 3.0], pheno_mean = [0.0, 0.5, 1.0, 1.0])
+    @test QTLSim.statvalue(QTLSim.lag_mean(1:3), :slim, tab) ≈ (0.5 + 1.0 + 2.0) / 3
+    @test QTLSim.statvalue(QTLSim.lag_mean(2:3; squared = true), :qtsim, tab) ≈ (1.0 + 4.0) / 2
+    @test isnan(QTLSim.statvalue(QTLSim.lag_mean(10:20), :kernel, tab))
+    @test QTLSim.statvalue(QTLSim.persistence(2), :kernel, tab) == 2
+
+    # the :qtsim backend: QTSim's model only, checked before anything runs
+    L = lifecycle(); g = L.generation
+    p = Params(Sample = 10, PopSize = 100, NoQTL = 1, Ploidy = 2, NoGenerations = 300, PhenotypeVar = 0.02, Heritability = 0.5,
+               MutationScalar = 0.02, MutationRatePerGamete = 0.5, InitFitnessSD = 0.3)
+    st = QTLSim.window_mean(:geno_var, 200:299)
+    q(cycle, pq; kw...) = check_naturality(cycle, pq; to = :qtsim, criterion = :welch, statistic = st, tolerance = 4.0,
+                                           replicates = 2, options = (qtsim = (qtsim = "/nonexistent/QTSim",),), kw...)
+    for bad in ((Drift = true,), (NoTraits = 2,), (MoveType = :periodic,), (Demography = :beverton_holt,),
+                (Selection = :fecundity,), (CrossoverModel = :all,), (Plasticity = 0.5,), (PlasticityCostSD = 1.0,))
+        @test_throws ArgumentError q(nothing, Params(p; bad...))
+    end
+    @test_throws ArgumentError q(withparams(g; ω = 0.3), p)
+    @test_throws ArgumentError q(g ⊗ g, fill(p, 2))
+    # QTSim's table, as QTSim prints it (six decimals; no line for the generation that died)
+    txt = "Generations:\t300\nGeneration\tPhenotype Mean\tPhenotype Ratio\tGenotype Var\tP Survived\tFitness Function Mean\t" *
+          "Fitness Function SD\tSurviving Slope\tSurviving Standardised Slope\tw\t\n" *
+          "0\t0.001000\t0.010000\t0.000123\t95\t0.000000\t0.300000\t0.1\t0.2\t0.3\t\n" *
+          "10\t-0.002000\t-0.020000\t0.000456\t97\t0.000000\t0.300000\t0.1\t0.2\t0.3\t\nPop all died.\n"
+    t = Ext.parse_qtsim(txt, p)
+    @test t.gen == [0, 10] && t.pheno_mean == [0.001, -0.002] && t.geno_var == [0.000123, 0.000456] && t.nsurv == [95, 97]
+    @test t.theta == [0.0, 0.0] && t.omega == [0.3, 0.3] && t.popsize == [100, 100] && t.extinct
+    @test !Ext.parse_qtsim(replace(txt, "Pop all died.\n" => ""), p).extinct
+    # a run against the C reference, when it is found (ENV["QTSIM"], the bundled build, or the paper's binary)
+    if Ext.harness_qtsim() === nothing
+        @info "QTSim not found: the :qtsim runs are skipped"
+    else
+        rq = check_naturality(nothing, p; to = :qtsim, criterion = :welch, statistic = [st, QTLSim.persistence(0)],
+                              tolerance = [4.0, 4.0], replicates = 4, seed = 9)
+        @test rq.pass && length(rq.values[:qtsim]) == 4
+        o = rq.values[:qtsim][1]
+        @test o.gen == collect(0:10:290) && !o.extinct && o.geno_var[1] == 0 && o.geno_var[end] > 0 && all(==(100), o.popsize)
+        # different seeds, different runs; the same seed, the same run
+        @test rq.values[:qtsim][1].geno_var != rq.values[:qtsim][2].geno_var
+        @test check_naturality(nothing, p; to = :qtsim, criterion = :welch, statistic = st, tolerance = 4.0, replicates = 1,
+                               seed = 9).values[:qtsim][1] == o
+    end
+end
+
 @testset "support matrix and explain (generated from the probes and the declarations)" begin
     rows = support_matrix()
     @test length(rows) == 20 * 3 * 7
