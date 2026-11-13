@@ -63,4 +63,25 @@ Reported as medians and interquartile ranges, by stratum. Exploratory: no verdic
 
 ## Amendments
 
-(none)
+All recorded on 2026-11-13, after the code was written and timed on a few inputs and BEFORE
+any emulation was compared with the table (no criterion, endpoint, closure, horizon, burn-in
+or sample is changed; these settle points the criteria leave open):
+
+1. **Counting T.** The emulator's median generation of extinction is counted as the table
+   counts it: the first generation of the move is 1 (`T = median − burnin + 1`), so "alive
+   at 2000" means the same event (death after the 2000th generation of the move) in both.
+2. **Deciles (E2).** The 10 deciles are equal-count groups of the inputs sorted by P2000;
+   ties (many inputs have P2000 exactly 0 or 1) are broken by input order (stratum, then
+   file name).
+3. **Finding k50 (parameter map).** "Bisection on MoveFitnessSD" is implemented as a
+   bracketing search in log k (Illinois regula falsi on log(log 2) − log(−log P2000),
+   safeguarded by bisection) to 1e-10 in log k (1e-9 for the perturbed parameters of the
+   finite differences, from a bracket of ±0.2% around the base k50), because 12 bisection
+   steps resolve log k only to about 1e-3, too coarse for central differences with
+   rel = 1e-3. The starting bracket is `half_survival_rate`'s, kc/8 to 2kc
+   (`drift_critical_rate`), extended by doubling up to 64kc and halving down to kc/512
+   when it does not contain the root: timing runs on a few inputs found P2000 ≥ 0.5 at
+   2kc for some of them. The root found is the same one bisection would converge to.
+4. **Matching.** Rows are matched with `match_row`'s conditions through an index on
+   Heritability (`row_index`, validate/published_table.jl), checked against `match_row`
+   on every 600th input; all 119,984 inputs match a unique row.

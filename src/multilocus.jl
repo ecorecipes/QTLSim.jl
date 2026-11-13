@@ -81,6 +81,20 @@ which at equilibrium is proportional to `1/ρ`, is resolved to about 0.1%. The w
 mean of `ρ` over the pairs of distinct loci is [`pair_recombination`](@ref).
 """
 function pair_classes(p::Params)
+    # memoised: the classes depend only on (L, mean, model) and take ~0.4 s at 5000 loci;
+    # copies are returned, so callers may modify them
+    key = (p.NoQTL, Float64(p.RecombPoissonMean), p.CrossoverModel)
+    hit = lock(() -> get(_PAIR_CLASSES, key, nothing), _PAIR_CLASSES_LOCK)
+    hit === nothing || return (copy(hit[1]), copy(hit[2]))
+    c = _pair_classes(p)
+    lock(() -> (_PAIR_CLASSES[key] = c), _PAIR_CLASSES_LOCK)
+    (copy(c[1]), copy(c[2]))
+end
+
+const _PAIR_CLASSES = Dict{Tuple{Int,Float64,Symbol},Tuple{Vector{Float64},Vector{Float64}}}()
+const _PAIR_CLASSES_LOCK = ReentrantLock()
+
+function _pair_classes(p::Params)
     L = p.NoQTL
     L <= 1 && return ([1.0], [0.0])
     ρpairs, wpairs = pair_splits(L, p.RecombPoissonMean, p.CrossoverModel)
