@@ -242,7 +242,11 @@ true`), where the mean has no stationary law.
 """
 function stationary_mean_var(p::Params, st = stationary_spectrum(p); VG::Real = st.VG)
     (isinf(st.S) || VG <= 0) && return 0.0
-    st.S / (st.nparents * (2 - VG / st.S))
+    S = st.S
+    # S is the spectrum's ω² + V_P at its own V_G; a much larger VG (the genic target under
+    # strong selection) would give b = VG/S ≥ 2 and a negative variance: use the S of that VG
+    VG / S >= 2 && (S = st.S - st.VG + VG)
+    S / (st.nparents * (2 - VG / S))
 end
 
 # the genic variance the sampler aims at
