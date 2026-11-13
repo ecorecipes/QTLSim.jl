@@ -8,6 +8,44 @@ All notable changes to QTLSim.jl are recorded here. The format follows
 
 ### Added
 
+- **Parameters as an object, with sensitivities** (roadmap C3; `src/para.jl`).
+  `QTLSim.Para(f, base, names)` sees a prediction `f(::Params)` as a function of the named
+  `Float64` fields of `base` (integer, `Bool`, `Symbol` and array fields are an
+  `ArgumentError`); `sensitivities(P; rel = 1e-3, log = true)` gives elasticities
+  `∂log y/∂log θ` (or plain derivatives) by central differences with one level of
+  Richardson extrapolation. They are finite differences: `Params` holds `Float64`s, so
+  automatic differentiation would need it to be generic over the number type.
+- **An emulator of the published sweep** (roadmap F4; `src/emulator.jl`). `emulate(p)` runs
+  the moments lowering with drift (`erosion = true`, default `loci = :rare_alleles`) 2000
+  generations at a fixed optimum from the house-of-Gauss `V_G`, then 2000 along the
+  continuous move, and adds demographic stochasticity with `extinction_distribution`:
+  `P2000`, the median extinction time `T` (counted as the table counts), `P240k` by
+  constant end-hazard extrapolation, `V_G` at the move. `emulated_half_survival_rate(p)`
+  solves `P2000 = 1/2` (bracketed regula falsi on the log cumulative hazard, to 1e-10 in
+  log k); `emulate_sweep` runs a batch through `sweep` with a resumable cache.
+  `validate/emulator.jl` applies the criteria fixed beforehand in
+  `validate/emulator_criteria.md` (four clarifying amendments recorded before any
+  comparison) to all 119,984 published inputs (`validate/emulator.log`). Primary closure
+  `:rare_alleles`: **E1 PASS** (AUC of P2000 for alive at 2000 = 0.958; per stratum
+  0.924–0.974); **E2 FAIL** (the emulator's P2000 is nearly binary, 0 or 1 for all but 213
+  inputs; in the top decile, mean P2000 1.000 against 58.8% observed alive, largest
+  decile gap 0.412; calibration slope 0.227); **E3 PASS** (Spearman 0.941 between
+  predicted and observed extinction times, median ratio 1.048); **E4 FAIL** (the emulated
+  half-survival rate is 1.19–1.74 times the table's, within [0.8, 1.25] only at 100 loci,
+  and rising with the number of loci); E5 (exploratory) AUC of P240k for survival to
+  240,000 = 0.941. On the pre-specified sample of 1000 (no verdicts): `:spectrum` has
+  AUC 0.981, x50 ratios 0.96–1.12 in 7 of 8 strata (1.34 at 5000 loci, u = 5), median
+  T ratio 1.000, but is as badly calibrated (top-decile gap 0.19, slope 0.27);
+  `:multilocus` is no better than `:rare_alleles` (x50 ratios 1.05–3.46). Exploratory
+  parameter map (2000 inputs): emulated x50 median 0.17 (0.16 at 100 loci, 0.16–0.19 at
+  500–5000), elasticities of k50 about +0.6 in PhenotypeVar and in MutationScalar, −0.23
+  in Heritability, −0.21 in InitFitnessSD (IQR spans 0) and near 0 in the mutation rate.
+- `pair_classes` and `pair_recombination` are memoised by (loci, mean, crossover model):
+  the same values, about 0.4 s saved per moments run at 5000 loci.
+- `validate/published_table.jl`: the published table's loading and row matching, shared
+  by `published_sweep.jl` and `emulator.jl`, with an index (`row_index`) for matching all
+  119,984 inputs.
+
 - **The targets of the lowerings are categories** (roadmap C1; `ext/QTLSimCatlabExt/typed.jl`).
   The lowering functor now lands in `(Stage{B}, Morph{B})`: a `Morph{B}` is an image with
   its domain and codomain stages. Each generator's image is checked when the life cycle is
