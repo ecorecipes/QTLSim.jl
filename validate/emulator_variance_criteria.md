@@ -146,4 +146,48 @@ recorded under Amendments.
 
 ## Amendments
 
-(none)
+1. **2026-11-13, after implementing the mean noise and BEFORE any comparison with the table
+   or with kernel simulations: noise in V_G added to the primary model.** A smoke test of the
+   mean noise alone on the synthetic 20-locus input of `test/emulator.jl` (not a published
+   input) gave P2000 = 1.00, 0.55 and 0.00 at 0.9, 1.0 and 1.1 times the deterministic k50:
+   still nearly a step, since the lag's noise is linear and Gaussian and hardly changes the
+   trajectory of W̄. (The same smoke test timed four published inputs, Input-00103 of four
+   strata; their P2000 was 0 with and without noise. No table outcome was looked at.) The
+   primary model therefore also has random fluctuation of V_G, from theory with no fitted
+   constant: the infinite-sites Poisson random field of the stationary spectrum
+   (`stationary_spectrum`, src/init.jl, the law `init = :equilibrium` samples), in which a
+   site of effect a at frequency x adds 2a²x(1 − x) to V_G (`QTLSim.vg_fluctuation`):
+   - at the start of the move each replicate's V_G is shifted by δ ~ N(0, Var V_G),
+     Var V_G = 8nLμ E_a[a⁴ K(γ)], K(γ) = ∫₀¹ x(1−x) e^{−γx(1−x)} dx (the stationary variance
+     of the field; neutral: CV² = 1/(4nLμ));
+   - every generation of the move its offspring's V_G is shifted by δ ~ N(0, 4Lμ E_a[a⁴ M(γ)]),
+     M(γ) = ∫₀¹ (1 − 2x)² e^{−γx(1−x)} dx, the variance of the one-generation change of
+     Σ 2a²x(1 − x) by drift of the frequencies (Var Δx = x(1 − x)/(2n));
+   - each δ is added to the genic class of the replicate's haplotype moments (so V_G changes by
+     δ up to O(1/N)), clamped so that the genic within-haplotype variance keeps at least 10% of
+     itself, and the lowering's own recursion relaxes the deviation (drift at 1/(2n),
+     selection, the rare-alleles loss). Both variances are computed once per input, at the
+     stationary state (lag 0), and held through the move.
+   - Still not included: linkage disequilibrium and associations among linked sites in the
+     fluctuation (they widen the law of V_G), the change of the field's variances during the
+     move, non-Gaussian phenotypes. `:spectrum` (no haplotype moments) gets the mean noise only.
+
+   The model as first specified (mean noise only, `vgnoise = false`) is reported as a
+   **secondary**, without verdicts: on the same 20,000 inputs with E1–E5's statistics and on
+   the E6 inputs with E6's. The noise-model diagnostics of E6 also compare the kernel's
+   coefficient of variation of V_G at generation 9999 with `vg_fluctuation`'s `cv`.
+   Clarification of E6's selection: "candidates in map order" means sorted by input id
+   (stratum, then file name), the order of the map's sample; one `MersenneTwister(20261115)`
+   is used in turn for the strata in the order of `validate/emulator.jl` and their bins in
+   increasing r.
+
+2. **2026-11-13, after the pilot timing and BEFORE the run (no result seen): sample sizes
+   reduced to fit the budget.** The pilot (`validate/emulator_variance.jl pilot`, 8 threads)
+   took 0.133 s wall per random input for the primary (R = 32), 0.258 s per input near k50,
+   0.43 s wall per kernel run and 1.7 s wall per input for `:spectrum` (R = 8): the sizes
+   above would take about 2.4 h wall, ~19 thread-hours, against a budget of ~10 CPU-hours.
+   Changes: the sample for E1–E5 is the first **10,000** (not 20,000) inputs of the same
+   permutation (`randperm(MersenneTwister(20261115), 119984)[1:10000]`, sorted), still a
+   uniform random sample; the mean-only secondary is run on the first 5,000 of that
+   permutation (and on all E6 inputs); `:spectrum` is run on the E6 inputs only, not on the
+   1000-input sample. E6 (192 inputs × 40 kernel runs) is unchanged. Thresholds unchanged.

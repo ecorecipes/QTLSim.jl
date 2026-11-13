@@ -414,6 +414,40 @@ mean slope, and `optimum` a vector of numbers.
 function run_moments end
 
 """
+    QTLSim.moments_replicates(p; replicates, rng, from, VG = 0, zbar = 0, loci = :auto, scale = 1,
+                              spectrum = (;)) -> (; det, from, replicates)
+
+Replicate trajectories of the moments lowering with drift (`erosion = true`, one deme, one
+trait, QTSim's generation), each with its own realised mean genotype: the between-run
+variance of [`emulate`](@ref)`(p; replicates)`. Generations `0:from-1` are run once,
+deterministically, exactly as [`run_moments`](@ref)`(p; VG, zbar, erosion = true, loci)`
+(records in `det`); each of the `replicates` then continues from that state to
+`NoGenerations - 1` (records in `replicates[r]`, with `extinct` and `extinct_gen`, from
+generation `from`).
+
+**Noise included.** The drift-mode lowering carries `C`, the expected square of the
+deviation of the realised mean haplotype from the deterministic mean, so that
+`Ploidy²·C` is the variance among runs of the mean genotype. A replicate starts generation
+`from` with its mean drawn from `N(z̄, Ploidy²·C)` and, every generation, its offspring's
+mean receives a Gaussian innovation of variance `Ploidy²·(C_new − C_sel)`, the lowering's
+own increase of `C` over reproduction and mutation (to leading order `V_G/n + V_m/N`, `n =
+N·W̄` the parents). Selection acts on each replicate's own lag, shrinking a deviation by
+`1 − V_G/s` as the lowering shrinks `C`, so in the linear Gaussian recursion the
+replicates' variance about the deterministic mean is `Ploidy²·C` at every generation; a
+replicate's `W̄`, parents and hence `V_G` follow its own lag. For closures without
+haplotype moments (`:spectrum`, `:aggregate`) the innovation is `V_Gs/n + V_m/N` and the
+starting spread the stationary variance `σ²/(β(2 − β))`, `β = V_G/s`, of that AR(1)
+recursion. `scale` multiplies every standard deviation (`scale = 0` reproduces the
+deterministic trajectory exactly).
+
+**Not included.** Random fluctuation of `V_G` itself (a fourth-moment quantity: each
+replicate's `V_G` is the lowering's expected within-population variance given its history
+of parents), non-Gaussian phenotype distributions, and the realised (rather than expected)
+number of survivors in the drift. Requires Catlab.
+"""
+function moments_replicates end
+
+"""
     migrate!(s, rng; rate = 0.01)
 
 Move individuals between the demes of a metapopulation `s`: each individual starts a
@@ -525,7 +559,7 @@ function genome_from_acset end
 
 const CATEGORICAL = (lifecycle, withparams, lower, slim_script, operators, operator, demes,
                      run_composed, migrate!, migration, totalpop, ndemes, population_schema,
-                     lift, lower!, genotypes, phenotypes, genome_from_acset, run_moments, check_naturality, naturality_steps, model_morphisms, closure_order, explain, support_matrix, support_markdown)
+                     lift, lower!, genotypes, phenotypes, genome_from_acset, run_moments, moments_replicates, check_naturality, naturality_steps, model_morphisms, closure_order, explain, support_matrix, support_markdown)
 
 function __init__()
     Base.Experimental.register_error_hint(MethodError) do io, exc, argtypes, kwargs

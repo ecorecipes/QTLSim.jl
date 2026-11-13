@@ -109,3 +109,96 @@ end
     @test QTLSim.pair_recombination(p) == QTLSim._pair_recombination(300, 3.0)
     @test QTLSim.pair_recombination(300, 3.0; model = :all) == QTLSim._pair_recombination(300, 3.0; model = :all)
 end
+
+@testset "the emulator's between-run variance" begin
+    p = Params(PopSize = 1000, Ploidy = 2, NoQTL = 20, RecombPoissonMean = 3.0, PhenotypeVar = 0.03,
+               Heritability = 0.4, MutationScalar = 0.005, MutationRatePerGamete = 1e-4, InitFitnessSD = 3.0,
+               MoveType = :continuous, MoveFitnessSD = 1e-3, MoveFitnessSDGen = 10000, NoGenerations = 250000)
+    kw = (burnin = 300, horizon = 1500, tail = 20_000)
+    q = Params(p; Sample = 1, NoGenerations = 1800, MoveFitnessSDGen = 300)
+    VG = house_of_gauss_vg(p)
+    # replicates = 0 is the deterministic emulator, bitwise
+    @test emulate(p; kw..., replicates = 0) === emulate(p; kw...)
+    m = run_moments(q; VG, erosion = true, loci = :rare_alleles)
+    @test emulate(p; kw..., replicates = 0).P2000 == extinction_distribution(q, m; from = 300).psurvive
+    # with the noise scaled to zero every replicate is the deterministic trajectory
+    vg = QTLSim.vg_fluctuation(q)
+    r0 = QTLSim.moments_replicates(q; replicates = 3, rng = Xoshiro(1), from = 300, VG, loci = :rare_alleles, scale = 0, vg)
+    @test r0.det.gen == 0:299
+    for rep in r0.replicates
+        @test [r0.det.mean_fitness; rep.mean_fitness] == m.mean_fitness
+        @test [r0.det.pheno_mean; rep.pheno_mean] == m.pheno_mean
+        @test [r0.det.geno_var; rep.geno_var] == m.geno_var
+    end
+    # a fixed seed (or the same generator) gives the same result; another seed another one
+    a = emulate(p; kw..., replicates = 8, seed = 3)
+    @test isequal(a, emulate(p; kw..., replicates = 8, seed = 3))
+    @test isequal(a, emulate(p; kw..., replicates = 8, rng = Xoshiro(3)))
+    h = emulated_half_survival_rate(p; kw.burnin, kw.horizon)
+    near = Params(p; MoveFitnessSD = 1.05h.k50)
+    b = emulate(near; kw..., replicates = 16, seed = 3)
+    @test b.P2000 != emulate(near; kw..., replicates = 16, seed = 4).P2000
+    @test 0 <= b.P240k <= b.P2000 <= 1 && 0 <= b.hazard <= 1 && b.VG_move > 0
+    # the noise turns the step into a graded probability around the deterministic k50
+    @test emulate(Params(p; MoveFitnessSD = 0.9h.k50); kw...).P2000 > 0.999
+    @test emulate(Params(p; MoveFitnessSD = 1.1h.k50); kw...).P2000 < 0.001
+    pn = [emulate(Params(p; MoveFitnessSD = f * h.k50); kw..., replicates = 32, seed = 5).P2000 for f in (0.9, 1.1)]
+    @test 0.05 < pn[2] < pn[1] < 0.995
+    # the mean-only noise (vgnoise = false) also runs, and an rng or a seed is required
+    @test 0 <= emulate(near; kw..., replicates = 4, seed = 1, vgnoise = false).P2000 <= 1
+    @test_throws ArgumentError emulate(p; kw..., replicates = 2)
+    @test_throws ArgumentError emulate(p; kw..., replicates = -1)
+    # emulate_sweep: per-input seeds from the base seed and the id, whatever the threads and the cache
+    ps = [Params(p; MoveFitnessSD = x * h.k50) for x in (0.95, 1.05, 1.2)]
+    rows = emulate_sweep(ps; ids = ["a", "b", "c"], kw..., replicates = 4, seed = 11)
+    @test [x.P2000 for x in rows] == [emulate(ps[i]; kw..., replicates = 4, seed = QTLSim.job_seed(11, id)).P2000
+                                      for (i, id) in enumerate(["a", "b", "c"])]
+    @test isequal(rows, emulate_sweep(ps; ids = ["a", "b", "c"], kw..., replicates = 4, seed = 11, ntasks = 1))
+    mktempdir() do dir
+        f = joinpath(dir, "emu.csv")
+        emulate_sweep(ps[[3]]; ids = ["c"], cache = f, kw..., replicates = 4, seed = 11)
+        @test [x.P2000 for x in emulate_sweep(ps; ids = ["a", "b", "c"], cache = f, kw..., replicates = 4, seed = 11)] ==
+              [x.P2000 for x in rows]
+    end
+    @test_throws ArgumentError emulate_sweep(ps; kw..., replicates = 4)
+    @test QTLSim.job_seed(11, "a") === QTLSim.job_seed(11, "a") != QTLSim.job_seed(12, "a")
+end
+
+@testset "drift noise of the moments replicates" begin
+    # neutral: from a start with no spread, the replicates' variance of the mean genotype after
+    # t generations is the sum of the innovations, Σ_s (V_G,s + V_m)/N to leading order
+    pn = Params(PopSize = 500, Ploidy = 2, NoQTL = 10, RecombPoissonMean = 3.0, PhenotypeVar = 1.0,
+                Heritability = 0.4, MutationScalar = 0.002, MutationRatePerGamete = 1e-3, Drift = true,
+                Sample = 1, NoGenerations = 41)
+    rn = QTLSim.moments_replicates(pn; replicates = 4000, rng = Xoshiro(2), from = 0, VG = 0.4, loci = :multilocus)
+    vgs = rn.replicates[1].geno_var .* (500 - 1) / 500         # the recorded V_G is the sample variance
+    @test all(rep.geno_var == rn.replicates[1].geno_var for rep in rn.replicates)   # no V_G noise asked for
+    t = 40
+    z = [rep.pheno_mean[t+1] for rep in rn.replicates]
+    expect = sum(vgs[1:t]) / 500 + t * QTLSim.muteVar(pn) / 500
+    @test mean(z) ≈ 0 atol = 4sqrt(expect / 4000)
+    @test var(z) ≈ expect rtol = 0.08                          # SE of a variance from 4000 draws ≈ 2.2%
+    # a fixed optimum: selection shrinks a deviation by 1 − V_G/s, so the spread settles
+    ps = Params(pn; Drift = false, InitFitnessSD = 1.0, NoGenerations = 400)
+    rs = QTLSim.moments_replicates(ps; replicates = 2000, rng = Xoshiro(3), from = 200, VG = 0.4, loci = :multilocus)
+    zs = [rep.pheno_mean[end] for rep in rs.replicates]
+    VGs, s = rs.replicates[1].geno_var[end], 1.0 + rs.replicates[1].geno_var[end] + QTLSim.envVar(ps)
+    # the stationary variance of the AR(1) mean, about s/(2n) (Lande 1976), n = N·W̄
+    n = 500 * mean(rs.replicates[1].mean_fitness)
+    @test var(zs) ≈ s / (n * (2 - VGs / s)) rtol = 0.15
+    # V_G noise: the innovation accumulates in V_G, relaxed only slowly over 30 generations
+    vg = (stationary = 0.0, innovation = 1e-4)
+    rv = QTLSim.moments_replicates(Params(pn; NoGenerations = 31); replicates = 3000, rng = Xoshiro(4), from = 0, VG = 0.4,
+                                   loci = :multilocus, vg)
+    v30 = [rep.geno_var[end] * 499 / 500 for rep in rv.replicates]
+    @test var(v30) ≈ 30 * 1e-4 rtol = 0.15
+    # vg_fluctuation, neutral: stationary 4nLμα⁴ (cv² = 1/(4nLμ)), innovation 4Lμα⁴
+    f = QTLSim.vg_fluctuation(pn)
+    α2 = QTLSim.mutation_effect_variance(pn)
+    @test f.stationary ≈ 4 * 500 * 10 * 1e-3 * α2^2 rtol = 1e-8
+    @test f.innovation ≈ 4 * 10 * 1e-3 * α2^2 rtol = 1e-8
+    @test f.cv ≈ sqrt(f.stationary) / f.VG
+    # under selection both fall below the neutral values
+    fs = QTLSim.vg_fluctuation(Params(pn; Drift = false, InitFitnessSD = 0.5))
+    @test 0 < fs.innovation < f.innovation && 0 < fs.stationary < f.stationary
+end

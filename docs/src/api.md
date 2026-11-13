@@ -73,6 +73,9 @@ C3). [`emulate`](@ref) predicts a run of the published sweep's protocol from the
 lowering with drift and demographic stochasticity along its trajectory, without
 simulating it (roadmap F4); `validate/emulator.jl` tests it against the published table
 under the pre-specified criteria of `validate/emulator_criteria.md`. Needs Catlab.
+With `replicates > 0` it has between-run variance: replicate moments trajectories
+(`QTLSim.moments_replicates`) with drift of the mean and fluctuation of `V_G`
+(`QTLSim.vg_fluctuation`); off by default (`validate/emulator_variance_criteria.md`).
 
 ```@docs
 QTLSim.Para
@@ -80,6 +83,9 @@ sensitivities
 emulate
 emulated_half_survival_rate
 emulate_sweep
+QTLSim.moments_replicates
+QTLSim.vg_fluctuation
+QTLSim.job_seed
 ```
 
 ## QTSim options files
