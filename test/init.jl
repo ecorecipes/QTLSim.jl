@@ -117,3 +117,21 @@
     @test_throws ArgumentError stationary_spectrum(Params(pp; PlasticityCostSD = 2.0))
     @test_throws ArgumentError equilibrium_world(Params(p; NoTraits = 2, ReactionNorm = true), rng; burnin = 5)
 end
+
+@testset "stationary_mean_var with a genic target far above the spectrum's V_G" begin
+    # a published input (QT1000-Possion3.0/Input-03628) with a narrow fitness width: the genic
+    # target exceeds twice the spectrum's S, which gave a negative variance (and a DomainError
+    # in the sampler) before 2026-11-13
+    p = Params(PopSize = 1000, Ploidy = 2, NoQTL = 1000, RecombPoissonMean = 3.0, PhenotypeVar = 0.05087199158578899,
+               Heritability = 0.1657241443963545, MutationScalar = 0.011396701904242695, MutationRatePerGamete = 1e-4,
+               InitFitnessSD = 0.103579454153947, MoveType = :continuous, MoveFitnessSD = 0.1356285084785247,
+               MoveFitnessSDGen = 10000, NoGenerations = 250000)
+    st = stationary_spectrum(p)
+    Vt = QTLSim.init_target(p, st, :genic)
+    v = QTLSim.stationary_mean_var(p, st; VG = Vt)
+    @test v > 0
+    @test Vt / st.S < 2 || v ≈ (st.S - st.VG + Vt) / (st.nparents * (2 - Vt / (st.S - st.VG + Vt)))
+    @test QTLSim.stationary_mean_var(p, st) == st.S / (st.nparents * (2 - st.VG / st.S))   # unchanged otherwise
+    G = equilibrium_genomes(Params(p; NoGenerations = 12000), MersenneTwister(1))
+    @test all(isfinite, G)
+end

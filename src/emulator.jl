@@ -41,14 +41,38 @@ Returns a `NamedTuple`:
   survivors fell below `Ploidy`), in which case extinction is taken as certain then.
 
 How well it predicts the published runs: `validate/emulator.jl`, `validate/emulator.log`.
+
+**Between-run variance** (`replicates = R > 0`; off by default). With `replicates = 0` the
+trajectory is deterministic and only demographic chance is random, so `P2000` is nearly a
+step function of the rate. With `R > 0` the burn-in is run once and `R` replicate
+trajectories continue it through the move, each with its own realised mean genotype
+([`QTLSim.moments_replicates`](@ref), which states the noise included and not included):
+the mean drifts by the moments' own drift variance (to leading order `V_G/n + V_m/N` per
+generation, `n = N·W̄` the parents), starting from the stationary spread at the move, and
+selection acts on each replicate's lag. `extinction_distribution` is applied along each
+replicate's `W̄`. Then `P2000` is the mean of the replicates' probabilities of being alive,
+`T` the median of the mixture of their extinction-time distributions, `hazard` the
+mixture's end hazard, `P240k` the mean of the replicates' extrapolations, `VG_move` the
+common `V_G` at the move, `Wbar_move`, `VG_end` and `lag_end` means over the replicates
+(the last two over those whose trajectory is alive at the end), and `extinct` whether every
+replicate's trajectory died. The replicates draw from `rng`, or from `Xoshiro(seed)`; one of
+the two is required, and the result is a function of it. Validation:
+`validate/emulator_variance_criteria.md`, `validate/emulator_variance.log`.
 """
 function emulate(p::Params; loci::Symbol = :rare_alleles, burnin::Integer = 2000, horizon::Integer = 2000,
-                 tail::Integer = 240_000, VG::Real = house_of_gauss_vg(p))
+                 tail::Integer = 240_000, VG::Real = house_of_gauss_vg(p), replicates::Integer = 0, vgnoise::Bool = true,
+                 rng::Union{Nothing,AbstractRNG} = nothing, seed::Union{Nothing,Integer} = nothing)
     p.MoveType === :continuous || throw(ArgumentError("emulate is for the published protocol, MoveType = :continuous; got :$(p.MoveType)"))
     p.NoTraits == 1 || throw(ArgumentError("emulate is for one trait; NoTraits = $(p.NoTraits)"))
     burnin >= 0 && horizon >= 2 || throw(ArgumentError("need burnin ≥ 0 and horizon ≥ 2, got $burnin and $horizon"))
     tail >= horizon || throw(ArgumentError("tail ($tail) must be at least the horizon ($horizon)"))
+    replicates >= 0 || throw(ArgumentError("replicates must be non-negative, got $replicates"))
     q = Params(p; Sample = 1, NoGenerations = burnin + horizon, MoveFitnessSDGen = burnin)
+    if replicates > 0
+        rng === nothing && seed === nothing &&
+            throw(ArgumentError("replicates > 0 needs an `rng` or a `seed`"))
+        return _emulate_replicates(q, rng === nothing ? Xoshiro(seed) : rng; replicates, loci, burnin, horizon, tail, VG, vgnoise)
+    end
     m = run_moments(q; VG, erosion = true, loci)
     n = length(m.gen)
     at(v, g) = g + 1 <= n ? Float64(v[g+1]) : NaN
@@ -66,6 +90,51 @@ function emulate(p::Params; loci::Symbol = :rare_alleles, burnin::Integer = 2000
     last = burnin + horizon - 1
     (; P2000, T, P240k, hazard, VG_move = at(m.geno_var, burnin), Wbar_move = at(m.mean_fitness, burnin),
      VG_end = at(m.geno_var, last), lag_end = at(m.theta, last) - at(m.pheno_mean, last), extinct = m.extinct)
+end
+
+# emulate with between-run variance: R replicate trajectories (moments_replicates), each
+# with demographic chance along its W̄, mixed with equal weights. `q` is the protocol's Params.
+function _emulate_replicates(q::Params, rng::AbstractRNG; replicates, loci, burnin, horizon, tail, VG, vgnoise)
+    vg = vgnoise && loci in (:rare_alleles, :multilocus, :rare_local, :auto) ? vg_fluctuation(q) : nothing
+    r = moments_replicates(q; replicates, rng, from = burnin, VG, loci, vg)
+    if r.det.extinct                      # the shared burn-in died before the move (T ≤ 0)
+        return (; P2000 = 0.0, T = r.det.extinct_gen - burnin + 1, P240k = 0.0, hazard = 1.0, VG_move = NaN,
+                Wbar_move = NaN, VG_end = NaN, lag_end = NaN, extinct = true)
+    end
+    grid = burnin:burnin+horizon-1
+    mix = zeros(length(grid))
+    P240 = 0.0
+    VGm, Wm, VGe, lage = NaN, Float64[], Float64[], Float64[]
+    for rep in r.replicates
+        mf = [r.det.mean_fitness; rep.mean_fitness]
+        if length(mf) <= burnin               # died in the first generation of the move
+            mix .+= 1.0
+            continue
+        end
+        isnan(VGm) && (VGm = rep.geno_var[1])
+        push!(Wm, rep.mean_fitness[1])
+        d = extinction_distribution(q, (gen = collect(0:length(mf)-1), mean_fitness = mf, extinct = rep.extinct,
+                                        extinct_gen = rep.extinct_gen); from = burnin)
+        for (j, t) in enumerate(grid)
+            i = searchsortedlast(d.gen, t)
+            mix[j] += i == 0 ? 0.0 : d.pext[i]
+        end
+        pe = d.pext
+        h = rep.extinct ? 1.0 : length(pe) >= 2 && pe[end-1] < 1 ? (pe[end] - pe[end-1]) / (1 - pe[end-1]) : 1.0
+        P = d.psurvive
+        P240 += rep.extinct || P == 0 ? 0.0 : P * (1 - h)^(tail - horizon)
+        if !rep.extinct
+            push!(VGe, rep.geno_var[end]); push!(lage, rep.theta[end] - rep.pheno_mean[end])
+        end
+    end
+    R = length(r.replicates)
+    mix ./= R
+    P2000 = 1 - mix[end]
+    hazard = mix[end-1] < 1 ? (mix[end] - mix[end-1]) / (1 - mix[end-1]) : 1.0
+    med = findfirst(>=(0.5), mix)
+    m(v) = isempty(v) ? NaN : sum(v) / length(v)
+    (; P2000, T = med === nothing ? missing : grid[med] - burnin + 1, P240k = P240 / R, hazard, VG_move = VGm,
+     Wbar_move = m(Wm), VG_end = m(VGe), lag_end = m(lage), extinct = isempty(VGe))
 end
 
 """
@@ -161,21 +230,82 @@ function emulated_half_survival_rate(p::Params; loci::Symbol = :rare_alleles, bu
 end
 
 """
-    emulate_sweep(ps; ids = eachindex(ps), cache = nothing, progress = 0, ntasks = Threads.nthreads(), kw...)
+    emulate_sweep(ps; ids = eachindex(ps), cache = nothing, progress = 0, ntasks = Threads.nthreads(),
+                  seed = nothing, kw...)
 
 [`emulate`](@ref) on every `Params` in `ps`, on all threads through [`sweep`](@ref), with
 its resumable CSV `cache` keyed by `ids` (strings or numbers, one per input). `kw` are
 passed to `emulate`. Returns one `NamedTuple` per input, in order, with the fields of
 `emulate`'s result; `T` is `NaN` where `emulate` gives `missing` (so the rows
 can be cached).
+
+With `replicates > 0` among `kw`, `seed` (an integer) is required: each input's replicates
+draw from `Xoshiro(QTLSim.job_seed(seed, id))`, a fixed (FNV-1a) hash of the base seed and
+the input's id, so the results do not depend on the threads, the order of the jobs or
+which of them come from the cache.
 """
 function emulate_sweep(ps::AbstractVector{Params}; ids = eachindex(ps), cache = nothing, progress::Integer = 0,
-                       ntasks::Integer = Threads.nthreads(), kw...)
+                       ntasks::Integer = Threads.nthreads(), seed::Union{Nothing,Integer} = nothing, kw...)
     length(ids) == length(ps) || throw(ArgumentError("one id per input: $(length(ids)) ids, $(length(ps)) inputs"))
+    noisy = get(kw, :replicates, 0) > 0
+    noisy && seed === nothing && throw(ArgumentError("replicates > 0 needs a base `seed`"))
     jobs = collect(zip(ids, ps))
     sweep(jobs; cache, id = first, progress, ntasks, cost = j -> j[2].NoQTL) do (i, p)
-        r = emulate(p; kw...)
+        r = noisy ? emulate(p; seed = job_seed(seed, i), kw...) : emulate(p; kw...)
         (; P2000 = r.P2000, T = r.T === missing ? NaN : Float64(r.T), r.P240k, r.hazard, r.VG_move,
          r.Wbar_move, r.VG_end, r.lag_end, r.extinct)
     end
+end
+
+"""
+    QTLSim.job_seed(seed, id) -> UInt64
+
+A seed for job `id` of a sweep with base `seed`: the 64-bit FNV-1a hash of the bytes of
+`string(seed, "/", id)`. Fixed across Julia versions and platforms (unlike `hash`).
+"""
+function job_seed(seed::Integer, id)
+    h = 0xcbf29ce484222325
+    for b in codeunits(string(seed, "/", id))
+        h = (h ⊻ b) * 0x00000100000001b3
+    end
+    h
+end
+
+# ∫₀¹ w(x) e^{−γx(1−x)} dx for w symmetric about ½, as sojourn_mass integrates it
+function _sojourn_moment(γ::Real, w)
+    f(x) = w(x) * exp(-max(γ, 0.0) * x * (1 - x))
+    b = γ <= 0 ? 0.5 : min(0.5, 40 / γ)
+    2 * (_glint(f, 0.0, b) + (b < 0.5 ? _glint(f, b, 0.5) : 0.0))
+end
+
+"""
+    QTLSim.vg_fluctuation(p, st = stationary_spectrum(p)) -> (; VG, stationary, innovation, cv)
+
+The random fluctuation of the genetic variance of one population (genic, in linkage
+equilibrium) under the stationary allele-frequency spectrum `st` of
+[`stationary_spectrum`](@ref) (src/init.jl): the infinite-sites Poisson random field in
+which a site of effect `a` at frequency `x` contributes `2a²x(1 − x)` to `V_G`, with density
+`φ(a, x) = 4nLμ g(a) e^{−γx(1−x)} F_γ(x)/(x(1 − x))`, `γ = 2n(a² + 2c)/S`.
+
+- `stationary`: `Var V_G = ∫∫ (2a²x(1−x))² φ = 8nLμ E_a[a⁴ K(γ)]`, `K(γ) = ∫₀¹ x(1−x)e^{−γx(1−x)}dx`
+  (sites are Poisson, so the variance is the integral of the square; `F_γ(x) + F_γ(1−x) = 1`
+  halves it);
+- `innovation`: the variance of the change of `V_G` in one generation by drift of the
+  frequencies, `Σ (2a²)²(1 − 2x)² Var(Δx)` with `Var(Δx) = x(1 − x)/(2n)`,
+  `= 4Lμ E_a[a⁴ M(γ)]`, `M(γ) = ∫₀¹ (1 − 2x)² e^{−γx(1−x)}dx`;
+- `cv = √stationary/VG`.
+
+Neutral (`γ = 0`): `stationary = 4nLμα⁴`, `cv² = 1/(4nLμ)`, and `innovation = 4Lμα⁴`, so a
+deviation decaying at `1/(2n)` per generation (heterozygosity under drift) keeps the
+stationary variance. Leaves out linkage disequilibrium, associations among linked sites
+(which widen the law of V_G) and the input of new sites (`O(1/N)` of the innovation). Used
+by [`emulate`](@ref)`(p; replicates)` for the noise in `V_G`.
+"""
+function vg_fluctuation(p::Params, st = stationary_spectrum(p))
+    α2, L, μ, n = st.α2, st.L, p.MutationRatePerGamete, st.nparents
+    α2 > 0 || return (; VG = st.VG, stationary = 0.0, innovation = 0.0, cv = 0.0)
+    γa(t) = spectrum_gamma(st, α2 * t^2)
+    stat = 8 * n * L * μ * α2^2 * _effect_mean(t -> t^4 * _sojourn_moment(γa(t), x -> x * (1 - x)))
+    innov = 4 * L * μ * α2^2 * _effect_mean(t -> t^4 * _sojourn_moment(γa(t), x -> (1 - 2x)^2))
+    (; VG = st.VG, stationary = stat, innovation = innov, cv = sqrt(stat) / st.VG)
 end
