@@ -156,16 +156,16 @@ otimes(a::Stage{B}, b::Stage{B}) where {B} = Stage{B}(vcat(a.names, b.names))
 otimes(a::Stage{B}, b::Stage{B}, c::Stage{B}, rest::Stage{B}...) where {B} = foldl(otimes, (a, b, c, rest...))
 munit(::Type{Stage{B}}) where {B} = Stage{B}(Symbol[])
 
-id(s::Stage{:kernel}) = nfactors(s) == 1 ? Operator(:id, (w, rng) -> w) :
+id_image(s::Stage{:kernel}) = nfactors(s) == 1 ? Operator(:id, (w, rng) -> w) :
                         DemeOp(nfactors(s), collect(1:nfactors(s)), (st, d, rng) -> st)
-id(s::Stage{:eidos}) = nfactors(s) == 1 ? EidosCode(Symbol(:id_, s.names[1]), "") :
+id_image(s::Stage{:eidos}) = nfactors(s) == 1 ? EidosCode(Symbol(:id_, s.names[1]), "") :
                        EidosMeta(nfactors(s), collect(1:nfactors(s)), pops -> "", :id)
 
 "Where a braiding X⊗Y → Y⊗X sends the demes of X (m of them) and Y (n of them)."
 braid_perm(m, n) = vcat(collect(m+1:m+n), collect(1:m))
-braid(a::Stage{:kernel}, b::Stage{:kernel}) =
+braid_image(a::Stage{:kernel}, b::Stage{:kernel}) =
     DemeOp(nfactors(a) + nfactors(b), braid_perm(nfactors(a), nfactors(b)), (st, d, rng) -> st)
-braid(a::Stage{:eidos}, b::Stage{:eidos}) =
+braid_image(a::Stage{:eidos}, b::Stage{:eidos}) =
     EidosMeta(nfactors(a) + nfactors(b), braid_perm(nfactors(a), nfactors(b)), pops -> "", :braid)
 
 "The generators occurring in a life-cycle expression."
@@ -176,7 +176,8 @@ asimage(::Val{:kernel}, name, x::Union{Operator,DemeOp}) = x
 asimage(::Val{:kernel}, name, x) = Operator(name, x)               # a function (state, rng) -> state
 asimage(::Val{:eidos}, name, x::Union{EidosCode,EidosMeta}) = x
 asimage(::Val{:eidos}, name, x::AbstractString) = EidosCode(name, x)
-asimage(::Val{:moments}, name, x::Operator) = x
+asimage(::Val{:eidos}, name, x) = x          # anything else: `typed_image` rejects it with the reason
+asimage(::Val{:moments}, name, x::Union{Operator,DemeOp}) = x
 asimage(::Val{:moments}, name, x) = Operator(name, x)               # a function (moments, rng) -> moments
 
 # The image of migration among `k` demes at `rate`, a number or a matrix.
@@ -203,7 +204,8 @@ function step_image(t::Val{T}, m, s::Step, table, k, migration_rate) where {T}
 end
 
 function lower(f, target::Symbol; images = Dict{Symbol,Any}(), record = nothing,
-               migration_rate::Union{Real,AbstractMatrix} = 0.0, deme_constants = (), model = OneTraitModel())
+               migration_rate::Union{Real,AbstractMatrix} = 0.0, deme_constants = (), model = OneTraitModel(),
+               typed::Bool = false)
     m = model_of(model)
     # the model chooses the functor: its own table of images of the steps
     table = target === :kernel ? kernel_images(m, record) :
@@ -240,8 +242,12 @@ function lower(f, target::Symbol; images = Dict{Symbol,Any}(), record = nothing,
         # slim_script with demes of their own parameters: those constants are deme state
         target === :eidos && !isempty(deme_constants) && gens[g] isa EidosCode &&
             (gens[g] = EidosCode(gens[g].name, deme_state(gens[g].code, deme_constants)))
+        # the image as a morphism of the target, checked now rather than when a run reaches it
+        g isa ObExpr || (gens[g] = typed_image(Val(target), Stage{target}(obnames(dom(g))),
+                                               Stage{target}(obnames(codom(g))), gens[g], name))
     end
-    functor((Stage{target}, Any), f; generators = gens)
+    r = functor((Stage{target}, Morph{target}), f; generators = gens)
+    typed ? r : r.image
 end
 
 function operators(model = OneTraitModel())
