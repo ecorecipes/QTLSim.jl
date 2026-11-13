@@ -46,6 +46,39 @@ All notable changes to QTLSim.jl are recorded here. The format follows
   by `published_sweep.jl` and `emulator.jl`, with an index (`row_index`) for matching all
   119,984 inputs.
 
+- **Between-run variance in the emulator** (roadmap F4, off by default; `src/emulator.jl`,
+  `ext/QTLSimCatlabExt/moments_noise.jl`). `emulate(p; replicates = R, seed)` (or `rng`)
+  shares the deterministic burn-in and runs `R` replicate moments trajectories through the
+  move (`QTLSim.moments_replicates`), each with its own realised mean genotype and `V_G`:
+  the mean drifts by the drift-mode lowering's own increase of `C` (Ploidy²·ΔC, about
+  `V_G/n + V_m/N` per generation), starting from its stationary spread `Ploidy²·C`, and
+  `V_G` fluctuates as the stationary Poisson random field of `stationary_spectrum` predicts
+  (`QTLSim.vg_fluctuation`: Var V_G = 8nLμE[a⁴K(γ)], per-generation innovation
+  4LμE[a⁴M(γ)]); `vgnoise = false` keeps the mean noise only. P2000 averages the
+  replicates' `extinction_distribution`s. `emulate_sweep(...; replicates, seed)` seeds
+  each input by `QTLSim.job_seed(seed, id)` (FNV-1a), so results do not depend on threads
+  or the cache. `replicates = 0` is bitwise the deterministic emulator. Validation under
+  `validate/emulator_variance_criteria.md` (written before the code; amendment 1, V_G noise,
+  and amendment 2, smaller samples after the pilot, both before any result; disclosed: the
+  change was motivated by E2 on the same table), `validate/emulator_variance.log` (about 6.5
+  CPU-h): on 10,000 fresh inputs (seed 20261115), primary `:rare_alleles` with R = 32:
+  **E1 PASS** (AUC 0.965; deterministic 0.958), **E2 FAIL** (slope 0.243, top-decile gap
+  0.362; deterministic 0.228 and 0.425), **E3 PASS** (Spearman 0.940, median ratio 1.046),
+  **E4 FAIL** (x50 ratio 1.20–1.91; deterministic 1.22–1.92). **E6 FAIL**, the independent
+  test against 40 fresh kernel runs on each of 192 inputs near the deterministic k50
+  (`init = :equilibrium`, burn-in 1000): slope 0.14 (deterministic 0.11), top bin mean
+  P2000 0.997 vs 0.444 alive (deterministic 1.000 vs 0.418), log-likelihood −28,544 vs
+  −34,499, AUC over runs 0.81 vs 0.76. The kernel is itself nearly binary per input (0 of
+  40 alive for 138 inputs, 40 of 40 for 37, in between for 17), so the emulator's
+  miscalibration is mainly bias (its k50 is too high), not missing variance. Diagnostics: the
+  spread of the mean before the move matches the kernel (variance ratio 1.04) and so does
+  V_G (1.03); the kernel's CV of V_G is 1.8 times `vg_fluctuation`'s (LD and linked sites are
+  left out). Mean-only noise changes almost nothing. `:spectrum` with mean noise (R = 8) on
+  the E6 inputs (no verdict): mean |f − P| 0.136 (primary 0.327), slope 0.16.
+- **Fixed** `stationary_mean_var` (F1 sampler): when the genic target exceeds twice the
+  spectrum's S (narrow fitness width, e.g. published input QT1000-Possion3.0/Input-03628) it
+  returned a negative variance and `equilibrium_genomes` threw a `DomainError`; S is now
+  taken at the target's V_G in that case only (found during the run above).
 - **The targets of the lowerings are categories** (roadmap C1; `ext/QTLSimCatlabExt/typed.jl`).
   The lowering functor now lands in `(Stage{B}, Morph{B})`: a `Morph{B}` is an image with
   its domain and codomain stages. Each generator's image is checked when the life cycle is

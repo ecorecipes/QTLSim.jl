@@ -191,3 +191,19 @@ recorded under Amendments.
    uniform random sample; the mean-only secondary is run on the first 5,000 of that
    permutation (and on all E6 inputs); `:spectrum` is run on the E6 inputs only, not on the
    1000-input sample. E6 (192 inputs × 40 kernel runs) is unchanged. Thresholds unchanged.
+
+## Run record (not amendments: no criterion, sample or setting changed)
+
+- **2026-11-13, a crash during the E6 kernel runs, fixed and resumed.** The first session
+  (10:42–12:01, 3.5 CPU-h) finished the primary, the baseline and the mean-only secondary and
+  2,200 of the 7,680 kernel runs, then stopped on a `DomainError` in the F1 sampler
+  (`stationary_mean_var`, src/init.jl) for QT1000-Possion3.0/Input-03628 (ω = 0.10): the
+  sampler's genic target was 2.8 times the spectrum's S, giving a negative variance for the
+  starting mean. Fixed in commit 9338698 for that case only (S taken at the target's V_G);
+  every case that did not throw is unchanged, so no row already in the caches is affected.
+  The second session (resumed from the caches, 3.0 CPU-h) ran the rest; the log is the
+  second session's, which reprinted every section from the caches. Verdicts were first seen
+  at the end of the second session.
+- The log's parenthesis after the CV diagnostic is loosely worded: the relative sampling
+  error of a CV estimated from 40 replicates is about 1/√80 ≈ 11% of the CV, so the kernel's
+  median CV of V_G (0.122) is genuinely about 1.8 times `vg_fluctuation`'s (0.071).
