@@ -75,6 +75,27 @@ All notable changes to QTLSim.jl are recorded here. The format follows
   V_G (1.03); the kernel's CV of V_G is 1.8 times `vg_fluctuation`'s (LD and linked sites are
   left out). Mean-only noise changes almost nothing. `:spectrum` with mean noise (R = 8) on
   the E6 inputs (no verdict): mean |f − P| 0.136 (primary 0.327), slope 0.16.
+- **A fresh validation of the emulator with `loci = :spectrum`** (roadmap F4; no code
+  change). `validate/emulator_spectrum.jl` under `validate/emulator_spectrum_criteria.md`
+  (committed before the script; amendment 1, before any result: E6′'s candidates come from a
+  new pool, because the parameter map had too few near-k50 inputs left), log
+  `validate/emulator_spectrum.log`, about 7.5 CPU-h. Disclosed: `:spectrum` was chosen after it
+  did better on earlier samples, and every input whose `:spectrum` result had been seen is
+  excluded (1191 inputs). Primary: deterministic `emulate(p; loci = :spectrum)`. On 2400 fresh
+  inputs (300 per stratum, seed 20261116): **E1 PASS** (AUC 0.977; `:rare_alleles` 0.953),
+  **E2 FAIL** (slope 0.26, top-decile gap 0.24; `:rare_alleles` 0.22 and 0.47), **E3 PASS**
+  (Spearman 0.952, median T ratio 1.000), **E4 FAIL** (x50 ratio 0.94–1.27, with 1000 loci and
+  u = 3 at 1.251 and 5000 loci and u = 3 at 1.268 outside [0.8, 1.25]; `:rare_alleles` 1.10–2.27).
+  **E6′ FAIL**, the independent test: 160 new inputs near the `:rare_alleles` k50, 40 fresh
+  kernel runs each (`init = :equilibrium`, burn-in 1000): the kernel is again near-binary (91 /
+  58 / 11 inputs with none / all / some alive). E6′a FAIL (top bin P2000 0.999 vs 0.711 alive),
+  E6′b FAIL (slope 0.16), E6′c threshold test FAIL (accuracy 0.838, AUC 0.859, both against
+  0.85; 25 inputs the emulator calls alive and the kernel dead, 1 the other way), E6′d FAIL
+  (x50 ratio 0.88–3.12 by stratum, pooled 1.66; 20 inputs per stratum give wide bootstrap
+  intervals). `:rare_alleles` on the same inputs: accuracy 0.638, pooled x50 ratio 3.38, mean
+  |f − P| 0.36 (`:spectrum` 0.17). Post hoc: on the E6′ inputs the published table agrees with
+  the kernel on 158 of 160, so near the threshold `:spectrum`'s k50 is still too high, despite
+  its E4 ratios near 1. The default stays `:rare_alleles` (the user's decision).
 - **Fixed** `stationary_mean_var` (F1 sampler): when the genic target exceeds twice the
   spectrum's S (narrow fitness width, e.g. published input QT1000-Possion3.0/Input-03628) it
   returned a negative variance and `equilibrium_genomes` threw a `DomainError`; S is now
