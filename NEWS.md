@@ -27,7 +27,13 @@ All notable changes to QTLSim.jl are recorded here. The format follows
   move; Barton's linked-selection term is kept unchanged (an LD-consistent replacement was
   worse). Default `:spectrum` output is bit for bit unchanged; `run_moments(…; VG)` with the
   option sets the genic variance. Pre-specified validation: `validate/spectrum_ld_criteria.md`,
-  `validate/spectrum_ld.jl`.
+  `validate/spectrum_ld.jl`. Results (`validate/spectrum_ld.log`; 160 held-out inputs near the
+  threshold, 40 fresh kernel runs each): **(a) PASS** (V_G at the move model/kernel median 1.000,
+  genic 1.016, LD/genic 1.009), **(b) PASS** (V_G at +100 1.027, +500 1.103, IQR to 1.375),
+  **(c)** E6′c PASS (accuracy 0.925, AUC 0.926; default `:spectrum` 0.863/0.870), pooled x50 ratio
+  1.068 PASS (default 1.366), per-stratum x50 FAIL (QT0100-5 0.72, QT5000-3 1.77); **(d)** on 800
+  fresh table inputs E1 PASS (0.983), E2 FAIL (slope 0.33; P2000 nearly binary), E3 PASS, E4 FAIL
+  (QT1000-5 0.79, QT5000-3 1.66; the default fails E4 in QT5000-3 too). Not a default.
 - **Parameters as an object, with sensitivities** (roadmap C3; `src/para.jl`).
   `QTLSim.Para(f, base, names)` sees a prediction `f(::Params)` as a function of the named
   `Float64` fields of `base` (integer, `Bool`, `Symbol` and array fields are an

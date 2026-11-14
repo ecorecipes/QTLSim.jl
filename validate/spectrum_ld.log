@@ -1,0 +1,307 @@
+validate/spectrum_ld.jl — the :spectrum closure with dynamic LD, under validate/spectrum_ld_criteria.md
+burn-in 2000, horizon 2000; 8 threads; 2026-11-14 13:41
+excluded inputs: 6097 (of which 710 from vignettes 09/11's table rows)
+H pool: k50 (:rare_alleles) of 800 inputs, 0 s wall this session
+H: 160 inputs (pool 800, MersenneTwister(20261121); picks MersenneTwister(20261122)); per stratum and bin 5/5/5/5, 5/5/5/5, 5/5/5/5, 4/5/5/5, 5/5/5/5, 5/5/5/5, 5/5/5/5, 5/5/5/5; per stratum 20, 20, 20, 20, 20, 20, 20, 20
+F: 800 inputs (100 per stratum, MersenneTwister(20261123)); overlap with H's pool 0
+
+== H: held-out inputs near the threshold, 40 fresh kernel runs each ==
+  kernel: 6400 runs, 0 s wall this session
+  kernel fraction alive at 2000: mean 0.4217; inputs with 0 alive 85, all alive 63, in between 12
+  emulations on H: 0 s wall this session
+
+  -- model under test: :spectrum, ld = :dynamic --
+    (a1) V_G at the move, model/kernel: median 1.000 (IQR 0.987–1.017; n 160; in [0.9, 1.1]) PASS
+    (a2) genic variance at the move, model (equilibrium)/kernel: median 1.016 (IQR 1.004–1.031; in [0.9, 1.1]) PASS
+    (a3) LD/genic, model/kernel, on the 89 inputs with kernel LD/genic ≤ −0.1: median 1.009 (IQR 0.962–1.042; in [0.8, 1.25]) PASS
+    (b) V_G at +100, model/kernel (kernel mean over ≥ 10 runs alive; model alive): median 1.027 (IQR 1.001–1.085; n 157; in [0.8, 1.25]) PASS
+    (b) V_G at +500, model/kernel (kernel mean over ≥ 10 runs alive; model alive): median 1.103 (IQR 1.004–1.375; n 118; in [0.8, 1.25]) PASS
+    (c) E6′'s statistics:
+    E6′a binned calibration
+       bin            inputs   mean P2000   kernel fraction   |diff|
+       [0.0, 0.1)       88       0.0000            0.0395   0.0395
+       [0.1, 0.3)        0
+       [0.3, 0.5)        0
+       [0.5, 0.7)        0
+       [0.7, 0.9)        0
+       [0.9, 1]         72       1.0000            0.8889   0.1111  outside
+     E6′a (|diff| ≤ 0.10 in every bin with ≥ 10 inputs): FAIL
+     E6′b calibration slope = 0.1914 (intercept -0.5678; in [0.8, 1.25]): FAIL
+    E6′c threshold test: kernel majority alive (f > 0.5) vs emulator P2000 > 0.5
+       emulator alive & kernel alive 64, emulator alive & kernel dead 8, emulator dead & kernel alive 4, both dead 84
+       accuracy 0.9250 (≥ 0.85), AUC(P2000; f > 0.5) 0.9255 (≥ 0.85), balanced accuracy 0.9271: PASS
+       by stratum (no verdict): 0100/3 0.95, 0100/5 0.85, 0500/3 1.00, 0500/5 1.00, 1000/3 0.95, 1000/5 0.90, 5000/3 0.80, 5000/5 0.95
+    E6′d x50 = d/√V_P by stratum (kernel: runs; emulator: P2000 as a fractional response)
+       stratum              n   x50 kernel (how)            x50 emulator (how)          ratio   (in [0.8, 1.25])   bootstrap 95%
+       QT0100-Possion3.0   20    0.18731 (regression)        0.16528 (regression)        0.882             [0.652, 1.000] (999 of 1000 defined)
+       QT0100-Possion5.0   20    0.24343 (regression)        0.17585 (regression)        0.722  outside    [0.247, 2.086] (972 of 1000 defined)
+       QT0500-Possion3.0   20    0.17822 (regression)        0.17822 (regression)        1.000             [1.000, 1.000] (1000 of 1000 defined)
+       QT0500-Possion5.0   20    0.19159 (regression)        0.19159 (regression)        1.000             [1.000, 1.000] (999 of 1000 defined)
+       QT1000-Possion3.0   20    0.15798 (regression)        0.18011 (regression)        1.140             [0.904, 1.743] (994 of 1000 defined)
+       QT1000-Possion5.0   20    0.09084 (regression)        0.10288 (regression)        1.133             [0.005, 3.175] (887 of 1000 defined)
+       QT5000-Possion3.0   20    0.11073 (regression)        0.19605 (regression)        1.770  outside    [1.032, 3.876] (998 of 1000 defined)
+       QT5000-Possion5.0   20    0.14976 (regression)        0.16245 (regression)        1.085             [0.996, 1.337] (1000 of 1000 defined)
+       pooled (no verdict) 160    0.16530 (regression)    0.17661 (regression)   ratio 1.068
+     E6′d (ratio in [0.8, 1.25] in every stratum): FAIL
+     mean |f − P2000| = 0.0717; Brier = 0.0717; binomial log-likelihood = -6197.5; AUC over runs = 0.9296; mean P2000 0.4500 vs kernel 0.4217
+     E6′: FAIL  (a FAIL, b FAIL, c PASS, d FAIL)
+    (c) pooled x50 ratio 1.068 (in [0.8, 1.25]) PASS
+
+  -- baseline: default :spectrum (no verdict) --
+    (a1) V_G at the move, model/kernel: median 1.097 (IQR 1.047–1.234; n 160; in [0.9, 1.1]) -
+    (a2) genic variance at the move, model (equilibrium)/kernel: median NaN (IQR NaN–NaN; in [0.9, 1.1]) -
+    (a3) LD/genic, model/kernel, on the 89 inputs with kernel LD/genic ≤ −0.1: median NaN (IQR NaN–NaN; in [0.8, 1.25]) -
+    (b) V_G at +100, model/kernel (kernel mean over ≥ 10 runs alive; model alive): median 1.180 (IQR 1.062–1.520; n 157; in [0.8, 1.25]) -
+    (b) V_G at +500, model/kernel (kernel mean over ≥ 10 runs alive; model alive): median 1.270 (IQR 1.065–1.817; n 119; in [0.8, 1.25]) -
+    E6′a binned calibration
+       bin            inputs   mean P2000   kernel fraction   |diff|
+       [0.0, 0.1)       76       0.0000            0.0312   0.0312
+       [0.1, 0.3)        0
+       [0.3, 0.5)        0
+       [0.5, 0.7)        0
+       [0.7, 0.9)        0
+       [0.9, 1]         84       1.0000            0.7750   0.2250  outside
+     E6′a (|diff| ≤ 0.10 in every bin with ≥ 10 inputs): (FAIL as a baseline)
+     E6′b calibration slope = 0.1690 (intercept -1.0986; in [0.8, 1.25]): (FAIL as a baseline)
+    E6′c threshold test: kernel majority alive (f > 0.5) vs emulator P2000 > 0.5
+       emulator alive & kernel alive 65, emulator alive & kernel dead 19, emulator dead & kernel alive 3, both dead 73
+       accuracy 0.8625 (≥ 0.85), AUC(P2000; f > 0.5) 0.8699 (≥ 0.85), balanced accuracy 0.8747: (PASS as a baseline)
+       by stratum (no verdict): 0100/3 1.00, 0100/5 0.85, 0500/3 0.90, 0500/5 0.95, 1000/3 0.80, 1000/5 0.80, 5000/3 0.70, 5000/5 0.90
+    E6′d x50 = d/√V_P by stratum (kernel: runs; emulator: P2000 as a fractional response)
+       stratum              n   x50 kernel (how)            x50 emulator (how)          ratio   (in [0.8, 1.25])   bootstrap 95%
+       QT0100-Possion3.0   20    0.18731 (regression)        0.18731 (regression)        1.000             [1.000, 1.000] (1000 of 1000 defined)
+       QT0100-Possion5.0   20    0.24343 (regression)        0.17585 (regression)        0.722  outside    [0.247, 2.086] (972 of 1000 defined)
+       QT0500-Possion3.0   20    0.17822 (regression)        0.29112 (regression)        1.634  outside    [0.940, 28.052] (974 of 1000 defined)
+       QT0500-Possion5.0   20    0.19159 (regression)        0.17367 (regression)        0.906             [0.023, 2.280] (859 of 1000 defined)
+       QT1000-Possion3.0   20    0.15798 (regression)        0.32505 (regression)        2.058  outside    [0.628, 143.782] (927 of 1000 defined)
+       QT1000-Possion5.0   20    0.09084 (regression)        0.21778 (regression)        2.397  outside    [1.046, 21.885] (986 of 1000 defined)
+       QT5000-Possion3.0   20    0.11073 (regression)        0.29583 (regression)        2.672  outside    [1.130, 53.978] (966 of 1000 defined)
+       QT5000-Possion5.0   20    0.14976 (regression)        0.18952 (regression)        1.265  outside    [1.000, 1.918] (1000 of 1000 defined)
+       pooled (no verdict) 160    0.16530 (regression)    0.22587 (regression)   ratio 1.366
+     E6′d (ratio in [0.8, 1.25] in every stratum): (FAIL as a baseline)
+     mean |f − P2000| = 0.1330; Brier = 0.1330; binomial log-likelihood = -11620.1; AUC over runs = 0.8755; mean P2000 0.5250 vs kernel 0.4217
+     E6′: (FAIL as a baseline)  (a (FAIL as a baseline), b (FAIL as a baseline), c (PASS as a baseline), d (FAIL as a baseline))
+
+  -- baseline: ldratio prototype (no verdict) --
+    (a1) V_G at the move, model/kernel: median 0.958 (IQR 0.862–0.990; n 160; in [0.9, 1.1]) -
+    (a2) genic variance at the move, model (equilibrium)/kernel: median NaN (IQR NaN–NaN; in [0.9, 1.1]) -
+    (a3) LD/genic, model/kernel, on the 89 inputs with kernel LD/genic ≤ −0.1: median NaN (IQR NaN–NaN; in [0.8, 1.25]) -
+    (b) V_G at +100, model/kernel (kernel mean over ≥ 10 runs alive; model alive): median 0.989 (IQR 0.949–1.015; n 146; in [0.8, 1.25]) -
+    (b) V_G at +500, model/kernel (kernel mean over ≥ 10 runs alive; model alive): median 1.052 (IQR 0.880–1.246; n 110; in [0.8, 1.25]) -
+    E6′a binned calibration
+       bin            inputs   mean P2000   kernel fraction   |diff|
+       [0.0, 0.1)      104       0.0000            0.1483   0.1483  outside
+       [0.1, 0.3)        0
+       [0.3, 0.5)        0
+       [0.5, 0.7)        0
+       [0.7, 0.9)        0
+       [0.9, 1]         56       0.9997            0.9295   0.0702
+     E6′a (|diff| ≤ 0.10 in every bin with ≥ 10 inputs): (FAIL as a baseline)
+     E6′b calibration slope = 0.1573 (intercept 0.4321; in [0.8, 1.25]): (FAIL as a baseline)
+    E6′c threshold test: kernel majority alive (f > 0.5) vs emulator P2000 > 0.5
+       emulator alive & kernel alive 52, emulator alive & kernel dead 4, emulator dead & kernel alive 16, both dead 88
+       accuracy 0.8750 (≥ 0.85), AUC(P2000; f > 0.5) 0.8593 (≥ 0.85), balanced accuracy 0.8606: (PASS as a baseline)
+       by stratum (no verdict): 0100/3 0.90, 0100/5 0.65, 0500/3 1.00, 0500/5 0.75, 1000/3 1.00, 1000/5 0.90, 5000/3 0.85, 5000/5 0.95
+    E6′d x50 = d/√V_P by stratum (kernel: runs; emulator: P2000 as a fractional response)
+       stratum              n   x50 kernel (how)            x50 emulator (how)          ratio   (in [0.8, 1.25])   bootstrap 95%
+       QT0100-Possion3.0   20    0.18731 (regression)        0.14155 (regression)        0.756  outside    [0.446, 1.000] (1000 of 1000 defined)
+       QT0100-Possion5.0   20    0.24343 (regression)        0.09567 (regression)        0.393  outside    [0.119, 0.680] (997 of 1000 defined)
+       QT0500-Possion3.0   20    0.17822 (regression)        0.17800 (regression)        0.999             [0.975, 1.011] (1000 of 1000 defined)
+       QT0500-Possion5.0   20    0.19159 (regression)        0.09427 (regression)        0.492  outside    [0.312, 1.385] (877 of 1000 defined)
+       QT1000-Possion3.0   20    0.15798 (regression)        0.15361 (regression)        0.972             [0.814, 1.000] (996 of 1000 defined)
+       QT1000-Possion5.0   20    0.09084 (regression)        0.07357 (regression)        0.810             [0.520, 2.273] (986 of 1000 defined)
+       QT5000-Possion3.0   20    0.11073 (regression)        0.17303 (regression)        1.563  outside    [1.000, 2.920] (998 of 1000 defined)
+       QT5000-Possion5.0   20    0.14976 (regression)        0.16245 (regression)        1.085             [0.996, 1.337] (1000 of 1000 defined)
+       pooled (no verdict) 160    0.16530 (regression)    0.13780 (regression)   ratio 0.834
+     E6′d (ratio in [0.8, 1.25] in every stratum): (FAIL as a baseline)
+     mean |f − P2000| = 0.1212; Brier = 0.1211; binomial log-likelihood = -10570.8; AUC over runs = 0.8631; mean P2000 0.3499 vs kernel 0.4217
+     E6′: (FAIL as a baseline)  (a (FAIL as a baseline), b (FAIL as a baseline), c (PASS as a baseline), d (FAIL as a baseline))
+
+  -- baseline: :rare_alleles, deterministic (no verdict) --
+    E6′a binned calibration
+       bin            inputs   mean P2000   kernel fraction   |diff|
+       [0.0, 0.1)       41       0.0000            0.0732   0.0732
+       [0.1, 0.3)        0
+       [0.3, 0.5)        0
+       [0.5, 0.7)        0
+       [0.7, 0.9)        0
+       [0.9, 1]        119       1.0000            0.5418   0.4582  outside
+     E6′a (|diff| ≤ 0.10 in every bin with ≥ 10 inputs): (FAIL as a baseline)
+     E6′b calibration slope = 0.0987 (intercept -1.1926; in [0.8, 1.25]): (FAIL as a baseline)
+    E6′c threshold test: kernel majority alive (f > 0.5) vs emulator P2000 > 0.5
+       emulator alive & kernel alive 65, emulator alive & kernel dead 54, emulator dead & kernel alive 3, both dead 38
+       accuracy 0.6438 (≥ 0.85), AUC(P2000; f > 0.5) 0.6949 (≥ 0.85), balanced accuracy 0.6845: (FAIL as a baseline)
+       by stratum (no verdict): 0100/3 0.70, 0100/5 0.75, 0500/3 0.75, 0500/5 0.65, 1000/3 0.60, 1000/5 0.55, 5000/3 0.50, 5000/5 0.65
+    E6′d x50 = d/√V_P by stratum (kernel: runs; emulator: P2000 as a fractional response)
+       stratum              n   x50 kernel (how)            x50 emulator (how)          ratio   (in [0.8, 1.25])   bootstrap 95%
+       QT0100-Possion3.0   20    0.18731 (regression)        0.30024 (regression)        1.603  outside    [0.914, 2.585] (999 of 1000 defined)
+       QT0100-Possion5.0   20    0.24343 (regression)        0.28407 (regression)        1.167             [0.393, 2.152] (995 of 1000 defined)
+       QT0500-Possion3.0   20    0.17822 (regression)        0.68340 (regression)        3.835  outside    [1.199, 88888.629] (962 of 1000 defined)
+       QT0500-Possion5.0   20    0.19159 (regression)        0.40536 (regression)        2.116  outside    [1.208, 11.614] (997 of 1000 defined)
+       QT1000-Possion3.0   20    0.15798 (regression)        0.63362 (regression)        4.011  outside    [1.491, 105.493] (995 of 1000 defined)
+       QT1000-Possion5.0   20    0.09084 (regression)        1.22745 (regression)       13.513  outside    [2.235, 9448390.110] (927 of 1000 defined)
+       QT5000-Possion3.0   20    0.11073 (regression)        1.63074 (regression)       14.727  outside    [2.790, 134319120.729] (810 of 1000 defined)
+       QT5000-Possion5.0   20    0.14976 (regression)        0.73378 (regression)        4.900  outside    [1.519, 35119.668] (905 of 1000 defined)
+       pooled (no verdict) 160    0.16530 (regression)    0.52026 (regression)   ratio 3.147
+     E6′d (ratio in [0.8, 1.25] in every stratum): (FAIL as a baseline)
+     mean |f − P2000| = 0.3595; Brier = 0.3595; binomial log-likelihood = -31537.3; AUC over runs = 0.6934; mean P2000 0.7437 vs kernel 0.4217
+     E6′: (FAIL as a baseline)  (a (FAIL as a baseline), b (FAIL as a baseline), c (FAIL as a baseline), d (FAIL as a baseline))
+
+== C: the diagnosis's confirmation set (13 inputs; kernel runs already seen; reported separately) ==
+  -- ld --
+    (a1) V_G at the move, model/kernel: median 0.995 (IQR 0.982–1.009; n 13; in [0.9, 1.1]) -
+    (a2) genic variance at the move, model (equilibrium)/kernel: median 1.031 (IQR 1.014–1.047; in [0.9, 1.1]) -
+    (a3) LD/genic, model/kernel, on the 12 inputs with kernel LD/genic ≤ −0.1: median 1.016 (IQR 0.977–1.038; in [0.8, 1.25]) -
+    (b) V_G at +100, model/kernel (kernel mean over ≥ 10 runs alive; model alive): median 1.231 (IQR 1.070–1.427; n 13; in [0.8, 1.25]) -
+    (b) V_G at +500, model/kernel (kernel mean over ≥ 10 runs alive; model alive): median 2.364 (IQR 2.007–2.822; n 5; in [0.8, 1.25]) -
+    threshold calls: accuracy 0.692 (emulator alive & kernel dead 4, emulator dead & kernel alive 0)
+  -- spectrum --
+    (a1) V_G at the move, model/kernel: median 1.483 (IQR 1.215–1.703; n 13; in [0.9, 1.1]) -
+    (a2) genic variance at the move, model (equilibrium)/kernel: median NaN (IQR NaN–NaN; in [0.9, 1.1]) -
+    (a3) LD/genic, model/kernel, on the 12 inputs with kernel LD/genic ≤ −0.1: median NaN (IQR NaN–NaN; in [0.8, 1.25]) -
+    (b) V_G at +100, model/kernel (kernel mean over ≥ 10 runs alive; model alive): median 1.983 (IQR 1.574–2.704; n 13; in [0.8, 1.25]) -
+    (b) V_G at +500, model/kernel (kernel mean over ≥ 10 runs alive; model alive): median 3.563 (IQR 3.182–4.440; n 5; in [0.8, 1.25]) -
+    threshold calls: accuracy 0.000 (emulator alive & kernel dead 13, emulator dead & kernel alive 0)
+  -- ldratio --
+    (a1) V_G at the move, model/kernel: median 0.828 (IQR 0.660–0.891; n 13; in [0.9, 1.1]) -
+    (a2) genic variance at the move, model (equilibrium)/kernel: median NaN (IQR NaN–NaN; in [0.9, 1.1]) -
+    (a3) LD/genic, model/kernel, on the 12 inputs with kernel LD/genic ≤ −0.1: median NaN (IQR NaN–NaN; in [0.8, 1.25]) -
+    (b) V_G at +100, model/kernel (kernel mean over ≥ 10 runs alive; model alive): median 0.982 (IQR 0.934–1.052; n 11; in [0.8, 1.25]) -
+    (b) V_G at +500, model/kernel (kernel mean over ≥ 10 runs alive; model alive): median 1.868 (IQR 1.327–2.115; n 5; in [0.8, 1.25]) -
+    threshold calls: accuracy 1.000 (emulator alive & kernel dead 0, emulator dead & kernel alive 0)
+
+== (d) F: E1–E4 of validate/emulator_criteria.md on 800 fresh table inputs ==
+  emulations on F: 5544 s wall this session
+
+  -- model under test: ld = :dynamic --
+  n = 800; observed alive at 2000: 66 (8.25%); survived 240,000: 40; mean P2000 = 0.08387; P2000 exactly 0: 731, exactly 1: 61, in (0.01, 0.99): 1
+  E1 discrimination: AUC(P2000; alive at 2000) = 0.9826 (≥ 0.85)  PASS
+       QT0100-Possion3.0  n =    100  alive     10  AUC = 1.0000 (≥ 0.80)
+       QT0100-Possion5.0  n =    100  alive      7  AUC = 1.0000 (≥ 0.80)
+       QT0500-Possion3.0  n =    100  alive     13  AUC = 0.9938 (≥ 0.80)
+       QT0500-Possion5.0  n =    100  alive      8  AUC = 1.0000 (≥ 0.80)
+       QT1000-Possion3.0  n =    100  alive      8  AUC = 1.0000 (≥ 0.80)
+       QT1000-Possion5.0  n =    100  alive      8  AUC = 0.9361 (≥ 0.80)
+       QT5000-Possion3.0  n =    100  alive      3  AUC = 0.9897 (≥ 0.80)
+       QT5000-Possion5.0  n =    100  alive      9  AUC = 0.9444 (≥ 0.80)
+  E2 calibration: deciles of P2000 (ties broken by input order)
+       decile     n   mean P2000   observed   |diff|
+            1     80       0.0000     0.0000   0.0000
+            2     80       0.0000     0.0000   0.0000
+            3     80       0.0000     0.0000   0.0000
+            4     80       0.0000     0.0000   0.0000
+            5     80       0.0000     0.0000   0.0000
+            6     80       0.0000     0.0125   0.0125
+            7     80       0.0000     0.0000   0.0000
+            8     80       0.0000     0.0000   0.0000
+            9     80       0.0000     0.0125   0.0125
+           10     80       0.8387     0.8000   0.0387
+     largest |observed − mean P2000| = 0.0387 (≤ 0.10); calibration slope = 0.3261, intercept -1.4079 (in [0.8, 1.25])  FAIL
+  E3 timing: 731 of 734 inputs extinct within 2000 in the table have a predicted T; Spearman = 0.9876 (≥ 0.7), median T_pred/T_obs = 0.9895 (IQR 0.954–1.020; in [0.8, 1.25])  PASS
+  E4 half-survival rate x50 = d/√V_P (logistic regression on log rate), per stratum
+       stratum                n   x50 table   x50 emulator   ratio   (in [0.8, 1.25])   bootstrap 95%     table x50, whole stratum
+       QT0100-Possion3.0     100     0.16013        0.16013   1.000             [0.996, 1.015]   0.13862
+       QT0100-Possion5.0     100     0.14564        0.14564   1.000             [0.909, 1.097]   0.13129
+       QT0500-Possion3.0     100     0.18088        0.18833   1.041             [0.988, 1.182]   0.13230
+       QT0500-Possion5.0     100     0.09839        0.09839   1.000             [1.000, 1.000]   0.12398  (a regression did not converge)
+       QT1000-Possion3.0     100     0.12964        0.12964   1.000             [1.000, 1.000]   0.12900
+       QT1000-Possion5.0     100     0.10470        0.08308   0.794  outside    [0.478, 1.309]   0.12110
+       QT5000-Possion3.0     100     0.05967        0.09924   1.663  outside    [1.000, 3.411]   0.11984  (a regression did not converge)
+       QT5000-Possion5.0     100     0.12531        0.10913   0.871             [0.629, 1.004]   0.11368
+     E4: FAIL
+  E5 (exploratory) AUC(P240k; survived 240,000) = 0.4789; mean P240k NaN vs observed survival 0.0500
+
+  -- baseline: default :spectrum --
+  n = 800; observed alive at 2000: 66 (8.25%); survived 240,000: 40; mean P2000 = 0.09375; P2000 exactly 0: 724, exactly 1: 68, in (0.01, 0.99): 0
+  E1 discrimination: AUC(P2000; alive at 2000) = 0.9849 (≥ 0.85)  (PASS as a baseline)
+       QT0100-Possion3.0  n =    100  alive     10  AUC = 0.9933 (≥ 0.80)
+       QT0100-Possion5.0  n =    100  alive      7  AUC = 1.0000 (≥ 0.80)
+       QT0500-Possion3.0  n =    100  alive     13  AUC = 0.9814 (≥ 0.80)
+       QT0500-Possion5.0  n =    100  alive      8  AUC = 0.9946 (≥ 0.80)
+       QT1000-Possion3.0  n =    100  alive      8  AUC = 1.0000 (≥ 0.80)
+       QT1000-Possion5.0  n =    100  alive      8  AUC = 0.9260 (≥ 0.80)
+       QT5000-Possion3.0  n =    100  alive      3  AUC = 0.9897 (≥ 0.80)
+       QT5000-Possion5.0  n =    100  alive      9  AUC = 0.9933 (≥ 0.80)
+  E2 calibration: deciles of P2000 (ties broken by input order)
+       decile     n   mean P2000   observed   |diff|
+            1     80       0.0000     0.0000   0.0000
+            2     80       0.0000     0.0000   0.0000
+            3     80       0.0000     0.0000   0.0000
+            4     80       0.0000     0.0000   0.0000
+            5     80       0.0000     0.0000   0.0000
+            6     80       0.0000     0.0125   0.0125
+            7     80       0.0000     0.0000   0.0000
+            8     80       0.0000     0.0000   0.0000
+            9     80       0.0000     0.0000   0.0000
+           10     80       0.9375     0.8125   0.1250
+     largest |observed − mean P2000| = 0.1250 (≤ 0.10); calibration slope = 0.3053, intercept -2.3298 (in [0.8, 1.25])  (FAIL as a baseline)
+  E3 timing: 724 of 734 inputs extinct within 2000 in the table have a predicted T; Spearman = 0.9379 (≥ 0.7), median T_pred/T_obs = 1.0000 (IQR 0.975–1.050; in [0.8, 1.25])  (PASS as a baseline)
+  E4 half-survival rate x50 = d/√V_P (logistic regression on log rate), per stratum
+       stratum                n   x50 table   x50 emulator   ratio   (in [0.8, 1.25])   bootstrap 95%     table x50, whole stratum
+       QT0100-Possion3.0     100     0.16013        0.16504   1.031             [0.965, 1.186]   0.13862
+       QT0100-Possion5.0     100     0.14564        0.14564   1.000             [0.945, 1.099]   0.13129
+       QT0500-Possion3.0     100     0.18088        0.19565   1.082             [0.902, 1.310]   0.13230
+       QT0500-Possion5.0     100     0.09839        0.10371   1.054             [0.779, 1.423]   0.12398  (a regression did not converge)
+       QT1000-Possion3.0     100     0.12964        0.12964   1.000             [1.000, 1.000]   0.12900
+       QT1000-Possion5.0     100     0.10470        0.10199   0.974             [0.530, 1.884]   0.12110
+       QT5000-Possion3.0     100     0.05967        0.09924   1.663  outside    [1.000, 3.411]   0.11984  (a regression did not converge)
+       QT5000-Possion5.0     100     0.12531        0.12460   0.994             [0.778, 1.264]   0.11368
+     E4: (FAIL as a baseline)
+  E5 (exploratory) AUC(P240k; survived 240,000) = 0.4789; mean P240k NaN vs observed survival 0.0500
+
+  -- baseline: :rare_alleles --
+  n = 800; observed alive at 2000: 66 (8.25%); survived 240,000: 40; mean P2000 = 0.1082; P2000 exactly 0: 712, exactly 1: 85, in (0.01, 0.99): 1
+  E1 discrimination: AUC(P2000; alive at 2000) = 0.9696 (≥ 0.85)  (PASS as a baseline)
+       QT0100-Possion3.0  n =    100  alive     10  AUC = 0.8939 (≥ 0.80)
+       QT0100-Possion5.0  n =    100  alive      7  AUC = 0.9946 (≥ 0.80)
+       QT0500-Possion3.0  n =    100  alive     13  AUC = 0.9828 (≥ 0.80)
+       QT0500-Possion5.0  n =    100  alive      8  AUC = 0.9891 (≥ 0.80)
+       QT1000-Possion3.0  n =    100  alive      8  AUC = 0.9783 (≥ 0.80)
+       QT1000-Possion5.0  n =    100  alive      8  AUC = 0.9837 (≥ 0.80)
+       QT5000-Possion3.0  n =    100  alive      3  AUC = 0.9794 (≥ 0.80)
+       QT5000-Possion5.0  n =    100  alive      9  AUC = 0.9780 (≥ 0.80)
+  E2 calibration: deciles of P2000 (ties broken by input order)
+       decile     n   mean P2000   observed   |diff|
+            1     80       0.0000     0.0250   0.0250
+            2     80       0.0000     0.0000   0.0000
+            3     80       0.0000     0.0000   0.0000
+            4     80       0.0000     0.0000   0.0000
+            5     80       0.0000     0.0000   0.0000
+            6     80       0.0000     0.0000   0.0000
+            7     80       0.0000     0.0000   0.0000
+            8     80       0.0000     0.0000   0.0000
+            9     80       0.0817     0.0625   0.0192
+           10     80       1.0000     0.7375   0.2625
+     largest |observed − mean P2000| = 0.2625 (≤ 0.10); calibration slope = 0.2519, intercept -2.4149 (in [0.8, 1.25])  (FAIL as a baseline)
+  E3 timing: 711 of 734 inputs extinct within 2000 in the table have a predicted T; Spearman = 0.9497 (≥ 0.7), median T_pred/T_obs = 1.0561 (IQR 1.006–1.164; in [0.8, 1.25])  (PASS as a baseline)
+  E4 half-survival rate x50 = d/√V_P (logistic regression on log rate), per stratum
+       stratum                n   x50 table   x50 emulator   ratio   (in [0.8, 1.25])   bootstrap 95%     table x50, whole stratum
+       QT0100-Possion3.0     100     0.16013        0.15387   0.961             [0.651, 1.357]   0.13862
+       QT0100-Possion5.0     100     0.14564        0.16877   1.159             [1.000, 2.136]   0.13129
+       QT0500-Possion3.0     100     0.18088        0.19565   1.082             [0.902, 1.310]   0.13230
+       QT0500-Possion5.0     100     0.09839        0.13997   1.423  outside    [1.000, 2.645]   0.12398  (a regression did not converge)
+       QT1000-Possion3.0     100     0.12964        0.17287   1.334  outside    [1.008, 1.876]   0.12900
+       QT1000-Possion5.0     100     0.10470        0.16448   1.571  outside    [1.051, 2.717]   0.12110
+       QT5000-Possion3.0     100     0.05967        0.14445   2.421  outside    [1.368, 4.693]   0.11984  (a regression did not converge)
+       QT5000-Possion5.0     100     0.12531        0.17012   1.358  outside    [0.931, 2.205]   0.11368
+     E4: (FAIL as a baseline)
+  E5 (exploratory) AUC(P240k; survived 240,000) = 0.9440; mean P240k 0.1075 vs observed survival 0.0500
+
+VERDICTS (ld = :dynamic): (a) PASS (a1 PASS, a2 PASS, a3 PASS); (b) PASS (+100 PASS, +500 PASS); (c) E6′c PASS, x50 per stratum FAIL, pooled x50 PASS; (d) E1 PASS, E2 FAIL, E3 PASS, E4 FAIL
+total 94 min wall this session
+
+Run record (added by hand, 2026-11-14). Three invocations, all with the same committed model code
+(64023a0) and criteria (5b669bb, amendment 1 in 3e34189); every number above comes from the
+resumable caches, so the three agree wherever they printed:
+- run 1: kernel (6400 runs, 2683 s wall) and H's emulations (463 s) computed and cached, then the
+  script stopped at the first report line (UndefVarError: `pf`, a helper of the included module,
+  not defined in Main) before printing any held-out statistic. 17,007 s user (4.7 CPU-h).
+- run 2 (fix: define `pf`): printed H's (a), (b) and pooled x50 for ld = :dynamic (the values
+  above), then stopped in the baselines' report (`quantile` of an empty vector: the baselines have
+  no equilibrium genic variance), and E6′'s tables had gone to stdout instead of this log
+  (the included module's own log handle). 46 s.
+- run 3 (fixes: empty-safe quantiles; the module's log pointed at this file): complete, the log
+  above. C's and F's emulations computed here (F 5544 s wall on 8 threads, on a machine shared
+  with other jobs; about 94 min wall in all).
+Both fixes are to reporting only; no model, sample, threshold or test changed, and nothing was
+tuned after any result.

@@ -35,6 +35,7 @@ lsayf(fmt, args...) = lsay(Printf.format(Printf.Format(fmt), args...))
 lcache(name) = joinpath(HERE, name)
 const LRUNS = lcache("spectrum_ld_runs.csv")
 inv_(f) = Base.invokelatest(f)
+pf(b) = b ? "PASS" : "FAIL"
 
 # --- exclusions ---------------------------------------------------------------------------
 function all_exclusions(ids, ps, strat, tab, rows)
@@ -181,6 +182,7 @@ ra_sweep(tag, ix, ids, ps) = emulate_sweep(ps[ix]; ids = ["$tag|" * x for x in i
 
 # --- (a) and (b) ----------------------------------------------------------------------------
 med(v) = (u = filter(isfinite, v); isempty(u) ? NaN : median(u))
+qq(v, q) = (u = filter(isfinite, v); isempty(u) ? NaN : quantile(u, q))
 inband(x, lo, hi) = isfinite(x) && lo <= x <= hi
 function ab_tests(label, K, E; verdict = true)
     # K: per input (VGpre, genicpre, VG100, VG100n, VG500, VG500n); E: em_job results (model under test)
@@ -193,11 +195,11 @@ function ab_tests(label, K, E; verdict = true)
     a1 = inband(med(rv), 0.9, 1.1); a2 = inband(med(rg), 0.9, 1.1); a3 = inband(med(rl), 0.8, 1.25)
     v(b) = verdict ? pf(b) : "-"
     lsayf("    (a1) V_G at the move, model/kernel: median %.3f (IQR %.3f–%.3f; n %d; in [0.9, 1.1]) %s",
-          med(rv), quantile(filter(isfinite, rv), 0.25), quantile(filter(isfinite, rv), 0.75), count(isfinite, rv), v(a1))
+          med(rv), qq(rv, 0.25), qq(rv, 0.75), count(isfinite, rv), v(a1))
     lsayf("    (a2) genic variance at the move, model (equilibrium)/kernel: median %.3f (IQR %.3f–%.3f; in [0.9, 1.1]) %s",
-          med(rg), quantile(filter(isfinite, rg), 0.25), quantile(filter(isfinite, rg), 0.75), v(a2))
+          med(rg), qq(rg, 0.25), qq(rg, 0.75), v(a2))
     lsayf("    (a3) LD/genic, model/kernel, on the %d inputs with kernel LD/genic ≤ −0.1: median %.3f (IQR %.3f–%.3f; in [0.8, 1.25]) %s",
-          length(sel), med(rl), isempty(rl) ? NaN : quantile(rl, 0.25), isempty(rl) ? NaN : quantile(rl, 0.75), v(a3))
+          length(sel), med(rl), qq(rl, 0.25), qq(rl, 0.75), v(a3))
     b = Bool[]
     for (t, f, fn) in ((100, :VG100, :n100), (500, :VG500, :n500))
         ok = [i for i in eachindex(K) if getfield(K[i], fn) >= 10 && isfinite(getfield(E[i], f))]
@@ -244,7 +246,7 @@ function main()
     find = inv_(() -> M6.row_index(tab))
     rows = [find(M6.STRATA[strat[i]][2], M6.STRATA[strat[i]][3], ps[i]) for i in eachindex(ps)]
     ex, nv = all_exclusions(ids, ps, strat, tab, rows)
-    LMODE in ("select", "pilot") || (LLOG[] = open(joinpath(HERE, "spectrum_ld.log"), "w"))
+    LMODE in ("select", "pilot") || (LLOG[] = open(joinpath(HERE, "spectrum_ld.log"), "w"); M6.LOG[] = LLOG[])
     lsay("validate/spectrum_ld.jl — the :spectrum closure with dynamic LD, under validate/spectrum_ld_criteria.md")
     lsay("burn-in $BURNIN, horizon $HORIZON; $(Threads.nthreads()) threads; ", Libc.strftime("%Y-%m-%d %H:%M", time()))
     lsay("excluded inputs: $(length(ex)) (of which $nv from vignettes 09/11's table rows)")

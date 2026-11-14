@@ -113,3 +113,10 @@ recorded here before any held-out result.
    the same MersenneTwister(20261123) permutation (800 inputs), and F's emulations skip
    `spectrum_equilibrium` (its genic variance and LD are used by (a) only, on H). Nothing else
    changes.
+2. **2026-11-14, after held-out results (disclosure, no change to the tests).** Two
+   reporting bugs in validate/spectrum_ld.jl were fixed between runs (an undefined helper,
+   and `quantile` of an empty vector in the baselines, which have no equilibrium genic
+   variance); E6′'s tables were redirected into validate/spectrum_ld.log. The run record at
+   the end of the log lists the three invocations; all numbers come from the same caches.
+   The budget was exceeded: F's emulations took far longer than the pilot predicted (see the
+   run record).
