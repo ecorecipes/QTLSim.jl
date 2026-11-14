@@ -83,7 +83,7 @@ deciles equal-count with ties broken by input order).
 
 ## E6′: a new independent test against fresh kernel simulations
 
-**Inputs (160).** Chosen without looking at any table outcome, from the 2000 inputs of the
+**Inputs (160).** (Candidate source changed by amendment 1, before any result.) Chosen without looking at any table outcome, from the 2000 inputs of the
 first run's parameter map (`validate/emulator_map.csv`, uniform sample of seed 20261114, which
 holds each input's deterministic `:rare_alleles` k50), excluding the excluded inputs above and
 the 2400 inputs of the E1–E4 sample. Let r = MoveFitnessSD/k50. Candidates: finite positive
@@ -136,4 +136,24 @@ About 10 CPU-hours, on 8 threads: 2400 × 4.4 s (`:spectrum`) ≈ 2.9 h, 6400 ke
 
 ## Amendments
 
-(none)
+1. **2026-11-13, after writing the script and running only its `select` mode (sample sizes and
+   counts per bin, no emulation, no kernel run, no table outcome), BEFORE any result: the
+   source of E6′'s candidates.** After the exclusions the parameter map has only 101 inputs
+   with 0.3 ≤ r ≤ 1.5 (8, 8, 9, 9, 14, 13, 20, 20 per stratum; most near-k50 inputs of the map
+   were taken by E6), so 160 cannot be drawn from it. Instead, the candidates come from a new
+   pool, with the same k50 (deterministic `:rare_alleles`, `emulated_half_survival_rate` with
+   its defaults, as the map) and the same rule afterwards:
+   - In each stratum, the eligible inputs (not excluded, not in the E1–E4 sample), in input
+     order, are permuted with one `MersenneTwister(20261117)` used in turn for the strata;
+     walking the permutation, an input enters the pool if its MoveFitnessSD/kc lies in
+     [0.3, 3.0], kc = `drift_critical_rate(p).k` (a prefilter; on the map 47% of such inputs
+     have r in [0.3, 1.5], against 14% of all); the first **150** per stratum enter the pool.
+   - k50 is computed for the 1200 pool inputs (about 2 s each; cache
+     `validate/emulator_spectrum_pool.csv`); candidates are pool inputs with finite positive
+     k50 and 0.3 ≤ r ≤ 1.5; then the bins, 5 per bin, the filling rule, 20 per stratum and
+     160 in all, as above, with a second generator `MersenneTwister(20261118)` used in turn for
+     the strata and bins (candidates sorted by input id).
+   The map is no longer used (about 0.7 CPU-hours added to the budget). The pool's k50 is a
+   selection quantity of the baseline closure, computed in the script's `select` mode before
+   the run; it involves no table outcome and no `:spectrum` emulation. Kernel runs, seeds,
+   statistics and thresholds are unchanged.
