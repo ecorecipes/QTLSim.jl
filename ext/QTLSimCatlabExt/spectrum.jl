@@ -34,5 +34,5 @@ end
 
 cov_reproduce!(m::Moments, sp::QTLSim.AlleleSpectrum, npar) = (QTLSim.spectrum_step!(sp, npar); m)
 cov_mutate!(m::Moments, sp::QTLSim.AlleleSpectrum, Vm) = (QTLSim.spectrum_mutate!(sp, m.Noff); m)
-cov_vpop(m::Moments, sp::QTLSim.AlleleSpectrum) = QTLSim.spectrum_vg(sp)
+cov_vpop(m::Moments, sp::QTLSim.AlleleSpectrum) = sp.ldratio * QTLSim.spectrum_vg(sp)
 cov_drift(::QTLSim.AlleleSpectrum) = true

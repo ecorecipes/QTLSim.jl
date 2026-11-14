@@ -14,3 +14,4 @@ validate/slim/Manifest-v*.toml
 validate/demography_sweep/
 validate/symbolic/Manifest.toml
 validate/symbolic/Manifest-v*.toml
+/validate/spectrum_diagnosis_raw/
