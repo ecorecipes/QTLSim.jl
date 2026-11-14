@@ -8,6 +8,26 @@ All notable changes to QTLSim.jl are recorded here. The format follows
 
 ### Added
 
+- **Dynamic linkage disequilibrium in the `:spectrum` closure** (off by default;
+  `spectrum = (; ld = :dynamic)` in `run_moments`, `emulate`, `emulated_half_survival_rate`,
+  `spectrum_equilibrium`). `V_G` = the spectrum's genic variance + `D_t`, the LD of classes of
+  pairs of distinct loci by position bins (`ldbins = 20`) and split probability under
+  `CrossoverModel` (`QTLSim.ld_classes`, `QTLSim.LDClasses`), one generation
+  `d_c ← (1 − 1/(2n))[(1 − ρ_c)(1 + 2γ)d_c − ω_c β_a β_b g²/(2S)]` (Bulmer's generation with each
+  bin's regression `β_b` of the genotype on its loci, recombination, drift, and `γ` the sites'
+  turnover; `QTLSim.spectrum_ld_step!`); each site's directional selection is scaled by
+  `V_G/genic` (response `V_G λ/S`) and its stabilising selection by the bins' mean `β²`. Nothing
+  fitted. Without drift, one bin and in the infinitesimal limit the fixed point is the
+  multilocus model's (tested). Development (`validate/spectrum_ld_dev.jl`, `.log`): the
+  multilocus model's LD is too strong mainly because it gives every pair the mean locus
+  covariance with the genotype, while under QTSim's lowest-point crossover the tight pairs sit
+  toward the chromosome's end, where that covariance is reduced by their own LD; resolving LD by
+  position puts V_G/genic at the move at 0.997 of the kernel's (median, discovery inputs; mean
+  field 0.914). The option does not explain the kernel's early fall of the genic variance under a
+  move; Barton's linked-selection term is kept unchanged (an LD-consistent replacement was
+  worse). Default `:spectrum` output is bit for bit unchanged; `run_moments(…; VG)` with the
+  option sets the genic variance. Pre-specified validation: `validate/spectrum_ld_criteria.md`,
+  `validate/spectrum_ld.jl`.
 - **Parameters as an object, with sensitivities** (roadmap C3; `src/para.jl`).
   `QTLSim.Para(f, base, names)` sees a prediction `f(::Params)` as a function of the named
   `Float64` fields of `base` (integer, `Bool`, `Symbol` and array fields are an

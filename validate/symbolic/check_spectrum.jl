@@ -21,7 +21,11 @@
 #     whatever λ, so the sweeps hold 2N_e V_m;
 # (e) Barton's linked-selection factor N/N_e = 1 + b²V_G Σ_c ω_c/(2(ρ_c + δ)²);
 # (f) numerical spot checks of spectrum_seff, spectrum_select, spectrum_vg, spectrum_linked,
-#     spectrum_mutate!, the Gauss–Hermite effects and spectrum_equilibrium.
+#     spectrum_mutate!, the Gauss–Hermite effects and spectrum_equilibrium;
+# (g) the dynamic LD (`ld = :dynamic`): the class recursion's fixed point (Bulmer's with no drift),
+#     its derivation from the haplotype moments, D' w̄² = D(1 + s)(1 + t) and Δln D = Δln p_Aq_A +
+#     Δln p_Bq_B, the bins' Σ m_b β_b = V_G/g, and spot checks of ld_classes, _ld_betas!,
+#     spectrum_ld_step!, spectrum_select and spectrum_equilibrium.
 
 include("common.jl")
 
@@ -200,6 +204,89 @@ function main()
         check(@sprintf("neutral, N = %d: spectrum_vg·(N−1)/N = (2N − 1/(2N))V_m (ratio %.6f)", N0, v * (N0 - 1) / N0 / ((2N0 - 1 / (2N0)) * Vm0)),
               isapprox(v * (N0 - 1) / N0, (2N0 - 1 / (2N0)) * Vm0; rtol = 1e-4))
     end
+
+    # ===================================================================================
+    say("\n(g) dynamic linkage disequilibrium (spectrum = (; ld = :dynamic))")
+    @variables dc ρc ωc Vv Sv nn γv gg Ff x1 x2 x3 x4 sA tB
+    # one class: d' = dr[(1 − ρ)(1 + 2γ) d − ω V²/(2S)]; fixed point
+    dr = 1 - 1 / (2nn)
+    stepd(d) = dr * ((1 - ρc) * (1 + 2γv) * d - ωc * Vv^2 / (2Sv))
+    dstar = -dr * ωc * Vv^2 / (2Sv) / (1 - dr * (1 - ρc) * (1 + 2γv))
+    check("LD fixed point d* = −dr ω V²/(2S)/(1 − dr(1 − ρ)(1 + 2γ)), exactly", iszero_sym(stepd(dstar) - dstar))
+    stepb(d) = (1 - ρc) * d - ωc * Vv^2 / (2Sv)
+    check("no drift, γ = 0: Bulmer's d* = −ω V²/(2Sρ); ρ = ½, ω = 1: d* = −V²/S",
+          iszero_sym(stepb(-ωc * Vv^2 / (2Sv * ρc)) + ωc * Vv^2 / (2Sv * ρc)) &&
+          iszero_sym(Symbolics.substitute(-ωc * Vv^2 / (2Sv * ρc), Dict(ωc => 1, ρc => 1 // 2)) + Vv^2 / Sv))
+    # derivation of the generation term: selection removes ω V²/(4S) from T and from R (ω D, D = (V/2)²/S);
+    # random mating resets R to 0, recombination T ← (1 − ρ)T + ρR: d' = 2T' = (1 − ρ)d − ω V²/(2S)
+    @variables Tc
+    Ts = Tc - ωc * Vv^2 / (4Sv); Rs = -ωc * Vv^2 / (4Sv)      # D = H s⁻¹ H, H = V/2
+    check("haplotype moments: 2[(1 − ρ)T_s + ρR_s] = (1 − ρ)(2T) − ω V²/(2S)",
+          iszero_sym(2 * ((1 - ρc) * Ts + ρc * Rs) - ((1 - ρc) * 2Tc - ωc * Vv^2 / (2Sv))))
+    # the genic variance given: V = g + D with D = −V² F/(2S) has the positive root
+    g_, F_, S_ = 0.37, 41.0, 3.3
+    vr = (-1 + sqrt(1 + 4g_ * F_ / (2S_))) / (2F_ / (2S_))
+    check("V = g − V² F/(2S): the root (−1 + √(1 + 4gF/(2S)))/(F/S) (numeric)",
+          isapprox(vr, g_ - vr^2 * F_ / (2S_); rtol = 1e-12))
+    # the infinitesimal limit: the genic class loses β²g²/(2LS) = V²/(2LS) (the multilocus genic loss)
+    @variables βv Lv
+    check("genic loss with β = V/g: β² g²/(2LS) = V²/(2LS)", iszero_sym(Symbolics.substitute(βv^2 * gg^2 / (2Lv * Sv), Dict(βv => Vv / gg)) - Vv^2 / (2Lv * Sv)))
+    # two-locus haploid selection with multiplicative fitnesses (haplotypes AB, Ab, aB, ab):
+    # x_i' = x_i w_i/w̄, so D' w̄² = x₁w₁x₄w₄ − x₂w₂x₃w₃ = D (1 + s)(1 + t)
+    @variables ε
+    w = [(1 + sA) * (1 + tB), 1 + sA, 1 + tB, 1]
+    check("selection without epistasis: D' w̄² = D(1 + s)(1 + t), exactly",
+          iszero_sym(x1 * w[1] * x4 * w[4] - x2 * w[2] * x3 * w[3] - (x1 * x4 - x2 * x3) * (1 + sA) * (1 + tB)))
+    # to first order (s, t → εs, εt; x₄ = 1 − x₁ − x₂ − x₃): D'/D = (1 + s)(1 + t)/w̄², so
+    # Δln D = s(1 − 2p_A) + t(1 − 2p_B), and p_A' = p_A(1 + s)(…)/w̄ gives Δln(p_Aq_A) = s(1 − 2p_A)
+    X4 = 1 - x1 - x2 - x3
+    we = [(1 + ε * sA) * (1 + ε * tB), 1 + ε * sA, 1 + ε * tB, 1]
+    wbar = x1 * we[1] + x2 * we[2] + x3 * we[3] + X4 * we[4]
+    pA = x1 + x2; pB = x1 + x3
+    c1 = coeffj((1 + ε * sA) * (1 + ε * tB) / wbar^2, ε, 1)
+    check("first order: Δln D = s(1 − 2p_A) + t(1 − 2p_B)", iszero_sym(c1 - (sA * (1 - 2pA) + tB * (1 - 2pB))))
+    pAn = (x1 * we[1] + x2 * we[2]) / wbar
+    c1pq = coeffj(Symbolics.substitute(pAn * (1 - pAn) / (pA * (1 - pA)), Dict(tB => 0)), ε, 1)
+    check("first order: Δln(p_A q_A) = s(1 − 2p_A), so Δln D = Δln p_Aq_A + Δln p_Bq_B", iszero_sym(c1pq - sA * (1 - 2pA)))
+    # bins: Σ_b m_b β_b = V_G/g with β_b = (g m_b + LD within b + ½ LD with other bins)/(g m_b) (two bins)
+    @variables m1 d11 d12 d22
+    β1 = (gg * m1 + d11 + d12 / 2) / (gg * m1); β2 = (gg * (1 - m1) + d22 + d12 / 2) / (gg * (1 - m1))
+    check("two bins: m₁β₁ + m₂β₂ = (g + D)/g", iszero_sym(m1 * β1 + (1 - m1) * β2 - (gg + d11 + d12 + d22) / gg))
+
+    say("  numerical spot checks against src/spectrum.jl")
+    pl = Params(PopSize = 1000, Ploidy = 2, NoQTL = 300, PhenotypeVar = 0.05, Heritability = 0.4, MutationScalar = 0.005,
+                MutationRatePerGamete = 1e-4, RecombPoissonMean = 5.0, InitFitnessSD = 3.0)
+    c = QTLSim.ld_classes(pl; bins = 7)
+    d = -0.2 .* rand(rng, length(c.ρ)) ./ length(c.ρ); d0 = copy(d)        # LD below each bin's genic share (no clamping)
+    β = zeros(7); g0, S0, n0, γ0 = 0.21, 4.1, 870.0, -3e-4
+    QTLSim._ld_betas!(β, c, d, g0)
+    hand = zeros(7)
+    for k in eachindex(d)
+        if c.a[k] == c.b[k]; hand[c.a[k]] += d[k]; else hand[c.a[k]] += d[k] / 2; hand[c.b[k]] += d[k] / 2; end
+    end
+    check("_ld_betas!: β_b = (g m_b + LD within + ½ LD across)/(g m_b)", isapprox(β, (g0 .* c.m .+ hand) ./ (g0 .* c.m); rtol = 1e-12))
+    check("Σ_b m_b β_b = (g + D)/g", isapprox(sum(c.m .* β), (g0 + sum(d)) / g0; rtol = 1e-12))
+    QTLSim.spectrum_ld_step!(d, c, β, g0, S0, n0, γ0)
+    want = [(1 - 1 / (2n0)) * ((1 - c.ρ[k]) * (1 + 2γ0) * d0[k] - c.ω[k] * β[c.a[k]] * β[c.b[k]] * g0^2 / (2S0)) for k in eachindex(d0)]
+    check("spectrum_ld_step! = the recursion, class by class", isapprox(d, want; rtol = 1e-12))
+    ω1, ρ1 = QTLSim.pair_classes(pl); c1c = QTLSim.ld_classes(pl; bins = 1)
+    check("ld_classes with one bin = pair_classes of distinct loci", isapprox(c1c.ρ, ρ1[2:end]; rtol = 1e-12) && isapprox(c1c.ω, ω1[2:end]; rtol = 1e-12))
+    check("ld_classes weights: Σω = 1 − 1/L, Σm = 1 (7 bins)", isapprox(sum(c.ω), 1 - 1 / 300; rtol = 1e-12) && isapprox(sum(c.m), 1; rtol = 1e-12))
+    el = spectrum_equilibrium(pl; ld = :dynamic)
+    check(@sprintf("spectrum_equilibrium(ld = :dynamic): VG = genic + ld (%.4f = %.4f %+.4f), ld < 0", el.VG, el.genic, el.ld),
+          isapprox(el.VG, el.genic + el.ld; rtol = 1e-12) && el.ld < 0)
+    sl = el.spectrum
+    Vt = QTLSim.spectrum_vtotal(sl); Sl = initFitSD(pl)^2 + envVar(pl) + Vt
+    check("the response at the start of a move is V_G λ/S, V_G = genic + LD (symmetric spectrum)",
+          isapprox(QTLSim.spectrum_select(sl, 0.4, Sl), Vt * 0.4 / Sl; rtol = 1e-8))
+    # at the equilibrium every class is at its fixed point given β, g, S, n and γ of the last generation
+    # (to the equilibrium's tolerance)
+    QTLSim.spectrum_select(sl, 0.0, Sl)
+    gl = QTLSim.spectrum_vg(sl); QTLSim._ld_betas!(sl.β, sl.ldc, sl.d, gl)
+    nl = el.nparents; drl = 1 - 1 / (2nl)
+    fp = [-drl * sl.ldc.ω[k] * sl.β[sl.ldc.a[k]] * sl.β[sl.ldc.b[k]] * gl^2 / (2Sl) / (1 - drl * (1 - sl.ldc.ρ[k]) * (1 + 2sl.γ))
+          for k in eachindex(sl.d)]
+    check(@sprintf("equilibrium LD = Σ class fixed points (ratio %.4f)", sum(sl.d) / sum(fp)), isapprox(sum(sl.d), sum(fp); rtol = 0.01))
 
     finish(LOG, t0)
 end

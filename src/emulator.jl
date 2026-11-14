@@ -42,6 +42,10 @@ Returns a `NamedTuple`:
 
 How well it predicts the published runs: `validate/emulator.jl`, `validate/emulator.log`.
 
+`spectrum` is passed to [`run_moments`](@ref) for `loci = :spectrum`: e.g.
+`spectrum = (; ld = :dynamic)`, the dynamic linkage disequilibrium of src/spectrum.jl
+(off by default; validation `validate/spectrum_ld_criteria.md`, `validate/spectrum_ld.log`).
+
 **Between-run variance** (`replicates = R > 0`; off by default). With `replicates = 0` the
 trajectory is deterministic and only demographic chance is random, so `P2000` is nearly a
 step function of the rate. With `R > 0` the burn-in is run once and `R` replicate
@@ -61,7 +65,7 @@ the two is required, and the result is a function of it. Validation:
 """
 function emulate(p::Params; loci::Symbol = :rare_alleles, burnin::Integer = 2000, horizon::Integer = 2000,
                  tail::Integer = 240_000, VG::Real = house_of_gauss_vg(p), replicates::Integer = 0, vgnoise::Bool = true,
-                 rng::Union{Nothing,AbstractRNG} = nothing, seed::Union{Nothing,Integer} = nothing)
+                 rng::Union{Nothing,AbstractRNG} = nothing, seed::Union{Nothing,Integer} = nothing, spectrum = (;))
     p.MoveType === :continuous || throw(ArgumentError("emulate is for the published protocol, MoveType = :continuous; got :$(p.MoveType)"))
     p.NoTraits == 1 || throw(ArgumentError("emulate is for one trait; NoTraits = $(p.NoTraits)"))
     burnin >= 0 && horizon >= 2 || throw(ArgumentError("need burnin ≥ 0 and horizon ≥ 2, got $burnin and $horizon"))
@@ -71,9 +75,9 @@ function emulate(p::Params; loci::Symbol = :rare_alleles, burnin::Integer = 2000
     if replicates > 0
         rng === nothing && seed === nothing &&
             throw(ArgumentError("replicates > 0 needs an `rng` or a `seed`"))
-        return _emulate_replicates(q, rng === nothing ? Xoshiro(seed) : rng; replicates, loci, burnin, horizon, tail, VG, vgnoise)
+        return _emulate_replicates(q, rng === nothing ? Xoshiro(seed) : rng; replicates, loci, burnin, horizon, tail, VG, vgnoise, spectrum)
     end
-    m = run_moments(q; VG, erosion = true, loci)
+    m = run_moments(q; VG, erosion = true, loci, spectrum)
     n = length(m.gen)
     at(v, g) = g + 1 <= n ? Float64(v[g+1]) : NaN
     if n <= burnin                     # the trajectory died before the move (T ≤ 0)
@@ -94,9 +98,9 @@ end
 
 # emulate with between-run variance: R replicate trajectories (moments_replicates), each
 # with demographic chance along its W̄, mixed with equal weights. `q` is the protocol's Params.
-function _emulate_replicates(q::Params, rng::AbstractRNG; replicates, loci, burnin, horizon, tail, VG, vgnoise)
+function _emulate_replicates(q::Params, rng::AbstractRNG; replicates, loci, burnin, horizon, tail, VG, vgnoise, spectrum = (;))
     vg = vgnoise && loci in (:rare_alleles, :multilocus, :rare_local, :auto) ? vg_fluctuation(q) : nothing
-    r = moments_replicates(q; replicates, rng, from = burnin, VG, loci, vg)
+    r = moments_replicates(q; replicates, rng, from = burnin, VG, loci, vg, spectrum)
     if r.det.extinct                      # the shared burn-in died before the move (T ≤ 0)
         return (; P2000 = 0.0, T = r.det.extinct_gen - burnin + 1, P240k = 0.0, hazard = 1.0, VG_move = NaN,
                 Wbar_move = NaN, VG_end = NaN, lag_end = NaN, extinct = true)
@@ -163,7 +167,7 @@ Returns `(; k50, kc, evals)`: the rate, `drift_critical_rate(p).k` (`NaN` when t
 """
 function emulated_half_survival_rate(p::Params; loci::Symbol = :rare_alleles, burnin::Integer = 2000,
                                      horizon::Integer = 2000, bracket = nothing, rtol::Real = 1e-10,
-                                     maxiter::Integer = 100)
+                                     maxiter::Integer = 100, spectrum = (;))
     p.MoveType === :continuous || throw(ArgumentError("emulated_half_survival_rate is for MoveType = :continuous"))
     kc = NaN
     VG = house_of_gauss_vg(p)
@@ -172,7 +176,7 @@ function emulated_half_survival_rate(p::Params; loci::Symbol = :rare_alleles, bu
     # cumulative hazard is close to linear in log k, where P2000 itself is nearly a step
     function f(lk)
         evals += 1
-        P = emulate(Params(p; MoveFitnessSD = exp(lk)); loci, burnin, horizon, VG).P2000
+        P = emulate(Params(p; MoveFitnessSD = exp(lk)); loci, burnin, horizon, VG, spectrum).P2000
         log(log(2.0)) - log(-log(P))           # +Inf at P = 1, −Inf at P = 0
     end
     lo = hi = flo = fhi = NaN

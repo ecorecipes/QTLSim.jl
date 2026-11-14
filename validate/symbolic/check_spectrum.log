@@ -1,4 +1,4 @@
-QTLSim validate/symbolic/check_spectrum.jl (Symbolics 7.48.0)
+QTLSim validate/symbolic/check_spectrum.jl (Symbolics 7.49.0)
 
 (a) the selection of one allele, E[Δp]
   Wright's formula on ln W̄ = −λ²/(2S) − ln S/2 is E[Δp] (c = 0), exactly   ok
@@ -57,5 +57,25 @@ QTLSim validate/symbolic/check_spectrum.jl (Symbolics 7.48.0)
   neutral, N = 100: spectrum_vg·(N−1)/N = (2N − 1/(2N))V_m (ratio 0.999980) ok
   neutral, N = 250: spectrum_vg·(N−1)/N = (2N − 1/(2N))V_m (ratio 0.999981) ok
 
-45 checks, 0 failed; 4 s
+(g) dynamic linkage disequilibrium (spectrum = (; ld = :dynamic))
+  LD fixed point d* = −dr ω V²/(2S)/(1 − dr(1 − ρ)(1 + 2γ)), exactly       ok
+  no drift, γ = 0: Bulmer's d* = −ω V²/(2Sρ); ρ = ½, ω = 1: d* = −V²/S     ok
+  haplotype moments: 2[(1 − ρ)T_s + ρR_s] = (1 − ρ)(2T) − ω V²/(2S)        ok
+  V = g − V² F/(2S): the root (−1 + √(1 + 4gF/(2S)))/(F/S) (numeric)       ok
+  genic loss with β = V/g: β² g²/(2LS) = V²/(2LS)                          ok
+  selection without epistasis: D' w̄² = D(1 + s)(1 + t), exactly            ok
+  first order: Δln D = s(1 − 2p_A) + t(1 − 2p_B)                           ok
+  first order: Δln(p_A q_A) = s(1 − 2p_A), so Δln D = Δln p_Aq_A + Δln p_Bq_B ok
+  two bins: m₁β₁ + m₂β₂ = (g + D)/g                                        ok
+  numerical spot checks against src/spectrum.jl
+  _ld_betas!: β_b = (g m_b + LD within + ½ LD across)/(g m_b)              ok
+  Σ_b m_b β_b = (g + D)/g                                                  ok
+  spectrum_ld_step! = the recursion, class by class                        ok
+  ld_classes with one bin = pair_classes of distinct loci                  ok
+  ld_classes weights: Σω = 1 − 1/L, Σm = 1 (7 bins)                        ok
+  spectrum_equilibrium(ld = :dynamic): VG = genic + ld (0.1939 = 0.2491 -0.0552), ld < 0 ok
+  the response at the start of a move is V_G λ/S, V_G = genic + LD (symmetric spectrum) ok
+  equilibrium LD = Σ class fixed points (ratio 1.0000)                     ok
+
+62 checks, 0 failed; 13 s
 PASS
