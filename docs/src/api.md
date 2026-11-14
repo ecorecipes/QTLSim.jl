@@ -182,6 +182,10 @@ QTLSim.migration_classes
 spectrum_equilibrium
 spectrum_vg
 QTLSim.AlleleSpectrum
+QTLSim.LDClasses
+QTLSim.ld_classes
+QTLSim.spectrum_vtotal
+QTLSim.spectrum_ld_step!
 QTLSim.spectrum_select
 QTLSim.spectrum_step!
 QTLSim.spectrum_linked

@@ -97,6 +97,18 @@ end
         @test [x.P2000 for x in b] == [x.P2000 for x in rows]
         @test isequal([x.T for x in b], [x.T for x in rows])
     end
+    # loci = :spectrum and its options reach the moments lowering: the default unchanged bit for
+    # bit, the dynamic LD (spectrum = (; ld = :dynamic)) is the pipeline by hand with that option
+    ks = Params(p; MoveFitnessSD = 2h.k50)
+    qs = Params(q; MoveFitnessSD = 2h.k50)
+    es = emulate(ks; loci = :spectrum, kw...)
+    @test isequal(es, emulate(ks; loci = :spectrum, spectrum = (ld = :none,), kw...))
+    el = emulate(ks; loci = :spectrum, spectrum = (ld = :dynamic,), kw...)
+    ml = run_moments(qs; VG = house_of_gauss_vg(p), erosion = true, loci = :spectrum, spectrum = (ld = :dynamic,))
+    @test el.P2000 == extinction_distribution(qs, ml; from = 300).psurvive
+    @test el.VG_move == ml.geno_var[301] && el.VG_move < es.VG_move          # negative LD lowers V_G at the move
+    @test emulated_half_survival_rate(p; loci = :spectrum, spectrum = (ld = :dynamic,), kw.burnin, kw.horizon,
+                                      bracket = (0.5h.k50, 2h.k50)).k50 > 0
 end
 
 @testset "memoised pair classes and recombination" begin

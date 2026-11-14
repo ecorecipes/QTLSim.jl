@@ -235,6 +235,66 @@ end
     @test QTLSim.spectrum_select(spr, 0.7, S) ≈ 0.5 * QTLSim.spectrum_vg(spr) * 0.7 / S rtol = 1e-8
     @test_throws ArgumentError QTLSim.AlleleSpectrum(p; ldratio = 0.0)
     @test_throws ArgumentError QTLSim.AlleleSpectrum(p; ldratio = 1.5)
+    # dynamic linkage disequilibrium (spectrum = (; ld = :dynamic)): off by default, bit for bit
+    @test run_moments(pm; loci = :spectrum, spectrum = (ld = :none,)).geno_var == ms.geno_var
+    @test_throws ArgumentError QTLSim.AlleleSpectrum(p; ld = :bogus)
+    @test_throws ArgumentError QTLSim.AlleleSpectrum(p; ld = :dynamic, ldratio = 0.5)
+    @test_throws ArgumentError QTLSim.AlleleSpectrum(p; ld = :dynamic, ldbins = 0)
+    # with one bin the classes are the multilocus model's pair classes of distinct loci
+    ω, ρ = QTLSim.pair_classes(p)
+    c1 = QTLSim.ld_classes(p; bins = 1)
+    @test isapprox(c1.ρ, ρ[2:end]; rtol = 1e-12) && isapprox(c1.ω, ω[2:end]; rtol = 1e-12) && sum(c1.ω) ≈ 1 - 1 / p.NoQTL
+    c20 = QTLSim.ld_classes(p; bins = 20)
+    @test sum(c20.ω) ≈ 1 - 1 / p.NoQTL && sum(c20.m) ≈ 1 && length(c20.m) == 20
+    # no selection: the LD stays 0 and the genic variance is the default's
+    sd = QTLSim.AlleleSpectrum(p; ld = :dynamic); sd.n .= e0.spectrum.n
+    QTLSim.spectrum_select(sd, 3.0, Inf); QTLSim.spectrum_step!(sd, 1000.0)
+    @test all(iszero, sd.d)
+    @test run_moments(q1; loci = :spectrum, VG = 0.05, spectrum = (ld = :dynamic,)).geno_var ≈ v1 rtol = 1e-12
+    # no selection: an LD decays at each class's split probability and the drift 1/(2n)
+    d0 = -1e-3 .* (1 .+ (1:length(sd.d)) ./ length(sd.d)); sd.d .= d0
+    QTLSim.spectrum_select(sd, 0.0, Inf); QTLSim.spectrum_step!(sd, 500.0)
+    @test sd.d ≈ d0 .* (1 .- sd.ldc.ρ) .* (1 - 1 / 1000) rtol = 1e-12
+    # Bulmer's fixed point without drift (n = ∞, γ = 0) at a given genic variance g, one bin: the LD of
+    # class c is −ω_c V²/(2Sρ_c) with V = g + D, so V solves V = g − V² F/(2S), F = Σ ω_c/ρ_c
+    g, Sb = 0.3, 4.0
+    dd = zeros(length(c1.ρ)); βb = [1.0]
+    for _ in 1:20_000
+        QTLSim._ld_betas!(βb, c1, dd, g)
+        QTLSim.spectrum_ld_step!(dd, c1, βb, g, Sb, Inf, 0.0)
+    end
+    F = sum(c1.ω ./ c1.ρ)
+    Vb = (-1 + sqrt(1 + 4 * g * F / (2Sb))) / (2F / (2Sb))
+    @test g + sum(dd) ≈ Vb rtol = 1e-8
+    @test dd ≈ -c1.ω .* Vb^2 ./ (2Sb .* c1.ρ) rtol = 1e-8
+    # free recombination (every pair split with probability ½): Bulmer's d = −V²/s
+    cf = QTLSim.LDClasses([1], [1], [0.5], [1.0], [1.0])
+    df = [0.0]; βf = [1.0]
+    for _ in 1:200
+        QTLSim._ld_betas!(βf, cf, df, g); QTLSim.spectrum_ld_step!(df, cf, βf, g, Sb, Inf, 0.0)
+    end
+    @test df[1] ≈ -(g + df[1])^2 / Sb rtol = 1e-10
+    # the infinitesimal limit: many loci, small effects, the deterministic multilocus fixed point. With the
+    # genic variance at the multilocus model's (gaussian_vg_loci's balance), one bin, no drift, the LD recursion
+    # returns the multilocus LD, L V_m Σ_c ω_c/ρ_c
+    pg = Params(p; NoQTL = 200, MutationRatePerGamete = 0.05)
+    cg = QTLSim.ld_classes(pg; bins = 1)
+    Vg = gaussian_vg_loci(pg); Sg = selection_variance(pg) + Vg
+    gg = Vg + pg.NoQTL * muteVar(pg) * sum(cg.ω ./ cg.ρ)
+    dg = zeros(length(cg.ρ)); βg = [1.0]
+    for _ in 1:20_000
+        QTLSim._ld_betas!(βg, cg, dg, gg); QTLSim.spectrum_ld_step!(dg, cg, βg, gg, Sg, Inf, 0.0)
+    end
+    @test gg + sum(dg) ≈ Vg rtol = 1e-6
+    @test multilocus_equilibrium(pg; loci = :multilocus).ld ≈ sum(dg) rtol = 1e-5
+    # at a fixed optimum: negative LD, V_G below the genic variance; the recorded V_G is genic + LD
+    eL = spectrum_equilibrium(p; ld = :dynamic)
+    @test eL.ld < 0 && isapprox(eL.VG, eL.genic + eL.ld; rtol = 1e-12) && eL.VG < e.VG
+    # the start of a move: the response is V_G λ/S with V_G = genic + LD (each site's directional term β a λ/S)
+    SL = initFitSD(p)^2 + envVar(p) + QTLSim.spectrum_vtotal(eL.spectrum)
+    @test QTLSim.spectrum_select(eL.spectrum, 0.7, SL) ≈ QTLSim.spectrum_vtotal(eL.spectrum) * 0.7 / SL rtol = 1e-8
+    oL = run_moments(Params(p; NoGenerations = 2, Sample = 1); loci = :spectrum, VG = 0.05, spectrum = (ld = :dynamic,))
+    @test oL.geno_var[2] ≈ 0.05 * 1000 / 999 * eL.VG / eL.genic rtol = 0.02   # started at genic variance 0.05 with the equilibrium's LD ratio (generation 0 records the VG given)
     # one law of effects from the mutate steps: their fields are the spectrum's
     gm = withparams(lifecycle().generation; MutationRatePerGamete = 1e-3)
     q = Params(p; NoGenerations = 300, Sample = 50)

@@ -70,13 +70,64 @@
 # src/rare_alleles.jl erode V_G only at 1/(2N_e) per generation, and their directional
 # selection moves the mean without using up variance.
 #
+# Dynamic linkage disequilibrium (`ld = :dynamic`, off by default; validate/spectrum_ld_dev.log,
+# validate/spectrum_ld_criteria.md). Stabilising selection with tight linkage builds negative
+# LD (Bulmer 1971), which the spectrum above leaves out (V_G = genic). With the option,
+# V_G = g + D, g the spectrum's genic variance and D = Σ_c d_c the LD of classes c of pairs of
+# distinct loci, grouped by the bins (a, b) of `ldbins` bins of consecutive positions that
+# hold their loci and by their split probability ρ_c (`ld_classes`; ω_c their share of the L²
+# ordered pairs). One generation, from the multilocus model's class recursion (src/multilocus.jl)
+# with the locus's covariance with the genotype resolved by position:
+#
+#   d_c ← (1 − 1/(2n)) [(1 − ρ_c)(1 + 2γ) d_c − ω_c β_a β_b g²/(2S)],
+#
+# Bulmer's generation (a pair of loci gains −V_iV_j/S in the gametes, V_i = β_b g/L its
+# covariance with the genotype), recombination, drift among n parents (Hill and Robertson
+# 1968), and γ, the relative change of g by selection: under selection without epistasis
+# Δln D_ij = Δln p_iq_i + Δln p_jq_j, so the LD of a pair follows its sites' variances
+# (mean field over effects). β_b = V_b/g_b, V_b the bin's genic share plus the LD of its
+# pairs. Each site's selection uses the regression of the genotype on it: directional
+# β̄ aλ/S with β̄ = Σ_b m_b β_b = V_G/g (the response is V_G λ/S), stabilising
+# β²‾ (a² + 2c)(1 − 2p)/(2S) with β²‾ = Σ_b m_b β_b² (the multilocus genic loss (H/L)²/s and
+# the rare-alleles closure's β²). Mutations enter without LD. Without drift and with γ = 0,
+# one bin and the infinitesimal limit, the fixed point is the multilocus model's: V_G =
+# gaussian_vg_loci, D = −L V_m Σ_c ω_c/ρ_c. Resolving the LD by position matters under
+# QTSim's crossover (only the lowest point switches): the tightly linked pairs lie toward the
+# chromosome's end, where the loci's covariance with the genotype is reduced by their own LD,
+# so LD is generated most weakly where it decays most slowly; the mean field over loci (the
+# multilocus model, `ldbins = 1`) makes the LD too strong (dev log, step 2).
+# Not modelled: the frequency distribution of sites by position (one spectrum for all bins),
+# LD between sites of one locus, LD heterogeneity by effect size (one γ), the random part of
+# the LD (left to Barton's term, which is kept as in the default: the expected LD D and
+# Barton's extra variance of Δp are different moments), and the early fall of the genic
+# variance under a move that the kernel shows (dev log, step 5: the option does not explain it).
+#
 # Simplifications: linkage equilibrium apart from the linked-selection term (no Bulmer
-# LD; Barton's loose-linkage N_e for every pair class, and none for the mutations of the
+# LD unless `ld = :dynamic`; Barton's loose-linkage N_e for every pair class, and none for the mutations of the
 # same locus); infinite sites (two
 # mutations of one locus are separate sites, not one allele); weak selection per
 # mutation (Wright's formula); the expected spectrum along the deterministic trajectory
 # of λ and n (the nonlinear feedback through λ and n is taken at the expectation, as in
 # the rest of the moments lowering).
+
+"""
+    QTLSim.LDClasses
+
+The classes of unordered pairs of distinct loci over which the linkage disequilibrium of the
+spectrum (`ld = :dynamic`, src/spectrum.jl) is resolved: the loci are cut into `length(m)`
+bins of consecutive positions (`m[b]` the fraction of the loci in bin `b`), and the pairs
+with one locus in bin `a[c]` and the other in bin `b[c]` (`a[c] ≤ b[c]`) are grouped by the
+probability `ρ[c]` that the kernel's crossover splits them (as [`QTLSim.pair_classes`](@ref):
+2% bins of `ρ`, their weighted mean), `ω[c]` the fraction of the `L²` ordered pairs in the
+class. With one bin the classes are `pair_classes(p)`'s of distinct loci. See [`ld_classes`](@ref).
+"""
+struct LDClasses
+    a::Vector{Int}
+    b::Vector{Int}
+    ρ::Vector{Float64}
+    ω::Vector{Float64}
+    m::Vector{Float64}
+end
 
 """
     QTLSim.AlleleSpectrum
@@ -92,6 +143,14 @@ exploratory prototype of validate/spectrum_diagnosis.jl, not a validated option:
 `r = V_G/genic` for the negative linkage disequilibrium the spectrum leaves out. The
 lowering's `V_G` is `r` times the spectrum's genic variance, and the directional term of
 selection on every mutation is `r·aλ/S`, so that the response is `r` times the genic one.
+
+`ld = :dynamic` (keyword of the constructor and of [`spectrum_equilibrium`](@ref), through
+`run_moments(…; spectrum = (; ld = :dynamic))` or `emulate(…; spectrum = (; ld = :dynamic))`;
+default `:none`, the model above) adds the dynamic linkage disequilibrium described in
+src/spectrum.jl: `d` the LD of the classes `ldc` ([`QTLSim.ld_classes`](@ref), `ldbins = 20`
+bins of positions), the lowering's `V_G` is [`QTLSim.spectrum_vtotal`](@ref) = genic + LD,
+and each site's selection uses the bins' regressions `β`. `turnover = false` drops the
+`(1 + 2γ)` factor. Exclusive with `ldratio`.
 """
 mutable struct AlleleSpectrum
     p::Vector{Float64}          # frequency grid, 0 and 1 included
@@ -109,6 +168,13 @@ mutable struct AlleleSpectrum
     linkage::Symbol             # :barton (linked selection lowers N_e) or :none
     cd::Float64                 # the extra drift of linked selection in the last step (Var(Δp) = pq(1/(2n) + cd))
     ldratio::Float64            # prototype (validate/spectrum_diagnosis.jl): V_G/genic, the linkage disequilibrium factor (1: none)
+    ld::Symbol                  # :none (linkage equilibrium, the default) or :dynamic (Bulmer LD, `d`)
+    ldc::LDClasses              # ld = :dynamic: the classes of pairs of distinct loci by position bins and split probability
+    d::Vector{Float64}          # ld = :dynamic: the LD of each class of `ldc`, genotype units
+    β::Vector{Float64}          # ld = :dynamic: each bin's regression of the genotype on its loci at the last selection
+    γ::Float64                  # ld = :dynamic: the relative change of the genic variance by the last selection
+    gsel::Float64               # ld = :dynamic: the genic variance at the last selection
+    turnover::Bool              # ld = :dynamic: LD also scales with its sites' variances under selection (γ)
     # work arrays
     lo::Vector{Float64}; di::Vector{Float64}; up::Vector{Float64}; rhs::Vector{Float64}; cp::Vector{Float64}
 end
@@ -123,7 +189,10 @@ function gauss_hermite_normal(K::Integer)
     E.values, E.vectors[1, :] .^ 2
 end
 
-function AlleleSpectrum(p::Params; grid::Integer = 240, classes::Integer = 20, linkage::Symbol = :barton, ldratio::Real = 1.0)
+function AlleleSpectrum(p::Params; grid::Integer = 240, classes::Integer = 20, linkage::Symbol = :barton, ldratio::Real = 1.0,
+                        ld::Symbol = :none, turnover::Bool = true, ldbins::Integer = 20)
+    ld in (:none, :dynamic) || throw(ArgumentError("ld is :none or :dynamic; got :$ld"))
+    ld === :dynamic && ldratio != 1 && throw(ArgumentError("ld = :dynamic and the prototype ldratio are exclusive"))
     0 < ldratio <= 1 || throw(ArgumentError("ldratio must be in (0, 1], got $ldratio"))
     linkage in (:barton, :none) || throw(ArgumentError("linkage is :barton or :none; got :$linkage"))
     p.Ploidy == 2 || throw(ArgumentError("loci = :spectrum is for diploids; Ploidy = $(p.Ploidy)"))
@@ -139,8 +208,10 @@ function AlleleSpectrum(p::Params; grid::Integer = 240, classes::Integer = 20, l
     end
     z, w = gauss_hermite_normal(classes)
     ω, ρ = pair_classes(p)
+    ldbins >= 1 || throw(ArgumentError("ldbins must be at least 1, got $ldbins"))
+    ldc = ld === :dynamic ? ld_classes(p; bins = ldbins) : LDClasses(Int[], Int[], Float64[], Float64[], Float64[])
     AlleleSpectrum(x, h, sqrt(α2) .* z, w, zeros(classes, M + 2), p.NoQTL, p.MutationRatePerGamete, α2,
-                   0.0, Inf, ω, ρ, linkage, 0.0, float(ldratio), zeros(M + 2), zeros(M + 2), zeros(M + 2), zeros(M + 2), zeros(M + 2))
+                   0.0, Inf, ω, ρ, linkage, 0.0, float(ldratio), ld, ldc, zeros(length(ldc.ρ)), ones(length(ldc.m)), 0.0, 0.0, turnover, zeros(M + 2), zeros(M + 2), zeros(M + 2), zeros(M + 2), zeros(M + 2))
 end
 
 "The within-population genetic variance `Σ 2a² p(1 − p)` of the spectrum."
@@ -157,7 +228,102 @@ end
 
 # the expected change of a frequency per generation divided by pq, for effect a: the
 # directional term aλ/S and the stabilising one, (1 − λ²/S)(a² + 2c)(1 − 2p)/(2S)
-@inline spectrum_seff(a, p, λ, S, c, r = 1.0) = isinf(S) ? 0.0 : r * a * λ / S - (1 - λ^2 / S) * (a^2 + 2c) * (1 - 2p) / (2S)
+@inline spectrum_seff(a, p, λ, S, c, r = 1.0, r2 = 1.0) =
+    isinf(S) ? 0.0 : r * a * λ / S - r2 * (1 - λ^2 / S) * (a^2 + 2c) * (1 - 2p) / (2S)
+
+"The linkage disequilibrium `Σ_c d_c` of the spectrum (`ld = :dynamic`; 0 otherwise)."
+spectrum_ld(sp::AlleleSpectrum) = sp.ld === :dynamic ? sum(sp.d) : 0.0
+
+"""
+    QTLSim.ld_classes(p; bins = 20) -> LDClasses
+
+The classes of pairs of distinct loci of [`QTLSim.LDClasses`](@ref) for `p`'s loci and crossover
+(`NoQTL`, `RecombPoissonMean`, `CrossoverModel`), with the loci cut into `min(bins, NoQTL)`
+bins of consecutive positions. Memoised.
+"""
+function ld_classes(p::Params; bins::Integer = 20)
+    L = p.NoQTL
+    B = clamp(bins, 1, max(L, 1))
+    key = (L, Float64(p.RecombPoissonMean), p.CrossoverModel, B)
+    hit = lock(() -> get(_LD_CLASSES, key, nothing), _PAIR_CLASSES_LOCK)
+    hit === nothing || return hit
+    c = _ld_classes(L, p.RecombPoissonMean, p.CrossoverModel, B)
+    lock(() -> (_LD_CLASSES[key] = c), _PAIR_CLASSES_LOCK)
+    c
+end
+
+const _LD_CLASSES = Dict{Tuple{Int,Float64,Symbol,Int},LDClasses}()
+
+function _ld_classes(L::Integer, mean::Real, model::Symbol, B::Integer)
+    binof(i) = min(B, fld(i * B, L) + 1)                  # 0-based locus i
+    m = zeros(B)
+    for i in 0:L-1
+        m[binof(i)] += 1 / L
+    end
+    L <= 1 && return LDClasses(Int[], Int[], Float64[], Float64[], m)
+    ρp, _ = pair_splits(L, mean, model)                   # :qtsim every pair i < j in order; :all by distance
+    rkey(r) = r <= 0 ? typemin(Int) : floor(Int, log(r) / log(1.02))
+    acc = Dict{Tuple{Int,Int,Int},Tuple{Float64,Float64}}()
+    k = 0
+    for i in 0:L-2, j in i+1:L-1
+        k += 1
+        r = model === :qtsim ? ρp[k] : ρp[j-i]
+        kk = (binof(i), binof(j), rkey(r))
+        a = get(acc, kk, (0.0, 0.0))
+        acc[kk] = (a[1] + 1, a[2] + r)
+    end
+    ks = sort(collect(keys(acc)))
+    LDClasses([x[1] for x in ks], [x[2] for x in ks], [acc[x][2] / acc[x][1] for x in ks],
+              [2acc[x][1] / L^2 for x in ks], m)
+end
+
+# each bin's regression of the genotype on its loci, β_b = V_b/g_b: V_b the bin's share of
+# V_G, its genic share g m_b plus the LD of its pairs (all of a pair within the bin, half of
+# a pair with another bin); written into β
+function _ld_betas!(β::AbstractVector, ldc::LDClasses, d::AbstractVector, g::Real)
+    B = length(ldc.m)
+    @inbounds for b in 1:B
+        β[b] = g * ldc.m[b]
+    end
+    @inbounds for c in eachindex(d)
+        a, b = ldc.a[c], ldc.b[c]
+        if a == b
+            β[a] += d[c]
+        else
+            β[a] += d[c] / 2; β[b] += d[c] / 2
+        end
+    end
+    @inbounds for b in 1:B
+        β[b] = g > 0 && ldc.m[b] > 0 ? max(β[b], 0.0) / (g * ldc.m[b]) : 1.0
+    end
+    β
+end
+
+"""
+    QTLSim.spectrum_vtotal(sp)
+
+The genetic variance of the lowering: with `ld = :dynamic` the genic variance plus the
+linkage disequilibrium, `V_G = Σ 2a² p(1 − p) + Σ_c d_c` (at least 0); otherwise `ldratio`
+times the genic variance (the genic variance itself by default).
+"""
+function spectrum_vtotal(sp::AlleleSpectrum)
+    g = spectrum_vg(sp)
+    sp.ld === :dynamic ? max(g + sum(sp.d), 0.0) : sp.ldratio * g
+end
+
+# the factors of the directional and the stabilising terms of selection on a site: with
+# ld = :dynamic, the mean over the bins of β_b and of β_b² (a site's covariance with the
+# genotype is β_b times its variance; the sites of every bin share one spectrum), where
+# Σ_b m_b β_b = V_G/genic; else the prototype's (ldratio, 1). Updates sp.β.
+function _ld_factors(sp::AlleleSpectrum, g)
+    sp.ld === :dynamic || return (sp.ldratio, 1.0)
+    _ld_betas!(sp.β, sp.ldc, sp.d, g)
+    r1 = 0.0; r2 = 0.0
+    for b in eachindex(sp.β)
+        r1 += sp.ldc.m[b] * sp.β[b]; r2 += sp.ldc.m[b] * sp.β[b]^2
+    end
+    (r1, r2)
+end
 
 """
     QTLSim.spectrum_select(sp, λ, S) -> Δz̄
@@ -169,13 +335,22 @@ genotype among the survivors, `Σ 2a E[Δp]`.
 function spectrum_select(sp::AlleleSpectrum, λ::Real, S::Real)
     sp.λ, sp.S = λ, S
     isinf(S) && return 0.0
-    c = spectrum_vg(sp) / (2sp.L)
+    g = spectrum_vg(sp)
+    c = g / (2sp.L)
+    r1, r2 = _ld_factors(sp, g)
     dz = 0.0
+    dg = 0.0
     for i in 2:length(sp.p)-1
         pi = sp.p[i]; pq = pi * (1 - pi)
         for j in eachindex(sp.a)
-            dz += 2sp.a[j] * pq * spectrum_seff(sp.a[j], pi, λ, S, c, sp.ldratio) * sp.n[j, i]
+            e = spectrum_seff(sp.a[j], pi, λ, S, c, r1, r2)
+            dz += 2sp.a[j] * pq * e * sp.n[j, i]          # (this association keeps the default bit for bit)
+            dg += 2sp.a[j]^2 * pq * (1 - 2pi) * e * sp.n[j, i]
         end
+    end
+    if sp.ld === :dynamic
+        sp.γ = g > 0 ? dg / g : 0.0
+        sp.gsel = g
     end
     dz
 end
@@ -221,7 +396,9 @@ function spectrum_step!(sp::AlleleSpectrum, npar::Real)
     x, h = sp.p, sp.h
     M = length(x) - 2
     nn = max(npar, 1.0)
-    c = isinf(sp.S) ? 0.0 : spectrum_vg(sp) / (2sp.L)
+    gnc = spectrum_vg(sp)
+    c = isinf(sp.S) ? 0.0 : gnc / (2sp.L)
+    r1, r2 = _ld_factors(sp, gnc)
     sp.cd = sp.linkage === :barton ? spectrum_linked(sp, nn) : 0.0
     d4 = 1 / (4nn) + sp.cd / 2              # D / pq: Var(Δp) = pq (1/(2n) + c_d)
     lo, di, up, rhs, cp = sp.lo, sp.di, sp.up, sp.rhs, sp.cp
@@ -232,7 +409,7 @@ function spectrum_step!(sp::AlleleSpectrum, npar::Real)
         for k in 1:M+1                          # interface between nodes k and k+1
             Δ = x[k+1] - x[k]
             pm = (x[k] + x[k+1]) / 2
-            q = spectrum_seff(a, pm, sp.λ, sp.S, c, sp.ldratio) * Δ / d4
+            q = spectrum_seff(a, pm, sp.λ, sp.S, c, r1, r2) * Δ / d4
             Bm, Bp = _bern(-q) / Δ, _bern(q) / Δ
             # contribution of u_k (left) and u_{k+1} (right) to the flux F = Bm u_k − Bp u_{k+1}
             # node k loses F, node k+1 gains F (dn/dt)
@@ -266,7 +443,37 @@ function spectrum_step!(sp::AlleleSpectrum, npar::Real)
             sp.n[j, i] = max(rhs[i], 0.0)
         end
     end
+    sp.ld === :dynamic && spectrum_ld_step!(sp.d, sp.ldc, sp.β, isinf(sp.S) ? 0.0 : sp.gsel, sp.S, nn,
+                                            sp.turnover && !isinf(sp.S) ? sp.γ : 0.0)
     sp
+end
+
+"""
+    QTLSim.spectrum_ld_step!(d, ldc, β, g, S, n, γ) -> d
+
+One generation of the linkage disequilibrium of the classes `ldc` of pairs of distinct loci
+([`QTLSim.LDClasses`](@ref); `ld = :dynamic`, src/spectrum.jl): for every class `c` of pairs
+between bins `a` and `b` (weight `ω_c`, split probability `ρ_c`),
+
+    d_c ← (1 − 1/(2n)) [(1 − ρ_c)(1 + 2γ) d_c − ω_c β_a β_b g²/(2S)],
+
+Bulmer's generation of negative LD by Gaussian selection of `S = ω_e² + V_P` (a pair of
+loci gains −V_i V_j/S, `V_i = β_b g/L` a locus's covariance with the genotype, the half of
+selection's change that a gamete inherits; `g` the genic variance, `g = 0` when neutral),
+recombination at the class's rate, drift among `n` parents (`n = Inf`: none) and, through
+`γ`, the change of the LD of a pair of sites with the variances of its sites under
+selection (`Δ ln D = Δ ln pq_i + Δ ln pq_j`; `γ` the relative change of the genic variance
+by selection in the generation). With every `β_b = β` the generation is `ω_c V²/(2S)`,
+`V = βg`, the multilocus model's (src/multilocus.jl).
+"""
+function spectrum_ld_step!(d::AbstractVector, ldc::LDClasses, β::AbstractVector, g::Real, S::Real, n::Real, γ::Real)
+    dr = isinf(n) ? 1.0 : 1 - 1 / (2n)
+    G = max(1 + 2γ, 0.0)
+    gen = isinf(S) || g == 0 ? 0.0 : g^2 / (2S)
+    @inbounds for c in eachindex(d)
+        d[c] = dr * ((1 - ldc.ρ[c]) * G * d[c] - ldc.ω[c] * β[ldc.a[c]] * β[ldc.b[c]] * gen)
+    end
+    d
 end
 
 """
@@ -295,8 +502,13 @@ function spectrum_mutate!(sp::AlleleSpectrum, N::Real)
     sp
 end
 
-"Scale the spectrum so that its genetic variance is `V` (a spectrum without sites stays empty)."
+"Scale the spectrum so that its genetic variance is `V` (a spectrum without sites stays empty); with `ld = :dynamic` its genic variance, the linkage disequilibrium scaled in proportion."
 function spectrum_scale!(sp::AlleleSpectrum, V::Real)
+    if sp.ld === :dynamic                       # the genic variance to V, the LD in proportion
+        v = spectrum_vg(sp)
+        v > 0 && (sp.n .*= V / v; sp.d .*= V / v)
+        return sp
+    end
     v = spectrum_vg(sp)
     v > 0 && (sp.n .*= V / v)
     sp
@@ -311,11 +523,15 @@ selection with the lag 0, drift among the expected survivors, mutation; the Beve
 equilibrium size under density regulation) iterated from no variation until `V_G`
 changes by less than `tol` relative to itself over 100 generations. Returns `(; VG, N,
 nparents, spectrum)`. For mutations in linkage equilibrium and weak selection its `VG` is
-close to [`house_of_gauss_vg`](@ref).
+close to [`house_of_gauss_vg`](@ref). With `ld = :dynamic` (and `ldbins`, `turnover`; see
+[`QTLSim.AlleleSpectrum`](@ref)) `VG` is genic + LD, and the result also has `genic` and `ld`
+(expected sample variances, ×N/(N − 1)).
 """
 function spectrum_equilibrium(p::Params; tol::Real = 1e-9, maxgen::Integer = 40 * p.PopSize + 20_000,
-                              grid::Integer = 240, classes::Integer = 20, linkage::Symbol = :barton, ldratio::Real = 1.0)
-    sp = AlleleSpectrum(p; grid, classes, linkage, ldratio)
+                              grid::Integer = 240, classes::Integer = 20, linkage::Symbol = :barton, ldratio::Real = 1.0,
+                              ld::Symbol = :none, turnover::Bool = true, ldbins::Integer = 20)
+    sp = AlleleSpectrum(p; grid, classes, linkage, ldratio, ld, turnover, ldbins)
+    dyn = ld === :dynamic
     VE = envVar(p)
     Ω = initFitSD(p)^2
     c0 = QTSIM_FITNESS_PEAK
@@ -323,7 +539,7 @@ function spectrum_equilibrium(p::Params; tol::Real = 1e-9, maxgen::Integer = 40 
     VG, npar = 0.0, N
     last = -1.0
     for t in 1:maxgen
-        P = sp.ldratio * VG + VE
+        P = (dyn ? spectrum_vtotal(sp) : sp.ldratio * VG) + VE
         ωe2 = p.StandardisePhenotype ? Ω * P : Ω
         S = p.Drift ? Inf : ωe2 + P
         Wbar = p.Drift ? 1.0 : c0 * sqrt(ωe2 / S)
@@ -335,12 +551,14 @@ function spectrum_equilibrium(p::Params; tol::Real = 1e-9, maxgen::Integer = 40 
         N = p.Demography === :fixed ? float(p.PopSize) : min(p.PopSize, p.GrowthRate * nw / (1 + (p.GrowthRate - 1) * nw / p.PopSize))
         N < 1 && throw(ArgumentError("the population cannot persist at the optimum"))
         spectrum_mutate!(sp, N)
-        VG = spectrum_vg(sp)
+        VG = dyn ? spectrum_vtotal(sp) : spectrum_vg(sp)
         if t % 100 == 0
             last > 0 && abs(VG - last) <= tol * VG * 100 && break
             last = VG
         end
     end
+    dyn && return (; VG = VG * N / (N - 1), genic = spectrum_vg(sp) * N / (N - 1), ld = spectrum_ld(sp) * N / (N - 1),
+                   N, nparents = npar, spectrum = sp)
     (; VG = VG * N / (N - 1), N, nparents = npar, spectrum = sp)
 end
 
