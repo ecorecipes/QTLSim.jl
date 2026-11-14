@@ -27,7 +27,7 @@ const M6 = e6p_module()                                   # validate/emulator_sp
 const LMODE = isempty(ARGS) ? "full" : ARGS[1]
 const SPEC = (; ld = :dynamic)                            # the model under test
 const POOLSEED, PICKSEED, NPOOL2 = 20261121, 20261122, 100
-const FSEED, NF = 20261123, 150
+const FSEED, NF = 20261123, 100          # amendment 1: 100 per stratum (the first 100 of the same permutation)
 const HK, HKSEED = 40, 70261114000
 const LLOG = Ref{IO}(stdout)
 lsay(s...) = (println(stdout, s...); LLOG[] === stdout || (println(LLOG[], s...); flush(LLOG[])))
@@ -156,7 +156,7 @@ end
 
 # --- the emulator, with the trajectory: P2000 (emulate's pipeline), V_G at the move (mean over
 # −200…−1, as the kernel's), at +100 and +500 (mean over ±5), and the equilibrium's genic and LD
-function em_job(p, kw)
+function em_job(p, kw; eq = true)
     st = spectrum_traj(p; spectrum = kw)
     m = st.m
     if length(m.gen) <= BURNIN                             # died before the move
@@ -166,14 +166,14 @@ function em_job(p, kw)
         P, T = d.psurvive, d.median === missing ? NaN : Float64(d.median - BURNIN + 1)
     end
     w(lo, hi) = (k = findall(t -> lo <= t <= hi, st.t); length(k) == hi - lo + 1 ? mean(st.VG[k]) : NaN)
-    e = haskey(kw, :ld) && kw.ld === :dynamic ? spectrum_equilibrium(p; kw...) : nothing
+    e = eq && haskey(kw, :ld) && kw.ld === :dynamic ? spectrum_equilibrium(p; kw...) : nothing
     (; P2000 = P, T, VGpre = w(-200, -1), VG100 = w(95, 105), VG500 = w(495, 505),
      genic_eq = e === nothing ? NaN : e.genic, ld_eq = e === nothing ? NaN : e.ld)
 end
 
-function em_sweep(model, kwf, ix, ids, ps)
+function em_sweep(model, kwf, ix, ids, ps; eq = true)
     sweep(collect(ix); id = i -> "$model|$(ids[i])", cost = i -> ps[i].NoQTL, progress = 100, cache = LRUNS) do i
-        em_job(ps[i], kwf(ps[i]))
+        em_job(ps[i], kwf(ps[i]); eq)
     end
 end
 ra_sweep(tag, ix, ids, ps) = emulate_sweep(ps[ix]; ids = ["$tag|" * x for x in ids[ix]], loci = :rare_alleles,
@@ -322,8 +322,8 @@ function main()
         inv_(() -> M6.x50([ps[i].MoveFitnessSD / sqrt(ps[i].PhenotypeVar) for i in k], [tab.T[rows[i]] > 2000 for i in k]))[1]
     end
     t = @elapsed begin
-        Fld = em_sweep("F-ld", _ -> SPEC, F, ids, ps)
-        Fsp = em_sweep("F-spectrum", _ -> (;), F, ids, ps)
+        Fld = em_sweep("F-ld", _ -> SPEC, F, ids, ps; eq = false)
+        Fsp = em_sweep("F-spectrum", _ -> (;), F, ids, ps; eq = false)
         Fra = ra_sweep("F-rare_alleles", F, ids, ps)
     end
     lsayf("  emulations on F: %.0f s wall this session", t)

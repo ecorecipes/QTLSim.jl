@@ -106,4 +106,10 @@ recorded here before any held-out result.
 
 ## Amendments
 
-(none)
+1. **2026-11-14, before any held-out result** (after the timing pilot only: 16 inputs of F,
+   emulator run time, no outcome looked at). The pilot gave ≈ 15 CPU-s per `ld = :dynamic`
+   emulation (≈ 5 s of it the equilibrium) and ≈ 5 s for the default `:spectrum`; with F at 150
+   per stratum the task would exceed its budget. F is shrunk to the first **100 per stratum** of
+   the same MersenneTwister(20261123) permutation (800 inputs), and F's emulations skip
+   `spectrum_equilibrium` (its genic variance and LD are used by (a) only, on H). Nothing else
+   changes.
