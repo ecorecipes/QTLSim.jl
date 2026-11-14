@@ -1,0 +1,696 @@
+validate/spectrum_diagnosis.log — running log of the diagnostic study of why the emulator with
+loci = :spectrum puts k50 too high near the threshold (E6′: 25 inputs called alive that the
+kernel called dead, 1 the other way; pooled x50 ratio 1.66). Exploratory study: hypotheses are
+written here BEFORE each test; results are appended after. Script: validate/spectrum_diagnosis.jl.
+
+== 2026-11-14, step 0: what is known before any new run ==
+
+From the existing caches only (validate/emulator_spectrum_kernel.csv, _runs.csv; tabulated by a
+scratch script, nothing new run): in the 25 discordant inputs (emulator alive, kernel dead) the
+kernel's 40 runs die in a NARROW window per input (e.g. 177–238, 301–375, 230–268 generations
+after the move; widest 263–867 and 674–1973), and in 23 of 25 none of 40 runs survives. So the
+kernel's deaths look deterministic (a lag that runs away on a schedule), not a stochastic escape
+from a metastable steady state. The emulator's trajectory for the same inputs ends alive with a
+small, steady lag (lag_end 0.06–2.5 for most). Among the concordant dead inputs of the large-L
+strata the emulator's median T is often later than the kernel's (e.g. 702 vs 323, 488 vs 175).
+
+The chain: burn-in V_G → V_G during the move → lag → W̄ (Gaussian) → extinction given W̄.
+
+Hypotheses to test (stated before step 1):
+ H1 (burn-in): the kernel's V_G at the move is lower than the emulator's.
+ H2 (V_G under the move): the kernel's V_G falls during the move below the emulator's
+    (our working hypothesis, NOT established).
+ H3 (response): the kernel's per-generation response of the mean genotype is smaller than the
+    Gaussian V_G·λ/S given its own V_G, V_P and lag (non-Gaussian genotypes, skew).
+ H4 (W̄): the kernel's realised mean fitness is lower than the Gaussian c·ω/√S·exp(−λ²/2S) given
+    its own V_P and lag.
+ H5 (extinction): given the kernel's W̄ trajectory, extinction_distribution's binomial hazard
+    is right (deaths happen only where W̄ is so low that Binomial(N, W̄) < 2 is likely).
+ H6 (deterministic vs stochastic): if the kernel's deaths came from runs escaping a steady
+    state the emulator also has, the death times would be spread out; step 0 suggests not.
+
+== step 1 (discovery set D + Dctl: 13 discordant E6′ inputs, odd positions in id order, and 8
+   concordant controls, 2 per stratum-pair drawn by MersenneTwister(20261114); list in
+   validate/spectrum_diagnosis_inputs.csv). Kernel: 10 runs per input, E6′'s seeds r = 1..10
+   (KSEED + 100j + r), init = :equilibrium, burn-in 1000, i.e. E6′'s own runs re-run with
+   extra statistics (no extra random draws). 196 runs, 165 s wall on 8 threads. ==
+
+Measured (per-input detail: `analyse D+Dctl 10`, reproduced in spectrum_diagnosis.md):
+ - H3 response: realised survivors' genotype shift / Gaussian V_G·λ/S (kernel's own V_G, V_P,
+   λ, pooled over generations of the move) = 0.981–1.007 in all 21 inputs. REJECTED.
+ - H4 W̄: realised mean fitness / Gaussian formula = 1.000 in all 21. REJECTED.
+ - H5 extinction: the median W̄ in a run's last generation is 0.0013–0.0049 in every input with
+   deaths (Binomial(1000, W̄) < 2 is then likely). H5 holds: the binomial link is right.
+ - Substitution: the kernel's mean V_G trajectory (over runs alive) fed into the Gaussian lag
+   recursion + extinction_distribution reproduces the kernel's median death time in every
+   discordant input: e.g. 253 vs 244, 101 vs 99, 735 vs 720, 574 vs 544, 386 vs 374, 866 vs 534
+   (the latter mean-over-alive biased), 848 vs 833, 1189 vs 1178; P2000 0 in all 12 with kernel
+   deaths; for the reverse discordant input (06159, kernel alive) kernel V_G gives survival.
+   The spectrum's own V_G in the same recursion reproduces the emulator (check of the recursion).
+   => the whole bias is in V_G; the lag, W̄ and extinction links are right.
+ - H1 burn-in: pre-move V_G kernel/spectrum = 0.45–0.98 (median ~0.76; 5000 loci 0.45–0.78).
+   The kernel's GENIC variance at the move equals or exceeds the spectrum's V_G (0.38 vs 0.30,
+   0.66 vs 0.63, 0.55 vs 0.54, 0.87 vs 0.78): the whole shortfall at the move is NEGATIVE LD
+   (kernel LD/genic −0.03 to −0.64). The spectrum has no LD (V_G = genic). The multilocus
+   haplotype moments (multilocus_equilibrium, drift = true) reproduce the kernel's LD for
+   Input-12000 (VG 0.132, genic 0.416, ld −0.284 vs kernel 0.142, 0.379, −0.237).
+ - But holding the kernel's pre-move V_G constant through the move gives P2000 = 1 in every
+   discordant input: the lower V_G at the move is not enough by itself; the kernel's V_G must
+   also FALL during the move (H2 holds): genic falls 25–90% within 250–500 generations, while
+   the spectrum's V_G stays flat or rises.
+ - H6: deaths are deterministic (narrow windows), confirmed.
+
+Next hypothesis (H7, stated before the test): the spectrum's genic dynamics are too slow even
+given the kernel's realised drivers. Test: drive the spectrum (from its equilibrium shape
+scaled to each run's genic variance at −300) with the run's own lag, S = ω² + V_P and realised
+survivors, generation by generation (no feedback), and compare genic(t)/genic(0) with the
+kernel's. If the driven spectrum tracks the kernel, the bias is feedback from the missing LD
+(H1) alone; if not, the genic dynamics themselves are wrong.
+(Disclosure: the driven test had already been tried on 3 runs of Input-12000 while writing the
+function; there the driven spectrum kept genic(+150)/genic(0) ≈ 0.96–1.0 against the kernel's 0.45–0.5.)
+
+H7 result (driven test, 21 discovery inputs × 10 runs; genic(t)/genic(0), mean over runs alive):
+ - In 12 of 13 discordant inputs the driven spectrum's genic variance falls later than the
+   kernel's: +100 kernel 0.56–0.98 vs driven 0.88–1.55 (e.g. 0.67 vs 1.02, 0.74 vs 1.55,
+   0.72 vs 0.97, 0.83 vs 1.00); +250 kernel 0.10–0.80 vs driven 0.16–1.11. By +500 the driven
+   spectrum has often caught up or overshot (0.35 vs 0.33, 0.03 vs 0.13). In the house-of-cards-
+   like inputs (00854, 07594, 01192, small V_G) the driven spectrum RISES at first (×1.2–1.5;
+   the Barton–Turelli rise) while the kernel's genic variance falls.
+ - Without the linked-selection term (linkage = :none) the driven spectrum hardly falls at all
+   before +250: the decline it does have is Barton's linked-selection drift.
+ - Controls (concordant, slower decline) agree to within a few % at +100/+250.
+ => H7 holds: given the kernel's own lag and survivors, the spectrum's genic variance is too
+   high in the first ~100–300 generations of the move, which is when the discordant kernel
+   populations lose the race. Its decline comes from linked selection; the kernel's is earlier.
+   LD at the move (H1) and this slow early decline both raise the emulator's V_G.
+
+H8 (stated before the test): the linked-selection drift is too weak early in the move because
+δ = 1/(2n) + V_G/S damps it (V_G/S is 0.1–0.6 in these inputs, far above 1/(2n) ≈ 5e-4), and/or
+because b²V uses the genic rather than the (smaller) total V_G. Test: the driven spectrum with
+δ = 1/(2n) (selection's part dropped, :dS0) and with the total V_G (:total), 4 runs per input.
+
+H9 (stated before the test): the kernel's early V_G collapse and its negative LD are both
+consequences of QTSim's tight linkage (at most one crossover per gamete). Prediction: with much
+looser linkage the kernel's LD at the move is small, its genic variance does not collapse early,
+and the discordant inputs survive (as the spectrum predicts). Test: VARIANT = "many"
+(CrossoverModel = :all, RecombPoissonMean = 20: every one of Poisson(20) points applied), the 13
+discordant discovery inputs, 6 runs each (same seeds), and the spectrum emulator with the same
+Params (its pair classes then those of the looser linkage). A pilot with free recombination
+(Poisson((L−1)/2) points; 382 s per run, too slow) on Input-14110 survived to +2000 (1 run;
+all 40 E6′ runs with QTSim's crossover died); multilocus_equilibrium there gives LD −0.017
+against −0.08 with QTSim's crossover. A pilot "many" run on Input-14110 also survived (1 run).
+
+k50 on six discovery inputs (`k50` mode; kernel: 10 runs at each of ×0.25/0.35/0.5/0.7/1.0 the
+input's rate, fresh seeds 50261114000+…, x50 by log-linear interpolation of the fraction alive;
+the grid only resolves k50 to about ±17%):
+  input                emulator/kernel k50
+  QT0500-3/04943       0.0849/0.0406 = 2.09
+  QT1000-3/09697       0.1221/0.0770 = 1.59
+  QT1000-5/14110       0.0534/0.0365 = 1.46
+  QT5000-3/12000       0.1973/0.0577 = 3.42
+  QT5000-5/12463       0.0781/0.0439 = 1.78
+  QT5000-5/01925       0.0464/0.0376 = 1.23
+The decomposition with V_G held constant (Gaussian recursion at the spectrum's or the kernel's
+pre-move V_G) is not informative about shares: with V_G constant k50 is 4–10× the actual one
+for both, i.e. V_G's fall during the move dominates k50 for BOTH models; the pre-move level
+alone (constant spectrum vs constant kernel V_G) moves k50 by ×1.02–1.89 (log 0.02–0.64), of a
+total log(E/K) of 0.21–1.23. Shares are instead measured with the prototype below.
+
+H8 result (driven, 4 runs per discovery input; genic(t)/genic(0)):
+ - δ = 1/(2n) (selection's part of δ dropped): the driven spectrum's genic variance collapses far
+   too fast (+100: 0.01–0.55 where the kernel has 0.57–0.98; controls too: 0.27–0.99 vs 0.88–1.03).
+ - total V_G instead of genic in b²V and δ: almost no change (+100 1.00 vs 1.00; 0.85 vs 0.97).
+ => the kernel lies between δ = 1/(2n) + V_G/S (too slow) and δ = 1/(2n) (much too fast): the
+   linked-selection drift is the right mechanism with the association decay δ overestimated.
+   This is the open problem noted in CLAUDE.md. Exploratory next step (a FIT, so any claim
+   needs other inputs): δ = 1/(2n) + d·V_G/S for d = 0.5, 0.25, 0.1 on the discovery inputs.
+
+Prototype P1 (exploratory; src/spectrum.jl keyword `ldratio`, default 1 = unchanged, tests in
+test/closures.jl): the spectrum with a constant LD factor r = V_G/genic from the multilocus
+haplotype moments at the fixed optimum with drift (multilocus_equilibrium(p; drift = true,
+loci = :multilocus); nothing fitted): the lowering's V_G is r × genic, and every mutation's
+directional selection is r·aλ/S (so the response is r × the genic one).
+Discovery result (the six k50 inputs above, all from D): r model 0.32–0.75 vs kernel's measured
+pre-move V_G/genic 0.37–0.79 (the model's LD is 5–25% stronger); emulator/kernel k50
+  2.09 → 0.93, 1.59 → 1.06, 1.46 → 0.80, 3.42 → 1.50, 1.78 → 1.10, 1.23 → 0.99;
+geometric mean 1.82 → 1.04 (mean log 0.599 → 0.042): on these inputs the missing LD accounts for
+~93% of the log k50 bias. Caveat: the model's r is lower than the kernel's, which offsets the
+too-slow early genic decline found by H7, so two errors partly cancel.
+
+H10 (stated before running it): on the E6′ inputs NOT used for discovery (sets C, Cctl and the
+unselected concordant ones; 139 inputs, the kernel's 40 E6′ runs each, already cached), P1
+reduces the discordant calls (the spectrum has 13 alive/dead + 0 dead/alive in C, and errors
+among the 139 in all) and brings the pooled x50 ratio (1.66 on all 160 for the spectrum) into
+[0.8, 1.25]. Not independent of E6′'s aggregate results (seen), but the prototype was not
+developed on these inputs.
+
+H11 (fresh confirmation, stated before selecting or running anything): 64 new published inputs
+(8 per stratum, MersenneTwister(20261119) permutation of the inputs not excluded by
+emulator_spectrum.jl, not in its E1–E4 sample, its E6′ pool (1200) or E6′, with MoveFitnessSD/kc
+in [0.3, 3], E6′'s prefilter), 20 kernel runs each as E6′ (init = :equilibrium, burn-in 1000;
+seeds 60261114000 + 100j + r). Prediction: the spectrum emulator calls more inputs alive that
+the kernel calls dead than the reverse, with pooled x50 ratio > 1.25; P1 has fewer
+discordant calls and a pooled ratio in [0.8, 1.25]. Exploratory; no verdict.
+
+δ grid result (driven, 4 runs per discovery input): no single weight d in δ = 1/(2n) + d·V_G/S
+reproduces the kernel's genic trajectory. At +100 the kernel has already lost 5–30% while the
+driven spectrum with d = 0.5 has lost ≤ 10% (or risen: 00854 1.26, 01192 1.27); by +250 d = 0.5
+is about right in many inputs; by +500 every d ≤ 0.5 overshoots (e.g. 14110 0.15 vs 0.02, 07594
+0.21 vs 0.04, 06159 0.75 vs 0.43). d = 0.25 or 0.1 overshoot earlier. So the kernel's decline
+is EARLIER and more GRADUAL than Barton's term gives: the shape, not only the scale, differs.
+Barton's term grows as b² = (λ/S)² and so starts weakly while the lag is small, whereas the
+kernel's genic variance starts falling at once. Candidate causes not tested here: (a) the
+kernel's allele spectrum at the move holds more intermediate-frequency variance than the
+spectrum's equilibrium shape (its genic variance is 0–25% above the spectrum's V_G in most
+discordant inputs), which directional selection sweeps out first; (b) linked selection under
+stabilising selection already present before the move (background-selection-like; the
+spectrum's term is zero at λ = 0); (c) multiple alleles per locus (continuum of alleles vs
+infinite sites). No δ prototype is pursued: fitting d would be a fit to these inputs and does
+not fix the shape.
+
+H9 result: with looser linkage (VARIANT many: Poisson(20) crossovers, all applied) every one of
+the 78 runs (13 discordant discovery inputs × 6) is alive at +2000, where with QTSim's single
+crossover 128 of 130 E6′ runs of the same inputs were dead; the kernel's pre-move V_G/genic is
+0.71–0.99 (QTSim crossover 0.37–0.79), and its V_G no longer collapses (lag at +1999 within
+1.0–1.8× the spectrum's, flat). The spectrum emulator (same Params) also has them alive. H9
+HOLDS: the discordance is a linkage effect, through the negative LD that tight linkage lets
+stabilising selection build (missing from the spectrum) and the early genic collapse (too slow
+in the spectrum).
+
+H10 result (139 E6′ inputs not used for discovery): spectrum 13 alive/kernel dead, 0 reverse,
+accuracy 0.906, pooled x50 ratio 1.361; P1 (spectrum + ldratio) 0 alive/kernel dead, 13 reverse,
+accuracy 0.906, ratio 0.798. P1 removes the bias's direction but OVERCORRECTS (ratio just
+below 0.8; new errors in the 100- and 500-locus strata, where the spectrum had none or few).
+H10 fails as stated (discordance not reduced; ratio at the lower edge of [0.8, 1.25]).
+
+LD model vs kernel (42 diagnostic inputs): r_model = V_G/genic of multilocus_equilibrium is
+BELOW the kernel's measured pre-move V_G/genic in 39 of 42 (differences up to 0.23, e.g.
+0.54 vs 0.77, 0.30 vs 0.42; within 0.02 where LD is weak): the multilocus moments make the
+negative LD 10–40% too strong.
+
+Diagnostic P1k (spectrum + ldratio = the kernel's own measured r; needs kernel runs, so not a
+predictor): of the 25 discordant inputs in D and C, P1k still calls 7 alive (C: 03416, 14301,
+14872; D: 01192, 00854, 12000, 12463) and fixes 18; it adds no wrong "dead" call beyond the
+reverse case 06159 (wrong in every variant) and Cctl 05035 (f 0.90, P1 0). P1 with the model's
+r fixes all 25 (and errs on 05035 and 06159). Reading: with the right LD level ~70% of the
+discordant calls are explained by the missing LD; the rest is the too-slow genic decline (H7),
+which the model's too-strong LD happens to compensate in these inputs and overcompensates in
+others (H10: ratio 0.80, 13 errors the other way).
+Tests after the src keyword: closures 139/139, emulator 86/86, theory 68/68.
+
+k50 share (six k50 inputs, spectrum + ldratio = kernel's measured r; same kernel k50s):
+  ratios 1.17, 1.15, 0.96, 1.71, 1.25, 1.02 (spectrum 2.09, 1.59, 1.46, 3.42, 1.78, 1.23;
+  P1 with the model's r 0.93, 1.06, 0.80, 1.50, 1.10, 0.99).
+  Mean log ratio: spectrum 0.599 (×1.82); with the kernel's LD level 0.173 (×1.19); with the
+  model's LD level 0.042 (×1.04).
+  => the missing LD explains ~71% of the log k50 bias on these inputs (0.426 of 0.599) and the
+  too-slow early genic decline the remaining ~29% (0.173); the model's stronger LD covers that
+  remainder here by compensation. Kernel k50 resolution about ±17% (rate grid), so these
+  shares are rough.
+
+H11 result (fresh: 64 new inputs, 20 kernel runs each; 1280 runs, ~7 min wall on 7 threads):
+ kernel fraction alive mean 0.152; inputs with none alive 54, all 9, some 1 (the sample is
+ dominated by fast rates, so x50 is poorly determined).
+ spectrum:          5 alive/kernel dead, 1 dead/kernel alive, accuracy 0.906, mean |f − P2000|
+                    0.083, pooled x50 ratio 0.935
+ P1 (model ldratio): 0 alive/kernel dead, 1 dead/kernel alive, accuracy 0.984, mean |f − P2000|
+                    0.007, pooled x50 ratio 0.954
+ => the direction of the spectrum's errors is confirmed on fresh inputs (5 vs 1), but the
+ predicted pooled ratio > 1.25 is NOT seen (0.935: few inputs near the threshold); P1 has
+ fewer discordant calls here (1 vs 6). Together with H10 (139 E6′ inputs: P1 overcorrects,
+ ratio 0.80, 13 errors the other way) the prototype is not established: it moves the
+ threshold by about the right amount on average in large-L inputs and too far in small-L ones.
+
+== appendix: per-input output of `analyse D+Dctl 10` (discovery) ==
+  QT0100-Possion3.0/Input-09247.txt [Dctl] L=100 u=3 rate=0.1084  E6′ f=1.000, P2000=1.000; these 10 runs: alive 1.00, kernel median T   surv; spectrum T   surv
+    pre-move V_G: kernel 0.1386 (genic 0.1459), spectrum 0.1437, ratio k/s 0.964
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.1402/0.1438/10  +250 0.1249/0.145/10  +500 0.0977/0.1331/10  +1000 0.08161/0.0828/10  +1999 0.03528/0.0122/10
+    genic/LD (kernel):  -50 genic 0.1454 LD -0.00626 nseg 318 kurt -0.02 skew -0.00; +100 genic 0.1387 LD 0.00146 nseg 306 kurt -0.07 skew -0.00; +250 genic 0.1324 LD -0.00754 nseg 286 kurt -0.10 skew 0.00; +500 genic 0.1084 LD -0.0107 nseg 250 kurt -0.05 skew -0.06; +1000 genic 0.09013 LD -0.00852 nseg 182 kurt 0.07 skew -0.01;
+    lag (kernel / spectrum):  +100 1.46/1.42  +250 2.71/2.6  +500 4.07/3.47  +1000 5.72/5.07  +1999 11.2/12.6
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 1.000   surv; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.993; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation NaN
+  QT0100-Possion5.0/Input-06159.txt [D] L=100 u=5 rate=0.0983  E6′ f=1.000, P2000=0.000; these 10 runs: alive 1.00, kernel median T   surv; spectrum T   1725
+    pre-move V_G: kernel 0.1106 (genic 0.1229), spectrum 0.1168, ratio k/s 0.946
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.1091/0.1175/10  +250 0.09305/0.1221/10  +500 0.07755/0.09722/10  +1000 0.06162/0.03574/10  +1999 0.04661/NaN/10
+    genic/LD (kernel):  -50 genic 0.1234 LD -0.00911 nseg 301 kurt -0.03 skew -0.05; +100 genic 0.1243 LD -0.0152 nseg 302 kurt -0.03 skew -0.01; +250 genic 0.1097 LD -0.0166 nseg 273 kurt -0.12 skew -0.03; +500 genic 0.0971 LD -0.0195 nseg 230 kurt -0.07 skew 0.02; +1000 genic 0.07327 LD -0.0116 nseg 171 kurt 0.02 skew 0.01;
+    lag (kernel / spectrum):  +100 1.22/1.15  +250 1.97/1.7  +500 2.62/2.07  +1000 3.53/3.92  +1999 4.59/NaN
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 0.000   1668; kernel mean V_G 1.000   surv; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.002; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation NaN
+  QT0100-Possion5.0/Input-07602.txt [Dctl] L=100 u=5 rate=0.5432  E6′ f=0.000, P2000=0.000; these 10 runs: alive 0.00, kernel median T    379; spectrum T    415
+    pre-move V_G: kernel 0.2254 (genic 0.2953), spectrum 0.2484, ratio k/s 0.908
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.3405/0.4957/10  +250 0.1954/0.3402/9  +500 0.08577/NaN/3  +1000 NaN/NaN/0  +1999 NaN/NaN/0
+    genic/LD (kernel):  -50 genic 0.2875 LD -0.0621 nseg 261 kurt 0.02 skew -0.03; +100 genic 0.5591 LD -0.219 nseg 168 kurt 0.05 skew 0.00; +250 genic 0.2688 LD -0.0734 nseg 90 kurt 0.03 skew -0.03; +500 genic 0.1025 LD -0.0167 nseg 37 kurt 0.20 skew -0.15; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 3.11/2.1  +250 4.79/2.83  +500 6.92/NaN  +1000 NaN/NaN  +1999 NaN/NaN
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 0.000    412; kernel mean V_G 0.000    553; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.997; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0026
+  QT0500-Possion3.0/Input-01192.txt [D] L=500 u=3 rate=0.4708  E6′ f=0.300, P2000=1.000; these 10 runs: alive 0.10, kernel median T   1181; spectrum T   surv
+    pre-move V_G: kernel 0.5349 (genic 0.9072), spectrum 0.6141, ratio k/s 0.871
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.4911/0.8632/10  +250 0.3603/1.049/10  +500 0.3171/1.095/10  +1000 0.2014/1.11/10  +1999 0.1723/1.11/1
+    genic/LD (kernel):  -50 genic 0.8993 LD -0.368 nseg 1388 kurt 0.02 skew 0.02; +100 genic 0.8492 LD -0.358 nseg 1092 kurt 0.00 skew -0.03; +250 genic 0.6644 LD -0.304 nseg 832 kurt 0.01 skew 0.00; +500 genic 0.5062 LD -0.189 nseg 644 kurt -0.07 skew 0.02; +1000 genic 0.3189 LD -0.117 nseg 442 kurt -0.01 skew -0.00;
+    lag (kernel / spectrum):  +100 1.45/0.933  +250 1.91/0.767  +500 2.35/0.738  +1000 3.26/0.729  +1999 4.2/0.729
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 1.000   surv; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.999; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0022
+  QT0500-Possion3.0/Input-08172.txt [Dctl] L=500 u=3 rate=0.2138  E6′ f=0.000, P2000=0.000; these 10 runs: alive 0.00, kernel median T   1613; spectrum T   1679
+    pre-move V_G: kernel 0.1795 (genic 0.1885), spectrum 0.1934, ratio k/s 0.928
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.1798/0.1928/10  +250 0.1556/0.1862/10  +500 0.1249/0.1538/10  +1000 0.05377/0.05258/10  +1999 NaN/NaN/0
+    genic/LD (kernel):  -50 genic 0.1876 LD -0.0178 nseg 1606 kurt -0.03 skew -0.00; +100 genic 0.1897 LD -0.00992 nseg 1559 kurt -0.03 skew -0.00; +250 genic 0.182 LD -0.0264 nseg 1474 kurt -0.02 skew -0.01; +500 genic 0.1447 LD -0.0198 nseg 1136 kurt -0.07 skew -0.05; +1000 genic 0.0694 LD -0.0156 nseg 534 kurt 0.04 skew -0.04;
+    lag (kernel / spectrum):  +100 2.08/2.11  +250 4.2/4.02  +500 6.47/5.85  +1000 11.2/10.5  +1999 NaN/NaN
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 0.000   1605; kernel mean V_G 0.000   1620; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.990; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0047
+  QT0500-Possion3.0/Input-04943.txt [D] L=500 u=3 rate=0.4576  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T    153; spectrum T   surv
+    pre-move V_G: kernel 0.03634 (genic 0.0722), spectrum 0.03697, ratio k/s 0.983
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.02069/0.07681/10  +250 NaN/0.08223/0  +500 NaN/0.08553/0  +1000 NaN/0.08603/0  +1999 NaN/0.08603/0
+    genic/LD (kernel):  -50 genic 0.07185 LD -0.0358 nseg 1294 kurt 0.01 skew -0.05; +100 genic 0.03951 LD -0.0188 nseg 462 kurt -0.08 skew -0.05; +250 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +500 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 0.791/0.29  +250 NaN/0.275  +500 NaN/0.267  +1000 NaN/0.266  +1999 NaN/0.266
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000    178; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.000; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0015
+  QT0500-Possion5.0/Input-09607.txt [Dctl] L=500 u=5 rate=0.4678  E6′ f=0.000, P2000=0.000; these 10 runs: alive 0.00, kernel median T    490; spectrum T    591
+    pre-move V_G: kernel 0.9258 (genic 1.174), spectrum 1.113, ratio k/s 0.832
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.7979/1.081/10  +250 0.4136/0.8445/10  +500 0.07084/0.07279/2  +1000 NaN/NaN/0  +1999 NaN/NaN/0
+    genic/LD (kernel):  -50 genic 1.173 LD -0.279 nseg 1576 kurt 0.06 skew -0.05; +100 genic 1.061 LD -0.263 nseg 1312 kurt -0.08 skew -0.04; +250 genic 0.6119 LD -0.198 nseg 716 kurt -0.00 skew -0.12; +500 genic 0.0791 LD -0.00825 nseg 142 kurt -0.28 skew 0.04; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 5.48/4.7  +250 9.96/6.1  +500 20.6/16  +1000 NaN/NaN  +1999 NaN/NaN
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 0.000    579; kernel mean V_G 0.000    489; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.005; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0037
+  QT1000-Possion3.0/Input-00854.txt [D] L=1000 u=3 rate=0.2133  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T    534; spectrum T   surv
+    pre-move V_G: kernel 0.008177 (genic 0.02168), spectrum 0.01038, ratio k/s 0.788
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.006368/0.02044/10  +250 0.004207/0.02323/10  +500 0.002976/0.0233/7  +1000 NaN/0.02322/0  +1999 NaN/0.0232/0
+    genic/LD (kernel):  -50 genic 0.0219 LD -0.0139 nseg 1790 kurt 0.07 skew -0.04; +100 genic 0.01597 LD -0.0096 nseg 1132 kurt 0.09 skew -0.06; +250 genic 0.009151 LD -0.00494 nseg 683 kurt 0.00 skew -0.04; +500 genic 0.005206 LD -0.00223 nseg 436 kurt -0.06 skew -0.08; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 0.161/0.0714  +250 0.22/0.0654  +500 0.332/0.0652  +1000 NaN/0.0653  +1999 NaN/0.0654
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000    866; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.999; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0013
+  QT1000-Possion3.0/Input-06004.txt [D] L=1000 u=3 rate=0.5170  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T    374; spectrum T   surv
+    pre-move V_G: kernel 0.1074 (genic 0.198), spectrum 0.1446, ratio k/s 0.743
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.08018/0.167/10  +250 0.03972/0.1934/10  +500 NaN/0.1975/0  +1000 NaN/0.1975/0  +1999 NaN/0.1971/0
+    genic/LD (kernel):  -50 genic 0.1954 LD -0.0912 nseg 2813 kurt 0.03 skew 0.04; +100 genic 0.155 LD -0.0748 nseg 2037 kurt -0.11 skew -0.04; +250 genic 0.07218 LD -0.0325 nseg 984 kurt 0.02 skew -0.07; +500 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 0.677/0.387  +250 1.28/0.339  +500 NaN/0.333  +1000 NaN/0.332  +1999 NaN/0.333
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000    386; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.001; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0023
+  QT1000-Possion3.0/Input-09697.txt [D] L=1000 u=3 rate=0.3531  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T    720; spectrum T   surv
+    pre-move V_G: kernel 0.5949 (genic 0.872), spectrum 0.781, ratio k/s 0.762
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.5328/0.7935/10  +250 0.3591/0.8308/10  +500 0.1827/0.8255/10  +1000 NaN/0.7926/0  +1999 NaN/0.7703/0
+    genic/LD (kernel):  -50 genic 0.8726 LD -0.26 nseg 3030 kurt -0.03 skew -0.02; +100 genic 0.806 LD -0.273 nseg 2633 kurt 0.02 skew -0.05; +250 genic 0.5631 LD -0.204 nseg 2002 kurt 0.00 skew -0.04; +500 genic 0.2907 LD -0.108 nseg 1030 kurt -0.02 skew 0.01; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 1.7/1.2  +250 2.51/1.15  +500 4.39/1.15  +1000 NaN/1.19  +1999 NaN/1.23
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000    735; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.997; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0023
+  QT1000-Possion3.0/Input-13132.txt [Dctl] L=1000 u=3 rate=0.4152  E6′ f=0.000, P2000=0.000; these 10 runs: alive 0.00, kernel median T    356; spectrum T    582
+    pre-move V_G: kernel 0.3204 (genic 0.3791), spectrum 0.3693, ratio k/s 0.868
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.2478/0.3577/10  +250 0.09006/0.2943/10  +500 NaN/0.06174/0  +1000 NaN/NaN/0  +1999 NaN/NaN/0
+    genic/LD (kernel):  -50 genic 0.3784 LD -0.0574 nseg 3142 kurt 0.06 skew 0.04; +100 genic 0.333 LD -0.0852 nseg 2430 kurt -0.06 skew -0.13; +250 genic 0.1545 LD -0.0644 nseg 957 kurt -0.04 skew -0.05; +500 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 3.29/2.66  +250 6.61/3.21  +500 NaN/7.23  +1000 NaN/NaN  +1999 NaN/NaN
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 0.000    575; kernel mean V_G 0.000    361; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.994; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0032
+  QT1000-Possion5.0/Input-06028.txt [Dctl] L=1000 u=5 rate=0.0996  E6′ f=1.000, P2000=1.000; these 10 runs: alive 1.00, kernel median T   surv; spectrum T   surv
+    pre-move V_G: kernel 0.1327 (genic 0.1421), spectrum 0.1402, ratio k/s 0.946
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.1283/0.14/10  +250 0.1244/0.1377/10  +500 0.1151/0.1282/10  +1000 0.08448/0.09742/10  +1999 0.05437/0.03267/10
+    genic/LD (kernel):  -50 genic 0.1415 LD -0.0136 nseg 3221 kurt 0.02 skew 0.01; +100 genic 0.143 LD -0.0147 nseg 3199 kurt -0.02 skew -0.03; +250 genic 0.1403 LD -0.0159 nseg 3122 kurt 0.00 skew -0.02; +500 genic 0.1265 LD -0.0114 nseg 2900 kurt -0.04 skew -0.04; +1000 genic 0.1002 LD -0.0158 nseg 2454 kurt -0.02 skew -0.08;
+    lag (kernel / spectrum):  +100 0.97/0.944  +250 1.89/1.84  +500 2.79/2.65  +1000 4.05/3.62  +1999 6.1/6.95
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 1.000   surv; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.003; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation NaN
+  QT1000-Possion5.0/Input-14110.txt [D] L=1000 u=5 rate=0.1996  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T    544; spectrum T   surv
+    pre-move V_G: kernel 0.1184 (genic 0.1976), spectrum 0.1703, ratio k/s 0.695
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.09229/0.1731/10  +250 0.05425/0.1808/10  +500 0.01944/0.1765/8  +1000 NaN/0.1658/0  +1999 NaN/0.1567/0
+    genic/LD (kernel):  -50 genic 0.1965 LD -0.0747 nseg 2993 kurt -0.06 skew -0.04; +100 genic 0.1618 LD -0.0695 nseg 2395 kurt 0.07 skew -0.05; +250 genic 0.08939 LD -0.0351 nseg 1546 kurt 0.00 skew -0.01; +500 genic 0.02588 LD -0.00644 nseg 420 kurt -0.09 skew -0.08; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 0.898/0.542  +250 1.45/0.52  +500 3.19/0.529  +1000 NaN/0.561  +1999 NaN/0.591
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000    574; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.991; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0034
+  QT1000-Possion5.0/Input-07594.txt [D] L=1000 u=5 rate=0.1055  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T    539; spectrum T   surv
+    pre-move V_G: kernel 0.005684 (genic 0.01371), spectrum 0.008901, ratio k/s 0.639
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.004624/0.01127/10  +250 0.003199/0.0134/10  +500 0.001758/0.01381/6  +1000 NaN/0.01384/0  +1999 NaN/0.01382/0
+    genic/LD (kernel):  -50 genic 0.01358 LD -0.00796 nseg 2041 kurt 0.01 skew 0.02; +100 genic 0.009875 LD -0.00525 nseg 1431 kurt -0.10 skew 0.05; +250 genic 0.005989 LD -0.00279 nseg 929 kurt -0.00 skew -0.01; +500 genic 0.003198 LD -0.00144 nseg 543 kurt -0.06 skew -0.01; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 0.141/0.0709  +250 0.205/0.0612  +500 0.356/0.0596  +1000 NaN/0.0595  +1999 NaN/0.0596
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000    753; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.998; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0018
+  QT5000-Possion3.0/Input-12000.txt [D] L=5000 u=3 rate=0.3349  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T    244; spectrum T   surv
+    pre-move V_G: kernel 0.1416 (genic 0.3786), spectrum 0.3025, ratio k/s 0.468
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.1015/0.3065/10  +250 0.01354/0.3198/4  +500 NaN/0.3276/0  +1000 NaN/0.3254/0  +1999 NaN/0.3237/0
+    genic/LD (kernel):  -50 genic 0.3778 LD -0.237 nseg 12729 kurt -0.02 skew -0.01; +100 genic 0.2536 LD -0.152 nseg 8535 kurt 0.05 skew 0.04; +250 genic 0.0389 LD -0.0254 nseg 1487 kurt -0.03 skew -0.18; +500 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 0.583/0.263  +250 2.12/0.256  +500 NaN/0.252  +1000 NaN/0.253  +1999 NaN/0.254
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000    253; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.998; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0014
+  QT5000-Possion3.0/Input-14771.txt [D] L=5000 u=3 rate=0.8488  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T     99; spectrum T   surv
+    pre-move V_G: kernel 0.1295 (genic 0.3689), spectrum 0.2878, ratio k/s 0.450
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.01523/0.297/3  +250 NaN/0.3034/0  +500 NaN/0.288/0  +1000 NaN/0.2754/0  +1999 NaN/0.2714/0
+    genic/LD (kernel):  -50 genic 0.3675 LD -0.239 nseg 12915 kurt 0.11 skew 0.01; +100 genic 0.05138 LD -0.0362 nseg 1654 kurt -0.14 skew -0.29; +250 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +500 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 2.2/0.408  +250 NaN/0.402  +500 NaN/0.415  +1000 NaN/0.427  +1999 NaN/0.431
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000    101; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.992; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0017
+  QT5000-Possion3.0/Input-06126.txt [Dctl] L=5000 u=3 rate=0.1709  E6′ f=0.000, P2000=0.000; these 10 runs: alive 0.00, kernel median T    912; spectrum T    962
+    pre-move V_G: kernel 0.05857 (genic 0.05976), spectrum 0.05974, ratio k/s 0.980
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.0563/0.0593/10  +250 0.05008/0.05398/10  +500 0.0282/0.02785/10  +1000 NaN/NaN/0  +1999 NaN/NaN/0
+    genic/LD (kernel):  -50 genic 0.05981 LD -0.00379 nseg 16045 kurt -0.07 skew -0.03; +100 genic 0.05931 LD -0.00301 nseg 15443 kurt 0.08 skew 0.01; +250 genic 0.0552 LD -0.00512 nseg 12711 kurt -0.02 skew -0.02; +500 genic 0.03731 LD -0.00911 nseg 6609 kurt 0.06 skew -0.08; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 2.17/2.17  +250 4.7/4.59  +500 8.28/8  +1000 NaN/NaN  +1999 NaN/NaN
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 0.000    910; kernel mean V_G 0.000    916; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.981; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0046
+  QT5000-Possion5.0/Input-01925.txt [D] L=5000 u=5 rate=0.2554  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T   1178; spectrum T   surv
+    pre-move V_G: kernel 0.4584 (genic 0.5822), spectrum 0.5848, ratio k/s 0.784
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.4445/0.5781/10  +250 0.3386/0.5545/10  +500 0.1915/0.5086/10  +1000 0.05921/0.4017/10  +1999 NaN/0.02589/0
+    genic/LD (kernel):  -50 genic 0.5844 LD -0.121 nseg 15981 kurt -0.01 skew -0.01; +100 genic 0.5732 LD -0.129 nseg 15229 kurt -0.10 skew -0.00; +250 genic 0.4679 LD -0.129 nseg 12914 kurt -0.10 skew -0.05; +500 genic 0.3095 LD -0.118 nseg 9135 kurt -0.01 skew -0.05; +1000 genic 0.08095 LD -0.0217 nseg 2361 kurt -0.02 skew -0.05;
+    lag (kernel / spectrum):  +100 2.32/1.94  +250 3.24/2.28  +500 5.24/2.48  +1000 11.7/3.08  +1999 NaN/11.6
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000   1189; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.999; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0049
+  QT5000-Possion5.0/Input-12463.txt [D] L=5000 u=5 rate=0.3221  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T    833; spectrum T   surv
+    pre-move V_G: kernel 0.3552 (genic 0.5507), spectrum 0.5373, ratio k/s 0.661
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.3547/0.533/10  +250 0.2209/0.5257/10  +500 0.1145/0.5128/10  +1000 NaN/0.4856/0  +1999 NaN/0.4481/0
+    genic/LD (kernel):  -50 genic 0.5475 LD -0.199 nseg 15453 kurt -0.03 skew -0.05; +100 genic 0.513 LD -0.158 nseg 13977 kurt -0.04 skew -0.03; +250 genic 0.3596 LD -0.139 nseg 11255 kurt 0.01 skew -0.04; +500 genic 0.1894 LD -0.0749 nseg 6757 kurt 0.03 skew -0.05; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 1.25/0.811  +250 1.77/0.822  +500 3.19/0.841  +1000 NaN/0.885  +1999 NaN/0.955
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000    848; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.000; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0037
+  QT5000-Possion5.0/Input-05562.txt [D] L=5000 u=5 rate=0.3751  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T    292; spectrum T   surv
+    pre-move V_G: kernel 0.327 (genic 0.6611), spectrum 0.6307, ratio k/s 0.519
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.2417/0.6258/10  +250 0.06286/0.6213/10  +500 NaN/0.6065/0  +1000 NaN/0.5717/0  +1999 NaN/0.5402/0
+    genic/LD (kernel):  -50 genic 0.6599 LD -0.328 nseg 14811 kurt 0.04 skew -0.00; +100 genic 0.4788 LD -0.237 nseg 10243 kurt 0.05 skew -0.04; +250 genic 0.1309 LD -0.0681 nseg 2767 kurt -0.02 skew -0.10; +500 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 1.45/0.667  +250 4.06/0.671  +500 NaN/0.684  +1000 NaN/0.72  +1999 NaN/0.756
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000    304; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.998; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0023
+  QT5000-Possion5.0/Input-11865.txt [Dctl] L=5000 u=5 rate=0.3452  E6′ f=0.000, P2000=0.000; these 10 runs: alive 0.00, kernel median T    332; spectrum T   1660
+    pre-move V_G: kernel 0.1843 (genic 0.2986), spectrum 0.2926, ratio k/s 0.630
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.1339/0.287/10  +250 0.04295/0.2759/10  +500 NaN/0.2507/0  +1000 NaN/0.1899/0  +1999 NaN/NaN/0
+    genic/LD (kernel):  -50 genic 0.2987 LD -0.118 nseg 15519 kurt 0.06 skew 0.01; +100 genic 0.2354 LD -0.102 nseg 11288 kurt 0.00 skew -0.06; +250 genic 0.08493 LD -0.042 nseg 3834 kurt -0.01 skew -0.10; +500 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 1.61/0.885  +250 3.66/0.918  +500 NaN/1  +1000 NaN/1.29  +1999 NaN/NaN
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 0.000   1656; kernel mean V_G 0.000    333; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.007; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0035
+
+== appendix: `analyse C+Cctl 10` (confirmation set) ==
+  QT0100-Possion3.0/Input-09832.txt [Cctl] L=100 u=3 rate=0.1957  E6′ f=0.000, P2000=0.000; these 10 runs: alive 0.00, kernel median T   1374; spectrum T   1187
+    pre-move V_G: kernel 0.2043 (genic 0.2152), spectrum 0.2135, ratio k/s 0.957
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.2146/0.219/10  +250 0.1926/0.2304/10  +500 0.141/0.155/10  +1000 0.06549/0.01833/10  +1999 NaN/NaN/0
+    genic/LD (kernel):  -50 genic 0.2169 LD -0.0127 nseg 313 kurt 0.04 skew -0.01; +100 genic 0.2266 LD -0.012 nseg 297 kurt 0.08 skew 0.04; +250 genic 0.2155 LD -0.0229 nseg 254 kurt -0.09 skew -0.00; +500 genic 0.1566 LD -0.0156 nseg 191 kurt -0.02 skew -0.03; +1000 genic 0.07595 LD -0.0105 nseg 80 kurt -0.10 skew -0.09;
+    lag (kernel / spectrum):  +100 2.27/2.21  +250 3.33/3.03  +500 4.64/4.03  +1000 8.7/10.7  +1999 NaN/NaN
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 0.000   1156; kernel mean V_G 0.000   1418; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.005; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0038
+  QT0100-Possion5.0/Input-05035.txt [Cctl] L=100 u=5 rate=0.4384  E6′ f=0.900, P2000=1.000; these 10 runs: alive 1.00, kernel median T   surv; spectrum T   surv
+    pre-move V_G: kernel 0.4602 (genic 0.607), spectrum 0.4895, ratio k/s 0.940
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.6668/0.9094/10  +250 0.588/0.9098/10  +500 0.544/0.9156/10  +1000 0.5441/0.9047/10  +1999 0.5378/0.8881/10
+    genic/LD (kernel):  -50 genic 0.6163 LD -0.169 nseg 277 kurt 0.04 skew 0.02; +100 genic 0.9605 LD -0.294 nseg 225 kurt -0.05 skew -0.04; +250 genic 0.795 LD -0.207 nseg 185 kurt 0.02 skew -0.03; +500 genic 0.7405 LD -0.196 nseg 165 kurt -0.06 skew -0.07; +1000 genic 0.7242 LD -0.18 nseg 150 kurt 0.03 skew 0.04;
+    lag (kernel / spectrum):  +100 2.97/2.37  +250 3.22/2.11  +500 3.39/2.1  +1000 3.98/2.12  +1999 3.52/2.16
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 1.000   surv; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.002; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation NaN
+  QT0500-Possion3.0/Input-00108.txt [Cctl] L=500 u=3 rate=0.2474  E6′ f=1.000, P2000=1.000; these 10 runs: alive 1.00, kernel median T   surv; spectrum T   surv
+    pre-move V_G: kernel 0.143 (genic 0.2704), spectrum 0.1546, ratio k/s 0.925
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.1468/0.2309/10  +250 0.1364/0.309/10  +500 0.1275/0.3312/10  +1000 0.1348/0.335/10  +1999 0.1299/0.3348/10
+    genic/LD (kernel):  -50 genic 0.2672 LD -0.126 nseg 1342 kurt 0.01 skew -0.02; +100 genic 0.2752 LD -0.128 nseg 1155 kurt -0.02 skew -0.00; +250 genic 0.2587 LD -0.122 nseg 1040 kurt 0.03 skew -0.00; +500 genic 0.2338 LD -0.106 nseg 943 kurt 0.04 skew 0.00; +1000 genic 0.2399 LD -0.105 nseg 898 kurt -0.03 skew 0.01;
+    lag (kernel / spectrum):  +100 0.471/0.334  +250 0.499/0.255  +500 0.53/0.24  +1000 0.52/0.237  +1999 0.534/0.237
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 1.000   surv; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.001; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation NaN
+  QT0500-Possion3.0/Input-00207.txt [C] L=500 u=3 rate=0.2760  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T    630; spectrum T   surv
+    pre-move V_G: kernel 0.05014 (genic 0.06899), spectrum 0.0609, ratio k/s 0.823
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.0441/0.06426/10  +250 0.02746/0.06794/10  +500 0.01432/0.06272/10  +1000 NaN/0.05556/0  +1999 NaN/0.04538/0
+    genic/LD (kernel):  -50 genic 0.06899 LD -0.0192 nseg 1529 kurt -0.07 skew 0.01; +100 genic 0.06414 LD -0.02 nseg 1275 kurt -0.02 skew -0.05; +250 genic 0.04239 LD -0.0149 nseg 884 kurt 0.03 skew -0.04; +500 genic 0.0209 LD -0.00658 nseg 376 kurt -0.02 skew -0.07; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 0.717/0.526  +250 1.05/0.492  +500 1.87/0.528  +1000 NaN/0.594  +1999 NaN/0.719
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000    688; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.001; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0028
+  QT0500-Possion3.0/Input-08578.txt [C] L=500 u=3 rate=0.1539  E6′ f=0.225, P2000=1.000; these 10 runs: alive 0.20, kernel median T   1778; spectrum T   surv
+    pre-move V_G: kernel 0.2063 (genic 0.2271), spectrum 0.2272, ratio k/s 0.908
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.2122/0.2261/10  +250 0.1939/0.2204/10  +500 0.1312/0.1983/10  +1000 0.07693/0.1387/10  +1999 0.00464/0.006084/2
+    genic/LD (kernel):  -50 genic 0.2262 LD -0.0183 nseg 1573 kurt -0.00 skew 0.03; +100 genic 0.2287 LD -0.0166 nseg 1530 kurt -0.07 skew -0.03; +250 genic 0.2107 LD -0.0167 nseg 1402 kurt -0.05 skew -0.03; +500 genic 0.1548 LD -0.0236 nseg 1153 kurt -0.05 skew -0.03; +1000 genic 0.09879 LD -0.0219 nseg 721 kurt -0.03 skew -0.09;
+    lag (kernel / spectrum):  +100 1.58/1.56  +250 2.36/2.15  +500 3.32/2.43  +1000 5.27/3.31  +1999 13.1/12.4
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000   1874; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.999; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0041
+  QT0500-Possion3.0/Input-02339.txt [C] L=500 u=3 rate=0.2855  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T    441; spectrum T   surv
+    pre-move V_G: kernel 0.1272 (genic 0.1854), spectrum 0.1509, ratio k/s 0.843
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.1025/0.1789/10  +250 0.05689/0.1929/10  +500 NaN/0.1856/0  +1000 NaN/0.1782/0  +1999 NaN/0.1728/0
+    genic/LD (kernel):  -50 genic 0.1867 LD -0.0588 nseg 1441 kurt 0.01 skew 0.01; +100 genic 0.1569 LD -0.0544 nseg 1078 kurt -0.00 skew -0.04; +250 genic 0.09405 LD -0.0372 nseg 594 kurt 0.01 skew -0.04; +500 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 1.07/0.706  +250 1.88/0.64  +500 NaN/0.663  +1000 NaN/0.689  +1999 NaN/0.709
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000    447; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.000; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0025
+  QT0500-Possion5.0/Input-09612.txt [Cctl] L=500 u=5 rate=0.1088  E6′ f=1.000, P2000=1.000; these 10 runs: alive 1.00, kernel median T   surv; spectrum T   surv
+    pre-move V_G: kernel 0.1208 (genic 0.1308), spectrum 0.1255, ratio k/s 0.962
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.1195/0.125/10  +250 0.0967/0.1222/10  +500 0.0813/0.1139/10  +1000 0.05946/0.09065/10  +1999 0.046/0.03885/10
+    genic/LD (kernel):  -50 genic 0.1302 LD -0.0126 nseg 1606 kurt -0.02 skew 0.05; +100 genic 0.1296 LD -0.0101 nseg 1554 kurt -0.06 skew 0.01; +250 genic 0.1217 LD -0.025 nseg 1478 kurt -0.08 skew -0.03; +500 genic 0.09763 LD -0.0163 nseg 1326 kurt -0.05 skew -0.04; +1000 genic 0.07427 LD -0.0148 nseg 1106 kurt -0.02 skew -0.02;
+    lag (kernel / spectrum):  +100 0.853/0.838  +250 1.36/1.21  +500 1.76/1.37  +1000 2.38/1.68  +1999 3.48/3.16
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 1.000   surv; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.004; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation NaN
+  QT1000-Possion3.0/Input-06365.txt [C] L=1000 u=3 rate=0.2961  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T    864; spectrum T   surv
+    pre-move V_G: kernel 0.4103 (genic 0.5478), spectrum 0.5357, ratio k/s 0.766
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.3976/0.533/10  +250 0.2705/0.5288/10  +500 0.158/0.4988/10  +1000 NaN/0.4317/0  +1999 NaN/0.3361/0
+    genic/LD (kernel):  -50 genic 0.5432 LD -0.145 nseg 3129 kurt -0.01 skew 0.04; +100 genic 0.5221 LD -0.124 nseg 2797 kurt 0.05 skew -0.06; +250 genic 0.3963 LD -0.126 nseg 2264 kurt 0.01 skew -0.05; +500 genic 0.2368 LD -0.0787 nseg 1368 kurt -0.07 skew -0.04; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 1.89/1.51  +250 2.75/1.55  +500 4.63/1.63  +1000 NaN/1.87  +1999 NaN/2.38
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000    906; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.999; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0031
+  QT1000-Possion3.0/Input-04095.txt [C] L=1000 u=3 rate=0.5123  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T    191; spectrum T   surv
+    pre-move V_G: kernel 0.04996 (genic 0.1626), spectrum 0.05473, ratio k/s 0.913
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.03314/0.1516/10  +250 0.01718/0.1688/1  +500 NaN/0.1679/0  +1000 NaN/0.1672/0  +1999 NaN/0.167/0
+    genic/LD (kernel):  -50 genic 0.1634 LD -0.114 nseg 2229 kurt 0.04 skew 0.03; +100 genic 0.08135 LD -0.0482 nseg 988 kurt -0.05 skew -0.03; +250 genic 0.02694 LD -0.00977 nseg 306 kurt 0.86 skew -0.35; +500 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 0.478/0.183  +250 0.863/0.173  +500 NaN/0.173  +1000 NaN/0.173  +1999 NaN/0.173
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000    271; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.998; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0016
+  QT1000-Possion3.0/Input-08715.txt [Cctl] L=1000 u=3 rate=0.0868  E6′ f=0.000, P2000=0.000; these 10 runs: alive 0.00, kernel median T    652; spectrum T    955
+    pre-move V_G: kernel 0.04481 (genic 0.05179), spectrum 0.05089, ratio k/s 0.881
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.04186/0.05/10  +250 0.02615/0.04587/10  +500 0.009638/0.03246/10  +1000 NaN/NaN/0  +1999 NaN/NaN/0
+    genic/LD (kernel):  -50 genic 0.05212 LD -0.00716 nseg 3157 kurt -0.02 skew -0.01; +100 genic 0.04975 LD -0.00789 nseg 2802 kurt 0.02 skew -0.05; +250 genic 0.03636 LD -0.0102 nseg 2030 kurt -0.08 skew -0.07; +500 genic 0.01387 LD -0.00424 nseg 750 kurt 0.02 skew -0.10; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 0.997/0.91  +250 1.56/1.1  +500 3.05/1.44  +1000 NaN/NaN  +1999 NaN/NaN
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 0.000    941; kernel mean V_G 0.000    663; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.989; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0033
+  QT1000-Possion5.0/Input-02059.txt [Cctl] L=1000 u=5 rate=0.0733  E6′ f=0.500, P2000=0.000; these 10 runs: alive 0.40, kernel median T   1959; spectrum T   1877
+    pre-move V_G: kernel 0.1014 (genic 0.1101), spectrum 0.1089, ratio k/s 0.931
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.09771/0.1083/10  +250 0.08979/0.1032/10  +500 0.06353/0.08435/10  +1000 0.03522/0.02992/10  +1999 0.001531/NaN/4
+    genic/LD (kernel):  -50 genic 0.11 LD -0.00657 nseg 3202 kurt -0.01 skew -0.03; +100 genic 0.1074 LD -0.00967 nseg 3133 kurt -0.04 skew -0.04; +250 genic 0.1004 LD -0.0106 nseg 2872 kurt 0.01 skew -0.07; +500 genic 0.08142 LD -0.0179 nseg 2388 kurt -0.01 skew -0.03; +1000 genic 0.0454 LD -0.0102 nseg 1450 kurt 0.05 skew -0.05;
+    lag (kernel / spectrum):  +100 1.26/1.21  +250 2.32/2.18  +500 3.57/3.03  +1000 5.79/5.38  +1999 13.6/NaN
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 0.000   1794; kernel mean V_G 0.452   1998; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.001; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0049
+  QT1000-Possion5.0/Input-03416.txt [C] L=1000 u=5 rate=0.2221  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T   1393; spectrum T   surv
+    pre-move V_G: kernel 0.1736 (genic 0.3006), spectrum 0.2559, ratio k/s 0.679
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.1581/0.2603/10  +250 0.1103/0.2766/10  +500 0.07923/0.2876/10  +1000 0.04468/0.2873/10  +1999 NaN/0.2856/0
+    genic/LD (kernel):  -50 genic 0.3003 LD -0.128 nseg 2966 kurt -0.01 skew 0.02; +100 genic 0.2764 LD -0.118 nseg 2616 kurt -0.07 skew 0.01; +250 genic 0.1954 LD -0.0851 nseg 2107 kurt 0.11 skew -0.04; +500 genic 0.1279 LD -0.0487 nseg 1541 kurt -0.12 skew 0.02; +1000 genic 0.07516 LD -0.0305 nseg 897 kurt -0.08 skew -0.07;
+    lag (kernel / spectrum):  +100 0.762/0.479  +250 1/0.454  +500 1.42/0.436  +1000 2.36/0.436  +1999 NaN/0.438
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000   1792; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.000; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0035
+  QT1000-Possion5.0/Input-09326.txt [C] L=1000 u=5 rate=0.3556  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T    218; spectrum T   surv
+    pre-move V_G: kernel 0.02884 (genic 0.06429), spectrum 0.04356, ratio k/s 0.662
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.01918/0.05183/10  +250 NaN/0.05654/0  +500 NaN/0.05547/0  +1000 NaN/0.05435/0  +1999 NaN/0.05374/0
+    genic/LD (kernel):  -50 genic 0.06364 LD -0.0354 nseg 2759 kurt 0.05 skew 0.03; +100 genic 0.03573 LD -0.0166 nseg 1566 kurt -0.03 skew -0.04; +250 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +500 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 0.524/0.246  +250 NaN/0.226  +500 NaN/0.229  +1000 NaN/0.233  +1999 NaN/0.236
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000    220; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.996; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0022
+  QT5000-Possion3.0/Input-07033.txt [Cctl] L=5000 u=3 rate=0.1138  E6′ f=0.700, P2000=1.000; these 10 runs: alive 0.80, kernel median T   surv; spectrum T   surv
+    pre-move V_G: kernel 0.2411 (genic 0.2503), spectrum 0.2569, ratio k/s 0.938
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.2279/0.2562/10  +250 0.2237/0.2495/10  +500 0.1777/0.2237/10  +1000 0.1017/0.1446/10  +1999 0.004758/0.009476/8
+    genic/LD (kernel):  -50 genic 0.2501 LD -0.00333 nseg 16048 kurt -0.10 skew -0.05; +100 genic 0.2501 LD -0.0221 nseg 15753 kurt -0.02 skew 0.03; +250 genic 0.2433 LD -0.0197 nseg 14790 kurt 0.08 skew -0.05; +500 genic 0.2146 LD -0.0369 nseg 12410 kurt -0.10 skew -0.06; +1000 genic 0.1365 LD -0.0349 nseg 8052 kurt -0.04 skew -0.07;
+    lag (kernel / spectrum):  +100 2/2.03  +250 3.95/3.83  +500 6.08/5.38  +1000 9.49/7.77  +1999 22.2/20.9
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.999   surv; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.010; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0059
+  QT5000-Possion3.0/Input-14301.txt [C] L=5000 u=3 rate=0.1372  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T    443; spectrum T   surv
+    pre-move V_G: kernel 0.04689 (genic 0.08124), spectrum 0.07987, ratio k/s 0.587
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.03813/0.07927/10  +250 0.01995/0.07878/10  +500 NaN/0.07765/0  +1000 NaN/0.07488/0  +1999 NaN/0.0724/0
+    genic/LD (kernel):  -50 genic 0.08096 LD -0.0357 nseg 14201 kurt -0.06 skew -0.01; +100 genic 0.07036 LD -0.0322 nseg 11651 kurt 0.02 skew -0.06; +250 genic 0.03871 LD -0.0188 nseg 7521 kurt -0.11 skew -0.04; +500 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 0.402/0.219  +250 0.707/0.22  +500 NaN/0.223  +1000 NaN/0.23  +1999 NaN/0.237
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000    445; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.004; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0039
+  QT5000-Possion3.0/Input-07844.txt [C] L=5000 u=3 rate=0.5208  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T    347; spectrum T   surv
+    pre-move V_G: kernel 0.2989 (genic 0.5323), spectrum 0.5118, ratio k/s 0.584
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.2406/0.5083/10  +250 0.08978/0.505/10  +500 NaN/0.4947/0  +1000 NaN/0.4698/0  +1999 NaN/0.4481/0
+    genic/LD (kernel):  -50 genic 0.5319 LD -0.228 nseg 14916 kurt 0.07 skew 0.04; +100 genic 0.4338 LD -0.193 nseg 11446 kurt -0.02 skew -0.06; +250 genic 0.1814 LD -0.0916 nseg 5146 kurt -0.05 skew -0.07; +500 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 1.19/0.635  +250 2.69/0.638  +500 NaN/0.649  +1000 NaN/0.679  +1999 NaN/0.708
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000    348; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.005; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0026
+  QT5000-Possion5.0/Input-04967.txt [C] L=5000 u=5 rate=0.4824  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T    398; spectrum T   surv
+    pre-move V_G: kernel 0.1974 (genic 0.3155), spectrum 0.3109, ratio k/s 0.635
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.1533/0.3062/10  +250 0.06537/0.2974/10  +500 NaN/0.2786/0  +1000 NaN/0.2361/0  +1999 NaN/0.1444/0
+    genic/LD (kernel):  -50 genic 0.3146 LD -0.115 nseg 15346 kurt -0.03 skew -0.01; +100 genic 0.254 LD -0.101 nseg 12007 kurt -0.06 skew 0.01; +250 genic 0.1133 LD -0.048 nseg 6012 kurt 0.01 skew -0.08; +500 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 1.41/0.811  +250 2.8/0.833  +500 NaN/0.884  +1000 NaN/1.03  +1999 NaN/1.62
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000    401; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.000; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0026
+  QT5000-Possion5.0/Input-01803.txt [C] L=5000 u=5 rate=0.7139  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T    132; spectrum T   surv
+    pre-move V_G: kernel 0.05194 (genic 0.1265), spectrum 0.1113, ratio k/s 0.467
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.01852/0.1112/10  +250 NaN/0.1112/0  +500 NaN/0.1052/0  +1000 NaN/0.09648/0  +1999 NaN/0.0904/0
+    genic/LD (kernel):  -50 genic 0.1254 LD -0.074 nseg 14119 kurt -0.10 skew -0.02; +100 genic 0.04291 LD -0.0244 nseg 4332 kurt -0.05 skew -0.12; +250 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +500 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 1.06/0.284  +250 NaN/0.283  +500 NaN/0.295  +1000 NaN/0.315  +1999 NaN/0.332
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000    135; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.000; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0011
+  QT5000-Possion5.0/Input-00816.txt [Cctl] L=5000 u=5 rate=0.3941  E6′ f=0.000, P2000=0.000; these 10 runs: alive 0.00, kernel median T     81; spectrum T    595
+    pre-move V_G: kernel 0.03038 (genic 0.06745), spectrum 0.06164, ratio k/s 0.493
+    V_G (kernel alive-mean / spectrum / n alive):  +100 NaN/0.05959/0  +250 NaN/0.05227/0  +500 NaN/0.02988/0  +1000 NaN/NaN/0  +1999 NaN/NaN/0
+    genic/LD (kernel):  -50 genic 0.06762 LD -0.0361 nseg 14436 kurt -0.04 skew 0.03; +100 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +250 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +500 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 NaN/0.38  +250 NaN/0.421  +500 NaN/0.666  +1000 NaN/NaN  +1999 NaN/NaN
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 0.000    595; kernel mean V_G 0.000     84; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.995; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0016
+  QT5000-Possion5.0/Input-14872.txt [C] L=5000 u=5 rate=0.5249  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T    215; spectrum T   surv
+    pre-move V_G: kernel 0.03467 (genic 0.1847), spectrum 0.1036, ratio k/s 0.335
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.02336/0.1171/10  +250 NaN/0.132/0  +500 NaN/0.1328/0  +1000 NaN/0.1315/0  +1999 NaN/0.1314/0
+    genic/LD (kernel):  -50 genic 0.1836 LD -0.148 nseg 8492 kurt 0.01 skew 0.02; +100 genic 0.09017 LD -0.0668 nseg 4599 kurt -0.02 skew -0.01; +250 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +500 genic NaN LD NaN nseg NaN kurt NaN skew NaN; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 0.237/0.113  +250 NaN/0.108  +500 NaN/0.108  +1000 NaN/0.108  +1999 NaN/0.108
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000    220; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.993; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0013
+  QT5000-Possion5.0/Input-07989.txt [C] L=5000 u=5 rate=0.3661  E6′ f=0.000, P2000=1.000; these 10 runs: alive 0.00, kernel median T    722; spectrum T   surv
+    pre-move V_G: kernel 1.102 (genic 1.646), spectrum 1.634, ratio k/s 0.674
+    V_G (kernel alive-mean / spectrum / n alive):  +100 1.017/1.616/10  +250 0.6332/1.582/10  +500 0.2852/1.52/10  +1000 NaN/1.385/0  +1999 NaN/1.171/0
+    genic/LD (kernel):  -50 genic 1.647 LD -0.52 nseg 15789 kurt -0.06 skew -0.02; +100 genic 1.527 LD -0.51 nseg 13924 kurt 0.02 skew -0.07; +250 genic 1.046 LD -0.412 nseg 10766 kurt -0.04 skew -0.02; +500 genic 0.4902 LD -0.205 nseg 5275 kurt -0.02 skew -0.05; +1000 genic NaN LD NaN nseg NaN kurt NaN skew NaN;
+    lag (kernel / spectrum):  +100 2.68/1.81  +250 3.93/1.85  +500 7.77/1.92  +1000 NaN/2.1  +1999 NaN/2.47
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 0.000    747; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.003; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation 0.0040
+
+== appendix: VARIANT=many `analyse D 6` ==
+  QT0100-Possion5.0/Input-06159.txt [D] L=100 u=20 rate=0.0983  E6′ f=1.000, P2000=0.000; these 6 runs: alive 1.00, kernel median T   surv; spectrum T   surv
+    pre-move V_G: kernel 0.1152 (genic 0.1162), spectrum 0.1168, ratio k/s 0.986
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.1247/0.1183/6  +250 0.1316/0.1315/6  +500 0.09855/0.139/6  +1000 0.1102/0.1364/6  +1999 0.09863/0.1354/6
+    genic/LD (kernel):  -50 genic 0.1158 LD -0.00162 nseg 318 kurt 0.08 skew -0.03; +100 genic 0.1246 LD 9.25e-05 nseg 313 kurt -0.02 skew 0.09; +250 genic 0.126 LD 0.0056 nseg 293 kurt -0.00 skew 0.01; +500 genic 0.098 LD 0.000556 nseg 276 kurt 0.06 skew 0.01; +1000 genic 0.107 LD 0.00326 nseg 265 kurt -0.01 skew 0.01;
+    lag (kernel / spectrum):  +100 1.14/1.15  +250 1.71/1.66  +500 2.01/1.65  +1000 2.15/1.67  +1999 2.34/1.69
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 1.000   surv; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.001; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation NaN
+  QT0500-Possion3.0/Input-01192.txt [D] L=500 u=20 rate=0.4708  E6′ f=0.300, P2000=1.000; these 6 runs: alive 1.00, kernel median T   surv; spectrum T   surv
+    pre-move V_G: kernel 0.6052 (genic 0.6758), spectrum 0.6141, ratio k/s 0.985
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.7174/0.8792/6  +250 0.8543/1.108/6  +500 0.8741/1.157/6  +1000 0.8496/1.163/6  +1999 0.7773/1.162/6
+    genic/LD (kernel):  -50 genic 0.6778 LD -0.0893 nseg 1372 kurt -0.08 skew -0.00; +100 genic 0.8295 LD -0.112 nseg 1294 kurt 0.01 skew 0.05; +250 genic 0.9474 LD -0.0931 nseg 1295 kurt 0.03 skew 0.02; +500 genic 1.007 LD -0.133 nseg 1282 kurt -0.04 skew -0.07; +1000 genic 0.9546 LD -0.105 nseg 1247 kurt -0.13 skew -0.05;
+    lag (kernel / spectrum):  +100 1.09/0.921  +250 0.898/0.734  +500 0.865/0.705  +1000 0.91/0.702  +1999 1/0.702
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 1.000   surv; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.000; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation NaN
+  QT0500-Possion3.0/Input-04943.txt [D] L=500 u=20 rate=0.4576  E6′ f=0.000, P2000=1.000; these 6 runs: alive 1.00, kernel median T   surv; spectrum T   surv
+    pre-move V_G: kernel 0.03836 (genic 0.0443), spectrum 0.03697, ratio k/s 1.038
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.06297/0.08585/6  +250 0.06175/0.09276/6  +500 0.06367/0.09453/6  +1000 0.05946/0.09446/6  +1999 0.0616/0.09441/6
+    genic/LD (kernel):  -50 genic 0.04479 LD -0.00594 nseg 1289 kurt 0.02 skew 0.03; +100 genic 0.07862 LD -0.0156 nseg 1074 kurt -0.03 skew 0.01; +250 genic 0.07512 LD -0.0134 nseg 1077 kurt 0.01 skew 0.00; +500 genic 0.0764 LD -0.0127 nseg 1000 kurt -0.02 skew 0.01; +1000 genic 0.07248 LD -0.013 nseg 983 kurt -0.08 skew -0.04;
+    lag (kernel / spectrum):  +100 0.329/0.268  +250 0.345/0.252  +500 0.351/0.248  +1000 0.353/0.248  +1999 0.355/0.248
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 1.000   surv; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.001; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation NaN
+  QT1000-Possion3.0/Input-00854.txt [D] L=1000 u=20 rate=0.2133  E6′ f=0.000, P2000=1.000; these 6 runs: alive 1.00, kernel median T   surv; spectrum T   surv
+    pre-move V_G: kernel 0.01064 (genic 0.01406), spectrum 0.01038, ratio k/s 1.025
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.01535/0.02093/6  +250 0.01724/0.02391/6  +500 0.01547/0.02375/6  +1000 0.0154/0.02365/6  +1999 0.01508/0.02362/6
+    genic/LD (kernel):  -50 genic 0.01407 LD -0.00338 nseg 1765 kurt -0.08 skew 0.01; +100 genic 0.02171 LD -0.00636 nseg 1642 kurt 0.04 skew 0.00; +250 genic 0.02456 LD -0.00732 nseg 1630 kurt -0.07 skew -0.02; +500 genic 0.02216 LD -0.00669 nseg 1603 kurt 0.01 skew 0.02; +1000 genic 0.02201 LD -0.00661 nseg 1546 kurt -0.09 skew -0.04;
+    lag (kernel / spectrum):  +100 0.0815/0.0706  +250 0.0771/0.0643  +500 0.0818/0.0645  +1000 0.0765/0.0647  +1999 0.0797/0.0647
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 1.000   surv; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.998; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation NaN
+  QT1000-Possion3.0/Input-06004.txt [D] L=1000 u=20 rate=0.5170  E6′ f=0.000, P2000=1.000; these 6 runs: alive 1.00, kernel median T   surv; spectrum T   surv
+    pre-move V_G: kernel 0.1402 (genic 0.1639), spectrum 0.1446, ratio k/s 0.969
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.1488/0.1687/6  +250 0.1458/0.2008/6  +500 0.1456/0.2087/6  +1000 0.1431/0.2091/6  +1999 0.1402/0.2089/6
+    genic/LD (kernel):  -50 genic 0.1657 LD -0.0233 nseg 2814 kurt -0.07 skew 0.03; +100 genic 0.1755 LD -0.0267 nseg 2616 kurt 0.06 skew 0.02; +250 genic 0.1774 LD -0.0316 nseg 2575 kurt 0.09 skew 0.05; +500 genic 0.1741 LD -0.0285 nseg 2486 kurt 0.02 skew 0.01; +1000 genic 0.1758 LD -0.0327 nseg 2390 kurt 0.07 skew 0.07;
+    lag (kernel / spectrum):  +100 0.409/0.384  +250 0.424/0.329  +500 0.436/0.318  +1000 0.426/0.318  +1999 0.446/0.318
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 1.000   surv; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.001; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation NaN
+  QT1000-Possion3.0/Input-09697.txt [D] L=1000 u=20 rate=0.3531  E6′ f=0.000, P2000=1.000; these 6 runs: alive 1.00, kernel median T   surv; spectrum T   surv
+    pre-move V_G: kernel 0.7116 (genic 0.7727), spectrum 0.781, ratio k/s 0.911
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.7025/0.7991/6  +250 0.7079/0.8546/6  +500 0.6432/0.8861/6  +1000 0.6243/0.8866/6  +1999 0.6255/0.8843/6
+    genic/LD (kernel):  -50 genic 0.77 LD -0.0914 nseg 3016 kurt -0.08 skew 0.00; +100 genic 0.7658 LD -0.0633 nseg 2805 kurt 0.02 skew 0.03; +250 genic 0.7434 LD -0.0355 nseg 2753 kurt 0.00 skew -0.01; +500 genic 0.6754 LD -0.0321 nseg 2641 kurt -0.03 skew -0.02; +1000 genic 0.6751 LD -0.0508 nseg 2566 kurt 0.04 skew 0.00;
+    lag (kernel / spectrum):  +100 1.35/1.19  +250 1.34/1.12  +500 1.46/1.08  +1000 1.54/1.08  +1999 1.47/1.08
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 1.000   surv; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.001; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation NaN
+  QT1000-Possion5.0/Input-14110.txt [D] L=1000 u=20 rate=0.1996  E6′ f=0.000, P2000=1.000; these 6 runs: alive 1.00, kernel median T   surv; spectrum T   surv
+    pre-move V_G: kernel 0.1566 (genic 0.1702), spectrum 0.1703, ratio k/s 0.920
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.1584/0.175/6  +250 0.1569/0.1886/6  +500 0.1559/0.1959/6  +1000 0.1475/0.1961/6  +1999 0.1434/0.1957/6
+    genic/LD (kernel):  -50 genic 0.1697 LD -0.00907 nseg 2986 kurt -0.11 skew 0.03; +100 genic 0.1684 LD -0.01 nseg 2837 kurt -0.03 skew 0.00; +250 genic 0.1692 LD -0.0122 nseg 2726 kurt 0.07 skew -0.02; +500 genic 0.1656 LD -0.00972 nseg 2693 kurt 0.09 skew -0.06; +1000 genic 0.1655 LD -0.0179 nseg 2594 kurt 0.01 skew -0.00;
+    lag (kernel / spectrum):  +100 0.615/0.538  +250 0.593/0.502  +500 0.613/0.483  +1000 0.603/0.482  +1999 0.628/0.483
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 1.000   surv; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.999; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation NaN
+  QT1000-Possion5.0/Input-07594.txt [D] L=1000 u=20 rate=0.1055  E6′ f=0.000, P2000=1.000; these 6 runs: alive 1.00, kernel median T   surv; spectrum T   surv
+    pre-move V_G: kernel 0.008219 (genic 0.009899), spectrum 0.008901, ratio k/s 0.923
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.009309/0.01141/6  +250 0.0105/0.01389/6  +500 0.0108/0.01435/6  +1000 0.009905/0.01432/6  +1999 0.01022/0.0143/6
+    genic/LD (kernel):  -50 genic 0.009946 LD -0.00148 nseg 2021 kurt -0.06 skew 0.02; +100 genic 0.01149 LD -0.00218 nseg 1921 kurt 0.02 skew -0.00; +250 genic 0.01313 LD -0.00263 nseg 1916 kurt -0.04 skew 0.02; +500 genic 0.01353 LD -0.00272 nseg 1874 kurt -0.11 skew -0.00; +1000 genic 0.01257 LD -0.00266 nseg 1851 kurt 0.00 skew 0.01;
+    lag (kernel / spectrum):  +100 0.0828/0.0703  +250 0.0627/0.0596  +500 0.0788/0.058  +1000 0.0764/0.0581  +1999 0.0781/0.0581
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 1.000   surv; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 0.998; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation NaN
+  QT5000-Possion3.0/Input-12000.txt [D] L=5000 u=20 rate=0.3349  E6′ f=0.000, P2000=1.000; these 6 runs: alive 1.00, kernel median T   surv; spectrum T   surv
+    pre-move V_G: kernel 0.2372 (genic 0.3317), spectrum 0.3025, ratio k/s 0.784
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.2291/0.3072/6  +250 0.2244/0.3219/6  +500 0.2184/0.3324/6  +1000 0.2013/0.332/6  +1999 0.2061/0.3307/6
+    genic/LD (kernel):  -50 genic 0.3325 LD -0.0994 nseg 12242 kurt 0.00 skew 0.00; +100 genic 0.3256 LD -0.0964 nseg 11674 kurt -0.08 skew -0.04; +250 genic 0.3154 LD -0.091 nseg 11429 kurt 0.01 skew -0.06; +500 genic 0.2988 LD -0.0803 nseg 11103 kurt -0.06 skew 0.00; +1000 genic 0.2836 LD -0.0822 nseg 10669 kurt -0.02 skew 0.08;
+    lag (kernel / spectrum):  +100 0.313/0.263  +250 0.324/0.255  +500 0.328/0.25  +1000 0.335/0.25  +1999 0.342/0.251
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 1.000   surv; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.001; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation NaN
+  QT5000-Possion3.0/Input-14771.txt [D] L=5000 u=20 rate=0.8488  E6′ f=0.000, P2000=1.000; these 6 runs: alive 1.00, kernel median T   surv; spectrum T   surv
+    pre-move V_G: kernel 0.2273 (genic 0.3221), spectrum 0.2878, ratio k/s 0.790
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.2188/0.299/6  +250 0.1782/0.3115/6  +500 0.1491/0.3036/6  +1000 0.1328/0.2964/6  +1999 0.127/0.2948/6
+    genic/LD (kernel):  -50 genic 0.3233 LD -0.093 nseg 12330 kurt -0.12 skew 0.02; +100 genic 0.3071 LD -0.0883 nseg 10743 kurt -0.06 skew -0.04; +250 genic 0.2608 LD -0.0826 nseg 9773 kurt -0.06 skew -0.02; +500 genic 0.2165 LD -0.0674 nseg 8454 kurt -0.03 skew -0.00; +1000 genic 0.1889 LD -0.0561 nseg 7278 kurt -0.06 skew 0.00;
+    lag (kernel / spectrum):  +100 0.504/0.407  +250 0.574/0.396  +500 0.648/0.402  +1000 0.697/0.408  +1999 0.748/0.409
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 1.000   surv; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.001; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation NaN
+  QT5000-Possion5.0/Input-01925.txt [D] L=5000 u=20 rate=0.2554  E6′ f=0.000, P2000=1.000; these 6 runs: alive 1.00, kernel median T   surv; spectrum T   surv
+    pre-move V_G: kernel 0.5557 (genic 0.5726), spectrum 0.5848, ratio k/s 0.950
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.5622/0.5834/6  +250 0.5502/0.5793/6  +500 0.5113/0.5719/6  +1000 0.4842/0.5567/6  +1999 0.4369/0.5355/6
+    genic/LD (kernel):  -50 genic 0.5722 LD -0.0336 nseg 15965 kurt 0.04 skew 0.07; +100 genic 0.5739 LD -0.0118 nseg 15383 kurt -0.03 skew 0.06; +250 genic 0.5638 LD -0.0135 nseg 14924 kurt -0.03 skew -0.03; +500 genic 0.5403 LD -0.029 nseg 14503 kurt -0.10 skew -0.06; +1000 genic 0.4994 LD -0.0152 nseg 13947 kurt -0.02 skew 0.00;
+    lag (kernel / spectrum):  +100 1.96/1.93  +250 2.31/2.21  +500 2.51/2.25  +1000 2.68/2.31  +1999 2.98/2.41
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 1.000   surv; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.003; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation NaN
+  QT5000-Possion5.0/Input-12463.txt [D] L=5000 u=20 rate=0.3221  E6′ f=0.000, P2000=1.000; these 6 runs: alive 1.00, kernel median T   surv; spectrum T   surv
+    pre-move V_G: kernel 0.4935 (genic 0.5309), spectrum 0.5373, ratio k/s 0.918
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.4928/0.5359/6  +250 0.4861/0.5342/6  +500 0.4576/0.5318/6  +1000 0.4263/0.5264/6  +1999 0.4207/0.519/6
+    genic/LD (kernel):  -50 genic 0.5309 LD -0.0347 nseg 15471 kurt -0.06 skew 0.01; +100 genic 0.5311 LD -0.0383 nseg 15102 kurt 0.01 skew -0.01; +250 genic 0.5204 LD -0.0342 nseg 14859 kurt -0.00 skew -0.02; +500 genic 0.501 LD -0.0434 nseg 14617 kurt 0.13 skew -0.03; +1000 genic 0.4707 LD -0.0444 nseg 14186 kurt -0.07 skew 0.00;
+    lag (kernel / spectrum):  +100 0.862/0.808  +250 0.891/0.811  +500 0.924/0.814  +1000 0.957/0.822  +1999 1.05/0.833
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 1.000   surv; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.001; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation NaN
+  QT5000-Possion5.0/Input-05562.txt [D] L=5000 u=20 rate=0.3751  E6′ f=0.000, P2000=1.000; these 6 runs: alive 1.00, kernel median T   surv; spectrum T   surv
+    pre-move V_G: kernel 0.527 (genic 0.616), spectrum 0.6307, ratio k/s 0.836
+    V_G (kernel alive-mean / spectrum / n alive):  +100 0.524/0.6293/6  +250 0.5002/0.6317/6  +500 0.4696/0.6322/6  +1000 0.4126/0.6228/6  +1999 0.4072/0.6147/6
+    genic/LD (kernel):  -50 genic 0.6154 LD -0.0959 nseg 14593 kurt -0.08 skew -0.05; +100 genic 0.611 LD -0.087 nseg 13935 kurt -0.01 skew -0.02; +250 genic 0.5852 LD -0.085 nseg 13547 kurt -0.04 skew -0.04; +500 genic 0.54 LD -0.0703 nseg 13065 kurt -0.02 skew -0.05; +1000 genic 0.4915 LD -0.0789 nseg 12357 kurt 0.04 skew 0.07;
+    lag (kernel / spectrum):  +100 0.794/0.664  +250 0.77/0.662  +500 0.851/0.661  +1000 0.929/0.67  +1999 0.97/0.677
+    substitutions (P2000, T): spectrum's V_G in the Gaussian recursion 1.000   surv; kernel mean V_G 1.000   surv; kernel pre-move V_G constant 1.000   surv; spectrum pre-move V_G constant 1.000   surv
+    response realised/Gaussian 1.000; W̄ realised/Gaussian 1.000; median W̄ in a run's last generation NaN
+
+== appendix: driven tests (scratch scripts drv.jl / drv2.jl / drv3.jl, which call driven_spectrum / driven_variant) ==
+QT0100-Possion3.0/Input-09247.txt  [Dctl] genic(t)/genic(0), mean over alive runs:  +100 kernel 0.963, driven spectrum 1.003 (no linkage 1.004) n=10  +250 kernel 0.917, driven spectrum 1.019 (no linkage 1.038) n=10  +500 kernel 0.762, driven spectrum 0.907 (no linkage 1.064) n=10
+QT0100-Possion5.0/Input-06159.txt  [D] genic(t)/genic(0), mean over alive runs:  +100 kernel 1.007, driven spectrum 1.002 (no linkage 1.009) n=10  +250 kernel 0.895, driven spectrum 1.010 (no linkage 1.116) n=10  +500 kernel 0.808, driven spectrum 0.638 (no linkage 1.089) n=10
+QT0100-Possion5.0/Input-07602.txt  [Dctl] genic(t)/genic(0), mean over alive runs:  +100 kernel 2.069, driven spectrum 1.390 (no linkage 2.547) n=10  +250 kernel 0.973, driven spectrum 0.358 (no linkage 1.509) n=9  +500 kernel 0.418, driven spectrum 0.080 (no linkage 0.719) n=3
+QT0500-Possion3.0/Input-01192.txt  [D] genic(t)/genic(0), mean over alive runs:  +100 kernel 0.937, driven spectrum 1.343 (no linkage 1.403) n=10  +250 kernel 0.733, driven spectrum 1.111 (no linkage 1.426) n=10  +500 kernel 0.560, driven spectrum 0.679 (no linkage 1.165) n=10
+QT0500-Possion3.0/Input-08172.txt  [Dctl] genic(t)/genic(0), mean over alive runs:  +100 kernel 1.000, driven spectrum 0.997 (no linkage 1.000) n=10  +250 kernel 0.958, driven spectrum 0.963 (no linkage 0.993) n=10  +500 kernel 0.764, driven spectrum 0.767 (no linkage 0.946) n=10
+QT0500-Possion3.0/Input-04943.txt  [D] genic(t)/genic(0), mean over alive runs:  +100 kernel 0.557, driven spectrum 0.884 (no linkage 1.400) n=10
+QT0500-Possion5.0/Input-09607.txt  [Dctl] genic(t)/genic(0), mean over alive runs:  +100 kernel 0.899, driven spectrum 0.956 (no linkage 1.003) n=10  +250 kernel 0.519, driven spectrum 0.443 (no linkage 0.908) n=10  +500 kernel 0.064, driven spectrum 0.018 (no linkage 0.116) n=2
+QT1000-Possion3.0/Input-00854.txt  [D] genic(t)/genic(0), mean over alive runs:  +100 kernel 0.743, driven spectrum 1.548 (no linkage 1.749) n=10  +250 kernel 0.427, driven spectrum 0.780 (no linkage 1.223) n=10  +500 kernel 0.245, driven spectrum 0.277 (no linkage 0.681) n=7
+QT1000-Possion3.0/Input-06004.txt  [D] genic(t)/genic(0), mean over alive runs:  +100 kernel 0.792, driven spectrum 1.138 (no linkage 1.180) n=10  +250 kernel 0.369, driven spectrum 0.621 (no linkage 0.966) n=10
+QT1000-Possion3.0/Input-09697.txt  [D] genic(t)/genic(0), mean over alive runs:  +100 kernel 0.921, driven spectrum 1.008 (no linkage 1.023) n=10  +250 kernel 0.644, driven spectrum 0.936 (no linkage 1.064) n=10  +500 kernel 0.333, driven spectrum 0.349 (no linkage 0.755) n=10
+QT1000-Possion3.0/Input-13132.txt  [Dctl] genic(t)/genic(0), mean over alive runs:  +100 kernel 0.890, driven spectrum 0.950 (no linkage 0.996) n=10  +250 kernel 0.411, driven spectrum 0.351 (no linkage 0.781) n=10
+QT1000-Possion5.0/Input-06028.txt  [Dctl] genic(t)/genic(0), mean over alive runs:  +100 kernel 1.017, driven spectrum 0.998 (no linkage 0.999) n=10  +250 kernel 0.999, driven spectrum 0.980 (no linkage 0.997) n=10  +500 kernel 0.901, driven spectrum 0.906 (no linkage 0.987) n=10
+QT1000-Possion5.0/Input-14110.txt  [D] genic(t)/genic(0), mean over alive runs:  +100 kernel 0.827, driven spectrum 1.004 (no linkage 1.032) n=10  +250 kernel 0.458, driven spectrum 0.756 (no linkage 1.021) n=10  +500 kernel 0.127, driven spectrum 0.033 (no linkage 0.330) n=8
+QT1000-Possion5.0/Input-07594.txt  [D] genic(t)/genic(0), mean over alive runs:  +100 kernel 0.739, driven spectrum 1.223 (no linkage 1.315) n=10  +250 kernel 0.449, driven spectrum 0.759 (no linkage 1.112) n=10  +500 kernel 0.245, driven spectrum 0.184 (no linkage 0.589) n=6
+QT5000-Possion3.0/Input-12000.txt  [D] genic(t)/genic(0), mean over alive runs:  +100 kernel 0.672, driven spectrum 1.024 (no linkage 1.044) n=10  +250 kernel 0.100, driven spectrum 0.163 (no linkage 0.532) n=4
+QT5000-Possion3.0/Input-14771.txt  [D] genic(t)/genic(0), mean over alive runs:  +100 kernel 0.140, driven spectrum 0.294 (no linkage 0.605) n=3
+QT5000-Possion3.0/Input-06126.txt  [Dctl] genic(t)/genic(0), mean over alive runs:  +100 kernel 0.996, driven spectrum 0.993 (no linkage 0.998) n=10  +250 kernel 0.927, driven spectrum 0.901 (no linkage 0.977) n=10  +500 kernel 0.627, driven spectrum 0.438 (no linkage 0.812) n=10
+QT5000-Possion5.0/Input-01925.txt  [D] genic(t)/genic(0), mean over alive runs:  +100 kernel 0.984, driven spectrum 0.986 (no linkage 0.998) n=10  +250 kernel 0.803, driven spectrum 0.915 (no linkage 0.988) n=10  +500 kernel 0.532, driven spectrum 0.636 (no linkage 0.941) n=10
+QT5000-Possion5.0/Input-12463.txt  [D] genic(t)/genic(0), mean over alive runs:  +100 kernel 0.933, driven spectrum 0.984 (no linkage 0.996) n=10  +250 kernel 0.655, driven spectrum 0.931 (no linkage 0.986) n=10  +500 kernel 0.345, driven spectrum 0.585 (no linkage 0.897) n=10
+QT5000-Possion5.0/Input-05562.txt  [D] genic(t)/genic(0), mean over alive runs:  +100 kernel 0.723, driven spectrum 0.972 (no linkage 0.999) n=10  +250 kernel 0.197, driven spectrum 0.330 (no linkage 0.772) n=10
+QT5000-Possion5.0/Input-11865.txt  [Dctl] genic(t)/genic(0), mean over alive runs:  +100 kernel 0.790, driven spectrum 0.948 (no linkage 0.991) n=10  +250 kernel 0.285, driven spectrum 0.337 (no linkage 0.838) n=10
+QT0100-Possion3.0/Input-09247.txt  [Dctl]  +100 k 1.00 b 1.00 dS0 1.00 tot 1.01 (n4)  +250 k 0.93 b 1.03 dS0 0.98 tot 1.03 (n4)  +500 k 0.87 b 0.90 dS0 0.69 tot 0.91 (n4)
+QT0100-Possion5.0/Input-06159.txt  [D]  +100 k 0.97 b 1.00 dS0 0.91 tot 1.00 (n4)  +250 k 0.85 b 1.01 dS0 0.51 tot 1.01 (n4)  +500 k 0.75 b 0.61 dS0 0.21 tot 0.61 (n4)
+QT0100-Possion5.0/Input-07602.txt  [Dctl]  +100 k 2.21 b 1.50 dS0 0.16 tot 1.43 (n4)  +250 k 0.97 b 0.40 dS0 0.09 tot 0.40 (n4)  +500 k 0.33 b 0.10 dS0 0.07 tot 0.09 (n1)
+QT0500-Possion3.0/Input-01192.txt  [D]  +100 k 0.95 b 1.35 dS0 0.19 tot 1.34 (n4)  +250 k 0.69 b 1.13 dS0 0.09 tot 1.05 (n4)  +500 k 0.61 b 0.77 dS0 0.08 tot 0.72 (n4)
+QT0500-Possion3.0/Input-08172.txt  [Dctl]  +100 k 1.01 b 1.00 dS0 0.99 tot 1.00 (n4)  +250 k 0.95 b 0.97 dS0 0.85 tot 0.97 (n4)  +500 k 0.75 b 0.77 dS0 0.48 tot 0.78 (n4)
+QT0500-Possion3.0/Input-04943.txt  [D]  +100 k 0.57 b 0.97 dS0 0.05 tot 0.85 (n4)
+QT0500-Possion5.0/Input-09607.txt  [Dctl]  +100 k 0.88 b 0.96 dS0 0.27 tot 0.95 (n4)  +250 k 0.47 b 0.44 dS0 0.06 tot 0.42 (n4)
+QT1000-Possion3.0/Input-00854.txt  [D]  +100 k 0.69 b 1.52 dS0 0.07 tot 1.41 (n4)  +250 k 0.39 b 0.78 dS0 0.05 tot 0.61 (n4)  +500 k 0.22 b 0.29 dS0 0.03 tot 0.27 (n3)
+QT1000-Possion3.0/Input-06004.txt  [D]  +100 k 0.79 b 1.15 dS0 0.11 tot 1.14 (n4)  +250 k 0.32 b 0.61 dS0 0.04 tot 0.52 (n4)
+QT1000-Possion3.0/Input-09697.txt  [D]  +100 k 0.92 b 1.01 dS0 0.29 tot 1.01 (n4)  +250 k 0.62 b 0.93 dS0 0.10 tot 0.91 (n4)  +500 k 0.33 b 0.35 dS0 0.05 tot 0.32 (n4)
+QT1000-Possion3.0/Input-13132.txt  [Dctl]  +100 k 0.88 b 0.95 dS0 0.33 tot 0.95 (n4)  +250 k 0.40 b 0.33 dS0 0.06 tot 0.33 (n4)
+QT1000-Possion5.0/Input-06028.txt  [Dctl]  +100 k 1.03 b 1.00 dS0 0.99 tot 1.00 (n4)  +250 k 1.00 b 0.98 dS0 0.87 tot 0.98 (n4)  +500 k 0.92 b 0.91 dS0 0.58 tot 0.91 (n4)
+QT1000-Possion5.0/Input-14110.txt  [D]  +100 k 0.79 b 1.00 dS0 0.10 tot 1.00 (n4)  +250 k 0.44 b 0.76 dS0 0.04 tot 0.69 (n4)  +500 k 0.15 b 0.04 dS0 0.02 tot 0.04 (n3)
+QT1000-Possion5.0/Input-07594.txt  [D]  +100 k 0.78 b 1.22 dS0 0.06 tot 1.16 (n4)  +250 k 0.46 b 0.80 dS0 0.04 tot 0.64 (n4)  +500 k 0.21 b 0.11 dS0 0.02 tot 0.09 (n4)
+QT5000-Possion3.0/Input-12000.txt  [D]  +100 k 0.70 b 1.02 dS0 0.05 tot 1.01 (n4)  +250 k 0.10 b 0.18 dS0 0.01 tot 0.13 (n3)
+QT5000-Possion3.0/Input-14771.txt  [D]  +100 k 0.20 b 0.43 dS0 0.01 tot 0.31 (n2)
+QT5000-Possion3.0/Input-06126.txt  [Dctl]  +100 k 0.99 b 0.99 dS0 0.97 tot 0.99 (n4)  +250 k 0.92 b 0.90 dS0 0.71 tot 0.90 (n4)  +500 k 0.63 b 0.43 dS0 0.28 tot 0.43 (n4)
+QT5000-Possion5.0/Input-01925.txt  [D]  +100 k 0.98 b 0.99 dS0 0.55 tot 0.99 (n4)  +250 k 0.79 b 0.92 dS0 0.20 tot 0.92 (n4)  +500 k 0.54 b 0.63 dS0 0.08 tot 0.60 (n4)
+QT5000-Possion5.0/Input-12463.txt  [D]  +100 k 0.94 b 0.98 dS0 0.20 tot 0.98 (n4)  +250 k 0.63 b 0.93 dS0 0.08 tot 0.91 (n4)  +500 k 0.33 b 0.58 dS0 0.04 tot 0.50 (n4)
+QT5000-Possion5.0/Input-05562.txt  [D]  +100 k 0.77 b 0.97 dS0 0.05 tot 0.96 (n4)  +250 k 0.25 b 0.38 dS0 0.02 tot 0.27 (n4)
+QT5000-Possion5.0/Input-11865.txt  [Dctl]  +100 k 0.81 b 0.94 dS0 0.07 tot 0.93 (n4)  +250 k 0.30 b 0.28 dS0 0.02 tot 0.22 (n4)
+QT0100-Possion3.0/Input-09247.txt  [Dctl]  +100 k 1.00 dS.5 1.00 dS.25 1.00 dS.1 1.00 (n4)  +250 k 0.93 dS.5 1.01 dS.25 1.00 dS.1 0.99 (n4)  +500 k 0.87 dS.5 0.83 dS.25 0.77 dS.1 0.73 (n4)
+QT0100-Possion5.0/Input-06159.txt  [D]  +100 k 0.97 dS.5 0.99 dS.25 0.98 dS.1 0.96 (n4)  +250 k 0.85 dS.5 0.92 dS.25 0.81 dS.1 0.67 (n4)  +500 k 0.75 dS.5 0.43 dS.25 0.32 dS.1 0.25 (n4)
+QT0100-Possion5.0/Input-07602.txt  [Dctl]  +100 k 2.21 dS.5 0.97 dS.25 0.55 dS.1 0.27 (n4)  +250 k 0.97 dS.5 0.19 dS.25 0.13 dS.1 0.10 (n4)  +500 k 0.33 dS.5 0.08 dS.25 0.07 dS.1 0.07 (n1)
+QT0500-Possion3.0/Input-01192.txt  [D]  +100 k 0.95 dS.5 1.27 dS.25 1.13 dS.1 0.84 (n4)  +250 k 0.69 dS.5 0.83 dS.25 0.52 dS.1 0.24 (n4)  +500 k 0.61 dS.5 0.48 dS.25 0.27 dS.1 0.15 (n4)
+QT0500-Possion3.0/Input-08172.txt  [Dctl]  +100 k 1.01 dS.5 1.00 dS.25 1.00 dS.1 0.99 (n4)  +250 k 0.95 dS.5 0.95 dS.25 0.92 dS.1 0.89 (n4)  +500 k 0.75 dS.5 0.68 dS.25 0.60 dS.1 0.54 (n4)
+QT0500-Possion3.0/Input-04943.txt  [D]  +100 k 0.57 dS.5 0.62 dS.25 0.33 dS.1 0.12 (n4)
+QT0500-Possion5.0/Input-09607.txt  [Dctl]  +100 k 0.88 dS.5 0.89 dS.25 0.78 dS.1 0.57 (n4)  +250 k 0.47 dS.5 0.24 dS.25 0.12 dS.1 0.08 (n4)
+QT1000-Possion3.0/Input-00854.txt  [D]  +100 k 0.69 dS.5 1.26 dS.25 0.89 dS.1 0.43 (n4)  +250 k 0.39 dS.5 0.41 dS.25 0.18 dS.1 0.07 (n4)  +500 k 0.22 dS.5 0.16 dS.25 0.08 dS.1 0.04 (n3)
+QT1000-Possion3.0/Input-06004.txt  [D]  +100 k 0.79 dS.5 1.09 dS.25 0.97 dS.1 0.71 (n4)  +250 k 0.32 dS.5 0.37 dS.25 0.18 dS.1 0.07 (n4)
+QT1000-Possion3.0/Input-09697.txt  [D]  +100 k 0.92 dS.5 0.99 dS.25 0.95 dS.1 0.83 (n4)  +250 k 0.62 dS.5 0.79 dS.25 0.59 dS.1 0.33 (n4)  +500 k 0.33 dS.5 0.19 dS.25 0.10 dS.1 0.06 (n4)
+QT1000-Possion3.0/Input-13132.txt  [Dctl]  +100 k 0.88 dS.5 0.91 dS.25 0.82 dS.1 0.66 (n4)  +250 k 0.40 dS.5 0.20 dS.25 0.12 dS.1 0.08 (n4)
+QT1000-Possion5.0/Input-06028.txt  [Dctl]  +100 k 1.03 dS.5 1.00 dS.25 1.00 dS.1 0.99 (n4)  +250 k 1.00 dS.5 0.97 dS.25 0.95 dS.1 0.92 (n4)  +500 k 0.92 dS.5 0.84 dS.25 0.76 dS.1 0.67 (n4)
+QT1000-Possion5.0/Input-14110.txt  [D]  +100 k 0.79 dS.5 0.96 dS.25 0.87 dS.1 0.63 (n4)  +250 k 0.44 dS.5 0.53 dS.25 0.28 dS.1 0.08 (n4)  +500 k 0.15 dS.5 0.02 dS.25 0.02 dS.1 0.02 (n3)
+QT1000-Possion5.0/Input-07594.txt  [D]  +100 k 0.78 dS.5 1.06 dS.25 0.78 dS.1 0.34 (n4)  +250 k 0.46 dS.5 0.46 dS.25 0.19 dS.1 0.06 (n4)  +500 k 0.21 dS.5 0.04 dS.25 0.02 dS.1 0.02 (n4)
+QT5000-Possion3.0/Input-12000.txt  [D]  +100 k 0.70 dS.5 0.99 dS.25 0.92 dS.1 0.71 (n4)  +250 k 0.10 dS.5 0.07 dS.25 0.02 dS.1 0.01 (n3)
+QT5000-Possion3.0/Input-14771.txt  [D]  +100 k 0.20 dS.5 0.19 dS.25 0.05 dS.1 0.02 (n2)
+QT5000-Possion3.0/Input-06126.txt  [Dctl]  +100 k 0.99 dS.5 0.99 dS.25 0.98 dS.1 0.98 (n4)  +250 k 0.92 dS.5 0.85 dS.25 0.80 dS.1 0.76 (n4)  +500 k 0.63 dS.5 0.36 dS.25 0.32 dS.1 0.29 (n4)
+QT5000-Possion5.0/Input-01925.txt  [D]  +100 k 0.98 dS.5 0.97 dS.25 0.94 dS.1 0.85 (n4)  +250 k 0.79 dS.5 0.83 dS.25 0.68 dS.1 0.43 (n4)  +500 k 0.54 dS.5 0.39 dS.25 0.20 dS.1 0.11 (n4)
+QT5000-Possion5.0/Input-12463.txt  [D]  +100 k 0.94 dS.5 0.96 dS.25 0.92 dS.1 0.78 (n4)  +250 k 0.63 dS.5 0.85 dS.25 0.68 dS.1 0.34 (n4)  +500 k 0.33 dS.5 0.32 dS.25 0.11 dS.1 0.04 (n4)
+QT5000-Possion5.0/Input-05562.txt  [D]  +100 k 0.77 dS.5 0.92 dS.25 0.80 dS.1 0.48 (n4)  +250 k 0.25 dS.5 0.15 dS.25 0.04 dS.1 0.02 (n4)
+QT5000-Possion5.0/Input-11865.txt  [Dctl]  +100 k 0.81 dS.5 0.87 dS.25 0.72 dS.1 0.38 (n4)  +250 k 0.30 dS.5 0.08 dS.25 0.03 dS.1 0.02 (n4)
+
+== appendix: confirm mode output ==
+  !!! This code will error in future versions of Julia.
+Hint: Add an appropriate `invokelatest` around the access to this binding.
+To make this warning an error, and hence obtain a stack trace, use `julia --depwarn=error`.
+confirmation on 139 E6′ inputs not used for discovery (sets , C, Cctl)
+  spectrum (as in E6′)         n 139: emulator alive & kernel dead 13, emulator dead & kernel alive 0, accuracy 0.906, mean |f − P2000| 0.104
+      pooled x50: kernel 0.1642 (regression), emulator 0.2235 (regression), ratio 1.361
+  spectrum + ldratio           n 139: emulator alive & kernel dead 0, emulator dead & kernel alive 13, accuracy 0.906, mean |f − P2000| 0.099
+      pooled x50: kernel 0.1642 (regression), emulator 0.1310 (regression), ratio 0.798
+    QT0100-Possion3.0: discordant spectrum 0 → spectrum+ldratio 2 (of 19)
+    QT0100-Possion5.0: discordant spectrum 0 → spectrum+ldratio 2 (of 18)
+    QT0500-Possion3.0: discordant spectrum 3 → spectrum+ldratio 2 (of 17)
+    QT0500-Possion5.0: discordant spectrum 0 → spectrum+ldratio 4 (of 19)
+    QT1000-Possion3.0: discordant spectrum 2 → spectrum+ldratio 2 (of 16)
+    QT1000-Possion5.0: discordant spectrum 2 → spectrum+ldratio 1 (of 17)
+    QT5000-Possion3.0: discordant spectrum 2 → spectrum+ldratio 0 (of 17)
+    QT5000-Possion5.0: discordant spectrum 4 → spectrum+ldratio 0 (of 16)

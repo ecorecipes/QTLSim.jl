@@ -85,6 +85,13 @@ The expected allele-frequency spectrum of the segregating mutations of a diploid
 population (src/spectrum.jl): `n[j, i]` the expected number of mutations of effect `a[j]`
 at frequency `p[i]` (nodes `p[1] = 0` and `p[end] = 1` are the absorbing boundaries and
 stay empty). `b`, `κ` and `S` are the selection the next `spectrum_step!` applies.
+
+`ldratio` (keyword of the constructor and of [`spectrum_equilibrium`](@ref), through
+`run_moments(…; spectrum = (; ldratio))`; default 1, the model as described above) is an
+exploratory prototype of validate/spectrum_diagnosis.jl, not a validated option: a factor
+`r = V_G/genic` for the negative linkage disequilibrium the spectrum leaves out. The
+lowering's `V_G` is `r` times the spectrum's genic variance, and the directional term of
+selection on every mutation is `r·aλ/S`, so that the response is `r` times the genic one.
 """
 mutable struct AlleleSpectrum
     p::Vector{Float64}          # frequency grid, 0 and 1 included
@@ -101,6 +108,7 @@ mutable struct AlleleSpectrum
     ρ::Vector{Float64}          # and split probabilities (class 1: the same locus)
     linkage::Symbol             # :barton (linked selection lowers N_e) or :none
     cd::Float64                 # the extra drift of linked selection in the last step (Var(Δp) = pq(1/(2n) + cd))
+    ldratio::Float64            # prototype (validate/spectrum_diagnosis.jl): V_G/genic, the linkage disequilibrium factor (1: none)
     # work arrays
     lo::Vector{Float64}; di::Vector{Float64}; up::Vector{Float64}; rhs::Vector{Float64}; cp::Vector{Float64}
 end
@@ -115,7 +123,8 @@ function gauss_hermite_normal(K::Integer)
     E.values, E.vectors[1, :] .^ 2
 end
 
-function AlleleSpectrum(p::Params; grid::Integer = 240, classes::Integer = 20, linkage::Symbol = :barton)
+function AlleleSpectrum(p::Params; grid::Integer = 240, classes::Integer = 20, linkage::Symbol = :barton, ldratio::Real = 1.0)
+    0 < ldratio <= 1 || throw(ArgumentError("ldratio must be in (0, 1], got $ldratio"))
     linkage in (:barton, :none) || throw(ArgumentError("linkage is :barton or :none; got :$linkage"))
     p.Ploidy == 2 || throw(ArgumentError("loci = :spectrum is for diploids; Ploidy = $(p.Ploidy)"))
     p.NoTraits == 1 || throw(ArgumentError("loci = :spectrum is for one trait; NoTraits = $(p.NoTraits)"))
@@ -131,7 +140,7 @@ function AlleleSpectrum(p::Params; grid::Integer = 240, classes::Integer = 20, l
     z, w = gauss_hermite_normal(classes)
     ω, ρ = pair_classes(p)
     AlleleSpectrum(x, h, sqrt(α2) .* z, w, zeros(classes, M + 2), p.NoQTL, p.MutationRatePerGamete, α2,
-                   0.0, Inf, ω, ρ, linkage, 0.0, zeros(M + 2), zeros(M + 2), zeros(M + 2), zeros(M + 2), zeros(M + 2))
+                   0.0, Inf, ω, ρ, linkage, 0.0, float(ldratio), zeros(M + 2), zeros(M + 2), zeros(M + 2), zeros(M + 2), zeros(M + 2))
 end
 
 "The within-population genetic variance `Σ 2a² p(1 − p)` of the spectrum."
@@ -148,7 +157,7 @@ end
 
 # the expected change of a frequency per generation divided by pq, for effect a: the
 # directional term aλ/S and the stabilising one, (1 − λ²/S)(a² + 2c)(1 − 2p)/(2S)
-@inline spectrum_seff(a, p, λ, S, c) = isinf(S) ? 0.0 : a * λ / S - (1 - λ^2 / S) * (a^2 + 2c) * (1 - 2p) / (2S)
+@inline spectrum_seff(a, p, λ, S, c, r = 1.0) = isinf(S) ? 0.0 : r * a * λ / S - (1 - λ^2 / S) * (a^2 + 2c) * (1 - 2p) / (2S)
 
 """
     QTLSim.spectrum_select(sp, λ, S) -> Δz̄
@@ -165,7 +174,7 @@ function spectrum_select(sp::AlleleSpectrum, λ::Real, S::Real)
     for i in 2:length(sp.p)-1
         pi = sp.p[i]; pq = pi * (1 - pi)
         for j in eachindex(sp.a)
-            dz += 2sp.a[j] * pq * spectrum_seff(sp.a[j], pi, λ, S, c) * sp.n[j, i]
+            dz += 2sp.a[j] * pq * spectrum_seff(sp.a[j], pi, λ, S, c, sp.ldratio) * sp.n[j, i]
         end
     end
     dz
@@ -223,7 +232,7 @@ function spectrum_step!(sp::AlleleSpectrum, npar::Real)
         for k in 1:M+1                          # interface between nodes k and k+1
             Δ = x[k+1] - x[k]
             pm = (x[k] + x[k+1]) / 2
-            q = spectrum_seff(a, pm, sp.λ, sp.S, c) * Δ / d4
+            q = spectrum_seff(a, pm, sp.λ, sp.S, c, sp.ldratio) * Δ / d4
             Bm, Bp = _bern(-q) / Δ, _bern(q) / Δ
             # contribution of u_k (left) and u_{k+1} (right) to the flux F = Bm u_k − Bp u_{k+1}
             # node k loses F, node k+1 gains F (dn/dt)
@@ -305,8 +314,8 @@ nparents, spectrum)`. For mutations in linkage equilibrium and weak selection it
 close to [`house_of_gauss_vg`](@ref).
 """
 function spectrum_equilibrium(p::Params; tol::Real = 1e-9, maxgen::Integer = 40 * p.PopSize + 20_000,
-                              grid::Integer = 240, classes::Integer = 20, linkage::Symbol = :barton)
-    sp = AlleleSpectrum(p; grid, classes, linkage)
+                              grid::Integer = 240, classes::Integer = 20, linkage::Symbol = :barton, ldratio::Real = 1.0)
+    sp = AlleleSpectrum(p; grid, classes, linkage, ldratio)
     VE = envVar(p)
     Ω = initFitSD(p)^2
     c0 = QTSIM_FITNESS_PEAK
@@ -314,7 +323,7 @@ function spectrum_equilibrium(p::Params; tol::Real = 1e-9, maxgen::Integer = 40 
     VG, npar = 0.0, N
     last = -1.0
     for t in 1:maxgen
-        P = VG + VE
+        P = sp.ldratio * VG + VE
         ωe2 = p.StandardisePhenotype ? Ω * P : Ω
         S = p.Drift ? Inf : ωe2 + P
         Wbar = p.Drift ? 1.0 : c0 * sqrt(ωe2 / S)

@@ -225,6 +225,16 @@ end
     @test_throws ArgumentError run_moments(Params(p; NoGenerations = 10, Ploidy = 1); loci = :spectrum)
     @test_throws ArgumentError run_moments(Params(p; NoGenerations = 10, NoTraits = 2); loci = :spectrum)
     @test_throws ArgumentError QTLSim.AlleleSpectrum(p; linkage = :bogus)
+    # the prototype ldratio (validate/spectrum_diagnosis.jl): 1 is the default bit for bit; r < 1
+    # scales the recorded V_G and the response at the start of a move by r
+    @test run_moments(pm; loci = :spectrum, spectrum = (ldratio = 1.0,)).geno_var == ms.geno_var
+    q1 = Params(p; NoGenerations = 20, Sample = 1, Drift = true)     # neutral: the genic variance does not depend on r
+    v1 = run_moments(q1; loci = :spectrum, VG = 0.05).geno_var
+    @test run_moments(q1; loci = :spectrum, VG = 0.05, spectrum = (ldratio = 0.5,)).geno_var[2:end] ≈ 0.5 .* v1[2:end] rtol = 1e-10
+    spr = QTLSim.AlleleSpectrum(p; ldratio = 0.5); spr.n .= e.spectrum.n
+    @test QTLSim.spectrum_select(spr, 0.7, S) ≈ 0.5 * QTLSim.spectrum_vg(spr) * 0.7 / S rtol = 1e-8
+    @test_throws ArgumentError QTLSim.AlleleSpectrum(p; ldratio = 0.0)
+    @test_throws ArgumentError QTLSim.AlleleSpectrum(p; ldratio = 1.5)
     # one law of effects from the mutate steps: their fields are the spectrum's
     gm = withparams(lifecycle().generation; MutationRatePerGamete = 1e-3)
     q = Params(p; NoGenerations = 300, Sample = 50)
