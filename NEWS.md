@@ -8,6 +8,29 @@ All notable changes to QTLSim.jl are recorded here. The format follows
 
 ### Added
 
+- **A beta closure for the `:spectrum` model** (off by default; `spectrum = (; solver = :beta)` in
+  `run_moments`, `spectrum_equilibrium`, `emulate`, `emulated_half_survival_rate`; default
+  `:grid` bit for bit unchanged). Per effect class the moments `P_k = ∫ p^k ψ`, `ψ = pqφ`,
+  `k = 0, 1, 2`, closed by `ψ/P₀ = Beta(α, β)` (exact on the neutral spectrum `ψ ∝ 1 − p`), one
+  explicit Euler step per generation of the exact ψ-moment equations (`QTLSim.beta_dP`,
+  `QTLSim.beta_closure`) with Barton's term and the same mutation input, projected onto the
+  Hausdorff conditions. Works with `ld = :dynamic`. A deterministic fallback hands the state to
+  the grid (V_G kept exactly) for the rest of the run when a class carrying ≥ 0.1% of V_G has
+  scaled directional selection `4n|aλ|/S > 100`, a U-shaped closed law, or needs the projection;
+  results then carry `spectrum_fallback` (`run_moments`), `fallback` (`emulate`) or `fallbacks`
+  (`emulated_half_survival_rate`); `QTLSim.spectrum_fallback`. The threshold was set on four
+  inputs and the in-place handover chosen on a 40-input pilot (disclosed in the criteria).
+  Pre-specified numerical-equivalence check against the grid: `validate/spectrum_beta_criteria.md`,
+  `validate/spectrum_beta.jl`, `validate/spectrum_beta.log` (400 fresh published inputs):
+  **11 of 13 PASS**. Equilibrium V_G median |r−1| 0.0005, 95th pct 0.009 PASS; V_G at +100
+  0.0017 / 0.089 PASS; **V_G at +500 FAIL** (median 0.011, 95th pct 0.111 > 0.10; mostly the
+  beta's slow downward drift, 0.80–0.94 of the grid, in runs that never fall back); P2000 calls
+  400/400 PASS; T ratio median 1.000 PASS; half-survival rate (48 inputs) median ratio 0.998, 95th
+  pct 0.027 PASS; with `ld = :dynamic` (200) the same, except **+500 FAIL** (95th pct 0.160) and
+  P2000 calls 199/200; fallback rate 0.245 PASS; speed-up of `emulate` median 267× (min 0.90×,
+  fallbacks 116×) PASS, but only 3.4× with `ld = :dynamic` (the LD-class step dominates). Use it
+  for equilibria, emulator calls and half-survival rates; not for V_G hundreds of generations
+  into a move. Symbolic checks in `check_spectrum.jl` (h), 79 checks pass.
 - **Dynamic linkage disequilibrium in the `:spectrum` closure** (off by default;
   `spectrum = (; ld = :dynamic)` in `run_moments`, `emulate`, `emulated_half_survival_rate`,
   `spectrum_equilibrium`). `V_G` = the spectrum's genic variance + `D_t`, the LD of classes of

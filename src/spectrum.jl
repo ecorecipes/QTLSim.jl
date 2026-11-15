@@ -151,6 +151,21 @@ src/spectrum.jl: `d` the LD of the classes `ldc` ([`QTLSim.ld_classes`](@ref), `
 bins of positions), the lowering's `V_G` is [`QTLSim.spectrum_vtotal`](@ref) = genic + LD,
 and each site's selection uses the bins' regressions `β`. `turnover = false` drops the
 `(1 + 2γ)` factor. Exclusive with `ldratio`.
+
+`solver = :beta` (keyword of the constructor and of [`spectrum_equilibrium`](@ref), through
+`run_moments(…; spectrum = (; solver = :beta))`, `emulate`, `emulated_half_survival_rate`;
+default `:grid`, the frequency grid, bit for bit unchanged) replaces the grid by the beta closure
+of src/spectrum.jl: per effect class the moments `P_k = ∫ p^k pq φ`, `k = 0, 1, 2` (`P`), closed by a
+beta law, one explicit Euler step of the exact moment equations per generation. **Regime of
+validity:** drift-shaped spectra, i.e. a fixed optimum and weak sweeps (population-scaled
+directional selection `4n|aλ|/S ≲ 100` on the classes that carry the variance); not strong sweeps,
+where a class's spectrum turns into a drift part plus a sweep part. **Fallback:** after every
+step the classes carrying at least 0.1% of `V_G` are checked, and if one has `4n|r₁aλ|/S > 100`, a
+U-shaped closed law (`α < 1`, `β < 1`) or needed the Hausdorff projection beyond 1e-6, the step is
+discarded, the state is handed to the grid (`V_G` kept exactly) and the run continues on the grid;
+`fallback` records the step ([`QTLSim.spectrum_fallback`](@ref)). Deterministic. Works with
+`ld = :dynamic`, not with `ldratio`. Equivalence with the grid: validate/spectrum_beta_criteria.md,
+validate/spectrum_beta.log.
 """
 mutable struct AlleleSpectrum
     p::Vector{Float64}          # frequency grid, 0 and 1 included
@@ -175,6 +190,12 @@ mutable struct AlleleSpectrum
     γ::Float64                  # ld = :dynamic: the relative change of the genic variance by the last selection
     gsel::Float64               # ld = :dynamic: the genic variance at the last selection
     turnover::Bool              # ld = :dynamic: LD also scales with its sites' variances under selection (γ)
+    solver::Symbol              # the current solver: :grid (the frequency grid) or :beta (the beta closure of the moments)
+    requested::Symbol           # the solver asked for (stays :beta after a fallback to the grid)
+    P::Matrix{Float64}          # solver = :beta: length(a) × 3, the moments P_k = ∫ p^k ψ of ψ = pq φ, k = 0, 1, 2
+    Pw::Matrix{Float64}         # solver = :beta: work array of P
+    nsteps::Int                 # spectrum_step! calls since construction or the last reset (generations)
+    fallback::Int               # solver = :beta: the step at which the closure fell back to the grid (−1: never)
     # work arrays
     lo::Vector{Float64}; di::Vector{Float64}; up::Vector{Float64}; rhs::Vector{Float64}; cp::Vector{Float64}
 end
@@ -190,8 +211,10 @@ function gauss_hermite_normal(K::Integer)
 end
 
 function AlleleSpectrum(p::Params; grid::Integer = 240, classes::Integer = 20, linkage::Symbol = :barton, ldratio::Real = 1.0,
-                        ld::Symbol = :none, turnover::Bool = true, ldbins::Integer = 20)
+                        ld::Symbol = :none, turnover::Bool = true, ldbins::Integer = 20, solver::Symbol = :grid)
     ld in (:none, :dynamic) || throw(ArgumentError("ld is :none or :dynamic; got :$ld"))
+    solver in (:grid, :beta) || throw(ArgumentError("solver is :grid or :beta; got :$solver"))
+    solver === :beta && ldratio != 1 && throw(ArgumentError("solver = :beta does not implement the prototype ldratio"))
     ld === :dynamic && ldratio != 1 && throw(ArgumentError("ld = :dynamic and the prototype ldratio are exclusive"))
     0 < ldratio <= 1 || throw(ArgumentError("ldratio must be in (0, 1], got $ldratio"))
     linkage in (:barton, :none) || throw(ArgumentError("linkage is :barton or :none; got :$linkage"))
@@ -211,11 +234,13 @@ function AlleleSpectrum(p::Params; grid::Integer = 240, classes::Integer = 20, l
     ldbins >= 1 || throw(ArgumentError("ldbins must be at least 1, got $ldbins"))
     ldc = ld === :dynamic ? ld_classes(p; bins = ldbins) : LDClasses(Int[], Int[], Float64[], Float64[], Float64[])
     AlleleSpectrum(x, h, sqrt(α2) .* z, w, zeros(classes, M + 2), p.NoQTL, p.MutationRatePerGamete, α2,
-                   0.0, Inf, ω, ρ, linkage, 0.0, float(ldratio), ld, ldc, zeros(length(ldc.ρ)), ones(length(ldc.m)), 0.0, 0.0, turnover, zeros(M + 2), zeros(M + 2), zeros(M + 2), zeros(M + 2), zeros(M + 2))
+                   0.0, Inf, ω, ρ, linkage, 0.0, float(ldratio), ld, ldc, zeros(length(ldc.ρ)), ones(length(ldc.m)), 0.0, 0.0, turnover,
+                   solver, solver, zeros(classes, 3), zeros(classes, 3), 0, -1, zeros(M + 2), zeros(M + 2), zeros(M + 2), zeros(M + 2), zeros(M + 2))
 end
 
-"The within-population genetic variance `Σ 2a² p(1 − p)` of the spectrum."
+"The within-population genetic variance `Σ 2a² p(1 − p)` of the spectrum (`Σ 2a² P₀` with `solver = :beta`)."
 function spectrum_vg(sp::AlleleSpectrum)
+    sp.solver === :beta && return _beta_vg(sp)
     v = 0.0
     for i in 2:length(sp.p)-1
         pq = sp.p[i] * (1 - sp.p[i])
@@ -340,7 +365,8 @@ function spectrum_select(sp::AlleleSpectrum, λ::Real, S::Real)
     r1, r2 = _ld_factors(sp, g)
     dz = 0.0
     dg = 0.0
-    for i in 2:length(sp.p)-1
+    sp.solver === :beta && ((dz, dg) = _beta_select(sp, λ, S, c, r1, r2))
+    for i in (sp.solver === :beta ? (2:1) : (2:length(sp.p)-1))
         pi = sp.p[i]; pq = pi * (1 - pi)
         for j in eachindex(sp.a)
             e = spectrum_seff(sp.a[j], pi, λ, S, c, r1, r2)
@@ -393,6 +419,11 @@ among `npar` parents: one implicit Euler step of the Wright–Fisher diffusion o
 effect class. See src/spectrum.jl.
 """
 function spectrum_step!(sp::AlleleSpectrum, npar::Real)
+    sp.nsteps += 1
+    if sp.solver === :beta
+        _beta_step!(sp, npar) && return sp
+        _beta_to_grid!(sp)                       # out of the closure's domain: this step and the rest on the grid
+    end
     x, h = sp.p, sp.h
     M = length(x) - 2
     nn = max(npar, 1.0)
@@ -485,6 +516,7 @@ spread over the effect classes by their probabilities and over the two grid node
 """
 function spectrum_mutate!(sp::AlleleSpectrum, N::Real)
     N < 1 && return sp
+    sp.solver === :beta && return _beta_mutate!(sp, N)
     p0 = 1 / (2N)
     x = sp.p
     k = searchsortedlast(x, p0)
@@ -502,15 +534,220 @@ function spectrum_mutate!(sp::AlleleSpectrum, N::Real)
     sp
 end
 
+# --- the beta closure (solver = :beta; off by default) ------------------------------------
+#
+# A faster stand-in for the frequency grid when sweeps are weak (validate/spectrum_beta_criteria.md,
+# validate/spectrum_beta.jl). Per effect class a_j, the pq-weighted spectrum ψ = pq φ is a finite
+# measure on [0, 1] without atoms at 0 and 1 (the neutral one is ψ ∝ 1 − p), represented by its
+# moments P_k = ∫ p^k ψ, k = 0, 1, 2; V_G = Σ 2a² P₀ and Δz̄ = Σ 2a ∫ s ψ. For any f with
+# f(0) = f(1) = 0, the diffusion of φ (drift M = pq s(p), D = pq d₄, s(p) = s₀ + s₁p the
+# selection of spectrum_seff, linear in p, d₄ = 1/(4n) + c_d/2 with Barton's c_d) gives
+#
+#   d/dt ∫ f φ = ∫ [s f′ + d₄ f″] ψ,
+#
+# and with f_m = p^{m+1}(1 − p), ∫ f_m φ = P_m:
+#
+#   dP_m = s₀[(m+1)P_m − (m+2)P_{m+1}] + s₁[(m+1)P_{m+1} − (m+2)P_{m+2}]
+#          + d₄[m(m+1)P_{m−1} − (m+1)(m+2)P_m],
+#
+# exact (absorption at 0 and 1 included: f vanishes there), but dP₂ needs P₃ and P₄. The closure
+# takes ψ/P₀ = Beta(α, β) with the same mean μ₁ and second moment μ₂: ν = μ₁(1 − μ₁)/(μ₂ − μ₁²) − 1,
+# α = μ₁ν, β = (1 − μ₁)ν, μ₃ = μ₂(α + 2)/(ν + 2), μ₄ = μ₃(α + 3)/(ν + 3). It is exact on the neutral
+# spectrum, Beta(1, 2). One generation is one explicit Euler step of these equations (the grid
+# takes one implicit step: both are first order in the generation; the grid's implicit step adds
+# an O(Δt²) term to the λ² response of V_G, 2(A_{a⁴} − 2Q₄)/S², which is not "fixed" here or
+# there: this solver is checked against the grid as it is), followed by the projection of
+# (μ₁, μ₂) onto the Hausdorff moment conditions of a measure on [0, 1], 0 < μ₁ < 1,
+# μ₁² < μ₂ < μ₁. Mutations add 2N L μ g_j f_m(1/(2N)) to P_m.
+#
+# Domain and fallback. The closure is faithful while drift shapes each class's ψ, as at a fixed
+# optimum (stabilising selection and drift) and under weak sweeps; when directional selection on
+# a class is strong against drift, its sites sweep deterministically, ψ becomes a mixture of a
+# drift part near 0 and a sweep part (U-shaped in the limit), and two moments no longer carry its
+# dynamics. After every step, each class carrying at least BETA_SHARE of V_G (and not an atom of
+# new mutations, α + β < BETA_NUMAX) is checked; the step is outside the domain if for such a
+# class (i) its population-scaled directional selection Γ = 4n|r₁ a λ|/S exceeds BETA_GMAX = 100,
+# (ii) the closed law is U-shaped, α < 1 and β < 1 (this includes μ₂ → μ₁, ν → 0), or (iii) the
+# Hausdorff projection (or P₀ < 0) moved (μ₁, μ₂) by more than BETA_HTOL of μ₁(1 − μ₁).
+# Criterion (i) and its threshold were set on four published inputs before the validation
+# (validate/spectrum_beta_criteria.md): the shape criteria (ii) and (iii) alone fire too late
+# (04943, 4Nα²/S ≈ 12: V_G 38% above the grid's 100 generations into the move, U-shape at 126)
+# or never (06159: 18% below at +600), and a tracked third moment compared with the beta law's
+# saturated in accurate and inaccurate runs alike. Then that step is discarded, the last state inside the domain is converted to the grid (each
+# class's beta law integrated over the grid's cells, so V_G is kept exactly) and the step and the
+# rest of the run use the grid; the run never switches back. `fallback` records the step. The
+# rule depends only on the state, so it is deterministic. Per run rather than per class, because
+# the classes are coupled through V_G, λ, n and Barton's term: a mixed state would need two
+# solvers in one generation for no gain (once a class leaves, the run is in the strong-sweep
+# regime the grid is for).
+
+"Classes carrying less than this share of `V_G` are not checked by the beta closure's domain test."
+const BETA_SHARE = 1e-3
+"The relative move of `(μ₁, μ₂)` by the Hausdorff projection beyond which the beta closure falls back to the grid."
+const BETA_HTOL = 1e-6
+"The population-scaled directional selection `4n|a λ|/S` of a class beyond which the beta closure falls back to the grid."
+const BETA_GMAX = 100.0
+"Classes whose beta law is nearly an atom (`α + β` above this; new mutations) are not checked."
+const BETA_NUMAX = 1e6
+
+"""
+    QTLSim.beta_closure(μ1, μ2) -> (μ3, μ4, α, β)
+
+The third and fourth raw moments of the beta law with mean `μ1` and raw second moment `μ2`
+(`0 < μ1 < 1`, `μ1² < μ2 < μ1`), and its parameters: `ν = μ1(1 − μ1)/(μ2 − μ1²) − 1`,
+`α = μ1ν`, `β = (1 − μ1)ν`, `μ3 = μ2(α + 2)/(ν + 2)`, `μ4 = μ3(α + 3)/(ν + 3)`. The closure of
+`solver = :beta` (src/spectrum.jl); exact for the neutral spectrum `ψ ∝ 1 − p` (`α = 1`, `β = 2`).
+"""
+@inline function beta_closure(μ1::Real, μ2::Real)
+    ν = μ1 * (1 - μ1) / (μ2 - μ1^2) - 1
+    α = μ1 * ν
+    μ3 = μ2 * (α + 2) / (ν + 2)
+    (μ3, μ3 * (α + 3) / (ν + 3), α, (1 - μ1) * ν)
+end
+
+# project (μ₁, μ₂) of row j of Q onto 0 < μ₁ < 1, μ₁² < μ₂ < μ₁; returns the relative move
+# (Inf when P₀ < 0) and whether the closed beta law is U-shaped (α < 1 and β < 1)
+function _beta_project!(Q::AbstractMatrix, j::Integer)
+    P0 = Q[j, 1]
+    if P0 <= 0
+        Q[j, 1] = Q[j, 2] = Q[j, 3] = 0.0
+        return (P0 < 0 ? Inf : 0.0), false
+    end
+    m1, m2 = Q[j, 2] / P0, Q[j, 3] / P0
+    μ1 = clamp(m1, 1e-12, 1 - 1e-12)
+    μ2 = clamp(m2, μ1^2 * (1 + 1e-9), μ1 * (1 - 1e-9))
+    Q[j, 2], Q[j, 3] = μ1 * P0, μ2 * P0
+    _, _, α, β = beta_closure(μ1, μ2)
+    max(abs(μ1 - m1), abs(μ2 - m2)) / (μ1 * (1 - μ1)), α < 1 && β < 1
+end
+
+_beta_vg(sp::AlleleSpectrum) = (v = 0.0; for j in eachindex(sp.a); v += 2sp.a[j]^2 * sp.P[j, 1]; end; v)
+
+# Δz̄ = Σ 2a ∫ s ψ and Σ 2a² ∫ (1 − 2p) s ψ with s = e₀ + e₁p (spectrum_seff)
+function _beta_select(sp::AlleleSpectrum, λ, S, c, r1, r2)
+    dz = 0.0; dg = 0.0
+    for j in eachindex(sp.a)
+        a = sp.a[j]
+        P0, P1, P2 = sp.P[j, 1], sp.P[j, 2], sp.P[j, 3]
+        κ = r2 * (1 - λ^2 / S) * (a^2 + 2c) / (2S)
+        e0, e1 = r1 * a * λ / S - κ, 2κ
+        dz += 2a * (e0 * P0 + e1 * P1)
+        dg += 2a^2 * (e0 * (P0 - 2P1) + e1 * (P1 - 2P2))
+    end
+    dz, dg
+end
+
+"""
+    QTLSim.beta_dP(m, s0, s1, d4, Pm1, Pm, Pp1, Pp2)
+
+The change in one generation of `P_m = ∫ p^m ψ`, `ψ = pq φ`, under selection `s(p) = s0 + s1 p`
+and drift `d4` (`Var(Δp) = 2 d4 pq`), from `P_{m−1}, P_m, P_{m+1}, P_{m+2}`:
+`s0[(m+1)P_m − (m+2)P_{m+1}] + s1[(m+1)P_{m+1} − (m+2)P_{m+2}] + d4[m(m+1)P_{m−1} − (m+1)(m+2)P_m]`
+(src/spectrum.jl; checked against the generator in validate/symbolic/check_spectrum.jl).
+"""
+@inline beta_dP(m, s0, s1, d4, Pm1, Pm, Pp1, Pp2) =
+    s0 * ((m + 1) * Pm - (m + 2) * Pp1) + s1 * ((m + 1) * Pp1 - (m + 2) * Pp2) + d4 * (m * (m + 1) * Pm1 - (m + 1) * (m + 2) * Pm)
+
+# one generation of selection and drift on the moments (explicit Euler); false, leaving the
+# state as it was, if the step leaves the closure's domain
+function _beta_step!(sp::AlleleSpectrum, npar::Real)
+    nn = max(npar, 1.0)
+    g = _beta_vg(sp)
+    neutral = isinf(sp.S)
+    c = neutral ? 0.0 : g / (2sp.L)
+    r1, r2 = _ld_factors(sp, g)
+    cd = sp.linkage === :barton ? spectrum_linked(sp, nn) : 0.0
+    d4 = 1 / (4nn) + cd / 2
+    P, Q = sp.P, sp.Pw
+    ok = true
+    for j in eachindex(sp.a)
+        a = sp.a[j]
+        P0 = P[j, 1]
+        if P0 <= 0
+            Q[j, 1] = Q[j, 2] = Q[j, 3] = 0.0
+            continue
+        end
+        μ1 = clamp(P[j, 2] / P0, 1e-12, 1 - 1e-12)              # (an atom, as the first mutations, is a limit of beta laws)
+        μ2 = clamp(P[j, 3] / P0, μ1^2 * (1 + 1e-9), μ1 * (1 - 1e-9))
+        μ3, μ4, α, β = beta_closure(μ1, μ2)
+        P1, P2, P3, P4 = μ1 * P0, μ2 * P0, μ3 * P0, μ4 * P0
+        if neutral
+            s0 = s1 = 0.0
+        else
+            κ = r2 * (1 - sp.λ^2 / sp.S) * (a^2 + 2c) / (2sp.S)
+            s0, s1 = r1 * a * sp.λ / sp.S - κ, 2κ
+        end
+        Q[j, 1] = P0 + beta_dP(0, s0, s1, d4, 0.0, P0, P1, P2)
+        Q[j, 2] = P1 + beta_dP(1, s0, s1, d4, P0, P1, P2, P3)
+        Q[j, 3] = P2 + beta_dP(2, s0, s1, d4, P1, P2, P3, P4)
+        bind, ushape = _beta_project!(Q, j)
+        if g > 0 && 2a^2 * P0 >= BETA_SHARE * g && α + β < BETA_NUMAX
+            Γ = neutral ? 0.0 : 4nn * abs(r1 * a * sp.λ) / sp.S
+            (Γ > BETA_GMAX || ushape || bind > BETA_HTOL) && (ok = false)
+        end
+    end
+    ok || return false
+    sp.cd = cd
+    P .= Q
+    sp.ld === :dynamic && spectrum_ld_step!(sp.d, sp.ldc, sp.β, neutral ? 0.0 : sp.gsel, sp.S, nn,
+                                            sp.turnover && !neutral ? sp.γ : 0.0)
+    true
+end
+
+function _beta_mutate!(sp::AlleleSpectrum, N::Real)
+    p0 = 1 / (2N)
+    total = 2N * sp.L * sp.μ
+    for j in eachindex(sp.a)
+        f = total * sp.g[j] * p0 * (1 - p0)
+        sp.P[j, 1] += f; sp.P[j, 2] += f * p0; sp.P[j, 3] += f * p0^2
+    end
+    sp
+end
+
+# hand the state to the grid: each class's beta law ψ/P₀ integrated over the cells of the grid's
+# interior nodes (edges halfway between nodes, the first at 0 and the last at 1), n_i = ψ(cell)/(p_i q_i),
+# so that the grid's V_G is the closure's exactly
+function _beta_to_grid!(sp::AlleleSpectrum)
+    x = sp.p
+    M = length(x) - 2
+    fill!(sp.n, 0.0)
+    for j in eachindex(sp.a)
+        P0 = sp.P[j, 1]
+        P0 > 0 || continue
+        μ1 = clamp(sp.P[j, 2] / P0, 1e-12, 1 - 1e-12)
+        _, _, α, β = beta_closure(μ1, clamp(sp.P[j, 3] / P0, μ1^2 * (1 + 1e-9), μ1 * (1 - 1e-9)))
+        D = Beta(α, β)
+        Fl = 0.0
+        for i in 2:M+1
+            Fu = i == M + 1 ? 1.0 : cdf(D, (x[i] + x[i+1]) / 2)
+            sp.n[j, i] = P0 * (Fu - Fl) / (x[i] * (1 - x[i]))
+            Fl = Fu
+        end
+    end
+    sp.solver = :grid
+    sp.fallback = sp.nsteps
+    sp
+end
+
+"""
+    QTLSim.spectrum_fallback(sp) -> Int
+
+For a spectrum made with `solver = :beta`, the step (generation, counted from the start of the
+run) at which the beta closure left its domain and the run fell back to the frequency grid:
+`-1` if it never did, `0` if it fell back before the run (in the equilibrium that started it).
+`-1` for the grid solver. See src/spectrum.jl.
+"""
+spectrum_fallback(sp::AlleleSpectrum) = sp.fallback
+
 "Scale the spectrum so that its genetic variance is `V` (a spectrum without sites stays empty); with `ld = :dynamic` its genic variance, the linkage disequilibrium scaled in proportion."
 function spectrum_scale!(sp::AlleleSpectrum, V::Real)
     if sp.ld === :dynamic                       # the genic variance to V, the LD in proportion
         v = spectrum_vg(sp)
-        v > 0 && (sp.n .*= V / v; sp.d .*= V / v)
+        v > 0 && (sp.n .*= V / v; sp.d .*= V / v; sp.P .*= V / v)
         return sp
     end
     v = spectrum_vg(sp)
-    v > 0 && (sp.n .*= V / v)
+    v > 0 && (sp.n .*= V / v; sp.P .*= V / v)
     sp
 end
 
@@ -525,12 +762,14 @@ changes by less than `tol` relative to itself over 100 generations. Returns `(; 
 nparents, spectrum)`. For mutations in linkage equilibrium and weak selection its `VG` is
 close to [`house_of_gauss_vg`](@ref). With `ld = :dynamic` (and `ldbins`, `turnover`; see
 [`QTLSim.AlleleSpectrum`](@ref)) `VG` is genic + LD, and the result also has `genic` and `ld`
-(expected sample variances, ×N/(N − 1)).
+(expected sample variances, ×N/(N − 1)). With `solver = :beta` the equilibrium is the beta
+closure's (milliseconds instead of seconds), the grid's if the closure falls back (the
+spectrum's `fallback ≥ 0`); see [`QTLSim.AlleleSpectrum`](@ref).
 """
 function spectrum_equilibrium(p::Params; tol::Real = 1e-9, maxgen::Integer = 40 * p.PopSize + 20_000,
                               grid::Integer = 240, classes::Integer = 20, linkage::Symbol = :barton, ldratio::Real = 1.0,
-                              ld::Symbol = :none, turnover::Bool = true, ldbins::Integer = 20)
-    sp = AlleleSpectrum(p; grid, classes, linkage, ldratio, ld, turnover, ldbins)
+                              ld::Symbol = :none, turnover::Bool = true, ldbins::Integer = 20, solver::Symbol = :grid)
+    sp = AlleleSpectrum(p; grid, classes, linkage, ldratio, ld, turnover, ldbins, solver)
     dyn = ld === :dynamic
     VE = envVar(p)
     Ω = initFitSD(p)^2

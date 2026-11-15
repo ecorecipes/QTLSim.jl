@@ -190,6 +190,9 @@ QTLSim.spectrum_select
 QTLSim.spectrum_step!
 QTLSim.spectrum_linked
 QTLSim.spectrum_mutate!
+QTLSim.spectrum_fallback
+QTLSim.beta_closure
+QTLSim.beta_dP
 QTLSim.moments_loci
 steady_lag
 critical_rate

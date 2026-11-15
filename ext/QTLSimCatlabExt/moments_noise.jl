@@ -114,7 +114,7 @@ function moments_replicates(p::Params; replicates::Integer, rng::AbstractRNG, fr
             mr.VG = cov_vpop(mr, mr.cov)
         end
         advance!(mr, p.NoGenerations)
-        (extinct = mr.extinct, extinct_gen = mr.extinct ? mr.gen : -1, map(copy, rec)...)
+        spectrum_result((extinct = mr.extinct, extinct_gen = mr.extinct ? mr.gen : -1, map(copy, rec)...), mr.cov)
     end
     (; det, from, replicates = reps)
 end
