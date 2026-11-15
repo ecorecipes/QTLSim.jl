@@ -1,0 +1,57 @@
+validate/spectrum_beta.jl — beta closure vs grid (criteria: validate/spectrum_beta_criteria.md)
+threads: 8   2026-11-14 18:29
+sample: 400 inputs (50 per stratum, seed 20261130); ld 200; k50 48
+main runs done (11.5 min)
+ld runs done (10.5 min)
+half-survival runs done (8.8 min)
+
+1. Equilibrium V_G
+  equilibrium            n = 400  median ratio 0.9995  median |r−1| 0.0005  95th pct 0.0086  max 0.0243   PASS
+
+2. V_G along the move (both alive)
+  (at the move, +0, no verdict:)
+  +0                     n = 400  median ratio 0.9997  median |r−1| 0.0003  95th pct 0.0070  max 0.0217   PASS
+  +100                   n = 269  median ratio 0.9996  median |r−1| 0.0017  95th pct 0.0886  max 0.2785   PASS
+  +500                   n =  81  median ratio 0.9985  median |r−1| 0.0106  95th pct 0.1107  max 0.2034   FAIL
+
+3. The emulator
+  emulate                P2000 call agreement 1.0000 (400/400)   PASS
+  emulate                T ratio: n = 368, median 1.0000, IQR 1.0000–1.0000, 95th pct of |r−1| 0.0341; finite in one only: 0   PASS
+  emulate                mean |ΔP2000| 0.0000, max 0.0079
+
+4. Half-survival rate (48 inputs)
+  k50 ratio: n = 47, median 0.9976, IQR 0.9908–0.9996, 95th pct |r−1| 0.0270, max 0.1425; 0/Inf: 1 (agreeing 1)   PASS
+  evaluations with a fallback: 297 of 809 (36.7%); time grid 3941 s, beta 98 s (median per input 276.5×)
+
+5. With ld = :dynamic (200 inputs)
+  equilibrium            n = 200  median ratio 0.9996  median |r−1| 0.0004  95th pct 0.0064  max 0.0280   PASS
+  +100                   n = 130  median ratio 0.9996  median |r−1| 0.0010  95th pct 0.0911  max 0.6767   PASS
+  +500                   n =  44  median ratio 0.9983  median |r−1| 0.0141  95th pct 0.1595  max 0.2230   FAIL
+  emulate (ld)           P2000 call agreement 0.9950 (199/200)   PASS
+  emulate (ld)           T ratio: n = 180, median 1.0000, IQR 1.0000–1.0000, 95th pct of |r−1| 0.0145; finite in one only: 1   PASS
+  emulate (ld)           mean |ΔP2000| 0.0050, max 1.0000
+
+6. Fallback rate
+  emulate fell back in 98 of 400 inputs (0.245)   PASS
+  before or at the move (generation ≤ 2001): 18; generation of fallback after the move, quartiles: 5 / 10 / 32
+  (ld = :dynamic: 44 of 200, 0.220)
+
+7. Speed-up (emulate, grid time / beta time, same job)
+  median 267.1×  quartiles 237.0 / 353.4  min 0.90×  max 411×; among fallbacks median 116.4× (n = 98)   PASS
+  total emulate time: grid 1867 s, beta 16 s; ld: median 3.4×
+
+Verdicts
+  1 equilibrium V_G          PASS
+  2 V_G +100                 PASS
+  2 V_G +500                 FAIL
+  3 P2000 calls              PASS
+  3 T ratio                  PASS
+  4 half-survival rate       PASS
+  5 ld: equilibrium V_G      PASS
+  5 ld: V_G +100             PASS
+  5 ld: V_G +500             FAIL
+  5 ld: P2000 calls          PASS
+  5 ld: T ratio              PASS
+  6 fallback rate            PASS
+  7 speed-up                 PASS
+  11 of 13 PASS
