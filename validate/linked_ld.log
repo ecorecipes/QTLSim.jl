@@ -1,0 +1,500 @@
+validate/linked_ld.jl — running log (2026-11-15). Hypotheses are written before each test.
+Criteria: validate/linked_ld_criteria.md (committed before any comparison on fresh data, H′).
+Development data: D, F, G of linked_decay/linked_source (all previously seen; disclosed).
+
+== 1. Stage accounting of Σ_l Y_l² on D, F, G (stage-instrumented re-runs, same seeds as linked_decay/linked_source; 39 + 48 + 66 runs, 3039 thread-s) ==
+
+Instrumentation (`stage`): per generation from MOVE − 60 to MOVE + 99, per locus Y_l = Cov(B_l, x_l)
+at adults (A), π-weighted adults (Π, deterministic selection), survivors (S; plus E[ΣŶ²|adults]
+over 16 Bernoulli(π) redraws with an own RNG), the survivors' expected gamete pool (Gp, exact under
+QTSim's single crossover: Y^Gp = Y^S − Cov_S(R,x) + Z, R_l = Σ_k ρ_kl x_k), offspring before
+mutation (O), next adults (after mutation). Check: V_G bitwise identical to simulate; Σ Y² at A
+equals linked_source's Σ yY on the same run.
+
+Hypotheses before looking:
+ (i)  the exact first-order expectations (survival MC, (1 − 3ε)ΣY² + εΣμ22 for each sampling stage,
+      Σ(Y − CovRx)² + Σ(v Var R + CovRx²)/(2n) for recombination, mutation Σ[(L−1)m v + m Var B]/(2N))
+      reproduce the measured mean stage changes;
+ (ii) the recursion's recombination stage (P ← RPR) misses the cross-chromosome part ρZ of the
+      gamete: its random-pairing variance (seeding mostly the loosely linked classes) and the
+      between-chromosome association created by selection, which recombination transmits in full
+      (the recursion attenuates selection's change by 1 − ρ): expected to be the main shortfall;
+ (iii) the sampling stages: the recursion's Var(B)v differs from the exact μ22 by H (minor);
+ (iv) mutation: the recursion omits the Σ_{k≠l} m_k v_l term (minor);
+ (v)  selection: Bulmer's step agrees with the π pass before the move to within ~20%.
+
+
+== stage accounting of Σ_l Y_l², set D, R = 3: mean change per generation / mean Σ Y² (window means over runs alive) ==
+
+== over inputs: mean (median) of change per generation / Σ Y² ==
+  window -60..-1 (13 inputs)
+    sel_meas    -0.0260 (-0.0242)
+    sel_recur   -0.0320 (-0.0291)
+    sel_bul     -0.0318 (-0.0290)
+    sel_ind     -0.0298 (-0.0279)
+    sel_full    -0.0284 (-0.0263)
+    sel_k3      -0.0001 (-0.0001)
+    sel_k4      +0.0023 (+0.0018)
+    surv_meas   +0.0110 (+0.0072)
+    surv_exact  +0.0117 (+0.0074)
+    surv_first  +0.0081 (+0.0046)
+    surv_recur  +0.0088 (+0.0050)
+    rec_meas    -0.0674 (-0.0590)
+    rec_exact   -0.0573 (-0.0535)
+    rec_theory  -0.0675 (-0.0575)
+    rec_recur   -0.0728 (-0.0653)
+    rec_recurb  +NaN (+NaN)
+    rec_Znoise  +0.0129 (+0.0114)
+    rec_Zsel    -0.0087 (-0.0089)
+    rec_Zth     -0.0078 (-0.0068)
+    rec_Zpair   -0.0000 (-0.0000)
+    off_meas    +0.0823 (+0.0784)
+    off_exact   +0.0833 (+0.0853)
+    off_recur   +0.0834 (+0.0856)
+    mut_meas    +0.0001 (+0.0001)
+    mut_exact   +0.0002 (+0.0002)
+    mut_recur   +0.0001 (+0.0001)
+    total meas   +0.0000 (+0.0001)
+    total exact  +0.0120 (+0.0122)
+    total recur  -0.0127 (-0.0136)
+  window 0..49 (13 inputs)
+    sel_meas    -0.0191 (-0.0158)
+    sel_recur   -0.0447 (-0.0360)
+    sel_bul     -0.0445 (-0.0359)
+    sel_ind     -0.0415 (-0.0349)
+    sel_full    -0.0192 (-0.0161)
+    sel_k3      +0.0152 (+0.0126)
+    sel_k4      +0.0015 (+0.0017)
+    surv_meas   +0.0181 (+0.0162)
+    surv_exact  +0.0185 (+0.0180)
+    surv_first  +0.0159 (+0.0148)
+    surv_recur  +0.0186 (+0.0166)
+    rec_meas    -0.0638 (-0.0616)
+    rec_exact   -0.0545 (-0.0520)
+    rec_theory  -0.0640 (-0.0601)
+    rec_recur   -0.0655 (-0.0629)
+    rec_recurb  +NaN (+NaN)
+    rec_Znoise  +0.0124 (+0.0104)
+    rec_Zsel    -0.0114 (-0.0071)
+    rec_Zth     -0.0112 (-0.0095)
+    rec_Zpair   -0.0000 (-0.0000)
+    off_meas    +0.0680 (+0.0773)
+    off_exact   +0.0700 (+0.0817)
+    off_recur   +0.0700 (+0.0816)
+    mut_meas    +0.0001 (+0.0001)
+    mut_exact   +0.0001 (+0.0001)
+    mut_recur   +0.0000 (+0.0000)
+    total meas   +0.0034 (+0.0030)
+    total exact  +0.0151 (+0.0158)
+    total recur  -0.0215 (-0.0182)
+  window 50..99 (13 inputs)
+    sel_meas    -0.0244 (-0.0210)
+    sel_recur   -0.0427 (-0.0356)
+    sel_bul     -0.0424 (-0.0355)
+    sel_ind     -0.0401 (-0.0345)
+    sel_full    -0.0247 (-0.0218)
+    sel_k3      +0.0068 (+0.0076)
+    sel_k4      -0.0007 (+0.0015)
+    surv_meas   +0.0224 (+0.0158)
+    surv_exact  +0.0249 (+0.0213)
+    surv_first  +0.0226 (+0.0171)
+    surv_recur  +0.0246 (+0.0195)
+    rec_meas    -0.0602 (-0.0609)
+    rec_exact   -0.0516 (-0.0526)
+    rec_theory  -0.0591 (-0.0587)
+    rec_recur   -0.0604 (-0.0637)
+    rec_recurb  +NaN (+NaN)
+    rec_Znoise  +0.0122 (+0.0111)
+    rec_Zsel    -0.0119 (-0.0101)
+    rec_Zth     -0.0110 (-0.0082)
+    rec_Zpair   -0.0001 (-0.0000)
+    off_meas    +0.0574 (+0.0665)
+    off_exact   +0.0569 (+0.0628)
+    off_recur   +0.0569 (+0.0630)
+    mut_meas    +0.0001 (+0.0001)
+    mut_exact   +0.0001 (+0.0001)
+    mut_recur   +0.0000 (+0.0000)
+    total meas   -0.0047 (-0.0052)
+    total exact  +0.0060 (+0.0074)
+    total recur  -0.0216 (-0.0183)
+
+== stage accounting of Σ_l Y_l², set F, R = 3: mean change per generation / mean Σ Y² (window means over runs alive) ==
+
+== over inputs: mean (median) of change per generation / Σ Y² ==
+  window -60..-1 (16 inputs)
+    sel_meas    -0.0087 (-0.0078)
+    sel_recur   -0.0100 (-0.0083)
+    sel_bul     -0.0097 (-0.0083)
+    sel_ind     -0.0098 (-0.0083)
+    sel_full    -0.0084 (-0.0079)
+    sel_k3      +0.0001 (+0.0000)
+    sel_k4      +0.0011 (+0.0006)
+    surv_meas   +0.0023 (+0.0012)
+    surv_exact  +0.0024 (+0.0012)
+    surv_first  +0.0015 (+0.0008)
+    surv_recur  +0.0016 (+0.0009)
+    rec_meas    -0.0768 (-0.0712)
+    rec_exact   -0.0660 (-0.0656)
+    rec_theory  -0.0760 (-0.0711)
+    rec_recur   -0.0854 (-0.0812)
+    rec_recurb  -0.0867 (-0.0827)
+    rec_Znoise  +0.0115 (+0.0096)
+    rec_Zsel    -0.0032 (-0.0029)
+    rec_Zth     -0.0021 (-0.0017)
+    rec_Zpair   -0.0000 (-0.0000)
+    off_meas    +0.0821 (+0.0781)
+    off_exact   +0.0818 (+0.0767)
+    off_recur   +0.0820 (+0.0773)
+    mut_meas    +0.0001 (+0.0001)
+    mut_exact   +0.0001 (+0.0001)
+    mut_recur   +0.0001 (+0.0001)
+    total meas   -0.0009 (-0.0008)
+    total exact  +0.0097 (+0.0093)
+    total recur  -0.0118 (-0.0107)
+  window 0..49 (16 inputs)
+    sel_meas    +0.0063 (-0.0062)
+    sel_recur   -0.0051 (-0.0085)
+    sel_bul     -0.0046 (-0.0085)
+    sel_ind     -0.0065 (-0.0084)
+    sel_full    +0.0090 (-0.0064)
+    sel_k3      +0.0100 (+0.0010)
+    sel_k4      +0.0008 (+0.0004)
+    surv_meas   +0.0067 (+0.0027)
+    surv_exact  +0.0080 (+0.0027)
+    surv_first  +0.0070 (+0.0021)
+    surv_recur  +0.0077 (+0.0022)
+    rec_meas    -0.0801 (-0.0643)
+    rec_exact   -0.0697 (-0.0550)
+    rec_theory  -0.0784 (-0.0617)
+    rec_recur   -0.0895 (-0.0664)
+    rec_recurb  -0.0914 (-0.0682)
+    rec_Znoise  +0.0113 (+0.0096)
+    rec_Zsel    -0.0019 (-0.0022)
+    rec_Zth     -0.0005 (-0.0018)
+    rec_Zpair   -0.0000 (-0.0000)
+    off_meas    +0.0738 (+0.0664)
+    off_exact   +0.0723 (+0.0703)
+    off_recur   +0.0725 (+0.0705)
+    mut_meas    +0.0001 (+0.0001)
+    mut_exact   +0.0001 (+0.0001)
+    mut_recur   +0.0000 (+0.0000)
+    total meas   +0.0068 (+0.0040)
+    total exact  +0.0169 (+0.0140)
+    total recur  -0.0144 (-0.0156)
+  window 50..99 (16 inputs)
+    sel_meas    +0.0027 (-0.0056)
+    sel_recur   -0.0013 (-0.0088)
+    sel_bul     -0.0008 (-0.0088)
+    sel_ind     -0.0033 (-0.0088)
+    sel_full    +0.0054 (-0.0057)
+    sel_k3      +0.0025 (+0.0012)
+    sel_k4      +0.0004 (+0.0002)
+    surv_meas   +0.0147 (+0.0073)
+    surv_exact  +0.0147 (+0.0094)
+    surv_first  +0.0138 (+0.0076)
+    surv_recur  +0.0145 (+0.0086)
+    rec_meas    -0.0892 (-0.0847)
+    rec_exact   -0.0800 (-0.0758)
+    rec_theory  -0.0887 (-0.0848)
+    rec_recur   -0.1009 (-0.0868)
+    rec_recurb  -0.1028 (-0.0902)
+    rec_Znoise  +0.0115 (+0.0105)
+    rec_Zsel    +0.0000 (-0.0018)
+    rec_Zth     +0.0005 (-0.0018)
+    rec_Zpair   -0.0001 (-0.0000)
+    off_meas    +0.0688 (+0.0603)
+    off_exact   +0.0663 (+0.0581)
+    off_recur   +0.0663 (+0.0584)
+    mut_meas    +0.0001 (+0.0001)
+    mut_exact   +0.0001 (+0.0001)
+    mut_recur   +0.0000 (+0.0000)
+    total meas   -0.0029 (-0.0013)
+    total exact  +0.0038 (+0.0059)
+    total recur  -0.0214 (-0.0209)
+
+== stage accounting of Σ_l Y_l², set G, R = 3: mean change per generation / mean Σ Y² (window means over runs alive) ==
+
+== over inputs: mean (median) of change per generation / Σ Y² ==
+  window -60..-1 (22 inputs)
+    sel_meas    -0.0038 (-0.0092)
+    sel_recur   -0.0061 (-0.0104)
+    sel_bul     -0.0053 (-0.0103)
+    sel_ind     -0.0062 (-0.0102)
+    sel_full    -0.0026 (-0.0092)
+    sel_k3      -0.0001 (-0.0000)
+    sel_k4      +0.0023 (+0.0013)
+    surv_meas   +0.0051 (+0.0038)
+    surv_exact  +0.0054 (+0.0030)
+    surv_first  +0.0040 (+0.0018)
+    surv_recur  +0.0041 (+0.0019)
+    rec_meas    -0.0820 (-0.0873)
+    rec_exact   -0.0714 (-0.0755)
+    rec_theory  -0.0818 (-0.0843)
+    rec_recur   -0.0928 (-0.0986)
+    rec_recurb  -0.0942 (-0.0997)
+    rec_Znoise  +0.0119 (+0.0122)
+    rec_Zsel    -0.0019 (-0.0017)
+    rec_Zth     -0.0010 (-0.0024)
+    rec_Zpair   -0.0000 (-0.0000)
+    off_meas    +0.0810 (+0.0807)
+    off_exact   +0.0823 (+0.0879)
+    off_recur   +0.0825 (+0.0881)
+    mut_meas    +0.0001 (+0.0001)
+    mut_exact   +0.0002 (+0.0002)
+    mut_recur   +0.0001 (+0.0001)
+    total meas   +0.0004 (+0.0004)
+    total exact  +0.0127 (+0.0109)
+    total recur  -0.0123 (-0.0148)
+  window 0..49 (22 inputs)
+    sel_meas    +0.0070 (+0.0023)
+    sel_recur   -0.0077 (-0.0114)
+    sel_bul     -0.0067 (-0.0114)
+    sel_ind     -0.0079 (-0.0113)
+    sel_full    +0.0096 (+0.0023)
+    sel_k3      +0.0106 (+0.0091)
+    sel_k4      +0.0013 (+0.0007)
+    surv_meas   +0.0136 (+0.0124)
+    surv_exact  +0.0146 (+0.0124)
+    surv_first  +0.0138 (+0.0106)
+    surv_recur  +0.0149 (+0.0130)
+    rec_meas    -0.0831 (-0.0837)
+    rec_exact   -0.0733 (-0.0763)
+    rec_theory  -0.0819 (-0.0818)
+    rec_recur   -0.0926 (-0.0922)
+    rec_recurb  -0.0943 (-0.0935)
+    rec_Znoise  +0.0119 (+0.0111)
+    rec_Zsel    -0.0024 (-0.0021)
+    rec_Zth     -0.0013 (-0.0025)
+    rec_Zpair   -0.0001 (-0.0000)
+    off_meas    +0.0696 (+0.0725)
+    off_exact   +0.0699 (+0.0721)
+    off_recur   +0.0702 (+0.0727)
+    mut_meas    +0.0002 (+0.0002)
+    mut_exact   +0.0001 (+0.0001)
+    mut_recur   +0.0001 (+0.0000)
+    total meas   +0.0072 (+0.0084)
+    total exact  +0.0184 (+0.0182)
+    total recur  -0.0152 (-0.0179)
+  window 50..99 (22 inputs)
+    sel_meas    +0.0147 (+0.0013)
+    sel_recur   +0.0023 (-0.0107)
+    sel_bul     +0.0032 (-0.0107)
+    sel_ind     +0.0003 (-0.0106)
+    sel_full    +0.0187 (+0.0010)
+    sel_k3      +0.0085 (+0.0071)
+    sel_k4      +0.0010 (+0.0001)
+    surv_meas   +0.0244 (+0.0233)
+    surv_exact  +0.0266 (+0.0252)
+    surv_first  +0.0253 (+0.0240)
+    surv_recur  +0.0264 (+0.0246)
+    rec_meas    -0.0841 (-0.0832)
+    rec_exact   -0.0765 (-0.0753)
+    rec_theory  -0.0821 (-0.0811)
+    rec_recur   -0.0949 (-0.0901)
+    rec_recurb  -0.0970 (-0.0919)
+    rec_Znoise  +0.0112 (+0.0111)
+    rec_Zsel    -0.0003 (-0.0024)
+    rec_Zth     +0.0012 (-0.0021)
+    rec_Zpair   -0.0001 (-0.0001)
+    off_meas    +0.0458 (+0.0413)
+    off_exact   +0.0472 (+0.0458)
+    off_recur   +0.0471 (+0.0459)
+    mut_meas    +0.0001 (+0.0001)
+    mut_exact   +0.0001 (+0.0001)
+    mut_recur   +0.0000 (+0.0000)
+    total meas   +0.0008 (+0.0010)
+    total exact  +0.0121 (+0.0110)
+    total recur  -0.0190 (-0.0187)
+
+Columns (per generation, ÷ mean Σ Y² at the adults): sel_meas = π pass − adults (exact deterministic
+selection); sel_recur = y_step!'s Bulmer step at the adults' state; sel_bul without its
+linearisation; sel_ind with 1/(ω² + V_P); sel_full with the cumulant terms b κ(B,x,G) (sel_k3) and
+(b² − 1/S)κ(B,x,G,G)/2 (sel_k4); surv_exact = E over 16 Bernoulli(π) redraws; surv_first =
+(1 − 3ε)ΣY² + εΣμ22 − ΣY²; rec_recur = Σ(Y − Cov(R,x))² − ΣY² (P ← RPR with exact pairwise ρ),
+rec_recurb with the classes' ρ̄; rec_theory adds the pairing noise Σ(v Var R + Cov(R,x)²)/(2n), the
+pairing mean and the between-chromosome association created by selection, −Cov(R,G)Cov(x,G)/S_c;
+rec_exact uses the measured π-weighted between association instead (it double-counts the adults'
+own pairing noise, hence too high); off_exact = (1 − 3/M)ΣY_Gp² + Σμ22/M − ΣY_Gp²; mut_exact =
+Σ[(L − 1)m v + m Var B]/(2N).
+
+Reading (development):
+ (i) holds: the measured stage changes close (total ≈ 0 before the move), and each is reproduced by
+     its exact first-order expectation: survival by the redraws (+0.0117 vs +0.0110 on D), recombination
+     by rec_theory (D −0.0675 vs −0.0674, F −0.0760 vs −0.0768, G −0.0818 vs −0.0820), offspring
+     sampling by (1 − 3/M)Y² + μ22/M, mutation by its two terms (negligible: ~1e-4).
+ (ii) holds in direction, not in size: at the measured state the old recombination step over-decays
+     Σ Y² by 0.005 (D), 0.009 (F), 0.011 (G) per generation (÷ΣY²): the pairing noise (+0.012..0.013)
+     outweighs the between-chromosome association created by selection (−0.008..−0.011). The class
+     binning of ρ adds −0.0015.
+ (iii) survival: the recursion's ε Var(B)v is 0.002 below the exact (H, Bernoulli ε) on D, ≈ 0 on F.
+ (iv) mutation: negligible either way.
+ (v) selection: before the move Bulmer's step over-decays by 0.006 (D), 0.0013 (F), 0.0023 (G);
+     1/(ω² + V_P) and the fourth-cumulant term remove about two thirds. Under the move the directional
+     third-cumulant term b κ(B,x,G) adds +0.015 (D 0..49), +0.011 (G): the recursion, which drops it,
+     over-decays Σ Y² by 0.025 there.
+ So at the measured state the per-generation imbalance of the old recursion is only −0.012 (D, F, G
+ before the move), yet its stationary Σ E[yY] is 0.6–0.9 of measured: the Σ Y² view hides where the
+ error is. Next: the same accounting in the recursion's own class space.
+
+== 2. Class-space stage accounting on D (per locus the class vector y_l, s = partner bin × split class; 39 runs, 7066 thread-s) ==
+
+Instrumentation (`class`): per locus the class sums B_{l,s} and ρ-weighted sums R_{l,s} of every
+chromosome by prefix sums over contiguous class segments; y_l at A, Π, S, the gamete pool, O; the
+recursion's stage map applied per locus to the measured class vectors at the start of each stage,
+the sampling seeds and the pairing noise as class matrices; summaries Σ_l (Σ_s y)² and by blocks of
+split classes (tight: ρ < 0.01, classes 1–3; loose: 4–7).
+Hypotheses before looking: the shortfall is in the tightly linked block (80% of Σ Y²), through its
+slow turnover; the recombination and selection errors of section 1 sit in the loose block.
+
+
+== class-space stage accounting, set D, R = 3: change per generation / Σ_l Y_l² at A; total, and the tightly linked block (split classes 1..3, ρ < 0.01) ==
+  window -60..-1 (13 inputs; tight block's share of ΣY² median 0.80)
+    sel_meas      total -0.0260 (median -0.0242)   tight -0.0015 (median -0.0015)
+    sel_recur     total -0.0311 (median -0.0284)   tight -0.0027 (median -0.0027)
+    surv_meas     total +0.0110 (median +0.0072)   tight +0.0009 (median +0.0009)
+    surv_recur    total +0.0096 (median +0.0053)   tight +0.0009 (median +0.0005)
+    rec_meas      total -0.0674 (median -0.0590)   tight -0.0061 (median -0.0061)
+    rec_recur     total -0.0746 (median -0.0671)   tight -0.0065 (median -0.0066)
+    rec_exact_rho total -0.0728 (median -0.0653)   tight -0.0061 (median -0.0061)
+    rec_fixb      total -0.0820 (median -0.0762)   tight -0.0066 (median -0.0066)
+    rec_fixp      total -0.0611 (median -0.0486)   tight -0.0065 (median -0.0066)
+    rec_fix       total -0.0685 (median -0.0588)   tight -0.0066 (median -0.0066)
+    off_meas      total +0.0823 (median +0.0784)   tight +0.0063 (median +0.0066)
+    off_recur     total +0.0837 (median +0.0857)   tight +0.0078 (median +0.0077)
+    mut_meas      total +0.0001 (median +0.0001)   tight +0.0000 (median +0.0000)
+    mut_recur     total +0.0001 (median +0.0001)   tight +0.0000 (median +0.0000)
+    mut_fix       total +0.0002 (median +0.0002)   tight +0.0000 (median +0.0000)
+    sum recursion     tot   -0.0124 (median -0.0138)
+    sum recursion     tight -0.0005 (median -0.0009)
+    sum measured      tot   +0.0000 (median +0.0001)
+    sum measured      tight -0.0003 (median -0.0010)
+    sum fixed rec+mut tot   -0.0062 (median -0.0067)
+    sum fixed rec+mut tight -0.0005 (median -0.0009)
+  window 0..49 (13 inputs; tight block's share of ΣY² median 0.83)
+    sel_meas      total -0.0191 (median -0.0158)   tight +0.0042 (median +0.0051)
+    sel_recur     total -0.0434 (median -0.0352)   tight -0.0029 (median -0.0027)
+    surv_meas     total +0.0181 (median +0.0162)   tight +0.0010 (median +0.0010)
+    surv_recur    total +0.0203 (median +0.0174)   tight +0.0018 (median +0.0017)
+    rec_meas      total -0.0638 (median -0.0616)   tight -0.0065 (median -0.0062)
+    rec_recur     total -0.0675 (median -0.0639)   tight -0.0069 (median -0.0070)
+    rec_exact_rho total -0.0655 (median -0.0629)   tight -0.0064 (median -0.0062)
+    rec_fixb      total -0.0783 (median -0.0779)   tight -0.0070 (median -0.0070)
+    rec_fixp      total -0.0546 (median -0.0506)   tight -0.0069 (median -0.0070)
+    rec_fix       total -0.0653 (median -0.0612)   tight -0.0070 (median -0.0071)
+    off_meas      total +0.0680 (median +0.0773)   tight +0.0040 (median +0.0037)
+    off_recur     total +0.0704 (median +0.0825)   tight +0.0066 (median +0.0063)
+    mut_meas      total +0.0001 (median +0.0001)   tight +0.0000 (median -0.0000)
+    mut_recur     total +0.0000 (median +0.0000)   tight +0.0000 (median +0.0000)
+    mut_fix       total +0.0001 (median +0.0001)   tight +0.0000 (median +0.0000)
+    sum recursion     tot   -0.0202 (median -0.0195)
+    sum recursion     tight -0.0015 (median -0.0015)
+    sum measured      tot   +0.0033 (median +0.0030)
+    sum measured      tight +0.0028 (median +0.0031)
+    sum fixed rec+mut tot   -0.0179 (median -0.0131)
+    sum fixed rec+mut tight -0.0015 (median -0.0015)
+  window 50..99 (13 inputs; tight block's share of ΣY² median 0.78)
+    sel_meas      total -0.0244 (median -0.0210)   tight -0.0030 (median -0.0002)
+    sel_recur     total -0.0415 (median -0.0347)   tight -0.0029 (median -0.0031)
+    surv_meas     total +0.0224 (median +0.0158)   tight +0.0018 (median +0.0010)
+    surv_recur    total +0.0269 (median +0.0205)   tight +0.0016 (median +0.0013)
+    rec_meas      total -0.0602 (median -0.0609)   tight -0.0069 (median -0.0068)
+    rec_recur     total -0.0621 (median -0.0654)   tight -0.0074 (median -0.0072)
+    rec_exact_rho total -0.0604 (median -0.0637)   tight -0.0069 (median -0.0068)
+    rec_fixb      total -0.0727 (median -0.0688)   tight -0.0074 (median -0.0072)
+    rec_fixp      total -0.0492 (median -0.0541)   tight -0.0074 (median -0.0072)
+    rec_fix       total -0.0599 (median -0.0602)   tight -0.0074 (median -0.0072)
+    off_meas      total +0.0574 (median +0.0665)   tight +0.0035 (median +0.0038)
+    off_recur     total +0.0576 (median +0.0633)   tight +0.0047 (median +0.0040)
+    mut_meas      total +0.0001 (median +0.0001)   tight +0.0001 (median +0.0000)
+    mut_recur     total +0.0000 (median +0.0000)   tight +0.0000 (median +0.0000)
+    mut_fix       total +0.0001 (median +0.0001)   tight +0.0000 (median +0.0000)
+    sum recursion     tot   -0.0189 (median -0.0174)
+    sum recursion     tight -0.0040 (median -0.0044)
+    sum measured      tot   -0.0047 (median -0.0052)
+    sum measured      tight -0.0046 (median -0.0035)
+    sum fixed rec+mut tot   -0.0167 (median -0.0156)
+    sum fixed rec+mut tight -0.0040 (median -0.0044)
+By blocks (÷ measured Σ Y², mean over inputs, before the move; TL counts both off-diagonal blocks):
+  measured state: TT +0.84, TL −0.47, LL +0.63 (strongly negative tight × loose LD: Y² ≪ Σ_r y_r²)
+  sel  meas TT −0.0014 TL −0.0255 LL +0.0009 | recursion TT −0.0024 TL −0.0263 LL −0.0024
+  rec  meas TT −0.0050 TL +0.0323 LL −0.0947 | recursion TT −0.0054 TL +0.0399 LL −0.1091 | fixed TT −0.0054 TL +0.0322 LL −0.0953
+  off  meas TT +0.0051 TL −0.0053 LL +0.0825 | recursion TT +0.0065 TL −0.0056 LL +0.0828
+Reading: the tight block is balanced in both (−0.0005 vs −0.0003): the first hypothesis is false.
+The between + pairing correction makes the recombination step exact in every block (TL +0.0322 vs
++0.0323, LL −0.0953 vs −0.0947). With it the recursion is balanced at the measured state to
+−0.006 (selection −0.0033, survival −0.0013 in LL). Yet section 4 (below) shows the corrected
+recursion's stationary state barely moves. So the error is not in a per-locus stage map: it is in
+how the recursion carries the moments summed over loci.
+
+== 3. The recursion iterated from the full measured class moments (D; 39 short runs, ~200 thread-s) ==
+
+`pm` measures P_st = Σ_{l∈a} y_{l,s} y_{l,t} and m_s per group at 12 generations before the move;
+the recursion is iterated from the measured (m, P) with the run's pre-move drivers.
+Hypothesis before looking: if the per-locus stage maps are right, the recursion started at the
+measured state stays there (Σ P within a few per cent over 500 generations).
+Result (Σ P / measured after 1, 10, 50, 500 generations; level B as in linked_decay):
+  01192 0.95 0.76 0.61 0.56 | 00854 0.86 0.55 0.46 0.44 | 07594 0.94 0.74 0.58 0.51 | 14110 0.97 0.87 0.76 0.67
+  12000 0.93 0.77 0.68 0.67 | 05562 0.96 0.87 0.82 0.80 | 09697 0.96 0.90 0.85 0.82 | (06159, L = 100: rises to 1.8)
+It falls by up to 14% in ONE generation (00854), in the loose block and the tight × loose block.
+Decomposing that generation: the matrix form of the selection step gives −0.173 of Σ P for 00854
+where the per-locus form (section 2) gives +0.015. The only difference is one approximation in
+y_step!: the cross term of the mean LD with Bulmer's offset, Σ_l A E[y_l] b_lᵀ with b_l = −c v_l/S,
+is written v̄ A m bᵀ/v̄ (Σ_l E[y_l] v_l ≈ v̄ m: averaging over loci before the product). But both the
+mean LD and the offset are ∝ v_l (under the recursion itself E[y_l] = (I − A)⁻¹(−c/S) v_l exactly),
+so Σ_l E[y_l] v_l = (Σv²/Σv) m, and Σv²/Σv = v̄(1 + CV²) is several times v̄ when the loci's
+variances are unequal (as they are: few segregating loci carry most of the variance). The term is
+positive (the mean LD and the offset are both negative), so the old recursion under-weights it.
+With the weight Σv²/Σv (`vhet`; matrix step for 00854 −0.007 vs per-locus +0.015, 14110 −0.037 vs
+−0.037) the iteration from the measured state stays at 0.84–1.16 after 500 generations
+(01192 1.16, 04943 1.58, 00854 0.95, 06004 1.12, 09697 0.92, 14110 0.76, 07594 0.86, 12000 0.89,
+14771 1.00, 01925 0.84, 12463 0.91, 05562 0.88; 06159 1.9).
+Diagnosis: the shortfall of E[y_s y_t] is carried by the selection stage, through the
+heterogeneity among loci of Bulmer's step (a Jensen gap in the summed moments), not by drift
+seeding (the class covariances Σ_B match the exact Σ_l v_l Cov(B_ls, B_lt) to 0–25% per block, total
+1.00) nor by the binning. The recombination step's missing cross-chromosome terms are real but
+nearly cancel in the stationary state (+1–2% of Σ E[yY]); the directional third-cumulant term
+(dropped) explains what remains under the move.
+
+== 4. The corrected recursion driven by the runs (development on D, G, F) ==
+
+Variants (`yfix_step!`): B0 = linked_decay's level B; Bv = `vhet` only; Bx = between + pairing +
+mutfull + sind (no vhet); Bs = all five (level B*); Bp0 = linked_source's B′; Bps = B′ with all five
+(level B′*). Hypothesis before looking: Bs brings Σ E[yY] to within 10% of measured before the move
+and within 20% in 50..99; B′* raises H substantially (H is seeded by 2εP) without spoiling K.
+
+== corrected recursion driven by the runs, set D, R = 3: Σ E[yY] predicted / measured ==
+medians over 13 inputs (11 eligible):
+  B0     yY  -60..-1 0.764  0..24 0.711  25..49 0.592  50..99 0.656  100..199 0.758 | H  -60..-1 0.000  0..24 0.000  25..49 0.000  50..99 0.000  100..199 0.000 | K  -60..-1 1.215  0..24 1.165  25..49 0.948  50..99 1.283  100..199 1.652 | ΣC lr (eligible)  25..49 +0.232/0.232  50..99 +0.498/0.498  100..199 +1.333/1.333  loss +0.475/0.475
+  Bv     yY  -60..-1 0.997  0..24 0.903  25..49 0.803  50..99 0.861  100..199 0.872 | H  -60..-1 0.000  0..24 0.000  25..49 0.000  50..99 0.000  100..199 0.000 | K  -60..-1 1.693  0..24 1.373  25..49 1.266  50..99 1.573  100..199 2.590 | ΣC lr (eligible)  25..49 +0.615/0.615  50..99 +0.597/0.597  100..199 +1.584/1.584  loss +0.697/0.697
+  Bx     yY  -60..-1 0.792  0..24 0.720  25..49 0.607  50..99 0.663  100..199 0.774 | H  -60..-1 0.000  0..24 0.000  25..49 0.000  50..99 0.000  100..199 0.000 | K  -60..-1 1.230  0..24 1.181  25..49 0.984  50..99 1.297  100..199 1.689 | ΣC lr (eligible)  25..49 +0.265/0.265  50..99 +0.510/0.510  100..199 +1.342/1.342  loss +0.478/0.478
+  Bs     yY  -60..-1 1.004  0..24 0.912  25..49 0.809  50..99 0.855  100..199 0.877 | H  -60..-1 0.000  0..24 0.000  25..49 0.000  50..99 0.000  100..199 0.000 | K  -60..-1 1.706  0..24 1.401  25..49 1.288  50..99 1.595  100..199 2.609 | ΣC lr (eligible)  25..49 +0.622/0.622  50..99 +0.603/0.603  100..199 +1.576/1.576  loss +0.705/0.705
+  Bp0    yY  -60..-1 0.755  0..24 0.702  25..49 0.582  50..99 0.645  100..199 0.732 | H  -60..-1 0.403  0..24 0.360  25..49 0.286  50..99 0.242  100..199 0.251 | K  -60..-1 0.923  0..24 0.844  25..49 0.750  50..99 0.978  100..199 1.227 | ΣC lr (eligible)  25..49 -0.061/0.237  50..99 +0.097/0.221  100..199 +0.976/0.976  loss +0.127/0.161
+  Bps    yY  -60..-1 0.992  0..24 0.898  25..49 0.799  50..99 0.854  100..199 0.870 | H  -60..-1 0.866  0..24 0.837  25..49 0.778  50..99 0.668  100..199 0.489 | K  -60..-1 0.986  0..24 0.894  25..49 0.789  50..99 0.984  100..199 1.266 | ΣC lr (eligible)  25..49 -0.019/0.236  50..99 +0.149/0.230  100..199 +0.987/0.987  loss +0.166/0.166
+
+== corrected recursion driven by the runs, set G, R = 3: Σ E[yY] predicted / measured ==
+medians over 22 inputs (18 eligible):
+  B0     yY  -60..-1 0.900  0..24 0.886  25..49 0.700  50..99 0.712  100..199 0.903 | H  -60..-1 0.000  0..24 0.000  25..49 0.000  50..99 0.000  100..199 0.000 | K  -60..-1 1.168  0..24 1.124  25..49 0.973  50..99 1.299  100..199 1.931 | ΣC lr (eligible)  25..49 -0.071/0.463  50..99 +0.224/0.348  100..199 +1.080/1.367  loss +0.672/0.672
+  Bv     yY  -60..-1 1.015  0..24 0.987  25..49 0.894  50..99 0.908  100..199 0.978 | H  -60..-1 0.000  0..24 0.000  25..49 0.000  50..99 0.000  100..199 0.000 | K  -60..-1 1.290  0..24 1.529  25..49 1.066  50..99 1.472  100..199 2.607 | ΣC lr (eligible)  25..49 +0.433/0.577  50..99 +0.474/0.618  100..199 +1.567/1.567  loss +0.839/0.839
+  Bx     yY  -60..-1 0.910  0..24 0.896  25..49 0.707  50..99 0.718  100..199 0.915 | H  -60..-1 0.000  0..24 0.000  25..49 0.000  50..99 0.000  100..199 0.000 | K  -60..-1 1.177  0..24 1.148  25..49 0.997  50..99 1.318  100..199 1.980 | ΣC lr (eligible)  25..49 -0.072/0.456  50..99 +0.236/0.344  100..199 +1.075/1.363  loss +0.671/0.671
+  Bs     yY  -60..-1 1.022  0..24 0.996  25..49 0.875  50..99 0.911  100..199 0.989 | H  -60..-1 0.000  0..24 0.000  25..49 0.000  50..99 0.000  100..199 0.000 | K  -60..-1 1.301  0..24 1.550  25..49 1.078  50..99 1.489  100..199 2.648 | ΣC lr (eligible)  25..49 +0.426/0.563  50..99 +0.470/0.612  100..199 +1.536/1.536  loss +0.837/0.837
+  Bp0    yY  -60..-1 0.884  0..24 0.870  25..49 0.687  50..99 0.693  100..199 0.876 | H  -60..-1 0.232  0..24 0.320  25..49 0.204  50..99 0.207  100..199 0.267 | K  -60..-1 0.951  0..24 0.919  25..49 0.750  50..99 1.002  100..199 1.477 | ΣC lr (eligible)  25..49 -0.417/0.568  50..99 -0.175/0.432  100..199 +0.810/1.223  loss +0.184/0.200
+  Bps    yY  -60..-1 0.998  0..24 0.977  25..49 0.876  50..99 0.902  100..199 0.960 | H  -60..-1 0.615  0..24 0.850  25..49 0.606  50..99 0.536  100..199 0.493 | K  -60..-1 0.965  0..24 0.937  25..49 0.769  50..99 1.066  100..199 1.515 | ΣC lr (eligible)  25..49 -0.398/0.559  50..99 -0.154/0.435  100..199 +0.811/1.209  loss +0.222/0.265
+
+== corrected recursion driven by the runs, set F, R = 3: Σ E[yY] predicted / measured ==
+medians over 16 inputs (5 eligible):
+  B0     yY  -60..-1 0.917  0..24 0.977  25..49 0.890  50..99 0.873  100..199 0.974 | K  -60..-1 1.003  0..24 1.066  25..49 0.917  50..99 1.465  100..199 1.572 | ΣC lr (eligible)  25..49 -0.018/0.090  50..99 +0.532/0.532  100..199 +1.726/1.726  loss +0.597/0.597
+  Bv     yY  -60..-1 0.980  0..24 1.045  25..49 0.898  50..99 0.916  100..199 1.023 | K  -60..-1 1.058  0..24 1.149  25..49 0.996  50..99 1.576  100..199 1.616 | ΣC lr (eligible)  25..49 +0.200/0.200  50..99 +0.697/0.697  100..199 +1.898/1.898  loss +0.661/0.661
+  Bx     yY  -60..-1 0.924  0..24 0.996  25..49 0.899  50..99 0.887  100..199 0.992 | K  -60..-1 1.011  0..24 1.080  25..49 0.931  50..99 1.486  100..199 1.590 | ΣC lr (eligible)  25..49 -0.019/0.088  50..99 +0.527/0.561  100..199 +1.726/1.726  loss +0.597/0.597
+  Bs     yY  -60..-1 0.990  0..24 1.059  25..49 0.910  50..99 0.898  100..199 1.037 | K  -60..-1 1.064  0..24 1.167  25..49 1.004  50..99 1.589  100..199 1.646 | ΣC lr (eligible)  25..49 +0.197/0.197  50..99 +0.695/0.695  100..199 +1.894/1.894  loss +0.659/0.659
+  Bp0    yY  -60..-1 0.895  0..24 0.956  25..49 0.866  50..99 0.851  100..199 0.951 | K  -60..-1 0.829  0..24 0.909  25..49 0.764  50..99 1.118  100..199 1.239 | ΣC lr (eligible)  25..49 -0.229/0.229  50..99 +0.205/0.286  100..199 +1.375/1.458  loss +0.170/0.308
+  Bps    yY  -60..-1 0.973  0..24 1.038  25..49 0.892  50..99 0.888  100..199 1.009 | K  -60..-1 0.845  0..24 0.930  25..49 0.778  50..99 1.135  100..199 1.326 | ΣC lr (eligible)  25..49 -0.230/0.230  50..99 +0.289/0.290  100..199 +1.374/1.374  loss +0.175/0.175
+Median |lr| of Σ E[yY] (pre / 50..99): D B0 0.27/0.42, Bs 0.07/0.16, Bps 0.09/0.18; G B0 0.17/0.34,
+Bs 0.07/0.09, Bps 0.08/0.10; F B0 0.14/0.18, Bs 0.11/0.16, Bps 0.11/0.16.
+Reading (development): the heterogeneity weight alone does almost all of it (Bv ≈ Bs); the other
+four corrections add 0–2%. B* puts Σ E[yY] at 0.99–1.02 of measured before the move and 0.86–0.91 in
+50..99 (the dropped directional term). B′* raises H from 0.23–0.40 to 0.62–0.87 of measured before
+the move (0.54–0.67 in 50..99) and keeps K (0.97–0.99 before, 0.98–1.07 in 50..99). The closed ΣC is
+not improved: on G B′* still fails 25..49 (lr −0.40, |lr| 0.56) and 50..99 (|lr| 0.44), as B′ did;
+level B* (K = −2yY, no H) overpredicts ΣC because its K is now 1.3–1.7× measured. So fixing y moves
+the remaining defect of the closed association to its early-move source (K in 25..49 0.77 of
+measured on G), not to y.

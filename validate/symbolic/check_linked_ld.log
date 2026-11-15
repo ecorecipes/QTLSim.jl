@@ -1,0 +1,57 @@
+QTLSim validate/symbolic/check_linked_ld.jl (Symbolics 7.48.0)
+
+(a) the gamete pool under a single switch point
+  trial 1: Cov_pool(x_k, x_l) = (1 − ρ_kl) D_kl + ρ_kl Z_kl, all pairs (exact) ok
+  trial 1: the pool's allele means are the survivors'                      ok
+  trial 1: summed over partners, Y_gam = Y − Cov(R, x) + Σρ Z              ok
+  trial 2: Cov_pool(x_k, x_l) = (1 − ρ_kl) D_kl + ρ_kl Z_kl, all pairs (exact) ok
+  trial 2: the pool's allele means are the survivors'                      ok
+  trial 2: summed over partners, Y_gam = Y − Cov(R, x) + Σρ Z              ok
+  trial 3: Cov_pool(x_k, x_l) = (1 − ρ_kl) D_kl + ρ_kl Z_kl, all pairs (exact) ok
+  trial 3: the pool's allele means are the survivors'                      ok
+  trial 3: summed over partners, Y_gam = Y − Cov(R, x) + Σρ Z              ok
+
+(b) random pairing of the survivors' chromosomes
+  n = 2: E[Z] = −Cov(R, x)/(2n − 1) over all 3 pairings (exact)            ok
+  n = 3: E[Z] = −Cov(R, x)/(2n − 1) over all 15 pairings (exact)           ok
+  n = 4: E[Z] = −Cov(R, x)/(2n − 1) over all 105 pairings (exact)          ok
+  2n Var(Z)/(v Var R + Cov²) → 1 (|error| 0.012, 0.008, 0.012 at n = 50, 200, 800; Monte Carlo) ok
+
+(c) selection on individuals: between- and within-chromosome changes
+  trial 1: d/dε Cov_w(B^(1), x^(2)) = −Cov(B,G)Cov(x,G)/S (b drops out; exact) ok
+  trial 1: Cov(B^(1), x^(2)) = 0 before selection (independent chromosomes) ok
+  trial 2: d/dε Cov_w(B^(1), x^(2)) = −Cov(B,G)Cov(x,G)/S (b drops out; exact) ok
+  trial 2: Cov(B^(1), x^(2)) = 0 before selection (independent chromosomes) ok
+  trial 3: d/dε Cov_w(B^(1), x^(2)) = −Cov(B,G)Cov(x,G)/S (b drops out; exact) ok
+  trial 3: Cov(B^(1), x^(2)) = 0 before selection (independent chromosomes) ok
+  trial 1: tilt 1 + bu + q(u² − V): ∂_b = κ(B,x,G), ∂_q = κ(B,x,G,G) + 2c_B c_x, ∂²_b/2 = −c_B c_x (exact) ok
+  trial 2: tilt 1 + bu + q(u² − V): ∂_b = κ(B,x,G), ∂_q = κ(B,x,G,G) + 2c_B c_x, ∂²_b/2 = −c_B c_x (exact) ok
+  trial 3: tilt 1 + bu + q(u² − V): ∂_b = κ(B,x,G), ∂_q = κ(B,x,G,G) + 2c_B c_x, ∂²_b/2 = −c_B c_x (exact) ok
+  q = (b² − 1/S)/2: ΔY = −c_B c_x/S + b κ3 + (b² − 1/S) κ4/2               ok
+
+(d) mutation
+  trial 1: E[(ΔŶ)²] = (Var(B) m_l + v m_B)/M + (M − 1) m_B m_l/M² (exact enumeration) ok
+  trial 2: E[(ΔŶ)²] = (Var(B) m_l + v m_B)/M + (M − 1) m_B m_l/M² (exact enumeration) ok
+
+(e) the composite gamete map
+  diag(1 − ρ) A + diag(ρ)(A − I) = diag(1 − ρ) + (A − I)                   ok
+
+(g) heterogeneity among loci in Bulmer's step (`vhet`)
+  stationary mean E[y_l] = (I − A)⁻¹ b v_l ∝ v_l, so Σ_l E[y_l] v_l = (Σv²/Σv) Σ_l E[y_l] ok
+  Σ_l E[(A y_l + b v_l)(A y_l + b v_l)ᵀ] = A P Aᵀ + (Am)(w b)ᵀ + (w b)(Am)ᵀ + b bᵀ Σv² with w = Σv²/Σv (exact) ok
+    … and not with the old w = v̄ = Σv/n unless the v_l are equal (difference ∝ Σv² − (Σv)²/n) ok
+    n Σv²/(Σv)² = 1 + CV² ≥ 1 (Cauchy–Schwarz form: n Σv² − (Σv)² = Σ_{i<j}(v_i − v_j)²) ok
+
+(f) spot checks of the code
+  rsum!: R_l = Σ_k |S_k − S_l| x_k (prefix sums)                           ok
+  class_seg/class_sums!: class sums and ρ-weighted class sums of every locus ok
+  gamete_pool: Y^Gp = Y^S − Cov(R,x) + Z equals the enumerated pool's Cov(B_l, x_l) ok
+  crossmom (rank-one maps) equals the dense Σ_l (A y + β v)(D y + β v)ᵀ    ok
+  yfix_step! with no correction = y_step! (rel. 3.9e-16)                   ok
+  yfix_stationary! (active classes only) = y_stationary! (full) for level B (rel. 2.3e-11) ok
+  yfix_step!(couple, hsel = :bulmer) with no correction = yH_step! (P 3.0e-16, H 1.3e-15) ok
+  class_covR: off-diagonal ρ_s ρ_t Σ_B[s,t]                                ok
+  class_covR: diagonal adds the within-class spread (ρ2 − ρ̄²) f_s g_b ≥ 0  ok
+
+39 checks, 0 failed; 11 s
+PASS
