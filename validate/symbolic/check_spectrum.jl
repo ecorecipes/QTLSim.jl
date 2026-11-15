@@ -311,15 +311,23 @@ function main()
     μn3, μn4, αn, βn = QTLSim.beta_closure(1 // 3, 1 // 6)
     check("beta_closure(1/3, 1/6) = (1/10, 1/15, α = 1, β = 2) exactly (neutral μ₃ = 1/10, μ₄ = 1/15)",
           (μn3, μn4, αn, βn) == (1 // 10, 1 // 15, 1 // 1, 2 // 1))
-    # the moment map (α, β) ↦ (μ₁, μ₂) and its inverse; μ₃, μ₄ the beta law's
-    @variables α_ β_
-    ν_ = α_ + β_
-    bm(k) = prod((α_ + i) / (ν_ + i) for i in 0:k-1)
-    b3, b4, αi, βi = QTLSim.beta_closure(bm(1), bm(2))
-    check("beta_closure inverts the moment map: α(μ₁(α,β), μ₂(α,β)) = α, β likewise", iszero_sym(αi - α_) && iszero_sym(βi - β_))
-    check("beta_closure's μ₃, μ₄ = Π_{i<k}(α+i)/(ν+i), k = 3, 4", iszero_sym(b3 - bm(3)) && iszero_sym(b4 - bm(4)))
-    check("for a beta law μ₂ − μ₁² = αβ/(ν²(ν+1)) and μ₁ − μ₂ = αβ/(ν(ν+1)) (inside the k = 2 bounds)",
-          iszero_sym(bm(2) - bm(1)^2 - α_ * β_ / (ν_^2 * (ν_ + 1))) && iszero_sym(bm(1) - bm(2) - α_ * β_ / (ν_ * (ν_ + 1))))
+    # the moment map (α, β) ↦ (μ₁, μ₂) and its inverse; μ₃, μ₄ the beta law's. Rational identities
+    # of low degree, checked in exact rational arithmetic (beta_closure is generic) at 300 random
+    # rational points, which for rational functions of this degree leaves no room for a nonzero
+    # difference (Symbolics' simplification of the composite is too slow)
+    okinv, okm34, okk2 = true, true, true
+    for _ in 1:300
+        α_, β_ = big(rand(rng, 1:400)) // rand(rng, 1:60), big(rand(rng, 1:400)) // rand(rng, 1:60)
+        ν_ = α_ + β_
+        bm(k) = prod((α_ + i) / (ν_ + i) for i in 0:k-1; init = big(1) // 1)
+        b3, b4, αi, βi = QTLSim.beta_closure(bm(1), bm(2))
+        okinv &= αi == α_ && βi == β_
+        okm34 &= b3 == bm(3) && b4 == bm(4)
+        okk2 &= bm(2) - bm(1)^2 == α_ * β_ / (ν_^2 * (ν_ + 1)) && bm(1) - bm(2) == α_ * β_ / (ν_ * (ν_ + 1))
+    end
+    check("beta_closure inverts the moment map: α(μ₁(α,β), μ₂(α,β)) = α, β likewise (exact, 300 rational points)", okinv)
+    check("beta_closure's μ₃, μ₄ = Π_{i<k}(α+i)/(ν+i), k = 3, 4 (exact, 300 rational points)", okm34)
+    check("for a beta law μ₂ − μ₁² = αβ/(ν²(ν+1)) and μ₁ − μ₂ = αβ/(ν(ν+1)) (inside the k = 2 bounds; exact)", okk2)
     # Hausdorff conditions for k ≤ 4 (Hankel determinants of μ and of the shifted (μ_k − μ_{k+1})):
     # k = 2: μ₂ − μ₁² ≥ 0, μ₁ − μ₂ ≥ 0; k = 3: μ₁μ₃ − μ₂² ≥ 0, (1 − μ₁)(μ₂ − μ₃) − (μ₁ − μ₂)² ≥ 0;
     # k = 4: det[1 μ₁ μ₂; μ₁ μ₂ μ₃; μ₂ μ₃ μ₄] ≥ 0, det[μ₁−μ₂ μ₂−μ₃; μ₂−μ₃ μ₃−μ₄] ≥ 0

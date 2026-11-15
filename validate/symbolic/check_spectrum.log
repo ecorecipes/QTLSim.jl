@@ -77,5 +77,24 @@ QTLSim validate/symbolic/check_spectrum.jl (Symbolics 7.49.0)
   the response at the start of a move is V_G λ/S, V_G = genic + LD (symmetric spectrum) ok
   equilibrium LD = Σ class fixed points (ratio 1.0000)                     ok
 
-62 checks, 0 failed; 13 s
+(h) the beta closure (solver = :beta): ψ-moment equations, exactness, moment map, Hausdorff bounds
+  generator on f_m = p^(m+1)(1−p) is pq·beta_dP(m, …) with P_k → p^k, m = 0 ok
+  generator on f_m = p^(m+1)(1−p) is pq·beta_dP(m, …) with P_k → p^k, m = 1 ok
+  generator on f_m = p^(m+1)(1−p) is pq·beta_dP(m, …) with P_k → p^k, m = 2 ok
+  generator on f_m = p^(m+1)(1−p) is pq·beta_dP(m, …) with P_k → p^k, m = 3 ok
+  generator on f_m = p^(m+1)(1−p) is pq·beta_dP(m, …) with P_k → p^k, m = 4 ok
+  neutral ψ = θ(1−p): drift dP_m = 0 for m = 1…4, dP_0 = −θ d₄             ok
+  beta_closure(1/3, 1/6) = (1/10, 1/15, α = 1, β = 2) exactly (neutral μ₃ = 1/10, μ₄ = 1/15) ok
+  beta_closure inverts the moment map: α(μ₁(α,β), μ₂(α,β)) = α, β likewise (exact, 300 rational points) ok
+  beta_closure's μ₃, μ₄ = Π_{i<k}(α+i)/(ν+i), k = 3, 4 (exact, 300 rational points) ok
+  for a beta law μ₂ − μ₁² = αβ/(ν²(ν+1)) and μ₁ − μ₂ = αβ/(ν(ν+1)) (inside the k = 2 bounds; exact) ok
+  the Hausdorff conditions (k ≤ 4) hold for 2000 random atomic measures on [0, 1] ok
+  the closed moments (μ₁, μ₂, μ₃, μ₄) of 2000 random beta laws satisfy them ok
+  spectrum_vg (beta) = Σ 2a² P₀                                            ok
+  spectrum_select (beta) = Σ 2a ∫ s ψ with spectrum_seff's s(p) = s₀ + s₁p ok
+  beta equilibrium V_G / grid's = 1.00214 (within 1%)                      ok
+  handing the state to the grid keeps V_G exactly (relative 1e-12)         ok
+  spectrum_mutate! (beta) adds 2N L μ g f_m(1/(2N)) to P_m                 ok
+
+79 checks, 0 failed; 23 s
 PASS
