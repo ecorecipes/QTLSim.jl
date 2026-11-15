@@ -76,3 +76,6 @@ comparators; any exploratory driven-spectrum check (only if (b) passes on G).
 
 One amendment is allowed after the development results and before the G runs are analysed; it
 will be recorded here with its reason. None so far.
+
+Decision after development (2026-11-15, after the G runs were made and before they were analysed): no
+amendment.

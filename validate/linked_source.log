@@ -149,3 +149,9 @@ Development reading: on D, B′ meets the thresholds that the criteria set for (
 term, dropped). Caveat: B′ gets K right with both parts low: E[yY] 0.58–0.76 and H 0.24–0.40 of
 measured (the y recursion's shortfall, linked_decay's H2 failure on D, persists).
 F (seen) is not re-analysed (budget); G gives the verdicts.
+
+== 3. Confirmation set G (22 inputs, R = 3, seeds 90261115000 + 100j + r; kernel 66 runs, 1346 thread-s) ==
+
+Amendment decision before analysing G: none.
+Hypotheses before looking: (a) passes (K within 25% before the move and in 50..99); (b) passes in
+25..49, 50..99 and the cumulative loss; P1 passes as on D; at least 10 of 22 inputs eligible.
