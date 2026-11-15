@@ -498,3 +498,12 @@ not improved: on G B′* still fails 25..49 (lr −0.40, |lr| 0.56) and 50..99 (
 level B* (K = −2yY, no H) overpredicts ΣC because its K is now 1.3–1.7× measured. So fixing y moves
 the remaining defect of the closed association to its early-move source (K in 25..49 0.77 of
 measured on G), not to y.
+
+== 5. Confirmation set H′ (24 inputs, R = 3, seeds 70261115000 + 100j + r; 72 runs, 1512 thread-s) ==
+
+Criteria committed in 91d3a5f before these runs. The analysis code (`ld_confirm`) was smoke-tested
+on D with R = 1 (development data; its crash in the verdict printing, a local variable shadowing
+`all`, was fixed). Amendment decision after the H′ runs were made and before they were analysed:
+none.
+Hypotheses before looking: (a) passes; (b) PARTIAL (before the move only, as on D and G); (c) as on
+G, fails 25..49; (d) source and P1 pass.

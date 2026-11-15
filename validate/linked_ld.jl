@@ -579,7 +579,7 @@ function assoc_runs(id, R, set)
 end
 has_H(tr) = haskey(tr.rec, :H)
 
-function fix_input(r, R, set; variants = keys(FIXES), io = stdout)
+function fix_input(r, R, set; variants = keys(FIXES), io = stdout, withA = false)
     runs = assoc_runs(r.id, R, set)
     isempty(runs) && return nothing
     G = ld_groups(runs[1].L, runs[1].u); ρ2 = class_rho2(runs[1].L, runs[1].u)
@@ -596,6 +596,11 @@ function fix_input(r, R, set; variants = keys(FIXES), io = stdout)
             rg = k0+1:k100-1
             push!(get!(cum, :meas_loss, Float64[]), sum(2 .* m.beta[rg] .* m.C[rg]) / g0)
             push!(get!(cum, :meas_losssym, Float64[]), sum(2 .* m.beta[rg] .* m.Csym[rg]) / g0)
+        end
+        if withA
+            for md in AMODES
+                push!(get!(ser, Symbol(:A_, md), []), (m.t, levelA(tr, G; mode = md)))
+            end
         end
         for v in variants
             o = levelBfix(tr, G, ρ2; FIXES[v]...)
@@ -1045,6 +1050,81 @@ function pm_kernel(set, R)
 end
 
 # ---------------------------------------------------------------------------------------
+# the pre-specified verdicts (validate/linked_ld_criteria.md)
+
+function ld_confirm(set, R; io = stdout, variants = [:B0, :Bs, :Bp0, :Bps])
+    rows = ll_rows(set)
+    println(io, "\n== linked LD, set $set, R = $R: per input (Σ E[yY] predicted/measured, pre / 50..99) ==")
+    bufs = [IOBuffer() for _ in rows]
+    resv = Vector{Any}(undef, length(rows))
+    Threads.@threads :greedy for i in eachindex(rows)
+        resv[i] = fix_input(rows[i], R, set; variants, io = bufs[i], withA = true)
+    end
+    foreach(b -> print(io, String(take!(b))), bufs)
+    allr = [(rows[i], resv[i]) for i in eachindex(rows) if resv[i] !== nothing]
+    elig = filter(x -> isfinite(x[2][:meas_loss]) && x[2][:meas_loss] <= -0.05, allr)
+    println(io, "\n== summary: $(length(allr)) inputs, $(length(elig)) eligible (measured cumulative 2βΣC over 0..99 ≤ −0.05 of the genic variance) ==")
+    ratio(x, num, den, w) = x[2][num][w] / x[2][den][w]
+    stat(num, den, w; xs = allr) = (v = [lr(x[2][num][w], x[2][den][w]) for x in xs]; (exp(medf(v)), medf(v), mabs(v), count(isfinite, v)))
+    for (lab, num, den) in (("Σ E[yY]", :Bs_yY, :yY), ("Σ E[yY] B0", :B0_yY, :yY), ("Σ E[yY] B′*", :Bps_yY, :yY), ("Σ E[yY] B′", :Bp0_yY, :yY),
+                            ("Σ H B′*", :Bps_H, :H), ("Σ H B′", :Bp0_H, :H), ("Σ K B′*", :Bps_K, :K), ("Σ K B′", :Bp0_K, :K), ("Σ K B*", :Bs_K, :K), ("Σ K B0", :B0_K, :K))
+        @printf(io, "  %-12s", lab)
+        for w in WINS
+            r, l, a, n = stat(num, den, w)
+            @printf(io, "  %d..%d %.3f (|lr| %.3f, n %d)", w..., r, a, n)
+        end
+        println(io)
+    end
+    println(io, "  closed ΣC, eligible: log(predicted/measured) median / median |.|:")
+    for v in variants
+        @printf(io, "    %-4s", v)
+        for w in WINS[3:5]
+            u = [lr(x[2][Symbol(v, :_C)][w], x[2][:C][w]) for x in elig]
+            @printf(io, "  %d..%d %+.3f/%.3f (n %d)", w..., medf(u), mabs(u), count(isfinite, u))
+        end
+        u = [lr(x[2][Symbol(v, :_loss)], x[2][:meas_losssym]) for x in elig]
+        @printf(io, "  loss 0..99 vs sign-symmetric %+.3f/%.3f (n %d)\n", medf(u), mabs(u), count(isfinite, u))
+    end
+    println(io, "  P1 (level A), eligible: log(predicted ΣC / measured ΣC) median / median |.|:")
+    P1 = Dict{Tuple{Symbol,Tuple{Int,Int}},Tuple{Float64,Float64}}()
+    for md in AMODES, w in WINS[3:5]
+        u = [lr(x[2][Symbol(:A_, md)][w], x[2][:C][w]) for x in elig]
+        P1[(md, w)] = (medf(u), mabs(u))
+        @printf(io, "    %-9s %d..%d %+.3f / %.3f (n %d)\n", md, w..., medf(u), mabs(u), count(isfinite, u))
+    end
+    # verdicts
+    pre, mid = (-60, -1), (50, 99)
+    vrd(k, n) = k == n ? "PASS" : (k >= 1 && n == 2 ? "PARTIAL" : (k == n - 1 && n == 3 ? "PARTIAL" : "FAIL"))
+    println(io, "\n== pre-specified verdicts (validate/linked_ld_criteria.md) ==")
+    oka = [begin r, _, a, _ = stat(:Bs_yY, :yY, w); 0.80 <= r <= 1.25 && a <= 0.30 end for w in (pre, mid)]
+    @printf(io, "(a) Σ E[yY] level B*: %s -> %s\n", join([(r = stat(:Bs_yY, :yY, w); @sprintf("%d..%d ratio %.3f |lr| %.3f", w..., r[1], r[3])) for w in (pre, mid)], "; "),
+            sum(oka) == 2 ? "PASS" : sum(oka) == 1 ? "PARTIAL" : "FAIL")
+    okb = [begin r, _, a, _ = stat(:Bps_H, :H, w); 0.67 <= r <= 1.5 && a <= 0.40 end for w in (pre, mid)]
+    @printf(io, "(b) Σ H level B′*: %s -> %s\n", join([(r = stat(:Bps_H, :H, w); @sprintf("%d..%d ratio %.3f |lr| %.3f", w..., r[1], r[3])) for w in (pre, mid)], "; "),
+            sum(okb) == 2 ? "PASS" : sum(okb) == 1 ? "PARTIAL" : "FAIL")
+    if length(elig) < 6
+        println(io, "(c) INCONCLUSIVE (fewer than 6 eligible)"); println(io, "P1 INCONCLUSIVE")
+    else
+        okc = Bool[]
+        for w in WINS[3:4]
+            u = [lr(x[2][:Bps_C][w], x[2][:C][w]) for x in elig]
+            push!(okc, abs(medf(u)) <= 0.3 && mabs(u) <= 0.4)
+        end
+        u = [lr(x[2][:Bps_loss], x[2][:meas_losssym]) for x in elig]
+        push!(okc, abs(medf(u)) <= 0.3 && mabs(u) <= 0.4)
+        @printf(io, "(c) closed level B′*: 25..49 %s, 50..99 %s, cumulative loss %s -> %s\n", okc[1] ? "ok" : "fails", okc[2] ? "ok" : "fails", okc[3] ? "ok" : "fails",
+                sum(okc) == 3 ? "PASS" : sum(okc) == 2 ? "PARTIAL" : "FAIL")
+        acc = [abs(P1[(:derived, w)][1]) <= 0.2 && P1[(:derived, w)][2] <= 0.3 for w in WINS[3:5]]
+        comp = all(P1[(:derived, w)][2] < P1[(md, w)][2] for w in WINS[4:5] for md in (:nosel, :spectrum))
+        @printf(io, "P1 (decay rate): accuracy %s, comparator condition %s -> %s\n", join([a ? "ok" : "fails" for a in acc], "/"), comp ? "holds" : "fails",
+                comp && all(acc) ? "PASS" : comp && sum(acc) == 2 ? "PARTIAL" : "FAIL")
+    end
+    okd = [begin r = stat(:Bps_K, :K, w)[1]; 0.75 <= r <= 1.33 end for w in (pre, mid)]
+    @printf(io, "(d) source ΣK level B′*: %s -> %s\n", join([@sprintf("%d..%d %.3f", w..., stat(:Bps_K, :K, w)[1]) for w in (pre, mid)], "; "), all(okd) ? "PASS" : "FAIL")
+    allr
+end
+
+# ---------------------------------------------------------------------------------------
 # H′: the fresh confirmation set (criteria validate/linked_ld_criteria.md)
 
 const HSEED = 70261115000                         # H′ seeds: HSEED + 100j + r
@@ -1127,6 +1207,8 @@ if abspath(PROGRAM_FILE) == @__FILE__
         as_kernel(ARGS[2], parse(Int, ARGS[3]))
     elseif mode == "hrows"
         for r in h_rows(; verbose = true); @printf("%5d %-36s k²/V_G %.4f k/k_c %.3f\n", r.j, r.id, r.idx, r.ratio); end
+    elseif mode == "confirm"
+        ld_confirm(ARGS[2], parse(Int, ARGS[3]))
     elseif mode == "fixdev"
         fix_dev(ARGS[2], parse(Int, ARGS[3]))
     end

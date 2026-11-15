@@ -84,3 +84,5 @@ correction alone on development data.
 ## Amendments
 
 None. Any amendment will be recorded here, with its reason, before the H′ runs are analysed.
+
+Decision after the H′ runs were made and before they were analysed (2026-11-15): no amendment.
