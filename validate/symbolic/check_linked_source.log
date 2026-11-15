@@ -1,0 +1,71 @@
+QTLSim validate/symbolic/check_linked_source.jl (Symbolics 7.48.0)
+
+(a) exact decomposition of K
+  trial 1: K = κ(A,B,X,X) = H − 2 y_A Y                                    ok
+  trial 1: H = H2 + H3, H3 = Σ_{k∈s} Σ_{j≠k} Cov(d_k d_j, d_l²)            ok
+  trial 1: y_A Y = Σ_k D_kl² + Σ_{k≠j} D_kl D_jl                           ok
+  trial 1: K = two-locus + three-locus cumulants; two-locus = H2 − 2ΣD²    ok
+  trial 2: K = κ(A,B,X,X) = H − 2 y_A Y                                    ok
+  trial 2: H = H2 + H3, H3 = Σ_{k∈s} Σ_{j≠k} Cov(d_k d_j, d_l²)            ok
+  trial 2: y_A Y = Σ_k D_kl² + Σ_{k≠j} D_kl D_jl                           ok
+  trial 2: K = two-locus + three-locus cumulants; two-locus = H2 − 2ΣD²    ok
+  trial 3: K = κ(A,B,X,X) = H − 2 y_A Y                                    ok
+  trial 3: H = H2 + H3, H3 = Σ_{k∈s} Σ_{j≠k} Cov(d_k d_j, d_l²)            ok
+  trial 3: y_A Y = Σ_k D_kl² + Σ_{k≠j} D_kl D_jl                           ok
+  trial 3: K = two-locus + three-locus cumulants; two-locus = H2 − 2ΣD²    ok
+  trial 1: biallelic X: d² − v = s d exactly                               ok
+  trial 1: biallelic X: H = s κ(A,B,X)                                     ok
+  trial 1: biallelic X: T = κ(A,X,X) = s y_A                               ok
+  trial 2: biallelic X: d² − v = s d exactly                               ok
+  trial 2: biallelic X: H = s κ(A,B,X)                                     ok
+  trial 2: biallelic X: T = κ(A,X,X) = s y_A                               ok
+  trial 3: biallelic X: d² − v = s d exactly                               ok
+  trial 3: biallelic X: H = s κ(A,B,X)                                     ok
+  trial 3: biallelic X: T = κ(A,X,X) = s y_A                               ok
+
+(b) iid sampling of M (offspring)
+  E[Ĥ] = (M−1)(M−2)²/M³ · H + 4(M−1)(M−2) y_A Y/M³ (exact)                 ok
+    that is (M−1)(M−2)[(M−2)H + 4 y_A Y]/M³                                ok
+  E[Ĥ] = (1 − 5/M) H + 4 y_A Y/M + O(1/M²)                                 ok
+  E[ŷ_A Ŷ] = (1 − 3/M) y_A Y + (H + Cov(A,B) v)/M + O(1/M²)                ok
+  E[K̂] = (1 − 7/M) K − (2/M)(Cov(A,B) v + 2 y_A Y) + O(1/M²)               ok
+  two loci: E[Ĥ] = (1 − 5/M)H + 4y²/M + O(1/M²)                            ok
+  two loci: E[ŷ²] = (1 − 3/M)y² + (H + v_k v_l)/M + O(1/M²)                ok
+  biallelic: H = (1 − 2p)(1 − 2q) D (Ohta & Kimura's moment)               ok
+  biallelic: E[D̂(1−2p̂)(1−2q̂)] = (1 − 5/M)D(1−2p)(1−2q) + 4D²/M + O(1/M²)   ok
+  biallelic: E[D̂²] = (1 − 3/M)D² + (D(1−2p)(1−2q) + p(1−p)q(1−q))/M + O(1/M²) ok
+
+(c) survival: a subset of m of M, to leading order iid with 1/m − 1/M
+  subset error falls with size (relative error [0.32, 0.18, 0.028])        ok
+
+(d) single-crossover recombination of three loci
+  h′ = μ′ − D′_kj v_l = p₀ (μ − D_kj v_l)                                  ok
+  L = 9, u = 3.0: P(split among k, j, l) = max(ρ_kl, ρ_jl) on one side, ρ_kl + ρ_jl across ok
+  L = 20, u = 5.0: P(split among k, j, l) = max(ρ_kl, ρ_jl) on one side, ρ_kl + ρ_jl across ok
+
+(e) mutation on a random one of M chromosomes
+  trial 1: E[ΔH] = 0 exactly                                               ok
+  trial 2: E[ΔH] = 0 exactly                                               ok
+
+(f) selection
+  trial 1: dH/dε = κ₅(A,B,X,X,h) + 2[κ(A,X,h)Y + y_A κ(B,X,h)] exactly     ok
+  trial 2: dH/dε = κ₅(A,B,X,X,h) + 2[κ(A,X,h)Y + y_A κ(B,X,h)] exactly     ok
+  trial 3: dH/dε = κ₅(A,B,X,X,h) + 2[κ(A,X,h)Y + y_A κ(B,X,h)] exactly     ok
+  trial 4: dH/dε = κ₅(A,B,X,X,h) + 2[κ(A,X,h)Y + y_A κ(B,X,h)] exactly     ok
+  biallelic: Δs = −2β(v + Y) at first order                                ok
+
+(g) neutral fixed point of one pair
+  H fixed point: H/y² = 4ε/(5ε + ρ) to leading order, i.e. H/(2y²) = 2ε/(5ε + ρ) ok
+    at ρ = 0 the ratio H/(2y²) is 2/5                                      ok
+  pair_fixed_point at ρ = 0, small ε: H/(2P) ≈ 0.4                         ok
+  pair_fixed_point at ρ = 0.05: H/(2P) ≈ 2ε/(5ε+ρ) with ε = 5e-4 per generation ok
+
+(h) spot checks of validate/linked_source_theory.jl
+  sample_stage!: P ← (1 − 3ε)P + ε(H + ΣV)                                 ok
+  sample_stage!: H ← (1 − 5ε)H + 4εP                                       ok
+  span_matrix: opposite sides add, same side max                           ok
+  yH_step!(select = false) stationary P, H = pair_fixed_point              ok
+  source_K = Σ_t (H − 2P)                                                  ok
+
+51 checks, 0 failed; 3 s
+PASS

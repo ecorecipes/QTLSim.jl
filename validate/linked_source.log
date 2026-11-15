@@ -1,0 +1,151 @@
+validate/linked_source.jl — running log (2026-11-15). Hypotheses are written before each test.
+Criteria: validate/linked_source_criteria.md (committed before any comparison on G).
+
+== 0. Derivation (validate/linked_source_theory.jl; validate/symbolic/check_linked_source.jl, 51 checks PASS) ==
+
+Exact: K_s = κ(B_s,B,l,l) = H_s − 2y_sY_l with H_s = Cov(B_sB, d_l²) (variance heterogeneity);
+H_s = H2_s (Σ_{k∈s} Cov(d_k², d_l²)) + H3_s (three-locus); y_sY_l = Σ_k D_kl² + cross-pair products;
+so K = two-locus cumulants (H2 − 2ΣD²) + three-locus cumulants. Biallelic l: d_l² − v_l = s_l d_l
+(s_l = κ3_l/v_l), H_s = s_l κ(B_s,B,l), T_s = s_l y_s (spectrum shape).
+Drift (iid sampling of M, exact to O(1/M²)): E[Ĥ] = (1 − 5/M)H + 4yY/M (exactly
+(M−1)(M−2)[(M−2)H + 4yY]/M³), E[ŷŶ] = (1 − 3/M)yY + (H + Cov(B_s,B)v)/M,
+E[K̂] = (1 − 7/M)K − (2/M)(Cov(B_s,B)v + 2yY): for biallelic loci exactly Ohta & Kimura's (1969) /
+Hill & Robertson's (1968) E[D(1−2p)(1−2q)] and E[D²] equations. So H is seeded by drift only at
+O(1/M) relative to yY, decays at 5/M + ρ, and its neutral pair fixed point is H/(2y²) = 2ε/(5ε+ρ) ≤ 0.4.
+Survival subset: iid with 1/m − 1/M (leading order; exact enumeration). Single crossover: H ← p₀H
+(p₀ = no split among k, j, l). Mutation: E[ΔH] = 0 exactly. Selection: dH/dε = κ₅(A,B,X,X,h) +
+2[κ(A,X,h)Y + y_Aκ(B,X,h)] exactly; biallelic Δs = −2β(v + Y).
+
+== 1. Decomposition of K on D (re-run of linked_decay's D runs, same seeds, extended instrumentation; 39 runs, 2902 thread-s) ==
+
+Hypotheses before looking: (i) H is mostly two-locus (H2) from tightly linked pairs, seeded by drift
+(O–K); (ii) the biallelic projection s_lJ explains most of H; (iii) the selection change of H per
+generation is small next to the drift seed 4yY/(2n); (iv) H grows under the move through
+selection on H.
+
+Medians over the 13 inputs (window means; ratios of sums over loci):
+== medians over inputs ==
+  Dsq_over_yY            -60..-1     2.034     0..24     2.034    25..49     2.272    50..99     2.617   100..199    2.209
+  H2_over_H              -60..-1     1.147     0..24     1.216    25..49     1.361    50..99     2.191   100..199    1.724
+  H2p_over_H2            -60..-1     1.000     0..24     1.000    25..49     1.000    50..99     1.000   100..199    1.000
+  H_over_2yY             -60..-1     0.411     0..24     0.390    25..49     0.357    50..99     0.481   100..199    0.620
+  K2_over_K              -60..-1     3.118     0..24     3.833    25..49     3.909    50..99     3.046   100..199    3.261
+  K_over_m2yY            -60..-1     0.589     0..24     0.610    25..49     0.643    50..99     0.519   100..199    0.380
+  sJ2_over_H2            -60..-1     0.790     0..24     0.833    25..49     0.831    50..99     0.892   100..199    0.932
+  sJ_over_H              -60..-1     0.627     0..24     0.735    25..49     0.713    50..99     0.822   100..199    0.907
+  selcand_over_dHsel     -60..-1    -0.007     0..24     0.231    25..49     0.021    50..99     0.202   100..199    0.092
+  selmom_over_dHsel      -60..-1     0.034     0..24     3.322    25..49     5.230    50..99   -10.006   100..199   -8.881
+  sy_over_T              -60..-1     0.892     0..24     0.754    25..49     0.817    50..99     0.849   100..199    0.925
+Selection change of H per generation (π-weighted adults minus adults) over the drift seed 4yY/(2n),
+per input, windows −60..−1 / 25..49 / 50..99 / 100..199:
+QT0100-Possion5.0/Input-06159.txt   -60..-1 -5.32  25..49 +9.74  50..99 +15.03  100..199 +17.19
+QT0500-Possion3.0/Input-01192.txt   -60..-1 +38.40  25..49 +20.78  50..99 +18.75  100..199 +12.56
+QT0500-Possion3.0/Input-04943.txt   -60..-1 +67.46  25..49 +18.70  50..99 -11.05  100..199 +0.28
+QT1000-Possion3.0/Input-00854.txt   -60..-1 +42.46  25..49 +30.29  50..99 +5.98  100..199 +15.96
+QT1000-Possion3.0/Input-06004.txt   -60..-1 +55.12  25..49 +29.09  50..99 -5.52  100..199 -10.83
+QT1000-Possion3.0/Input-09697.txt   -60..-1 +19.43  25..49 +8.52  50..99 +1.35  100..199 -9.56
+QT1000-Possion5.0/Input-14110.txt   -60..-1 +19.51  25..49 +13.72  50..99 -4.42  100..199 -27.48
+QT1000-Possion5.0/Input-07594.txt   -60..-1 +19.35  25..49 +2.00  50..99 +0.54  100..199 -4.14
+QT5000-Possion3.0/Input-12000.txt   -60..-1 +32.46  25..49 -25.94  50..99 -14.80  100..199 -33.04
+QT5000-Possion3.0/Input-14771.txt   -60..-1 +21.46  25..49 -26.42  50..99 +1.59  100..199 +0.09
+QT5000-Possion5.0/Input-01925.txt   -60..-1 -0.47  25..49 +1.87  50..99 -3.71  100..199 +2.50
+QT5000-Possion5.0/Input-12463.txt   -60..-1 +3.19  25..49 -0.62  50..99 -7.30  100..199 -6.59
+QT5000-Possion5.0/Input-05562.txt   -60..-1 +0.44  25..49 -1.98  50..99 -9.83  100..199 -20.74
+Measured selection change of K (π pass) over −(Var(G_chr)/S_c)(K + K3), and of yY over −(Var(G_chr)/S_c)yY:
+QT0100-Possion5.0/Input-06159.txt   -60..-1 K 0.16 yY 1.18 | 25..49 K 10.87 yY 1.83 | 50..99 K -29.43 yY -0.49 | 100..199 K 3.27 yY -0.35
+QT0500-Possion3.0/Input-01192.txt   -60..-1 K 1.77 yY -0.12 | 25..49 K 0.58 yY -0.15 | 50..99 K 1.69 yY 0.09 | 100..199 K 2.52 yY 0.05
+QT0500-Possion3.0/Input-04943.txt   -60..-1 K 2.56 yY -0.56 | 25..49 K 0.32 yY -0.47 | 50..99 K -2.16 yY -0.16 | 100..199 K 19.20 yY 0.52
+QT1000-Possion3.0/Input-00854.txt   -60..-1 K 1.70 yY -0.14 | 25..49 K 1.92 yY -0.12 | 50..99 K 0.33 yY -0.04 | 100..199 K 1.26 yY -0.25
+QT1000-Possion3.0/Input-06004.txt   -60..-1 K 2.36 yY 0.44 | 25..49 K 1.51 yY 0.45 | 50..99 K 0.57 yY 0.44 | 100..199 K -0.30 yY 0.40
+QT1000-Possion3.0/Input-09697.txt   -60..-1 K 2.21 yY 0.93 | 25..49 K 0.61 yY 0.17 | 50..99 K 1.67 yY 1.00 | 100..199 K 0.86 yY 0.93
+QT1000-Possion5.0/Input-14110.txt   -60..-1 K 2.50 yY 1.11 | 25..49 K 1.32 yY 0.54 | 50..99 K 1.67 yY 1.06 | 100..199 K -3.88 yY 1.08
+QT1000-Possion5.0/Input-07594.txt   -60..-1 K 2.28 yY 0.22 | 25..49 K 0.39 yY 0.08 | 50..99 K 0.66 yY 0.11 | 100..199 K 0.59 yY 0.24
+QT5000-Possion3.0/Input-12000.txt   -60..-1 K 1.79 yY 0.75 | 25..49 K 1.42 yY 0.90 | 50..99 K 1.33 yY 0.82 | 100..199 K -0.24 yY 0.79
+QT5000-Possion3.0/Input-14771.txt   -60..-1 K 2.24 yY 0.70 | 25..49 K 0.13 yY 0.53 | 50..99 K 5.96 yY 0.78 | 100..199 K 16.40 yY 2.79
+QT5000-Possion5.0/Input-01925.txt   -60..-1 K 2.15 yY 1.82 | 25..49 K 3.02 yY 2.04 | 50..99 K -0.29 yY 0.23 | 100..199 K 2.03 yY 1.05
+QT5000-Possion5.0/Input-12463.txt   -60..-1 K 2.45 yY 1.70 | 25..49 K 1.09 yY 0.91 | 50..99 K 1.12 yY 1.23 | 100..199 K 3.16 yY 2.00
+QT5000-Possion5.0/Input-05562.txt   -60..-1 K 2.03 yY 1.42 | 25..49 K 1.14 yY 0.86 | 50..99 K 2.28 yY 1.48 | 100..199 K 1.00 yY 1.42
+K3/K and Var(G_chr)/S_c:
+QT0100-Possion5.0/Input-06159.txt   -60..-1 K3/K 0.52 Vchr/Sc 0.005 | 50..99 K3/K -1.03 Vchr/Sc 0.004
+QT0500-Possion3.0/Input-01192.txt   -60..-1 K3/K -0.07 Vchr/Sc 0.044 | 50..99 K3/K 0.31 Vchr/Sc 0.047
+QT0500-Possion3.0/Input-04943.txt   -60..-1 K3/K -0.42 Vchr/Sc 0.068 | 50..99 K3/K 0.02 Vchr/Sc 0.054
+QT1000-Possion3.0/Input-00854.txt   -60..-1 K3/K 0.27 Vchr/Sc 0.120 | 50..99 K3/K -0.04 Vchr/Sc 0.102
+QT1000-Possion3.0/Input-06004.txt   -60..-1 K3/K -0.04 Vchr/Sc 0.057 | 50..99 K3/K -0.03 Vchr/Sc 0.050
+QT1000-Possion3.0/Input-09697.txt   -60..-1 K3/K -0.06 Vchr/Sc 0.029 | 50..99 K3/K -0.01 Vchr/Sc 0.028
+QT1000-Possion5.0/Input-14110.txt   -60..-1 K3/K -0.05 Vchr/Sc 0.031 | 50..99 K3/K -0.11 Vchr/Sc 0.027
+QT1000-Possion5.0/Input-07594.txt   -60..-1 K3/K -0.20 Vchr/Sc 0.062 | 50..99 K3/K -0.62 Vchr/Sc 0.060
+QT5000-Possion3.0/Input-12000.txt   -60..-1 K3/K -0.20 Vchr/Sc 0.123 | 50..99 K3/K -0.23 Vchr/Sc 0.106
+QT5000-Possion3.0/Input-14771.txt   -60..-1 K3/K -0.15 Vchr/Sc 0.125 | 50..99 K3/K -0.28 Vchr/Sc 0.062
+QT5000-Possion5.0/Input-01925.txt   -60..-1 K3/K 0.00 Vchr/Sc 0.008 | 50..99 K3/K -0.01 Vchr/Sc 0.009
+QT5000-Possion5.0/Input-12463.txt   -60..-1 K3/K -0.04 Vchr/Sc 0.024 | 50..99 K3/K -0.01 Vchr/Sc 0.022
+QT5000-Possion5.0/Input-05562.txt   -60..-1 K3/K -0.04 Vchr/Sc 0.044 | 50..99 K3/K -0.05 Vchr/Sc 0.039
+
+Reading (development):
+ - The closure's gap is H: H/(2yY) = 0.41 before the move, 0.36–0.48 in 25..99, 0.62 in 100..199.
+ - (i) partly false: the pairwise part is large but the three-locus part cancels much of it.
+   Σ D_kl² ≈ 2 yY (the cross-pair LD products are ≈ −ΣD²); the two-locus cumulants are ≈ 3K and
+   the three-locus cumulants ≈ −2K. H2 > H (H3 < 0), and under the move H2 grows 2–8× while H3
+   turns more negative, so the net H changes much less than its parts.
+ - (ii) holds: s_l J explains 0.63–0.91 of H and s_l Σκ(k,k,l) 0.79–0.93 of H2; s_l y explains
+   0.75–0.93 of T. The residual within-locus variance of d² not explained by a biallelic locus is
+   16–38% per input. So the variance heterogeneity is mostly skew × three-way LD, the spectrum's
+   shape acting through the sign of a(1−2p).
+ - (iii) false: the selection change of H is 20–70× the drift seed before the move (stabilising
+   selection), positive. The selection change of the cumulant K is, before the move, a decay at
+   1.7–2.6 × Var(G_chr)/S_c × (K + K3) per generation (≈ 2: the Leonov–Shiryaev terms
+   c_B κ(B_s,l,l,G) + c_s κ(B,l,l,G), c = Cov(·, G_chr)), consistently over the 12 inputs with
+   Var(G_chr)/S_c ≥ 0.008. K3 is small (|K3/K| ≤ 0.3 in 10 of 13). The LD-product candidates for
+   ΔH (2β[(T+J)Y + y(C+J)], and the moment form) explain ≤ 0.2 of it: the fifth-order terms
+   dominate. Under the move the ratios scatter (directional βκ₅ enters).
+ - So K/(−2yY) < 1 before the move is a Bulmer effect on the fourth cumulant (it is pulled to zero
+   at ≈ 2Var(G_chr)/S_c per generation, the LD's product at a slower rate), with the O(1/M) drift
+   seeding of H (O–K) on top; F's weaker selection (larger ω) fits its ratio nearer 1 (0.86).
+
+== 2. Closure (development on D) ==
+
+Minimal extension kept (level B′): per class pair (s,t) the coupled (P, H) moments with the exact
+O(1/M) drift terms at both sampling stages and the three-locus split probability, and the leading
+stabilising-selection decay of the cumulant, K_st ← K_st − (c_s K_t· + c_t K_s·)/S_c. Dropped (and
+why): directional βκ₅ (fifth order, not closable at this order; it is what makes the measured K fall
+in 100..199), κ₆, K3 (small), products of third-order cumulants, 2v_lκ(B_s,B,l,G) (v_l ≪ Var(B)).
+The T recursion's decay is unchanged.
+Comparator: B′ drift-only (no selection term on K).
+
+Hypothesis before the D comparison: B′ brings predicted K to within 25% of measured before the
+move and in 50..99, and fixes level B's overprediction of ΣC in 25..99.
+
+-- development comparison on D (39 runs; analysis 2160 CPU-s) --
+== summary: 13 inputs, 11 eligible (measured cumulative 2βΣC over 0..99 ≤ −0.05 of the genic variance) ==
+(a) source: predicted ΣK / measured ΣK, median over all inputs (level B′; level B = linked_decay's −2E[yY] for reference):
+   -60..-1    B′ 0.923   B 1.215
+     0..24    B′ 0.844   B 1.165
+    25..49    B′ 0.750   B 0.948
+    50..99    B′ 0.978   B 1.283
+   100..199   B′ 1.227   B 1.652
+    level B′ Σ E[yY] / measured Σ yY and Σ H / measured Σ H (median):
+   -60..-1    yY 0.755   H 0.403
+     0..24    yY 0.702   H 0.360
+    25..49    yY 0.582   H 0.286
+    50..99    yY 0.645   H 0.242
+   100..199   yY 0.732   H 0.251
+(b) closed ΣC, eligible inputs: log(predicted / measured), median and median |.| (level B′, level B):
+  ΣC   25..49    B′ median -0.061 |.| 0.237 (n 11)   B median +0.232 |.| 0.232
+  ΣC   50..99    B′ median +0.097 |.| 0.221 (n 11)   B median +0.498 |.| 0.498
+  ΣC  100..199   B′ median +0.976 |.| 0.976 (n 11)   B median +1.333 |.| 1.333
+  cumulative loss 0..99 vs sign-symmetric: B′ median +0.127 |.| 0.161 (n 11)   B median +0.475 |.| 0.475
+P1 (decay rate, level A, eligible): log(predicted ΣC / measured ΣC), median and median |.|:
+  derived     25..49   median +0.060  |.| 0.074  (n 11)
+  derived     50..99   median +0.052  |.| 0.052  (n 11)
+  derived    100..199  median +0.170  |.| 0.243  (n 11)
+  nosel       25..49   median +0.272  |.| 0.272  (n 11)
+  nosel       50..99   median +0.371  |.| 0.371  (n 11)
+  nosel      100..199  median +0.532  |.| 0.532  (n 11)
+  spectrum    25..49   median -0.898  |.| 0.898  (n 11)
+  spectrum    50..99   median -1.405  |.| 1.405  (n 11)
+  spectrum   100..199  median -1.948  |.| 1.948  (n 11)
+Development reading: on D, B′ meets the thresholds that the criteria set for (a) (0.92, 0.98) and
+(b) (ΣC −0.06/0.24 and +0.10/0.22, cumulative loss +0.13/0.16), where level B failed (b). It fails in
+100..199 (ΣC +0.98): the measured K falls in magnitude late in the move (directional fifth-order
+term, dropped). Caveat: B′ gets K right with both parts low: E[yY] 0.58–0.76 and H 0.24–0.40 of
+measured (the y recursion's shortfall, linked_decay's H2 failure on D, persists).
+F (seen) is not re-analysed (budget); G gives the verdicts.
