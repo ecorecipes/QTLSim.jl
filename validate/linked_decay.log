@@ -247,3 +247,42 @@ Development reading:
 
 Amendment decision (before any confirmation run is analysed): none. The verdict rules stay as
 committed; the development failures of H1, H2 and P2 are reported here, not tuned away.
+
+== 2. Exploratory (not a verdict): the derived persistence in the spectrum's linked-selection term ==
+
+Driven by genic_decline's 8 runs per D input (its raw records, read only), the spectrum with
+genic_decline's time-dependent linked-selection term (Q_c, R_c from zero at the move) and the
+derived persistence of the allele–background LD, λ_c = (1 − ρ_c)(1 − 1/(2n))(1 − V_chr/S_c),
+against the default (Barton, δ = 1/(2n) + V_G/S, applied at once).
+Hypothesis before running: the derived term lowers genic(+100) toward the kernel; because level B
+overpredicts the association (section 1, its source −2E[yY] does not fall under the move), it may
+overshoot by +200.
+
+== section 2 result: exploratory driven-spectrum check (proto D; not a verdict) ==
+== exploratory: driven spectrum, genic(t)/genic(−50..−1), kernel vs Barton (default) vs derived transient (genic_decline's runs, set D) ==
+QT0100-Possion5.0/Input-06159.txt   +50 n8 kernel 1.021 barton 0.998 derived 0.999  +100 n8 kernel 1.021 barton 1.002 derived 1.004  +200 n8 kernel 0.949 barton 1.027 derived 1.028
+QT0500-Possion3.0/Input-01192.txt   +50 n8 kernel 1.014 barton 1.102 derived 1.094  +100 n8 kernel 0.967 barton 1.327 derived 1.271  +200 n8 kernel 0.757 barton 1.228 derived 1.024
+QT0500-Possion3.0/Input-04943.txt   +50 n8 kernel 0.883 barton 1.510 derived 1.387  +100 n8 kernel 0.601 barton 0.876 derived 0.629
+QT1000-Possion3.0/Input-00854.txt   +50 n8 kernel 0.917 barton 1.418 derived 1.372  +100 n8 kernel 0.745 barton 1.459 derived 1.308  +200 n8 kernel 0.507 barton 0.937 derived 0.686
+QT1000-Possion3.0/Input-06004.txt   +50 n8 kernel 0.949 barton 1.040 derived 1.030  +100 n8 kernel 0.796 barton 1.134 derived 1.089  +200 n8 kernel 0.487 barton 0.891 derived 0.706
+QT1000-Possion3.0/Input-09697.txt   +50 n8 kernel 0.990 barton 0.997 derived 0.994  +100 n8 kernel 0.928 barton 1.008 derived 0.994  +200 n8 kernel 0.717 barton 0.999 derived 0.929
+QT1000-Possion5.0/Input-14110.txt   +50 n8 kernel 0.972 barton 0.995 derived 0.989  +100 n8 kernel 0.829 barton 1.002 derived 0.973  +200 n8 kernel 0.593 barton 0.903 derived 0.765
+QT1000-Possion5.0/Input-07594.txt   +50 n8 kernel 0.923 barton 1.114 derived 1.091  +100 n8 kernel 0.724 barton 1.203 derived 1.103  +200 n8 kernel 0.529 barton 0.904 derived 0.671
+QT5000-Possion3.0/Input-12000.txt   +50 n8 kernel 0.895 barton 1.002 derived 0.996  +100 n8 kernel 0.675 barton 1.022 derived 1.000  +200 n8 kernel 0.242 barton 0.747 derived 0.609
+QT5000-Possion3.0/Input-14771.txt   +50 n8 kernel 0.638 barton 0.999 derived 0.970  +100 n3 kernel 0.139 barton 0.294 derived 0.216
+QT5000-Possion5.0/Input-01925.txt   +50 n8 kernel 1.000 barton 0.998 derived 0.998  +100 n8 kernel 0.982 barton 0.986 derived 0.985  +200 n8 kernel 0.852 barton 0.946 derived 0.920
+QT5000-Possion5.0/Input-12463.txt   +50 n8 kernel 0.980 barton 0.995 derived 0.993  +100 n8 kernel 0.935 barton 0.983 derived 0.971  +200 n8 kernel 0.729 barton 0.954 derived 0.909
+QT5000-Possion5.0/Input-05562.txt   +50 n8 kernel 0.919 barton 0.989 derived 0.978  +100 n8 kernel 0.733 barton 0.972 derived 0.934  +200 n8 kernel 0.343 barton 0.770 derived 0.596
+  +50: log(model/kernel) median: barton +0.083 (|.| 0.083), derived +0.075 (|.| 0.075), n 13
+  +100: log(model/kernel) median: barton +0.316 (|.| 0.316), derived +0.242 (|.| 0.242), n 13
+  +200: log(model/kernel) median: barton +0.484 (|.| 0.484), derived +0.260 (|.| 0.260), n 11
+
+
+== confirmation set F (16 fresh inputs, seeds 80261114000 + 100j + r, R = 3; kernel 1161 CPU-s) ==
+
+== pre-specified verdicts on F (rules in linked_decay_criteria.md; applied by the orchestrating session, no amendment) ==
+Note: the summary header says "over 5 eligible inputs", but H1 and H2 are computed over all 16 inputs, as the criteria specify; only P1 and P2 use the eligible inputs.
+H1 (source identity, K / (−2yY) in [0.75, 1.33] at −60..−1 and 50..99): 0.860 and 0.615 -> FAIL
+H2 (level-B allele–background LD, ratio in [0.67, 1.5] and |lr| <= 0.4 at −60..−1 and 50..99): 0.916 / 0.136 and 0.873 / 0.182 -> PASS (it failed on the development set D)
+P1 (decay rate): only 5 eligible inputs (< 6) -> INCONCLUSIVE. Descriptive only: derived median lr +0.03 / +0.05 / +0.09, |lr| 0.07 / 0.08 / 0.27, below both comparators (no selection: 0.31 / 0.36 / 0.42; spectrum δ: 0.45 / 0.92 / 1.50); the accuracy thresholds would be met in all three windows.
+P2 (closed level B): 5 eligible -> INCONCLUSIVE. Descriptive only: ΣC lr −0.02 at 25..49 and +0.53 at 50..99, cumulative loss +0.60; it would FAIL.
