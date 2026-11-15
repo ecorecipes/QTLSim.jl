@@ -507,3 +507,90 @@ on D with R = 1 (development data; its crash in the verdict printing, a local va
 none.
 Hypotheses before looking: (a) passes; (b) PARTIAL (before the move only, as on D and G); (c) as on
 G, fails 25..49; (d) source and P1 pass.
+
+== linked LD, set H, R = 3: per input (Σ E[yY] predicted/measured, pre / 50..99) ==
+QT0100-Possion3.0/Input-06886.txt  L=100 runs 3  yY ratio (pre / 50..99):  B0 1.032/1.064  Bs 1.123/1.157  Bp0 1.016/1.047  Bps 1.107/1.141
+QT0100-Possion3.0/Input-10634.txt  L=100 runs 3  yY ratio (pre / 50..99):  B0 1.110/1.435  Bs 1.247/1.586  Bp0 1.092/1.410  Bps 1.227/1.562
+QT0100-Possion3.0/Input-05140.txt  L=100 runs 3  yY ratio (pre / 50..99):  B0 0.790/0.323  Bs 1.224/1.011  Bp0 0.784/0.323  Bps 1.218/1.014
+QT0100-Possion5.0/Input-06211.txt  L=100 runs 3  yY ratio (pre / 50..99):  B0 0.761/0.742  Bs 0.919/0.866  Bp0 0.745/0.726  Bps 0.901/0.852
+QT0100-Possion5.0/Input-09697.txt  L=100 runs 3  yY ratio (pre / 50..99):  B0 0.780/0.343  Bs 1.039/0.463  Bp0 0.768/0.339  Bps 1.024/0.460
+QT0100-Possion5.0/Input-04323.txt  L=100 runs 3  yY ratio (pre / 50..99):  B0 0.773/0.425  Bs 0.958/0.539  Bp0 0.759/0.419  Bps 0.942/0.535
+QT0500-Possion3.0/Input-00365.txt  L=500 runs 3  yY ratio (pre / 50..99):  B0 0.961/0.705  Bs 1.052/0.762  Bp0 0.943/0.690  Bps 1.034/0.748
+QT0500-Possion3.0/Input-10218.txt  L=500 runs 3  yY ratio (pre / 50..99):  B0 0.858/0.818  Bs 0.907/0.860  Bp0 0.840/0.800  Bps 0.889/0.842
+QT0500-Possion3.0/Input-09414.txt  L=500 runs 3  yY ratio (pre / 50..99):  B0 0.807/0.655  Bs 0.964/0.731  Bp0 0.794/0.633  Bps 0.950/0.712
+QT0500-Possion5.0/Input-03988.txt  L=500 runs 3  yY ratio (pre / 50..99):  B0 0.487/1.019  Bs 0.937/1.377  Bp0 0.484/0.966  Bps 0.932/1.352
+QT0500-Possion5.0/Input-00483.txt  L=500 runs 3  yY ratio (pre / 50..99):  B0 0.334/0.350  Bs 0.928/1.001  Bp0 0.333/0.348  Bps 0.928/1.004
+QT0500-Possion5.0/Input-11447.txt  L=500 runs 3  yY ratio (pre / 50..99):  B0 0.845/0.803  Bs 1.005/0.911  Bp0 0.830/0.782  Bps 0.988/0.891
+QT1000-Possion3.0/Input-11733.txt  L=1000 runs 3  yY ratio (pre / 50..99):  B0 0.754/1.069  Bs 1.014/1.215  Bp0 0.745/0.999  Bps 1.004/1.154
+QT1000-Possion3.0/Input-00286.txt  L=1000 runs 3  yY ratio (pre / 50..99):  B0 0.914/0.734  Bs 1.000/0.786  Bp0 0.896/0.713  Bps 0.982/0.765
+QT1000-Possion3.0/Input-03151.txt  L=1000 runs 3  yY ratio (pre / 50..99):  B0 0.410/0.400  Bs 0.897/0.901  Bp0 0.408/0.397  Bps 0.895/0.901
+QT1000-Possion5.0/Input-13447.txt  L=1000 runs 3  yY ratio (pre / 50..99):  B0 0.396/0.400  Bs 0.899/0.829  Bp0 0.394/0.394  Bps 0.897/0.827
+QT1000-Possion5.0/Input-01476.txt  L=1000 runs 3  yY ratio (pre / 50..99):  B0 0.651/0.604  Bs 0.985/0.844  Bp0 0.643/0.590  Bps 0.977/0.834
+QT1000-Possion5.0/Input-04106.txt  L=1000 runs 3  yY ratio (pre / 50..99):  B0 0.645/1.041  Bs 0.927/1.254  Bp0 0.637/1.004  Bps 0.917/1.225
+QT5000-Possion3.0/Input-00674.txt  L=5000 runs 3  yY ratio (pre / 50..99):  B0 0.733/0.663  Bs 0.968/0.856  Bp0 0.723/0.650  Bps 0.958/0.844
+QT5000-Possion3.0/Input-12981.txt  L=5000 runs 3  yY ratio (pre / 50..99):  B0 0.775/1.160  Bs 0.948/1.295  Bp0 0.764/1.095  Bps 0.937/1.235
+QT5000-Possion3.0/Input-14527.txt  L=5000 runs 3  yY ratio (pre / 50..99):  B0 0.907/0.824  Bs 0.920/0.837  Bp0 0.884/0.803  Bps 0.897/0.816
+QT5000-Possion5.0/Input-01741.txt  L=5000 runs 3  yY ratio (pre / 50..99):  B0 0.618/NaN  Bs 0.942/NaN  Bp0 0.613/NaN  Bps 0.936/NaN
+QT5000-Possion5.0/Input-04693.txt  L=5000 runs 3  yY ratio (pre / 50..99):  B0 0.963/1.673  Bs 1.056/1.802  Bp0 0.948/1.518  Bps 1.041/1.654
+QT5000-Possion5.0/Input-06987.txt  L=5000 runs 3  yY ratio (pre / 50..99):  B0 1.044/1.268  Bs 1.097/1.335  Bp0 1.025/1.177  Bps 1.077/1.247
+
+== summary: 24 inputs, 14 eligible (measured cumulative 2βΣC over 0..99 ≤ −0.05 of the genic variance) ==
+  Σ E[yY]       -60..-1 0.966 (|lr| 0.062, n 24)  0..24 0.909 (|lr| 0.146, n 24)  25..49 0.841 (|lr| 0.234, n 24)  50..99 0.901 (|lr| 0.194, n 23)  100..199 1.038 (|lr| 0.188, n 18)
+  Σ E[yY] B0    -60..-1 0.777 (|lr| 0.252, n 24)  0..24 0.671 (|lr| 0.399, n 24)  25..49 0.670 (|lr| 0.428, n 24)  50..99 0.742 (|lr| 0.350, n 23)  100..199 0.882 (|lr| 0.371, n 18)
+  Σ E[yY] B′*   -60..-1 0.954 (|lr| 0.068, n 24)  0..24 0.899 (|lr| 0.153, n 24)  25..49 0.827 (|lr| 0.244, n 24)  50..99 0.891 (|lr| 0.203, n 23)  100..199 1.010 (|lr| 0.191, n 18)
+  Σ E[yY] B′    -60..-1 0.766 (|lr| 0.266, n 24)  0..24 0.661 (|lr| 0.414, n 24)  25..49 0.657 (|lr| 0.429, n 24)  50..99 0.726 (|lr| 0.344, n 23)  100..199 0.850 (|lr| 0.317, n 18)
+  Σ H B′*       -60..-1 0.707 (|lr| 0.382, n 22)  0..24 0.885 (|lr| 0.550, n 21)  25..49 0.535 (|lr| 0.695, n 22)  50..99 0.490 (|lr| 0.808, n 22)  100..199 0.573 (|lr| 0.737, n 18)
+  Σ H B′        -60..-1 0.382 (|lr| 0.964, n 22)  0..24 0.336 (|lr| 1.186, n 21)  25..49 0.256 (|lr| 1.363, n 22)  50..99 0.210 (|lr| 1.559, n 22)  100..199 0.247 (|lr| 1.399, n 18)
+  Σ K B′*       -60..-1 1.126 (|lr| 0.248, n 23)  0..24 0.772 (|lr| 0.409, n 21)  25..49 0.949 (|lr| 0.310, n 23)  50..99 1.526 (|lr| 0.427, n 22)  100..199 1.700 (|lr| 0.531, n 16)
+  Σ K B′        -60..-1 1.065 (|lr| 0.298, n 23)  0..24 0.735 (|lr| 0.445, n 21)  25..49 0.916 (|lr| 0.331, n 23)  50..99 1.467 (|lr| 0.402, n 23)  100..199 1.583 (|lr| 0.606, n 17)
+  Σ K B*        -60..-1 1.716 (|lr| 0.540, n 23)  0..24 1.096 (|lr| 0.142, n 21)  25..49 1.588 (|lr| 0.462, n 23)  50..99 2.789 (|lr| 1.026, n 22)  100..199 2.839 (|lr| 1.043, n 16)
+  Σ K B0        -60..-1 1.408 (|lr| 0.351, n 23)  0..24 0.893 (|lr| 0.270, n 21)  25..49 1.378 (|lr| 0.376, n 23)  50..99 1.991 (|lr| 0.689, n 22)  100..199 2.339 (|lr| 0.850, n 16)
+  closed ΣC, eligible: log(predicted/measured) median / median |.|:
+    B0    25..49 +0.110/0.358 (n 14)  50..99 +0.636/0.699 (n 14)  100..199 +1.583/1.676 (n 14)  loss 0..99 vs sign-symmetric +0.759/0.759 (n 13)
+    Bs    25..49 +0.342/0.526 (n 14)  50..99 +0.847/0.964 (n 14)  100..199 +1.725/1.725 (n 14)  loss 0..99 vs sign-symmetric +0.987/0.987 (n 13)
+    Bp0   25..49 -0.315/0.437 (n 14)  50..99 +0.203/0.541 (n 14)  100..199 +1.258/1.333 (n 14)  loss 0..99 vs sign-symmetric +0.401/0.401 (n 13)
+    Bps   25..49 -0.278/0.410 (n 14)  50..99 +0.253/0.577 (n 14)  100..199 +1.314/1.314 (n 13)  loss 0..99 vs sign-symmetric +0.474/0.474 (n 13)
+  P1 (level A), eligible: log(predicted ΣC / measured ΣC) median / median |.|:
+    derived   25..49 +0.066 / 0.158 (n 14)
+    derived   50..99 -0.003 / 0.077 (n 14)
+    derived   100..199 +0.170 / 0.250 (n 14)
+    nosel     25..49 +0.395 / 0.546 (n 13)
+    nosel     50..99 +0.219 / 0.451 (n 14)
+    nosel     100..199 +0.385 / 0.430 (n 14)
+    spectrum  25..49 -0.614 / 0.614 (n 14)
+    spectrum  50..99 -1.216 / 1.216 (n 13)
+    spectrum  100..199 -1.604 / 1.604 (n 13)
+
+== pre-specified verdicts (validate/linked_ld_criteria.md) ==
+(a) Σ E[yY] level B*: -60..-1 ratio 0.966 |lr| 0.062; 50..99 ratio 0.901 |lr| 0.194 -> PASS
+(b) Σ H level B′*: -60..-1 ratio 0.707 |lr| 0.382; 50..99 ratio 0.490 |lr| 0.808 -> PARTIAL
+(c) closed level B′*: 25..49 fails, 50..99 fails, cumulative loss fails -> FAIL
+P1 (decay rate): accuracy ok/ok/ok, comparator condition holds -> PASS
+(d) source ΣK level B′*: -60..-1 1.126; 50..99 1.526 -> FAIL
+(analysis 744 CPU-s)
+
+Verdicts on H′ (rules of linked_ld_criteria.md, no amendment): 24 inputs, 14 eligible.
+ (a) allele–background LD, level B*: Σ E[yY] predicted/measured 0.966 (median |lr| 0.062) before the
+     move, 0.901 (0.194) in 50..99 -> PASS. linked_decay's level B on the same runs: 0.777 (0.252),
+     0.742 (0.350).
+ (b) variance heterogeneity, level B′*: Σ H 0.707 (|lr| 0.382) before the move (passes), 0.490
+     (0.808) in 50..99 (fails) -> PARTIAL. linked_source's B′: 0.382, 0.210.
+ (c) closed association, level B′*, 14 eligible: ΣC 25..49 lr −0.278 / |lr| 0.410 (fails |lr| ≤ 0.4
+     by 0.01), 50..99 +0.253 / 0.577 (fails), cumulative loss 0..99 vs sign-symmetric +0.474 / 0.474
+     (fails) -> FAIL. (B′: −0.315/0.437, +0.203/0.541, +0.401/0.401; it would also fail.)
+ (d) source ΣK, level B′*: 1.126 before the move (passes), 1.526 in 50..99 (fails) -> FAIL (B′ 1.065,
+     1.467: also outside). Decay rate P1 (level A): derived lr +0.066/−0.003/+0.170, |lr|
+     0.158/0.077/0.250; comparators' |lr| in 50..99 and 100..199 nosel 0.451/0.430, spectrum 1.216/1.604
+     -> PASS (second confirmation after G).
+ Reported (window 100..199, not verdicts): Σ E[yY] 1.038, H 0.573, K 1.700, ΣC +1.314.
+
+Reading. The diagnosis is confirmed where it was aimed: correcting the heterogeneity weight of
+Bulmer's step (and the four small exact terms) removes the shortfall of the allele–background LD on
+fresh inputs (0.78 → 0.97 before the move, 0.74 → 0.90 under it; the remaining ~10% in 50..99 is
+the dropped directional third-cumulant term, measured at +0.01–0.015 of Σ Y² per generation in
+section 1). It also lifts the variance heterogeneity H from 0.38 to 0.71 before the move. It does
+not fix the closed association: on H′, as on G, ΣC and the cumulative loss are off (the loss is now
+overpredicted by e^0.47 = 1.6×) and the source K under the move is 1.5× measured, for B′ and B′*
+alike. With y right, the remaining defects of the source are in H under the move (0.49) and in the
+dropped directional terms of K (βκ₅, which make the measured K fall late in the move) — not in y.
+The exploratory driven-spectrum check was not run ((c) failed, as the task prescribes).
