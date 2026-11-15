@@ -300,6 +300,35 @@ end
     q = Params(p; NoGenerations = 300, Sample = 50)
     @test run_moments(q; cycle = gm, loci = :spectrum).geno_var ≈ run_moments(Params(q; MutationRatePerGamete = 1e-3); loci = :spectrum).geno_var
     @test_throws ArgumentError run_moments(q; cycle = gm ⋅ lifecycle().generation, loci = :spectrum)
+    # the beta closure (spectrum = (; solver = :beta), off by default): the grid bit for bit by default
+    @test run_moments(pm; loci = :spectrum, spectrum = (solver = :grid,)).geno_var == ms.geno_var
+    @test !haskey(ms, :spectrum_fallback)
+    # exact on the neutral spectrum ψ ∝ 1 − p: μ₁ = 1/3, μ₂ = 1/6 close to μ₃ = 1/10, μ₄ = 1/15
+    @test QTLSim.beta_closure(1 // 3, 1 // 6) == (1 // 10, 1 // 15, 1 // 1, 2 // 1)
+    eb0 = spectrum_equilibrium(Params(p; Drift = true); solver = :beta)
+    @test eb0.VG ≈ e0.VG rtol = 2e-3
+    @test eb0.spectrum.fallback == -1
+    # the fixed point at a fixed optimum is the grid's
+    eb = spectrum_equilibrium(p; solver = :beta)
+    @test eb.VG ≈ e.VG rtol = 0.01
+    @test eb.spectrum.solver === :beta && QTLSim.spectrum_fallback(eb.spectrum) == -1
+    @test spectrum_equilibrium(p; solver = :beta, ld = :dynamic).VG ≈ eL.VG rtol = 0.01
+    # a slow move: no fallback, V_G 100 generations in close to the grid's; deterministic
+    pw = Params(pm; MoveFitnessSD = 0.002)
+    mg, mb = run_moments(pw; loci = :spectrum), run_moments(pw; loci = :spectrum, spectrum = (solver = :beta,))
+    @test mb.spectrum_fallback == -1
+    @test mb.geno_var[5101] ≈ mg.geno_var[5101] rtol = 0.01
+    @test isequal(mb, run_moments(pw; loci = :spectrum, spectrum = (solver = :beta,)))
+    # a fast move (strong sweeps): the closure falls back to the grid once the move starts, and the
+    # extinction is the grid's
+    mf = run_moments(pm; loci = :spectrum, spectrum = (solver = :beta,))
+    @test mf.spectrum_fallback > 5000 && mf.extinct && abs(mf.extinct_gen - ms.extinct_gen) <= 2
+    # handing over keeps V_G; bad options are refused
+    sh = deepcopy(eb.spectrum); QTLSim._beta_to_grid!(sh)
+    @test sh.solver === :grid
+    @test QTLSim.spectrum_vg(sh) ≈ QTLSim.spectrum_vg(eb.spectrum) rtol = 1e-12
+    @test_throws ArgumentError QTLSim.AlleleSpectrum(p; solver = :moments)
+    @test_throws ArgumentError QTLSim.AlleleSpectrum(p; solver = :beta, ldratio = 0.5)
 end
 
 @testset "rare alleles with locally favoured alleles (loci = :rare_local, src/local_alleles.jl)" begin

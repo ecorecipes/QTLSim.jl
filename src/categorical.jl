@@ -314,8 +314,12 @@ V_G is too high). Under a move it captures both the rise of V_G when rare allele
 effect sweep (house of cards; Barton and Turelli 1987) and its collapse at slow rates in
 small or declining populations (fast turnover by sweeps, falling N_e, linked selection);
 `validate/vg_move.jl`. `spectrum` passes options to `QTLSim.AlleleSpectrum`: `grid`
-(frequencies, 240), `classes` (effects, 20) and `linkage` (`:barton`, or `:none` for
-linkage equilibrium).
+(frequencies, 240), `classes` (effects, 20), `linkage` (`:barton`, or `:none` for
+linkage equilibrium), `ld = :dynamic` and `solver = :beta` (off by default: a beta closure
+of the spectrum's moments per effect class, 50–300× faster, for weak sweeps; it falls back
+to the grid when a class's scaled directional selection `4n|aλ|/S` exceeds 100 or its law
+leaves the closure's domain, and the result then carries `spectrum_fallback`, the generation
+of the switch, −1 if none; see [`QTLSim.AlleleSpectrum`](@ref), validate/spectrum_beta_criteria.md).
 
 **The aggregate recursion (`loci = :aggregate`).** QTLSim's moments lowering before the
 multilocus model: the offspring inherit the survivors' variance, `V ← V − V²/(V_s + V) +

@@ -340,10 +340,10 @@ function run_moments1(p::Params; cycle = lifecycle().generation, images = Dict{S
         between && it % p.Sample == 0 && record_metapop!(mp, it, [m])
         step(m, nothing)
         m.extinct && return between ? (extinct = true, extinct_gen = m.gen, rec..., metapop = mp) :
-                                      (extinct = true, extinct_gen = m.gen, rec...)
+                                      spectrum_result((extinct = true, extinct_gen = m.gen, rec...), cov)
         m.gen = max(m.gen, it + 1)
     end
-    between ? (extinct = false, extinct_gen = -1, rec..., metapop = mp) : (extinct = false, extinct_gen = -1, rec...)
+    between ? (extinct = false, extinct_gen = -1, rec..., metapop = mp) : spectrum_result((extinct = false, extinct_gen = -1, rec...), cov)
 end
 
 # --- several demes ----------------------------------------------------------

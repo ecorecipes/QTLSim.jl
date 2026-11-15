@@ -25,7 +25,10 @@
 # (g) the dynamic LD (`ld = :dynamic`): the class recursion's fixed point (Bulmer's with no drift),
 #     its derivation from the haplotype moments, D' w̄² = D(1 + s)(1 + t) and Δln D = Δln p_Aq_A +
 #     Δln p_Bq_B, the bins' Σ m_b β_b = V_G/g, and spot checks of ld_classes, _ld_betas!,
-#     spectrum_ld_step!, spectrum_select and spectrum_equilibrium.
+#     spectrum_ld_step!, spectrum_select and spectrum_equilibrium;
+# (h) the beta closure (`solver = :beta`): the ψ-moment equations against the generator, its
+#     exactness on the neutral ψ = θ(1 − p), the beta moment map and its inverse, the Hausdorff
+#     conditions for k ≤ 4, and spot checks of the beta solver.
 
 include("common.jl")
 
@@ -287,6 +290,72 @@ function main()
     fp = [-drl * sl.ldc.ω[k] * sl.β[sl.ldc.a[k]] * sl.β[sl.ldc.b[k]] * gl^2 / (2Sl) / (1 - drl * (1 - sl.ldc.ρ[k]) * (1 + 2sl.γ))
           for k in eachindex(sl.d)]
     check(@sprintf("equilibrium LD = Σ class fixed points (ratio %.4f)", sum(sl.d) / sum(fp)), isapprox(sum(sl.d), sum(fp); rtol = 0.01))
+
+    # ===================================================================================
+    say("\n(h) the beta closure (solver = :beta): ψ-moment equations, exactness, moment map, Hausdorff bounds")
+    @variables pp s0 s1 d4 θn
+    qq = 1 - pp
+    Dp(e) = Symbolics.expand_derivatives(Differential(pp)(e))
+    for m in 0:4
+        f = pp^(m + 1) * qq                                    # f_m, ∫ f_m φ = P_m; f_m(0) = f_m(1) = 0
+        gen = pp * qq * (s0 + s1 * pp) * Dp(f) + pp * qq * d4 * Dp(Dp(f))   # M f′ + D f″, M = pq s, D = pq d₄
+        rhs = pp * qq * QTLSim.beta_dP(m, s0, s1, d4, m == 0 ? 0 : pp^(m - 1), pp^m, pp^(m + 1), pp^(m + 2))
+        check("generator on f_m = p^(m+1)(1−p) is pq·beta_dP(m, …) with P_k → p^k, m = $m", iszero_sym(gen - rhs))
+    end
+    # the neutral PRF ψ = θ(1 − p): P_k = θ/((k+1)(k+2)), drift alone leaves P_m (m ≥ 1) unchanged
+    # and takes θ d₄ from P₀ (what mutation restores), and the beta closure is exact on it
+    Pn(k) = θn / ((k + 1) * (k + 2))
+    check("neutral ψ = θ(1−p): drift dP_m = 0 for m = 1…4, dP_0 = −θ d₄",
+          all(iszero_sym(QTLSim.beta_dP(m, 0, 0, d4, Pn(m - 1), Pn(m), Pn(m + 1), Pn(m + 2))) for m in 1:4) &&
+          iszero_sym(QTLSim.beta_dP(0, 0, 0, d4, 0, Pn(0), Pn(1), Pn(2)) + θn * d4))
+    μn3, μn4, αn, βn = QTLSim.beta_closure(1 // 3, 1 // 6)
+    check("beta_closure(1/3, 1/6) = (1/10, 1/15, α = 1, β = 2) exactly (neutral μ₃ = 1/10, μ₄ = 1/15)",
+          (μn3, μn4, αn, βn) == (1 // 10, 1 // 15, 1 // 1, 2 // 1))
+    # the moment map (α, β) ↦ (μ₁, μ₂) and its inverse; μ₃, μ₄ the beta law's
+    @variables α_ β_
+    ν_ = α_ + β_
+    bm(k) = prod((α_ + i) / (ν_ + i) for i in 0:k-1)
+    b3, b4, αi, βi = QTLSim.beta_closure(bm(1), bm(2))
+    check("beta_closure inverts the moment map: α(μ₁(α,β), μ₂(α,β)) = α, β likewise", iszero_sym(αi - α_) && iszero_sym(βi - β_))
+    check("beta_closure's μ₃, μ₄ = Π_{i<k}(α+i)/(ν+i), k = 3, 4", iszero_sym(b3 - bm(3)) && iszero_sym(b4 - bm(4)))
+    check("for a beta law μ₂ − μ₁² = αβ/(ν²(ν+1)) and μ₁ − μ₂ = αβ/(ν(ν+1)) (inside the k = 2 bounds)",
+          iszero_sym(bm(2) - bm(1)^2 - α_ * β_ / (ν_^2 * (ν_ + 1))) && iszero_sym(bm(1) - bm(2) - α_ * β_ / (ν_ * (ν_ + 1))))
+    # Hausdorff conditions for k ≤ 4 (Hankel determinants of μ and of the shifted (μ_k − μ_{k+1})):
+    # k = 2: μ₂ − μ₁² ≥ 0, μ₁ − μ₂ ≥ 0; k = 3: μ₁μ₃ − μ₂² ≥ 0, (1 − μ₁)(μ₂ − μ₃) − (μ₁ − μ₂)² ≥ 0;
+    # k = 4: det[1 μ₁ μ₂; μ₁ μ₂ μ₃; μ₂ μ₃ μ₄] ≥ 0, det[μ₁−μ₂ μ₂−μ₃; μ₂−μ₃ μ₃−μ₄] ≥ 0
+    haus(μ) = (μ[2] - μ[1]^2, μ[1] - μ[2], μ[1] * μ[3] - μ[2]^2, (1 - μ[1]) * (μ[2] - μ[3]) - (μ[1] - μ[2])^2,
+               det([1 μ[1] μ[2]; μ[1] μ[2] μ[3]; μ[2] μ[3] μ[4]]), (μ[1] - μ[2]) * (μ[3] - μ[4]) - (μ[2] - μ[3])^2)
+    okm, okb = true, true
+    for _ in 1:2000
+        k = rand(rng, 1:4); x = rand(rng, k); w = rand(rng, k); w ./= sum(w)          # a measure of k atoms on [0, 1]
+        okm &= all(h -> h >= -1e-12, haus([sum(w .* x .^ j) for j in 1:4]))
+        al, be = exp(runif(-3, 3)), exp(runif(-3, 3))
+        m1, m2 = al / (al + be), al * (al + 1) / ((al + be) * (al + be + 1))
+        c3, c4, _, _ = QTLSim.beta_closure(m1, m2)
+        okb &= all(h -> h >= -1e-12, haus([m1, m2, c3, c4]))
+    end
+    check("the Hausdorff conditions (k ≤ 4) hold for 2000 random atomic measures on [0, 1]", okm)
+    check("the closed moments (μ₁, μ₂, μ₃, μ₄) of 2000 random beta laws satisfy them", okb)
+    # numerical spot checks of the beta solver against its definition
+    pb = Params(PopSize = 1000, Ploidy = 2, NoQTL = 200, PhenotypeVar = 0.05, Heritability = 0.4, MutationScalar = 0.005,
+                MutationRatePerGamete = 1e-4, RecombPoissonMean = 3.0, InitFitnessSD = 3.0)
+    eb = spectrum_equilibrium(pb; solver = :beta); sb = eb.spectrum
+    gb = QTLSim.spectrum_vg(sb)
+    check("spectrum_vg (beta) = Σ 2a² P₀", isapprox(gb, sum(2 .* sb.a .^ 2 .* sb.P[:, 1]); rtol = 1e-14))
+    Sb_, λb, cb = initFitSD(pb)^2 + envVar(pb) + gb, 0.37, gb / (2pb.NoQTL)
+    dzb = QTLSim.spectrum_select(sb, λb, Sb_)
+    hand = sum(begin
+                   e0 = QTLSim.spectrum_seff(sb.a[j], 0.0, λb, Sb_, cb); e1 = QTLSim.spectrum_seff(sb.a[j], 1.0, λb, Sb_, cb) - e0
+                   2sb.a[j] * (e0 * sb.P[j, 1] + e1 * sb.P[j, 2])
+               end for j in eachindex(sb.a))
+    check("spectrum_select (beta) = Σ 2a ∫ s ψ with spectrum_seff's s(p) = s₀ + s₁p", isapprox(dzb, hand; rtol = 1e-12))
+    eg = spectrum_equilibrium(pb)
+    check(@sprintf("beta equilibrium V_G / grid's = %.5f (within 1%%)", eb.VG / eg.VG), abs(eb.VG / eg.VG - 1) < 0.01)
+    sc = deepcopy(sb); QTLSim._beta_to_grid!(sc)
+    check("handing the state to the grid keeps V_G exactly (relative 1e-12)", sc.solver === :grid && isapprox(QTLSim.spectrum_vg(sc), gb; rtol = 1e-12))
+    s2 = deepcopy(sb); P0 = copy(s2.P); QTLSim.spectrum_mutate!(s2, 1000)
+    x0 = 1 / 2000; inc = 2000 * pb.NoQTL * pb.MutationRatePerGamete .* s2.g .* x0 * (1 - x0)
+    check("spectrum_mutate! (beta) adds 2N L μ g f_m(1/(2N)) to P_m", isapprox(s2.P, P0 .+ inc .* [1 x0 x0^2]; rtol = 1e-12))
 
     finish(LOG, t0)
 end

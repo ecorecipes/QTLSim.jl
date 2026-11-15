@@ -109,6 +109,19 @@ end
     @test el.VG_move == ml.geno_var[301] && el.VG_move < es.VG_move          # negative LD lowers V_G at the move
     @test emulated_half_survival_rate(p; loci = :spectrum, spectrum = (ld = :dynamic,), kw.burnin, kw.horizon,
                                       bracket = (0.5h.k50, 2h.k50)).k50 > 0
+    # the beta closure (spectrum = (; solver = :beta)): the grid's result unchanged, `fallback` added
+    # only with the option, the pipeline by hand, deterministic; the half-survival rate counts fallbacks
+    @test isequal(es, emulate(ks; loci = :spectrum, spectrum = (solver = :grid,), kw...)) && !haskey(es, :fallback)
+    eb = emulate(ks; loci = :spectrum, spectrum = (solver = :beta,), kw...)
+    mb = run_moments(qs; VG = house_of_gauss_vg(p), erosion = true, loci = :spectrum, spectrum = (solver = :beta,))
+    @test eb.P2000 == extinction_distribution(qs, mb; from = 300).psurvive && eb.fallback == mb.spectrum_fallback
+    @test isequal(eb, emulate(ks; loci = :spectrum, spectrum = (solver = :beta,), kw...))
+    @test eb.VG_move ≈ es.VG_move rtol = 0.01
+    @test (eb.P2000 >= 0.5) == (es.P2000 >= 0.5)
+    hb = emulated_half_survival_rate(p; loci = :spectrum, spectrum = (solver = :beta,), kw.burnin, kw.horizon,
+                                     bracket = (0.5h.k50, 2h.k50))
+    @test hb.k50 > 0 && 0 <= hb.fallbacks <= hb.evals
+    @test haskey(emulate_sweep([ks]; loci = :spectrum, spectrum = (solver = :beta,), kw...)[1], :fallback)
 end
 
 @testset "memoised pair classes and recombination" begin

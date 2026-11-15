@@ -23,8 +23,16 @@ function spectrum_state(p::Params, cycle, VG; kw...)
                                           "life cycle carry different MutationScalar or MutationRatePerGamete"))
     q = isempty(mf) ? p : Params(p; mf...)
     VG > 0 || return QTLSim.AlleleSpectrum(q; kw...)
-    QTLSim.spectrum_scale!(QTLSim.spectrum_equilibrium(q; kw...).spectrum, VG)
+    sp = QTLSim.spectrum_scale!(QTLSim.spectrum_equilibrium(q; kw...).spectrum, VG)
+    sp.nsteps = 0                               # the run's generations from here (solver = :beta: fallback 0 = in the equilibrium)
+    sp.fallback >= 0 && (sp.fallback = 0)
+    sp
 end
+
+# solver = :beta: the result of a run carries `spectrum_fallback` (QTLSim.spectrum_fallback); the
+# default (grid) result is unchanged
+spectrum_result(res, cov) = cov isa QTLSim.AlleleSpectrum && cov.requested === :beta ?
+                            merge(res, (; spectrum_fallback = QTLSim.spectrum_fallback(cov))) : res
 
 function cov_select!(m::Moments, sp::QTLSim.AlleleSpectrum)
     S = m.sinv == 0 ? Inf : 1 / m.sinv

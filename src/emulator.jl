@@ -44,7 +44,11 @@ How well it predicts the published runs: `validate/emulator.jl`, `validate/emula
 
 `spectrum` is passed to [`run_moments`](@ref) for `loci = :spectrum`: e.g.
 `spectrum = (; ld = :dynamic)`, the dynamic linkage disequilibrium of src/spectrum.jl
-(off by default; validation `validate/spectrum_ld_criteria.md`, `validate/spectrum_ld.log`).
+(off by default; validation `validate/spectrum_ld_criteria.md`, `validate/spectrum_ld.log`), or
+`spectrum = (; solver = :beta)`, the beta closure of the spectrum (off by default; much faster,
+for weak sweeps, with a deterministic fallback to the grid; [`QTLSim.AlleleSpectrum`](@ref)),
+when the result also has `fallback`, the generation (from the start of the burn-in) at which the
+run fell back to the grid, −1 if it did not (with replicates the earliest among them).
 
 **Between-run variance** (`replicates = R > 0`; off by default). With `replicates = 0` the
 trajectory is deterministic and only demographic chance is random, so `P2000` is nearly a
@@ -81,8 +85,8 @@ function emulate(p::Params; loci::Symbol = :rare_alleles, burnin::Integer = 2000
     n = length(m.gen)
     at(v, g) = g + 1 <= n ? Float64(v[g+1]) : NaN
     if n <= burnin                     # the trajectory died before the move (T ≤ 0)
-        return (; P2000 = 0.0, T = m.extinct_gen - burnin + 1, P240k = 0.0, hazard = 1.0, VG_move = NaN,
-                Wbar_move = NaN, VG_end = NaN, lag_end = NaN, extinct = true)
+        return _with_fallback((; P2000 = 0.0, T = m.extinct_gen - burnin + 1, P240k = 0.0, hazard = 1.0, VG_move = NaN,
+                               Wbar_move = NaN, VG_end = NaN, lag_end = NaN, extinct = true), m)
     end
     d = extinction_distribution(q, m; from = burnin)
     P2000 = d.psurvive
@@ -92,8 +96,18 @@ function emulate(p::Params; loci::Symbol = :rare_alleles, burnin::Integer = 2000
     P240k = m.extinct || P2000 == 0 ? 0.0 : P2000 * (1 - hazard)^(tail - horizon)
     T = d.median === missing ? missing : d.median - burnin + 1
     last = burnin + horizon - 1
-    (; P2000, T, P240k, hazard, VG_move = at(m.geno_var, burnin), Wbar_move = at(m.mean_fitness, burnin),
-     VG_end = at(m.geno_var, last), lag_end = at(m.theta, last) - at(m.pheno_mean, last), extinct = m.extinct)
+    _with_fallback((; P2000, T, P240k, hazard, VG_move = at(m.geno_var, burnin), Wbar_move = at(m.mean_fitness, burnin),
+                    VG_end = at(m.geno_var, last), lag_end = at(m.theta, last) - at(m.pheno_mean, last), extinct = m.extinct), m)
+end
+
+# spectrum = (; solver = :beta): the emulator's result also carries `fallback`, the generation
+# (from the start of the burn-in) at which the beta closure fell back to the grid, −1 if never
+# (with replicates the earliest among them); the default result is unchanged
+_with_fallback(r, m) = haskey(m, :spectrum_fallback) ? merge(r, (; fallback = m.spectrum_fallback)) : r
+function _with_fallback(r, reps::AbstractVector)
+    (isempty(reps) || !haskey(first(reps), :spectrum_fallback)) && return r
+    f = [x.spectrum_fallback for x in reps if x.spectrum_fallback >= 0]
+    merge(r, (; fallback = isempty(f) ? -1 : minimum(f)))
 end
 
 # emulate with between-run variance: R replicate trajectories (moments_replicates), each
@@ -137,8 +151,8 @@ function _emulate_replicates(q::Params, rng::AbstractRNG; replicates, loci, burn
     hazard = mix[end-1] < 1 ? (mix[end] - mix[end-1]) / (1 - mix[end-1]) : 1.0
     med = findfirst(>=(0.5), mix)
     m(v) = isempty(v) ? NaN : sum(v) / length(v)
-    (; P2000, T = med === nothing ? missing : grid[med] - burnin + 1, P240k = P240 / R, hazard, VG_move = VGm,
-     Wbar_move = m(Wm), VG_end = m(VGe), lag_end = m(lage), extinct = isempty(VGe))
+    _with_fallback((; P2000, T = med === nothing ? missing : grid[med] - burnin + 1, P240k = P240 / R, hazard, VG_move = VGm,
+                    Wbar_move = m(Wm), VG_end = m(VGe), lag_end = m(lage), extinct = isempty(VGe)), r.replicates)
 end
 
 """
@@ -164,6 +178,8 @@ finite differences of [`sensitivities`](@ref), which this is meant to feed.
 
 Returns `(; k50, kc, evals)`: the rate, `drift_critical_rate(p).k` (`NaN` when the given
 `bracket` sufficed and it was not needed), and the number of emulator evaluations. `k50 = Inf` if half are alive at `64kc`, 0 if not at `kc/512` (and when `kc = 0`).
+With `loci = :spectrum, spectrum = (; solver = :beta)` (the beta closure; see [`emulate`](@ref)) the
+result also has `fallbacks`, the number of evaluations in which the closure fell back to the grid.
 """
 function emulated_half_survival_rate(p::Params; loci::Symbol = :rare_alleles, burnin::Integer = 2000,
                                      horizon::Integer = 2000, bracket = nothing, rtol::Real = 1e-10,
@@ -172,11 +188,15 @@ function emulated_half_survival_rate(p::Params; loci::Symbol = :rare_alleles, bu
     kc = NaN
     VG = house_of_gauss_vg(p)
     evals = 0
+    nfall = 0
+    beta = loci === :spectrum && get(spectrum, :solver, :grid) === :beta
     # the root of P2000 = 1/2 in log k, as log(log 2) − log(−log P2000): the log of the
     # cumulative hazard is close to linear in log k, where P2000 itself is nearly a step
     function f(lk)
         evals += 1
-        P = emulate(Params(p; MoveFitnessSD = exp(lk)); loci, burnin, horizon, VG, spectrum).P2000
+        e = emulate(Params(p; MoveFitnessSD = exp(lk)); loci, burnin, horizon, VG, spectrum)
+        beta && e.fallback >= 0 && (nfall += 1)
+        P = e.P2000
         log(log(2.0)) - log(-log(P))           # +Inf at P = 1, −Inf at P = 0
     end
     lo = hi = flo = fhi = NaN
@@ -194,7 +214,7 @@ function emulated_half_survival_rate(p::Params; loci::Symbol = :rare_alleles, bu
     end
     if !found
         kc = drift_critical_rate(p).k
-        kc > 0 || return (k50 = 0.0, kc, evals)
+        kc > 0 || return _hsr_result((k50 = 0.0, kc, evals), beta, nfall)
         a, b, fa = log(kc / 8), log(2kc), NaN
         fb = f(b)
         for _ in 1:5                      # half alive at 2kc: double the top, up to 64kc
@@ -202,14 +222,14 @@ function emulated_half_survival_rate(p::Params; loci::Symbol = :rare_alleles, bu
             a, fa = b, fb
             b += log(2.0); fb = f(b)
         end
-        fb >= 0 && return (k50 = Inf, kc, evals)
+        fb >= 0 && return _hsr_result((k50 = Inf, kc, evals), beta, nfall)
         isnan(fa) && (fa = f(a))
         for _ in 1:6                      # not half alive at kc/8: halve the bottom, down to kc/512
             fa >= 0 && break
             b, fb = a, fa
             a -= log(2.0); fa = f(a)
         end
-        fa < 0 && return (k50 = 0.0, kc, evals)
+        fa < 0 && return _hsr_result((k50 = 0.0, kc, evals), beta, nfall)
         lo, hi, flo, fhi = a, b, fa, fb
     end
     # P2000 decreases in k: f(lo) ≥ 0 > f(hi)
@@ -219,7 +239,7 @@ function emulated_half_survival_rate(p::Params; loci::Symbol = :rare_alleles, bu
         x = lo + (hi - lo) * flo / (flo - fhi)      # regula falsi (flo ≥ 0 > fhi)
         (x <= lo || x >= hi || !isfinite(x)) && (x = (lo + hi) / 2)
         fx = f(x)
-        abs(fx) < 1e-13 && return (k50 = exp(x), kc, evals)
+        abs(fx) < 1e-13 && return _hsr_result((k50 = exp(x), kc, evals), beta, nfall)
         if fx >= 0
             lo, flo = x, fx
             side == -1 && (fhi /= 2)          # Illinois: halve the weight of an end kept twice
@@ -230,7 +250,7 @@ function emulated_half_survival_rate(p::Params; loci::Symbol = :rare_alleles, bu
             side = 1
         end
     end
-    (k50 = exp((lo + hi) / 2), kc, evals)
+    _hsr_result((k50 = exp((lo + hi) / 2), kc, evals), beta, nfall)
 end
 
 """
@@ -257,7 +277,7 @@ function emulate_sweep(ps::AbstractVector{Params}; ids = eachindex(ps), cache = 
     sweep(jobs; cache, id = first, progress, ntasks, cost = j -> j[2].NoQTL) do (i, p)
         r = noisy ? emulate(p; seed = job_seed(seed, i), kw...) : emulate(p; kw...)
         (; P2000 = r.P2000, T = r.T === missing ? NaN : Float64(r.T), r.P240k, r.hazard, r.VG_move,
-         r.Wbar_move, r.VG_end, r.lag_end, r.extinct)
+         r.Wbar_move, r.VG_end, r.lag_end, r.extinct, (haskey(r, :fallback) ? (; fallback = r.fallback) : (;))...)
     end
 end
 
@@ -313,3 +333,6 @@ function vg_fluctuation(p::Params, st = stationary_spectrum(p))
     innov = 4 * L * μ * α2^2 * _effect_mean(t -> t^4 * _sojourn_moment(γa(t), x -> (1 - 2x)^2))
     (; VG = st.VG, stationary = stat, innovation = innov, cv = sqrt(stat) / st.VG)
 end
+
+# spectrum = (; solver = :beta): also `fallbacks`, the number of evaluations in which the closure fell back to the grid
+_hsr_result(r, beta, nfall) = beta ? merge(r, (; fallbacks = nfall)) : r
