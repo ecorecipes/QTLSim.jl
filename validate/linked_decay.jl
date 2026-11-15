@@ -466,6 +466,113 @@ function ld_analyse(set, R; io = stdout)
     all
 end
 
+# ---------------------------------------------------------------------------------------
+# exploratory (criteria: not a verdict): the spectrum's linked-selection term with the derived
+# persistence of the allele–background LD, λ_c = (1 − ρ_c)(1 − 1/(2n))(1 − V_chr/S_c),
+# V_chr = V/2, S_c = S − V/2, in genic_decline's time-dependent form (Q_c, R_c from zero at the
+# move); driven by genic_decline's instrumented runs, as its `driven_linked`.
+
+function transient_derived!(tr::Transient, sp, b, n, V, S)
+    g = V / (4n)
+    c = 0.0
+    sel = max(1 - (V / 2) / (S - V / 2), 0.0)
+    for k in 2:length(sp.ω)
+        λc = (1 - sp.ρ[k]) * (1 - 1 / (2n)) * sel
+        tr.Q[k] = λc^2 * tr.Q[k] + g
+        c += sp.ω[k] * b * (2tr.R[k] + b * tr.Q[k])
+        tr.R[k] = λc * (tr.R[k] + b * tr.Q[k])
+    end
+    max(c, 0.0)
+end
+
+function driven_derived(p, x; spectrum_kw = (;))
+    c = x.cols
+    eq = QTLSim.spectrum_equilibrium(p; spectrum_kw...)
+    sp = QTLSim.spectrum_scale!(deepcopy(eq.spectrum), c[:GA][1])
+    sp.linkage = :none
+    ω2 = QTLSim.initFitSD(p)^2
+    K = length(sp.ω)
+    tr = Transient(zeros(K), zeros(K))
+    n0 = max(c[:nsurv][1], 1); V0 = QTLSim.spectrum_vg(sp); S0 = ω2 + c[:VP][1]
+    for k in 2:K
+        λc = (1 - sp.ρ[k]) * (1 - 1 / (2n0)) * max(1 - (V0 / 2) / (S0 - V0 / 2), 0.0)
+        tr.Q[k] = V0 / (4n0) / (1 - λc^2)
+    end
+    out = fill(NaN, length(c[:gen]))
+    for k in eachindex(c[:gen])
+        out[k] = QTLSim.spectrum_vg(sp)
+        λ = c[:theta][k] - c[:zbar][k]; S = ω2 + c[:VP][k]
+        QTLSim.spectrum_select(sp, λ, S)
+        n = max(c[:nsurv][k], 1)
+        cc = transient_derived!(tr, sp, λ / S, n, out[k], S)
+        QTLSim.spectrum_step!(sp, 1 / (1 / n + 2cc))
+        QTLSim.spectrum_mutate!(sp, c[:N][k])
+    end
+    out
+end
+
+function ld_spectrum_proto(; R = 8, ts = (50, 100, 200), set = "D", io = stdout)
+    println(io, "\n== exploratory: driven spectrum, genic(t)/genic(−50..−1), kernel vs Barton (default) vs derived transient (genic_decline's runs, set $set) ==")
+    acc = Dict{Tuple{Symbol,Int},Vector{Float64}}()
+    for r in inset(read_inputs_csv(), set)
+        p = readp(r.id)
+        vals = Dict((m, t) => Float64[] for m in (:kernel, :barton, :derived) for t in ts)
+        for k in 1:R
+            f = joinpath(GD_RAW_DIR, replace(r.id, "/" => "__", ".txt" => "") * "#$k.jls")
+            isfile(f) || continue
+            x = deserialize(f)
+            T = terms(x)
+            k0 = findfirst(==(-1), T.t); gk = mean(T.GA[k0-49:k0])
+            sb = driven_linked(p, x; mode = :barton); sd = driven_derived(p, x)
+            for t in ts
+                kt = findfirst(==(t), T.t); kt === nothing && continue
+                push!(vals[(:kernel, t)], T.GA[kt] / gk)
+                push!(vals[(:barton, t)], sb[kt] / mean(sb[k0-49:k0]))
+                push!(vals[(:derived, t)], sd[kt] / mean(sd[k0-49:k0]))
+            end
+        end
+        @printf(io, "%-34s", r.id)
+        for t in ts
+            isempty(vals[(:kernel, t)]) && continue
+            mk, mb, md = mean(vals[(:kernel, t)]), mean(vals[(:barton, t)]), mean(vals[(:derived, t)])
+            @printf(io, "  +%d n%d kernel %.3f barton %.3f derived %.3f", t, length(vals[(:kernel, t)]), mk, mb, md)
+            push!(get!(acc, (:barton, t), Float64[]), log(mb / mk)); push!(get!(acc, (:derived, t), Float64[]), log(md / mk))
+        end
+        println(io)
+    end
+    for t in ts
+        @printf(io, "  +%d: log(model/kernel) median: barton %+.3f (|.| %.3f), derived %+.3f (|.| %.3f), n %d\n", t,
+                median(acc[(:barton, t)]), median(abs.(acc[(:barton, t)])), median(acc[(:derived, t)]), median(abs.(acc[(:derived, t)])),
+                length(acc[(:barton, t)]))
+    end
+end
+
+# cross-check (D only): the same runs as genic_decline's runs 1..R (same seeds, nothing drawn by
+# either instrumentation): cumulative 2β₂ΣC_sym (chromosome level, here) against genic_decline's
+# sym3 (individual level), over 0..99, relative to the genic variance before the move. Reads
+# genic_decline's raw runs from GD_RAW_DIR (read only; default the genic-decline worktree's).
+const GD_RAW_DIR = get(ENV, "GD_RAW_DIR", joinpath(@__DIR__, "..", "..", "wt-genic-decline", "validate", "genic_decline_raw"))
+
+function ld_crosscheck(R; io = stdout)
+    println(io, "\n== cross-check: cumulative 0..99 / genic(pre), this study's 2β₂ΣC_sym vs genic_decline's sym3, same runs ==")
+    for r in ld_rows("D")
+        for k in 1:R
+            f1 = ld_file(r.id, k, "D")
+            f2 = joinpath(GD_RAW_DIR, replace(r.id, "/" => "__", ".txt" => "") * "#$k.jls")
+            (isfile(f1) && isfile(f2)) || continue
+            a = deserialize(f1); b = deserialize(f2)
+            m = measured(a); T = terms(b)
+            k0 = findfirst(==(-1), m.t); k100 = findfirst(==(100), m.t)
+            j0 = findfirst(==(-1), T.t); j100 = findfirst(==(100), T.t)
+            (k0 === nothing || k100 === nothing || j0 === nothing || j100 === nothing) && continue
+            g0 = mean(m.genic[max(1, k0 - 19):k0]); h0 = mean(T.GA[max(1, j0 - 19):j0])
+            mine = sum(2 .* m.beta2[k0+1:k100-1] .* m.Csym[k0+1:k100-1]) / g0
+            theirs = sum(T.sym3[j0+1:j100-1]) / h0
+            @printf(io, "  %-34s #%d  2β₂ΣC_sym %+.3f  sym3 %+.3f  genic(pre) %.4g vs %.4g\n", r.id, k, mine, theirs, g0, h0)
+        end
+    end
+end
+
 if abspath(PROGRAM_FILE) == @__FILE__
     mode = isempty(ARGS) ? "check" : ARGS[1]
     if mode == "check"
@@ -474,5 +581,9 @@ if abspath(PROGRAM_FILE) == @__FILE__
         ld_kernel(ARGS[2], parse(Int, ARGS[3]))
     elseif mode == "analyse"
         ld_analyse(ARGS[2], parse(Int, ARGS[3]))
+    elseif mode == "crosscheck"
+        ld_crosscheck(parse(Int, ARGS[2]))
+    elseif mode == "proto"
+        ld_spectrum_proto(; set = length(ARGS) >= 2 ? ARGS[2] : "D")
     end
 end

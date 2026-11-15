@@ -77,3 +77,7 @@ genic_decline's sym3 on the same D runs; any `:spectrum` prototype (exploratory)
 
 One amendment is allowed after the development results and before the confirmation runs are
 analysed; it will be recorded here with its reason. None so far.
+
+Decision after development (2026-11-14, before the confirmation runs were analysed): no
+amendment. Development showed P1 holding and H1, H2, P2 failing (validate/linked_decay.log,
+section 1); the rules above are kept unchanged.
