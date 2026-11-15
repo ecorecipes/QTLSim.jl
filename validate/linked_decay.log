@@ -1,0 +1,288 @@
+validate/linked_decay.jl — running log (2026-11-14). Hypotheses are written before each test.
+Criteria: validate/linked_decay_criteria.md (committed 02d4c3b before any comparison).
+
+== 0. Derivation (before any kernel comparison) ==
+
+Quantity: C_l = Cov(g_rest, d_l²) at the chromosome level (cis), split over classes s of partner
+loci: T_s = κ(B_s, x_l, x_l). The genic accounting's within-locus term is 2βΣ_l(κ3_l + C_l).
+
+One generation, first order in β (regression of π/π̄ on g) and 1/S_c, S_c = ω² + V_E + Var(G_chr)
+(the width of E[π | one chromosome] for a Gaussian homolog):
+  selection   ΔT_s = β κ(B_s, l, l, G) − [c_s (κ3_l + C_l) + 2κ(l,G) κ(B_s, l, G)]/S_c − κ₅/(2S_c)
+              (first-order cumulant change κ(A, log w), Leonov–Shiryaev for the u² term);
+              β κ(B_s, l, l, G) = β[K_s + K3_s], K_s = κ(B_s, B, l, l), K3_s = κ(B_s, l, l, l);
+  survival    E[T] × (1 − 3/(2n) + 3/(2N))   (subset of n of N; exact enumeration);
+  gametes     T × (1 − ρ_s)                   (single crossover; the split pairs are independent);
+  offspring   E[T] × (1 − 1/(2N))(1 − 2/(2N)) (2N iid draws);
+  mutation    E[ΔT] = 0.
+The source: under sampling from a population with x_l independent of its background,
+E[K̂] = −2E[ŷ_s Ŷ] exactly (no variance heterogeneity and no three-locus part is seeded), so to
+leading order in 1/n, K_s = −2E[y_s Y_l], y_s = Cov(B_s, x_l), the drift-seeded allele–background LD:
+  y_s ← f₁(1 − ρ_s)[y_s − (c_s(v_l + Y_l) + v_l y_s)/S_c] + noise, Var(noise) = v_l Var(B_s)/(2n) (+ mutation's).
+Decay rates: association ρ_s + 3/(2n) + Cov(B,G)/S_c (the last shared across classes through
+C_l); its source ρ_s + 1/(2n) + Cov(B,G)/S_c. Directional selection does not enter the decay at
+this order (it enters as the source β). Steady state: per locus 2βC_l = −β² v_l Σ_s V_s/(n(ρ_s+δ_y)(ρ_s+δ_T));
+with δ_y = δ_T = δ and V_chr = V_G/2 this is Barton's (1995) excess drift loss, so Barton's term is
+the steady state; the kernel starts it from zero at the move. Compared with the spectrum's δ =
+1/(2n) + V_G/S: the selection part is the chromosome-level background variance over S_c, about
+V_G/(2S) (less where Bulmer LD lowers Var(G_chr)), i.e. about half or less.
+
+Symbolics: validate/symbolic/check_linked_decay.jl, 76 checks PASS.
+
+== 1. Development (set D, R = 3; same runs as genic_decline's runs 1–3) ==
+
+Hypotheses before looking:
+  H1  measured K ≈ −2 measured yY (ratio 0.75–1.33) before and during the move.
+  H2  the y recursion (drift-seeded LD) predicts Σ yY within a factor 1.5.
+  P1  level A with the derived decay predicts ΣC within ±0.2 (log) in 25..199 and beats the
+      no-selection and spectrum-δ comparators (expected: :nosel too negative, accumulates too
+      long; :spectrum too weak, decays too fast).
+  P2  level B predicts ΣC and the cumulative sign-symmetric loss within ±0.3 (log).
+  Cross-check: this study's 2β₂ΣC_sym ≈ genic_decline's sym3 on the same runs (differences:
+  chromosome vs individual level, trans terms, sampling noise).
+
+-- development results (kernel 39 runs: 226 s wall, 1336 CPU-s; analysis ~5 CPU-min) --
+
+== linked decay, set D, R = 3: per input, window means over runs alive (sums over all loci; C, K in genic² units) ==
+
+QT0100-Possion5.0/Input-06159.txt  L=100 u=5 runs 3 (alive at +100: 3)
+  window                 C        Csym   A_derived     A_nosel  A_spectrum         B_C           K        m2yY          yY        B_yY
+   -60..-1      -1.319e-05  -5.168e-05         NaN         NaN         NaN   3.561e-06  -1.424e-05  -4.283e-05   2.142e-05   2.594e-05
+     0..24      -1.644e-04  -1.624e-04  -7.527e-05  -8.656e-05  -8.029e-05  -6.069e-06   4.017e-05  -3.909e-05   1.955e-05   2.584e-05
+    25..49      -1.141e-04  -1.198e-04  -4.955e-05  -7.493e-05  -6.015e-05  -3.988e-05  -2.835e-05  -5.575e-05   2.787e-05   2.612e-05
+    50..99      -1.628e-05  -6.190e-05  -2.216e-05  -5.930e-05  -3.921e-05  -1.103e-04  -3.147e-05  -4.314e-05   2.157e-05   2.566e-05
+   100..199     -2.376e-04  -2.703e-04  -1.503e-04  -1.859e-04  -1.361e-04  -2.729e-04  -3.738e-05  -4.332e-05   2.166e-05   2.401e-05
+  cumulative loss 0..99 / genic(pre): measured 2βC -0.008 (sign-symmetric 2βC_sym -0.010), level B -0.007
+
+QT0500-Possion3.0/Input-01192.txt  L=500 u=3 runs 3 (alive at +100: 3)
+  window                 C        Csym   A_derived     A_nosel  A_spectrum         B_C           K        m2yY          yY        B_yY
+   -60..-1       2.297e-03   1.136e-03         NaN         NaN         NaN   9.773e-05  -1.027e-03  -2.085e-03   1.042e-03   4.800e-04
+     0..24       1.289e-03   7.841e-04   1.124e-03   1.295e-03   4.129e-04  -8.707e-04  -1.429e-03  -2.133e-03   1.067e-03   4.848e-04
+    25..49      -3.005e-03  -1.471e-03  -2.993e-03  -3.216e-03  -1.880e-03  -3.551e-03  -1.177e-03  -2.393e-03   1.197e-03   5.143e-04
+    50..99      -6.723e-03  -4.740e-03  -7.595e-03  -9.229e-03  -1.837e-03  -6.356e-03  -4.813e-04  -2.063e-03   1.031e-03   5.000e-04
+   100..199     -6.240e-03  -4.609e-03  -4.970e-03  -6.341e-03  -4.754e-04  -1.058e-02  -7.424e-05  -1.789e-03   8.943e-04   4.015e-04
+  cumulative loss 0..99 / genic(pre): measured 2βC -0.214 (sign-symmetric 2βC_sym -0.140), level B -0.227
+
+QT0500-Possion3.0/Input-04943.txt  L=500 u=3 runs 3 (alive at +100: 3)
+  window                 C        Csym   A_derived     A_nosel  A_spectrum         B_C           K        m2yY          yY        B_yY
+   -60..-1      -1.293e-05   1.101e-05         NaN         NaN         NaN  -6.040e-07  -3.486e-06  -1.222e-05   6.109e-06   2.922e-06
+     0..24      -7.155e-05  -3.299e-05  -6.271e-05  -5.953e-05  -3.170e-05  -5.597e-05  -8.468e-06  -1.486e-05   7.429e-06   3.110e-06
+    25..49      -1.745e-04  -1.223e-04  -1.621e-04  -1.986e-04  -5.113e-05  -1.850e-04  -4.866e-06  -1.589e-05   7.947e-06   3.396e-06
+    50..99      -1.241e-04  -1.150e-04  -1.383e-04  -2.079e-04  -1.987e-05  -3.373e-04  -2.590e-06  -1.067e-05   5.336e-06   2.745e-06
+   100..199     -5.690e-05  -4.865e-05  -8.023e-05  -1.188e-04  -2.280e-05  -4.954e-04  -2.922e-06  -6.885e-06   3.442e-06   2.414e-06
+  cumulative loss 0..99 / genic(pre): measured 2βC -0.710 (sign-symmetric 2βC_sym -0.555), level B -1.428
+
+QT1000-Possion3.0/Input-00854.txt  L=1000 u=3 runs 3 (alive at +100: 3)
+  window                 C        Csym   A_derived     A_nosel  A_spectrum         B_C           K        m2yY          yY        B_yY
+   -60..-1      -1.300e-06  -6.192e-07         NaN         NaN         NaN  -3.991e-07  -2.071e-07  -1.022e-06   5.112e-07   2.116e-07
+     0..24      -8.671e-06  -3.680e-06  -9.992e-06  -1.139e-05  -3.358e-06  -8.611e-06  -3.508e-07  -1.248e-06   6.239e-07   2.261e-07
+    25..49      -2.368e-05  -1.608e-05  -2.310e-05  -2.961e-05  -2.904e-06  -2.169e-05  -3.594e-07  -1.181e-06   5.904e-07   2.325e-07
+    50..99      -2.005e-05  -1.620e-05  -1.939e-05  -3.368e-05  -2.889e-06  -3.621e-05  -2.776e-07  -1.046e-06   5.231e-07   1.904e-07
+   100..199     -1.555e-05  -8.478e-06  -1.843e-05  -2.895e-05  -2.217e-06  -5.941e-05  -1.708e-07  -6.811e-07   3.406e-07   1.296e-07
+  cumulative loss 0..99 / genic(pre): measured 2βC -0.618 (sign-symmetric 2βC_sym -0.450), level B -0.940
+
+QT1000-Possion3.0/Input-06004.txt  L=1000 u=3 runs 3 (alive at +100: 3)
+  window                 C        Csym   A_derived     A_nosel  A_spectrum         B_C           K        m2yY          yY        B_yY
+   -60..-1      -7.276e-05  -8.455e-05         NaN         NaN         NaN   1.070e-05  -2.776e-05  -4.709e-05   2.354e-05   1.686e-05
+     0..24      -7.484e-05  -8.040e-05  -7.582e-05  -8.793e-05  -4.035e-05  -9.059e-05  -2.983e-05  -4.889e-05   2.445e-05   1.738e-05
+    25..49      -3.450e-04  -2.736e-04  -3.461e-04  -4.300e-04  -1.367e-04  -3.379e-04  -3.806e-05  -5.333e-05   2.666e-05   1.783e-05
+    50..99      -4.916e-04  -4.077e-04  -5.178e-04  -7.014e-04  -1.206e-04  -6.260e-04  -2.820e-05  -4.932e-05   2.466e-05   1.618e-05
+   100..199     -3.139e-04  -3.072e-04  -4.094e-04  -6.027e-04  -5.265e-05  -1.178e-03  -1.116e-05  -3.701e-05   1.851e-05   1.233e-05
+  cumulative loss 0..99 / genic(pre): measured 2βC -0.247 (sign-symmetric 2βC_sym -0.208), level B -0.310
+
+QT1000-Possion3.0/Input-09697.txt  L=1000 u=3 runs 3 (alive at +100: 3)
+  window                 C        Csym   A_derived     A_nosel  A_spectrum         B_C           K        m2yY          yY        B_yY
+   -60..-1       5.687e-05  -5.665e-05         NaN         NaN         NaN   7.297e-06  -7.101e-04  -9.520e-04   4.760e-04   4.406e-04
+     0..24      -2.023e-04  -3.756e-04   3.621e-05   3.337e-05  -1.809e-05  -5.033e-04  -3.381e-04  -1.061e-03   5.304e-04   4.435e-04
+    25..49      -1.167e-03  -1.070e-03  -1.444e-03  -1.532e-03  -1.031e-03  -2.017e-03  -1.139e-03  -1.566e-03   7.829e-04   4.639e-04
+    50..99      -4.435e-03  -4.320e-03  -4.680e-03  -5.599e-03  -1.876e-03  -4.164e-03  -9.212e-04  -1.475e-03   7.373e-04   4.560e-04
+   100..199     -4.208e-03  -4.477e-03  -5.016e-03  -6.478e-03  -1.175e-03  -7.626e-03  -5.047e-04  -9.906e-04   4.953e-04   3.799e-04
+  cumulative loss 0..99 / genic(pre): measured 2βC -0.094 (sign-symmetric 2βC_sym -0.090), level B -0.101
+
+QT1000-Possion5.0/Input-14110.txt  L=1000 u=5 runs 3 (alive at +100: 3)
+  window                 C        Csym   A_derived     A_nosel  A_spectrum         B_C           K        m2yY          yY        B_yY
+   -60..-1      -1.524e-04  -1.509e-04         NaN         NaN         NaN  -5.936e-06  -5.925e-05  -7.474e-05   3.737e-05   3.030e-05
+     0..24      -2.720e-04  -2.557e-04  -1.861e-04  -2.076e-04  -1.237e-04  -9.117e-05  -3.698e-05  -7.415e-05   3.707e-05   2.978e-05
+    25..49      -3.326e-04  -3.435e-04  -3.531e-04  -4.460e-04  -1.828e-04  -3.374e-04  -7.663e-05  -9.163e-05   4.581e-05   3.027e-05
+    50..99      -5.667e-04  -5.783e-04  -5.816e-04  -8.210e-04  -1.993e-04  -7.033e-04  -3.709e-05  -7.150e-05   3.575e-05   2.825e-05
+   100..199     -4.599e-04  -4.634e-04  -3.607e-04  -5.973e-04  -4.625e-05  -1.403e-03  -9.301e-06  -5.573e-05   2.787e-05   2.219e-05
+  cumulative loss 0..99 / genic(pre): measured 2βC -0.156 (sign-symmetric 2βC_sym -0.158), level B -0.180
+
+QT1000-Possion5.0/Input-07594.txt  L=1000 u=5 runs 3 (alive at +100: 3)
+  window                 C        Csym   A_derived     A_nosel  A_spectrum         B_C           K        m2yY          yY        B_yY
+   -60..-1      -2.139e-06   1.039e-07         NaN         NaN         NaN  -1.912e-07  -1.625e-07  -4.273e-07   2.136e-07   9.756e-08
+     0..24      -2.847e-06  -4.372e-07  -2.854e-06  -2.861e-06  -1.069e-06  -3.419e-06  -8.795e-08  -4.336e-07   2.168e-07   9.922e-08
+    25..49      -6.373e-06  -2.792e-06  -7.988e-06  -8.904e-06  -2.597e-06  -1.130e-05  -2.912e-07  -5.518e-07   2.759e-07   1.086e-07
+    50..99      -1.189e-05  -9.766e-06  -1.165e-05  -1.620e-05  -1.938e-06  -1.958e-05  -2.503e-07  -5.216e-07   2.608e-07   1.045e-07
+   100..199     -7.341e-06  -5.739e-06  -4.523e-06  -8.887e-06  -3.498e-07  -3.018e-05  -1.014e-07  -3.588e-07   1.794e-07   7.617e-08
+  cumulative loss 0..99 / genic(pre): measured 2βC -0.385 (sign-symmetric 2βC_sym -0.270), level B -0.647
+
+QT5000-Possion3.0/Input-12000.txt  L=5000 u=3 runs 3 (alive at +100: 3)
+  window                 C        Csym   A_derived     A_nosel  A_spectrum         B_C           K        m2yY          yY        B_yY
+   -60..-1       7.487e-05   5.403e-05         NaN         NaN         NaN  -2.685e-07  -8.879e-05  -1.215e-04   6.075e-05   4.052e-05
+     0..24      -1.536e-04  -1.953e-04  -1.611e-04  -2.274e-04  -8.042e-05  -3.040e-04  -9.378e-05  -1.294e-04   6.468e-05   4.201e-05
+    25..49      -6.795e-04  -7.180e-04  -6.426e-04  -1.078e-03  -1.499e-04  -8.571e-04  -8.804e-05  -1.427e-04   7.136e-05   4.172e-05
+    50..99      -8.992e-04  -9.307e-04  -9.081e-04  -1.665e-03  -1.319e-04  -1.539e-03  -6.317e-05  -1.232e-04   6.161e-05   3.701e-05
+   100..199     -6.509e-04  -6.658e-04  -8.605e-04  -1.600e-03  -9.254e-05  -3.351e-03  -2.744e-05  -7.221e-05   3.610e-05   2.737e-05
+  cumulative loss 0..99 / genic(pre): measured 2βC -0.252 (sign-symmetric 2βC_sym -0.264), level B -0.408
+
+QT5000-Possion3.0/Input-14771.txt  L=5000 u=3 runs 3 (alive at +100: 2)
+  window                 C        Csym   A_derived     A_nosel  A_spectrum         B_C           K        m2yY          yY        B_yY
+   -60..-1      -1.690e-05  -5.821e-05         NaN         NaN         NaN   1.328e-06  -3.794e-05  -8.801e-05   4.401e-05   3.360e-05
+     0..24      -3.920e-04  -4.058e-04  -4.202e-04  -5.947e-04  -1.730e-04  -4.839e-04  -7.021e-05  -1.107e-04   5.537e-05   3.718e-05
+    25..49      -1.035e-03  -1.060e-03  -1.177e-03  -1.878e-03  -3.156e-04  -1.514e-03  -8.445e-05  -1.313e-04   6.563e-05   3.769e-05
+    50..99      -7.488e-04  -7.926e-04  -8.072e-04  -1.578e-03  -6.280e-05  -3.163e-03  -2.334e-05  -8.618e-05   4.309e-05   3.289e-05
+   100..199     -2.056e-04  -2.237e-04  -5.633e-04  -8.755e-04  -2.618e-04  -3.609e-03  -4.623e-05  -8.184e-05   4.092e-05   4.000e-05
+  cumulative loss 0..99 / genic(pre): measured 2βC -0.676 (sign-symmetric 2βC_sym -0.698), level B -2.488
+
+QT5000-Possion5.0/Input-01925.txt  L=5000 u=5 runs 3 (alive at +100: 3)
+  window                 C        Csym   A_derived     A_nosel  A_spectrum         B_C           K        m2yY          yY        B_yY
+   -60..-1       4.741e-04   4.769e-04         NaN         NaN         NaN   5.635e-05  -9.650e-04  -1.143e-03   5.717e-04   5.146e-04
+     0..24       3.705e-04   3.687e-04   6.449e-04   6.895e-04   5.501e-04  -4.443e-05  -1.077e-03  -1.119e-03   5.597e-04   5.253e-04
+    25..49      -2.961e-04  -3.121e-04   9.348e-05   1.661e-04  -7.304e-05  -6.499e-04  -7.322e-04  -9.940e-04   4.970e-04   5.291e-04
+    50..99      -1.563e-03  -1.576e-03  -1.122e-03  -1.138e-03  -1.020e-03  -2.106e-03  -9.139e-04  -1.110e-03   5.552e-04   5.349e-04
+   100..199     -4.366e-03  -4.404e-03  -4.219e-03  -4.805e-03  -2.652e-03  -5.212e-03  -8.721e-04  -1.388e-03   6.942e-04   5.148e-04
+  cumulative loss 0..99 / genic(pre): measured 2βC -0.020 (sign-symmetric 2βC_sym -0.020), level B -0.028
+
+QT5000-Possion5.0/Input-12463.txt  L=5000 u=5 runs 3 (alive at +100: 3)
+  window                 C        Csym   A_derived     A_nosel  A_spectrum         B_C           K        m2yY          yY        B_yY
+   -60..-1       6.173e-04   6.211e-04         NaN         NaN         NaN   4.431e-06  -4.578e-04  -5.960e-04   2.980e-04   2.668e-04
+     0..24       2.432e-05   4.150e-05  -5.049e-05  -3.552e-05  -5.896e-05  -1.741e-04  -4.268e-04  -5.435e-04   2.717e-04   2.701e-04
+    25..49      -6.674e-04  -6.465e-04  -7.477e-04  -7.986e-04  -5.365e-04  -1.069e-03  -4.755e-04  -6.010e-04   3.005e-04   2.743e-04
+    50..99      -1.845e-03  -1.871e-03  -2.088e-03  -2.475e-03  -1.030e-03  -2.553e-03  -5.214e-04  -6.616e-04   3.308e-04   2.721e-04
+   100..199     -3.618e-03  -3.678e-03  -3.366e-03  -4.513e-03  -9.630e-04  -4.786e-03  -3.283e-04  -6.200e-04   3.100e-04   2.446e-04
+  cumulative loss 0..99 / genic(pre): measured 2βC -0.055 (sign-symmetric 2βC_sym -0.055), level B -0.080
+
+QT5000-Possion5.0/Input-05562.txt  L=5000 u=5 runs 3 (alive at +100: 3)
+  window                 C        Csym   A_derived     A_nosel  A_spectrum         B_C           K        m2yY          yY        B_yY
+   -60..-1       6.612e-05   5.969e-05         NaN         NaN         NaN  -8.766e-05  -3.437e-04  -4.748e-04   2.374e-04   2.175e-04
+     0..24      -5.950e-04  -5.906e-04  -4.995e-04  -5.707e-04  -3.331e-04  -8.023e-04  -3.716e-04  -5.364e-04   2.682e-04   2.218e-04
+    25..49      -1.749e-03  -1.747e-03  -1.915e-03  -2.417e-03  -9.654e-04  -2.668e-03  -4.628e-04  -6.208e-04   3.104e-04   2.280e-04
+    50..99      -3.133e-03  -3.227e-03  -3.259e-03  -4.589e-03  -1.035e-03  -5.252e-03  -3.397e-04  -5.835e-04   2.917e-04   2.180e-04
+   100..199     -2.694e-03  -2.737e-03  -2.715e-03  -4.585e-03  -2.831e-04  -1.022e-02  -1.047e-04  -3.702e-04   1.851e-04   1.666e-04
+  cumulative loss 0..99 / genic(pre): measured 2βC -0.227 (sign-symmetric 2βC_sym -0.233), level B -0.375
+
+== summary over 11 eligible inputs (of 13) ==
+H1 (source): measured K / (−2 y Y), median over inputs:
+   -60..-1   0.589
+     0..24   0.610
+    25..49   0.643
+    50..99   0.519
+   100..199  0.380
+H2 (allele–background LD): level B Σ E[yY] / measured Σ yY, median (log ratio median, |.| median):
+   -60..-1   ratio 0.764  log -0.270  |log| 0.270
+     0..24   ratio 0.711  log -0.341  |log| 0.341
+    25..49   ratio 0.592  log -0.523  |log| 0.523
+    50..99   ratio 0.656  log -0.422  |log| 0.422
+   100..199  ratio 0.758  log -0.277  |log| 0.277
+P1 (decay rate, level A): log(predicted ΣC / measured ΣC) over eligible inputs, median and median |.|:
+  derived     25..49   median +0.060  |.| 0.074  (n 11)
+  derived     50..99   median +0.052  |.| 0.052  (n 11)
+  derived    100..199  median +0.170  |.| 0.243  (n 11)
+  nosel       25..49   median +0.272  |.| 0.272  (n 11)
+  nosel       50..99   median +0.371  |.| 0.371  (n 11)
+  nosel      100..199  median +0.532  |.| 0.532  (n 11)
+  spectrum    25..49   median -0.898  |.| 0.898  (n 11)
+  spectrum    50..99   median -1.405  |.| 1.405  (n 11)
+  spectrum   100..199  median -1.948  |.| 1.948  (n 11)
+P2 (closed, level B): log(predicted ΣC / measured ΣC) and log(predicted loss / measured sign-symmetric loss), 0..99:
+  ΣC   25..49   median +0.232  |.| 0.232  (n 11)
+  ΣC   50..99   median +0.498  |.| 0.498  (n 11)
+  ΣC  100..199  median +1.333  |.| 1.333  (n 11)
+  cumulative loss 0..99: median +0.475  |.| 0.475  (n 11)
+
+== cross-check: cumulative 0..99 / genic(pre), this study's 2β₂ΣC_sym vs genic_decline's sym3, same runs ==
+  QT0100-Possion5.0/Input-06159.txt  #1  2β₂ΣC_sym -0.002  sym3 -0.002  genic(pre) 0.1508 vs 0.1508
+  QT0100-Possion5.0/Input-06159.txt  #2  2β₂ΣC_sym -0.031  sym3 -0.032  genic(pre) 0.1057 vs 0.1057
+  QT0100-Possion5.0/Input-06159.txt  #3  2β₂ΣC_sym +0.003  sym3 +0.002  genic(pre) 0.1333 vs 0.1333
+  QT0500-Possion3.0/Input-01192.txt  #1  2β₂ΣC_sym -0.184  sym3 -0.190  genic(pre) 0.9162 vs 0.9162
+  QT0500-Possion3.0/Input-01192.txt  #2  2β₂ΣC_sym -0.146  sym3 -0.147  genic(pre) 0.8151 vs 0.8151
+  QT0500-Possion3.0/Input-01192.txt  #3  2β₂ΣC_sym -0.088  sym3 -0.082  genic(pre) 0.8812 vs 0.8812
+  QT0500-Possion3.0/Input-04943.txt  #1  2β₂ΣC_sym -0.519  sym3 -0.497  genic(pre) 0.08059 vs 0.08059
+  QT0500-Possion3.0/Input-04943.txt  #2  2β₂ΣC_sym -0.563  sym3 -0.572  genic(pre) 0.0623 vs 0.0623
+  QT0500-Possion3.0/Input-04943.txt  #3  2β₂ΣC_sym -0.587  sym3 -0.578  genic(pre) 0.07277 vs 0.07277
+  QT1000-Possion3.0/Input-00854.txt  #1  2β₂ΣC_sym -0.553  sym3 -0.541  genic(pre) 0.02224 vs 0.02224
+  QT1000-Possion3.0/Input-00854.txt  #2  2β₂ΣC_sym -0.404  sym3 -0.403  genic(pre) 0.02345 vs 0.02345
+  QT1000-Possion3.0/Input-00854.txt  #3  2β₂ΣC_sym -0.396  sym3 -0.385  genic(pre) 0.02041 vs 0.02041
+  QT1000-Possion3.0/Input-06004.txt  #1  2β₂ΣC_sym -0.239  sym3 -0.240  genic(pre) 0.1907 vs 0.1907
+  QT1000-Possion3.0/Input-06004.txt  #2  2β₂ΣC_sym -0.188  sym3 -0.186  genic(pre) 0.1943 vs 0.1943
+  QT1000-Possion3.0/Input-06004.txt  #3  2β₂ΣC_sym -0.195  sym3 -0.193  genic(pre) 0.167 vs 0.167
+  QT1000-Possion3.0/Input-09697.txt  #1  2β₂ΣC_sym -0.149  sym3 -0.147  genic(pre) 0.7911 vs 0.7911
+  QT1000-Possion3.0/Input-09697.txt  #2  2β₂ΣC_sym -0.018  sym3 -0.019  genic(pre) 0.8112 vs 0.8112
+  QT1000-Possion3.0/Input-09697.txt  #3  2β₂ΣC_sym -0.103  sym3 -0.101  genic(pre) 0.9279 vs 0.9279
+  QT1000-Possion5.0/Input-14110.txt  #1  2β₂ΣC_sym -0.176  sym3 -0.176  genic(pre) 0.1719 vs 0.1719
+  QT1000-Possion5.0/Input-14110.txt  #2  2β₂ΣC_sym -0.133  sym3 -0.132  genic(pre) 0.2075 vs 0.2075
+  QT1000-Possion5.0/Input-14110.txt  #3  2β₂ΣC_sym -0.162  sym3 -0.163  genic(pre) 0.2047 vs 0.2047
+  QT1000-Possion5.0/Input-07594.txt  #1  2β₂ΣC_sym -0.252  sym3 -0.249  genic(pre) 0.01388 vs 0.01388
+  QT1000-Possion5.0/Input-07594.txt  #2  2β₂ΣC_sym -0.189  sym3 -0.185  genic(pre) 0.01284 vs 0.01284
+  QT1000-Possion5.0/Input-07594.txt  #3  2β₂ΣC_sym -0.368  sym3 -0.355  genic(pre) 0.01262 vs 0.01262
+  QT5000-Possion3.0/Input-12000.txt  #1  2β₂ΣC_sym -0.269  sym3 -0.272  genic(pre) 0.3937 vs 0.3937
+  QT5000-Possion3.0/Input-12000.txt  #2  2β₂ΣC_sym -0.279  sym3 -0.280  genic(pre) 0.3813 vs 0.3813
+  QT5000-Possion3.0/Input-12000.txt  #3  2β₂ΣC_sym -0.242  sym3 -0.241  genic(pre) 0.4109 vs 0.4109
+  QT5000-Possion3.0/Input-14771.txt  #1  2β₂ΣC_sym -0.732  sym3 -0.725  genic(pre) 0.3693 vs 0.3693
+  QT5000-Possion3.0/Input-14771.txt  #3  2β₂ΣC_sym -0.679  sym3 -0.675  genic(pre) 0.3637 vs 0.3637
+  QT5000-Possion5.0/Input-01925.txt  #1  2β₂ΣC_sym -0.030  sym3 -0.029  genic(pre) 0.5651 vs 0.5651
+  QT5000-Possion5.0/Input-01925.txt  #2  2β₂ΣC_sym -0.027  sym3 -0.028  genic(pre) 0.5885 vs 0.5885
+  QT5000-Possion5.0/Input-01925.txt  #3  2β₂ΣC_sym -0.004  sym3 -0.004  genic(pre) 0.5957 vs 0.5957
+  QT5000-Possion5.0/Input-12463.txt  #1  2β₂ΣC_sym -0.049  sym3 -0.049  genic(pre) 0.5693 vs 0.5693
+  QT5000-Possion5.0/Input-12463.txt  #2  2β₂ΣC_sym -0.047  sym3 -0.047  genic(pre) 0.5718 vs 0.5718
+  QT5000-Possion5.0/Input-12463.txt  #3  2β₂ΣC_sym -0.070  sym3 -0.070  genic(pre) 0.5578 vs 0.5578
+  QT5000-Possion5.0/Input-05562.txt  #1  2β₂ΣC_sym -0.234  sym3 -0.233  genic(pre) 0.6104 vs 0.6104
+  QT5000-Possion5.0/Input-05562.txt  #2  2β₂ΣC_sym -0.171  sym3 -0.174  genic(pre) 0.6815 vs 0.6815
+  QT5000-Possion5.0/Input-05562.txt  #3  2β₂ΣC_sym -0.291  sym3 -0.291  genic(pre) 0.6669 vs 0.6669
+
+Development reading:
+  P1 (decay rate) holds on D: level A with the derived recursion is within +0.06/+0.05/+0.17 (log)
+     of the measured ΣC in 25..49/50..99/100..199 (median |.| 0.07/0.05/0.24, 11 eligible inputs);
+     without the selection term it is too strong (+0.27/+0.37/+0.53: the association persists too
+     long), with the spectrum's δ far too weak (−0.90/−1.41/−1.95).
+  H1 fails on D: measured K is only 0.59 (pre-move) to 0.38 (100..199) of −2yY. The parts of K that
+     the leading-order closure drops (variance heterogeneity μ(B_s,B,l,l) − Cov(B_s,B)v_l and
+     three-locus terms) are positive, about half of −2yY, and grow under the move.
+  H2 fails on D: the y recursion gives 0.59–0.76 of the measured Σ yY.
+  P2 fails on D: level B overpredicts (+0.23, +0.50, +1.33; cumulative loss +0.48), because its
+     source −2E[yY] does not decline under the move as the measured K does.
+  Cross-check: 2β₂ΣC_sym (chromosome level) equals genic_decline's sym3 on the same runs to within
+     a few per cent in every run.
+
+Amendment decision (before any confirmation run is analysed): none. The verdict rules stay as
+committed; the development failures of H1, H2 and P2 are reported here, not tuned away.
+
+== 2. Exploratory (not a verdict): the derived persistence in the spectrum's linked-selection term ==
+
+Driven by genic_decline's 8 runs per D input (its raw records, read only), the spectrum with
+genic_decline's time-dependent linked-selection term (Q_c, R_c from zero at the move) and the
+derived persistence of the allele–background LD, λ_c = (1 − ρ_c)(1 − 1/(2n))(1 − V_chr/S_c),
+against the default (Barton, δ = 1/(2n) + V_G/S, applied at once).
+Hypothesis before running: the derived term lowers genic(+100) toward the kernel; because level B
+overpredicts the association (section 1, its source −2E[yY] does not fall under the move), it may
+overshoot by +200.
+
+== section 2 result: exploratory driven-spectrum check (proto D; not a verdict) ==
+== exploratory: driven spectrum, genic(t)/genic(−50..−1), kernel vs Barton (default) vs derived transient (genic_decline's runs, set D) ==
+QT0100-Possion5.0/Input-06159.txt   +50 n8 kernel 1.021 barton 0.998 derived 0.999  +100 n8 kernel 1.021 barton 1.002 derived 1.004  +200 n8 kernel 0.949 barton 1.027 derived 1.028
+QT0500-Possion3.0/Input-01192.txt   +50 n8 kernel 1.014 barton 1.102 derived 1.094  +100 n8 kernel 0.967 barton 1.327 derived 1.271  +200 n8 kernel 0.757 barton 1.228 derived 1.024
+QT0500-Possion3.0/Input-04943.txt   +50 n8 kernel 0.883 barton 1.510 derived 1.387  +100 n8 kernel 0.601 barton 0.876 derived 0.629
+QT1000-Possion3.0/Input-00854.txt   +50 n8 kernel 0.917 barton 1.418 derived 1.372  +100 n8 kernel 0.745 barton 1.459 derived 1.308  +200 n8 kernel 0.507 barton 0.937 derived 0.686
+QT1000-Possion3.0/Input-06004.txt   +50 n8 kernel 0.949 barton 1.040 derived 1.030  +100 n8 kernel 0.796 barton 1.134 derived 1.089  +200 n8 kernel 0.487 barton 0.891 derived 0.706
+QT1000-Possion3.0/Input-09697.txt   +50 n8 kernel 0.990 barton 0.997 derived 0.994  +100 n8 kernel 0.928 barton 1.008 derived 0.994  +200 n8 kernel 0.717 barton 0.999 derived 0.929
+QT1000-Possion5.0/Input-14110.txt   +50 n8 kernel 0.972 barton 0.995 derived 0.989  +100 n8 kernel 0.829 barton 1.002 derived 0.973  +200 n8 kernel 0.593 barton 0.903 derived 0.765
+QT1000-Possion5.0/Input-07594.txt   +50 n8 kernel 0.923 barton 1.114 derived 1.091  +100 n8 kernel 0.724 barton 1.203 derived 1.103  +200 n8 kernel 0.529 barton 0.904 derived 0.671
+QT5000-Possion3.0/Input-12000.txt   +50 n8 kernel 0.895 barton 1.002 derived 0.996  +100 n8 kernel 0.675 barton 1.022 derived 1.000  +200 n8 kernel 0.242 barton 0.747 derived 0.609
+QT5000-Possion3.0/Input-14771.txt   +50 n8 kernel 0.638 barton 0.999 derived 0.970  +100 n3 kernel 0.139 barton 0.294 derived 0.216
+QT5000-Possion5.0/Input-01925.txt   +50 n8 kernel 1.000 barton 0.998 derived 0.998  +100 n8 kernel 0.982 barton 0.986 derived 0.985  +200 n8 kernel 0.852 barton 0.946 derived 0.920
+QT5000-Possion5.0/Input-12463.txt   +50 n8 kernel 0.980 barton 0.995 derived 0.993  +100 n8 kernel 0.935 barton 0.983 derived 0.971  +200 n8 kernel 0.729 barton 0.954 derived 0.909
+QT5000-Possion5.0/Input-05562.txt   +50 n8 kernel 0.919 barton 0.989 derived 0.978  +100 n8 kernel 0.733 barton 0.972 derived 0.934  +200 n8 kernel 0.343 barton 0.770 derived 0.596
+  +50: log(model/kernel) median: barton +0.083 (|.| 0.083), derived +0.075 (|.| 0.075), n 13
+  +100: log(model/kernel) median: barton +0.316 (|.| 0.316), derived +0.242 (|.| 0.242), n 13
+  +200: log(model/kernel) median: barton +0.484 (|.| 0.484), derived +0.260 (|.| 0.260), n 11
+
+
+== confirmation set F (16 fresh inputs, seeds 80261114000 + 100j + r, R = 3; kernel 1161 CPU-s) ==
+
+== pre-specified verdicts on F (rules in linked_decay_criteria.md; applied by the orchestrating session, no amendment) ==
+Note: the summary header says "over 5 eligible inputs", but H1 and H2 are computed over all 16 inputs, as the criteria specify; only P1 and P2 use the eligible inputs.
+H1 (source identity, K / (−2yY) in [0.75, 1.33] at −60..−1 and 50..99): 0.860 and 0.615 -> FAIL
+H2 (level-B allele–background LD, ratio in [0.67, 1.5] and |lr| <= 0.4 at −60..−1 and 50..99): 0.916 / 0.136 and 0.873 / 0.182 -> PASS (it failed on the development set D)
+P1 (decay rate): only 5 eligible inputs (< 6) -> INCONCLUSIVE. Descriptive only: derived median lr +0.03 / +0.05 / +0.09, |lr| 0.07 / 0.08 / 0.27, below both comparators (no selection: 0.31 / 0.36 / 0.42; spectrum δ: 0.45 / 0.92 / 1.50); the accuracy thresholds would be met in all three windows.
+P2 (closed level B): 5 eligible -> INCONCLUSIVE. Descriptive only: ΣC lr −0.02 at 25..49 and +0.53 at 50..99, cumulative loss +0.60; it would FAIL.

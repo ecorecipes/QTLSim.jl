@@ -16,3 +16,4 @@ validate/symbolic/Manifest.toml
 validate/symbolic/Manifest-v*.toml
 /validate/spectrum_diagnosis_raw/
 /validate/genic_decline_raw/
+/validate/linked_decay_raw/
