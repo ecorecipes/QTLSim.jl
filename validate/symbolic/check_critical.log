@@ -1,4 +1,4 @@
-QTLSim validate/symbolic/check_critical.jl (Symbolics 7.48.0)
+QTLSim validate/symbolic/check_critical.jl (Symbolics 7.49.0)
 
 (a) the envelope theorem and the linear-margin form
   ∂ ln k/∂λ = 0 ⇔ H′(u) = −s/λ²                                            ok
@@ -41,5 +41,5 @@ QTLSim validate/symbolic/check_critical.jl (Symbolics 7.48.0)
   _house_of_gauss(p, 2N) = house_of_gauss_vg(p) (nsurv = N)                ok
   a cost lowers the critical rate; plasticity without a cost divides it by 1 − b/B ok
 
-35 checks, 0 failed; 58 s
+35 checks, 0 failed; 0 s
 PASS

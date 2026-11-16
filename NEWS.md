@@ -8,6 +8,36 @@ All notable changes to QTLSim.jl are recorded here. The format follows
 
 ### Added
 
+- **Haplotype-block lineages** (off by default; `run_blocks`, `emulate(p; loci = :blocks,
+  blocks, within, partition, replicates, seed)`, `emulated_half_survival_rate(p; loci = :blocks)`,
+  `emulate_sweep(…; loci = :blocks, seed)`; src/block_lineages.jl). The kernel's life cycle on
+  `PopSize` individuals whose chromosomes are reduced to the sums of `blocks` blocks of
+  consecutive loci (`partition = :map`, equal shares of QTSim's genetic map, or `:position`),
+  so that associations between alleles and their linked backgrounds arise by construction
+  rather than by a moment closure. QTSim's switch law is exact (`QTLSim.qtsim_switch_law`,
+  P(c) = Σ_K Pois(K; u) C(M−c−1, K−1)/C(M, K)); a switch inside a block is either moved to the
+  nearer boundary (`within = :snap`: exactly the kernel with a coarsened map, and the kernel
+  itself with one block per locus) or kept, with Gaussian segregation of that block
+  (`within = :gaussian`: ȳ + f d_A + (1 − f) d_B + √(2f(1 − f)V_b) ξ). Replicates are seeded by
+  `QTLSim.job_seed`. Supported: one diploid trait, fixed size, viability selection, continuous
+  move. `QTLSim.block_map`, `QTLSim.block_stats`, `QTLSim.block_equilibrium!`. Symbolics:
+  validate/symbolic/check_blocks.jl (79 checks). Design (validate/blocks_dev.log, development
+  inputs only): snapping does not converge in `blocks` up to 320 (V_G keeps rising: removing
+  recombination inside a block matters even at map shares ≪ 1/B, Hill–Robertson within blocks);
+  the Gaussian law meets the pre-stated convergence rule at 160 blocks (V_G 0.92–0.96 of the
+  kernel's through +200 on the development inputs); its cost is only 1.3–2.9× below the kernel's
+  and 4–9× above one `:spectrum` call.
+  Pre-specified validation (validate/blocks_criteria.md, validate/blocks.jl, validate/blocks.log;
+  160 blocks, Gaussian law; fresh inputs and seeds): on 120 inputs near the threshold, 40 kernel
+  runs each, **(P1) threshold accuracy 0.992, AUC 1.000 PASS; (P2) pooled x50 ratio 0.980 PASS;
+  (P3) x50 per stratum 0.81–1.02 PASS; (P4) not worse than `ld = :dynamic` PASS** (accuracy 0.975;
+  default `:spectrum` 0.925, pooled x50 1.18; `:rare_alleles` 0.708). V_G at the move and at +50,
+  +100, +200 at 0.97–0.98 of the kernel's (S1 PASS), the fall of block-genic variance under the
+  move within 1% (S2 PASS). On 320 fresh table inputs (10 replicates) E3 PASS; E1, E2 and E4
+  FAIL formally (a stratum with no survivor, separation, one 100-locus stratum at 1.32). Cost
+  (S4) FAIL: 7.5 s per call against 5.8 s for `ld = :dynamic`; a run is only 1.1–1.8× cheaper
+  than a kernel run. Not a default.
+
 - **A beta closure for the `:spectrum` model** (off by default; `spectrum = (; solver = :beta)` in
   `run_moments`, `spectrum_equilibrium`, `emulate`, `emulated_half_survival_rate`; default
   `:grid` bit for bit unchanged). Per effect class the moments `P_k = ∫ p^k ψ`, `ψ = pqφ`,

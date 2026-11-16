@@ -1,4 +1,4 @@
-QTLSim validate/symbolic/check_closures.jl (Symbolics 7.48.0)
+QTLSim validate/symbolic/check_closures.jl (Symbolics 7.49.0)
 
 (a) the closure with locally favoured alleles (src/local_alleles.jl)
   completing the square: the background-averaged fitness of a mutant       ok
@@ -79,5 +79,5 @@ QTLSim validate/symbolic/check_closures.jl (Symbolics 7.48.0)
   marginal fitness by quadrature = exp(aλ/s − a²/(2s)), a=-0.10 λ=1.36     ok
   marginal fitness by quadrature = exp(aλ/s − a²/(2s)), a=0.06 λ=0.70      ok
 
-73 checks, 0 failed; 19 s
+73 checks, 0 failed; 20 s
 PASS

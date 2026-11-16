@@ -116,6 +116,14 @@ A crossover point inside a block is moved to the block's boundary that is nearer
 map (the lower one on a tie). Boundaries `0` and `nb` are the chromosome's ends, where a
 switch is no switch (the starting strand is a fair coin). With `nb ≥ NoQTL` every locus is
 a block and the map is the kernel's.
+
+`within` is what a gamete does with a switch point inside a block: `:snap` (default) moves it
+as above, so blocks never recombine inside; `:gaussian` keeps the kernel's switch point and
+draws the recombinant block by Gaussian segregation, `ȳ_b + f(y_A − ȳ_b) + (1 − f)(y_B − ȳ_b) +
+√(2f(1 − f)V_b) ξ`, `f` the fraction of the block's loci at or before the point, `ȳ_b` and `V_b`
+the block's mean and variance over the parents' generation: exact in law if the two parts
+of the block are Gaussian, independent and carry variance in proportion to their loci
+(`:qtsim` only). Validation of the choice: validate/blocks_dev.log.
 """
 function block_map(p::Params, nb::Integer; partition::Symbol = :map, within::Symbol = :snap)
     within in (:snap, :gaussian) || throw(ArgumentError("within is :snap or :gaussian, got :$within"))
@@ -471,12 +479,12 @@ end
 end
 
 """
-    run_blocks(p::Params, rng; blocks = 40, partition = :map, burnin, at = QTLSim.first_event(p),
+    run_blocks(p::Params, rng; blocks = 40, partition = :map, within = :snap, burnin, at = QTLSim.first_event(p),
                record_from = nothing, spectrum = stationary_spectrum(p), map = nothing) -> NamedTuple
 
 One run of the block model (src/block_lineages.jl): the kernel's life cycle on `PopSize`
 diploid individuals, each chromosome reduced to the sums of its `blocks` blocks
-([`QTLSim.block_map`](@ref)), crossovers only at block boundaries. It starts `burnin`
+([`QTLSim.block_map`](@ref)). It starts `burnin`
 generations before generation `at` of the protocol (as [`equilibrium_world`](@ref)), from the
 kernel's equilibrium sampler summed over the blocks ([`QTLSim.block_equilibrium!`](@ref)),
 and runs to `NoGenerations − 1`, or until fewer than two individuals survive selection.
@@ -487,9 +495,12 @@ start) on. Supported: one diploid trait, viability selection, `MoveType = :conti
 no move), a fixed population size, `CrossoverModel` `:qtsim` or `:all`;
 anything else is an `ArgumentError`.
 
-With `blocks ≥ NoQTL` the map is the kernel's, so the run has the kernel's law. Fewer blocks
-coarsen the map only (a block's sum is a sufficient state while nothing recombines inside
-it). How many blocks are needed: validate/blocks_dev.log.
+With `blocks ≥ NoQTL` the map is the kernel's, so the run has the kernel's law. With fewer
+blocks and `within = :snap` (default) only the map is coarsened (a block's sum is a sufficient
+state while nothing recombines inside it), but V_G then converges slowly in `blocks`;
+`within = :gaussian` keeps every switch point and closes the block that holds it by Gaussian
+segregation ([`QTLSim.block_map`](@ref)). On the development inputs `within = :gaussian` with
+160 blocks met the convergence rule: validate/blocks_dev.log, validate/blocks_criteria.md.
 """
 function run_blocks(p::Params, rng::AbstractRNG; blocks::Integer = 40, partition::Symbol = :map, within::Symbol = :snap, burnin::Integer,
                     at::Integer = first_event(p), record_from = nothing, spectrum = nothing, map = nothing,

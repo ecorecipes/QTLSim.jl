@@ -1,4 +1,4 @@
-QTLSim validate/symbolic/check_linked_decay.jl (Symbolics 7.48.0)
+QTLSim validate/symbolic/check_linked_decay.jl (Symbolics 7.49.0)
 
 (a) offspring sampling: M iid draws from the parents' pool
   E[m₁₁] = (1 − 1/M) μ₁₁                                                   ok
@@ -92,5 +92,5 @@ QTLSim validate/symbolic/check_linked_decay.jl (Symbolics 7.48.0)
   T_step!(:nosel) = βKλ(1 − λᵗ)/(1 − λ)                                    ok
   y_step!(select = false) stationary P = ν/(1 − λ²)                        ok
 
-76 checks, 0 failed; 6 s
+76 checks, 0 failed; 2 s
 PASS

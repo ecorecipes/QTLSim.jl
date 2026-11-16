@@ -1,4 +1,4 @@
-QTLSim validate/symbolic/check_traits.jl (Symbolics 7.48.0)
+QTLSim validate/symbolic/check_traits.jl (Symbolics 7.49.0)
 
 (a) gaussian_G, the multivariate Gaussian balance G(A + G)⁻¹G = M
   G = A^½XA^½: A + G = A^½(I + X)A^½ (general symmetric 2 × 2), so G(A + G)⁻¹G = A^½X(I + X)⁻¹XA^½ ok

@@ -47,7 +47,8 @@ closure, `replicates` (40 when `replicates = 0`) stochastic runs of the block mo
 ([`run_blocks`](@ref), src/block_lineages.jl): the kernel's life cycle on `PopSize`
 individuals whose chromosomes are reduced to the sums of `blocks` blocks of consecutive
 loci (`partition = :map`, equal shares of QTSim's genetic map, or `:position`), with
-crossovers moved to block boundaries; with one block per locus it is the kernel in law.
+crossovers moved to block boundaries (`within = :snap`) or kept with Gaussian segregation of
+the block that holds them (`within = :gaussian`); with one block per locus it is the kernel in law.
 Each run starts `burnin` generations before the move from the kernel's equilibrium sampler
 summed over the blocks. Replicate `r` draws from `Xoshiro(QTLSim.job_seed(seed, r))` (or
 from seeds drawn from `rng`), so a result is a function of `seed`. `P2000` is the fraction

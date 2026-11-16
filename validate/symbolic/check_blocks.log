@@ -93,5 +93,5 @@ QTLSim validate/symbolic/check_blocks.jl (Symbolics 7.49.0)
   block_map(within = :gaussian): f = loci of the block at or before the switch / block size; f = 1 exactly on boundaries ok
   block_map(within = :gaussian): the switch law is the kernel's (gcum)     ok
 
-79 checks, 0 failed; 2 s
+79 checks, 0 failed; 1 s
 PASS

@@ -1,4 +1,4 @@
-QTLSim validate/symbolic/check_plasticity.jl (Symbolics 7.48.0)
+QTLSim validate/symbolic/check_plasticity.jl (Symbolics 7.49.0)
 
 (a) the steady lag with a fixed slope, and the reductions at b = 0
   the lag θ − z̄ of a genotype moving at (1 − φ)k is constant in t          ok
