@@ -50,6 +50,8 @@ function scanned_ids(; maxids = 50_000)
     for d in dirs, (root, _, files) in walkdir(joinpath(d, "validate"))
         for f in files
             path = joinpath(root, f)
+            # this validation's own caches and log name its samples: never exclusions
+            (occursin("blocks_raw", path) || basename(path) == "blocks.log") && continue
             ids = Set{String}()
             for m in eachmatch(IDRX, f)                    # raw-run file names
                 push!(ids, normid(m.match))

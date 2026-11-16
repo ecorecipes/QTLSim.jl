@@ -127,4 +127,11 @@ shrunk per stratum (same permutation) by an amendment recorded here before any r
 
 ## Amendments
 
-(none)
+1. **2026-11-16, before any outcome** (after the `select` and `pilot` modes only). The id scan
+   would have read this validation's own caches (validate/blocks_raw/, which `select` had just
+   written with the pool's k50s) and log on later invocations, and so excluded its own samples;
+   validate/blocks.jl now skips validate/blocks_raw/ and validate/blocks.log. Rerun of `select`:
+   the same 19,106 exclusions, the same H (120; 3 per bin except 2 in one bin of
+   QT5000-Possion5.0, filled to 15 per stratum) and F (320), all intersections 0. Pilot: the block
+   emulator on 16 inputs of F took 34 s wall on 8 threads (≈ 17 CPU-s per input, ≈ 1.5 CPU-h for
+   F), within the 3 CPU-h limit: F is not shrunk. Nothing else changes.
