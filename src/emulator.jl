@@ -60,6 +60,21 @@ over the runs alive then; the result also has `alive` and `replicates`. `VG` and
 are ignored. Validation: `validate/blocks_dev.log` (design, convergence in `blocks`),
 `validate/blocks_criteria.md`, `validate/blocks.log`.
 
+**Two stages** (`loci = :two_stage`; off by default; src/two_stage.jl). A deterministic screen,
+`emulate(p; loci = :spectrum, spectrum = screen)` (default `screen =`
+[`QTLSim.TWO_STAGE_SCREEN`](@ref), dynamic LD with the beta solver), on every input, and the
+block model (`blocks` default 160, `within` default `:gaussian`, `replicates` default 40, as
+validated in validate/blocks.log) only where the screen is uncertain: where the input's rate
+is within a factor `exp(band)` of the screen's own half-survival rate (default
+`band =` [`QTLSim.TWO_STAGE_BAND`](@ref)), decided by one more screen evaluation
+([`QTLSim.two_stage_screen`](@ref)). Outside the band the result is the screen's, inside it the
+block model's (from `seed` as with `loci = :blocks`); `stage` says which (1 or 2), and the result
+also carries the screen's values: `inband`, `screen_P2000`, `screen_T` (`NaN` if `missing`),
+`screen_probe` (the second rate) and `screen_probe_P2000`, `screen_evals`, `screen_fallback`
+(the beta solver's fallback generation, −1 if none), with `alive = −1` and `replicates = 0` at
+stage 1. A `seed` or an `rng` is required. Design: validate/two_stage_dev.log; validation:
+validate/two_stage_criteria.md, validate/two_stage.log.
+
 `spectrum` is passed to [`run_moments`](@ref) for `loci = :spectrum`: e.g.
 `spectrum = (; ld = :dynamic)`, the dynamic linkage disequilibrium of src/spectrum.jl
 (off by default; validation `validate/spectrum_ld_criteria.md`, `validate/spectrum_ld.log`), or
@@ -211,6 +226,14 @@ are burned in once from `Xoshiro(QTLSim.job_seed(seed, r))` (`seed` required), e
 continues copies of them and their generators (common random numbers), and the largest
 `k` with `P2000(k) ≥ 1/2` is bisected in `log k` to `1e-3` within the same bracket as
 above. `P2000(k)` is then a fraction of runs, so `k50` locates a step of a noisy function.
+
+With `loci = :two_stage` (see [`emulate`](@ref)) the screen's `k50` is found first (this
+function with `loci = :spectrum, spectrum = screen`, to `1e-3` in `log k`), then the block
+model's (`blocks` default 160, `within` default `:gaussian`, `replicates` default 40, `seed`
+required, common random numbers as above) is bisected from the bracket `k50_screen·exp(±band)`
+(moved toward the root, each time four times wider, up to four times, if it misses it, before
+the wide search). Returns `(; k50, k50_screen, kc, stage, evals_screen, evals_blocks, bracketed)`;
+`stage = 1` (and `k50 = k50_screen`) when the screen finds no root (0 or `Inf`).
 """
 function emulated_half_survival_rate(p::Params; loci::Symbol = :rare_alleles, burnin::Integer = 2000,
                                      horizon::Integer = 2000, bracket = nothing, rtol::Real = 1e-10,
@@ -300,7 +323,11 @@ passed to `emulate`. Returns one `NamedTuple` per input, in order, with the fiel
 `emulate`'s result; `T` is `NaN` where `emulate` gives `missing` (so the rows
 can be cached).
 
-With `replicates > 0` among `kw`, `seed` (an integer) is required: each input's replicates
+With `loci = :two_stage` the rows also have `replicates`, `stage`, `inband` and the screen's
+values (`screen_P2000`, `screen_T`, `screen_probe`, `screen_probe_P2000`, `screen_evals`,
+`screen_fallback`), and `alive` (−1 at stage 1).
+
+With `replicates > 0` (or `loci = :blocks` or `:two_stage`) among `kw`, `seed` (an integer) is required: each input's replicates
 draw from `Xoshiro(QTLSim.job_seed(seed, id))`, a fixed (FNV-1a) hash of the base seed and
 the input's id, so the results do not depend on the threads, the order of the jobs or
 which of them come from the cache.

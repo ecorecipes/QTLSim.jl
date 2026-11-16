@@ -11,9 +11,14 @@
 
 The default half-width of the two-stage emulator's band, in `log k`: an input goes to the
 block model when its rate `k` is within a factor `exp(band)` of the screen's own half-survival
-rate. Set on development inputs only (validate/two_stage_dev.log).
+rate. Set on development inputs only (validate/two_stage_dev.log): the smallest candidate
+width (0.05, 0.1, …, 0.7) at which the screen (dynamic LD, beta solver) disagreed with the
+block model on < 1% of the inputs outside the band, both on 120 near-threshold inputs and on
+320 random table inputs (none outside at 0.25; one at 0.2). The margin is narrow: one
+near-threshold disagreement lay at a distance 0.246 (with the grid solver 0.312, whose
+width is 0.4).
 """
-const TWO_STAGE_BAND = 0.2
+const TWO_STAGE_BAND = 0.25
 
 "The default screen of the two-stage emulator: `:spectrum` with dynamic LD and the beta solver."
 const TWO_STAGE_SCREEN = (; ld = :dynamic, solver = :beta)
