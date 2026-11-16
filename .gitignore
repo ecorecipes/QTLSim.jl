@@ -25,3 +25,5 @@ validate/symbolic/Manifest-v*.toml
 /validate/linked_dir_raw/
 /validate/blocks_dev_raw/
 /validate/blocks_raw/
+/validate/two_stage_dev_raw/
+/validate/two_stage_raw/

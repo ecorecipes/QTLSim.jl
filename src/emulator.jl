@@ -88,9 +88,13 @@ the two is required, and the result is a function of it. Validation:
 function emulate(p::Params; loci::Symbol = :rare_alleles, burnin::Integer = 2000, horizon::Integer = 2000,
                  tail::Integer = 240_000, VG::Real = house_of_gauss_vg(p), replicates::Integer = 0, vgnoise::Bool = true,
                  rng::Union{Nothing,AbstractRNG} = nothing, seed::Union{Nothing,Integer} = nothing, spectrum = (;),
-                 blocks::Integer = 40, partition::Symbol = :map, within::Symbol = :snap)
-    loci === :blocks && return blocks_emulate(p; blocks, replicates = replicates == 0 ? 40 : replicates, seed, rng,
-                                              burnin, horizon, tail, partition, within)
+                 blocks::Union{Nothing,Integer} = nothing, partition::Symbol = :map, within::Union{Nothing,Symbol} = nothing,
+                 band::Real = TWO_STAGE_BAND, screen = TWO_STAGE_SCREEN)
+    loci === :blocks && return blocks_emulate(p; blocks = something(blocks, 40), replicates = replicates == 0 ? 40 : replicates, seed, rng,
+                                              burnin, horizon, tail, partition, within = something(within, :snap))
+    loci === :two_stage && return two_stage_emulate(p; band, screen, blocks = something(blocks, 160),
+                                                    replicates = replicates == 0 ? 40 : replicates, seed, rng, burnin, horizon, tail,
+                                                    partition, within = something(within, :gaussian))
     p.MoveType === :continuous || throw(ArgumentError("emulate is for the published protocol, MoveType = :continuous; got :$(p.MoveType)"))
     p.NoTraits == 1 || throw(ArgumentError("emulate is for one trait; NoTraits = $(p.NoTraits)"))
     burnin >= 0 && horizon >= 2 || throw(ArgumentError("need burnin ≥ 0 and horizon ≥ 2, got $burnin and $horizon"))
@@ -210,10 +214,14 @@ above. `P2000(k)` is then a fraction of runs, so `k50` locates a step of a noisy
 """
 function emulated_half_survival_rate(p::Params; loci::Symbol = :rare_alleles, burnin::Integer = 2000,
                                      horizon::Integer = 2000, bracket = nothing, rtol::Real = 1e-10,
-                                     maxiter::Integer = 100, spectrum = (;), blocks::Integer = 40, replicates::Integer = 40,
-                                     seed::Union{Nothing,Integer} = nothing, partition::Symbol = :map, within::Symbol = :snap)
+                                     maxiter::Integer = 100, spectrum = (;), blocks::Union{Nothing,Integer} = nothing,
+                                     replicates::Integer = 40, seed::Union{Nothing,Integer} = nothing, partition::Symbol = :map,
+                                     within::Union{Nothing,Symbol} = nothing, band::Real = TWO_STAGE_BAND, screen = TWO_STAGE_SCREEN)
     p.MoveType === :continuous || throw(ArgumentError("emulated_half_survival_rate is for MoveType = :continuous"))
-    loci === :blocks && return blocks_half_survival_rate(p; blocks, replicates, seed, burnin, horizon, partition, within)
+    loci === :blocks && return blocks_half_survival_rate(p; blocks = something(blocks, 40), replicates, seed, burnin, horizon, partition,
+                                                         within = something(within, :snap))
+    loci === :two_stage && return two_stage_half_survival_rate(p; band, screen, blocks = something(blocks, 160), replicates, seed,
+                                                               burnin, horizon, partition, within = something(within, :gaussian))
     kc = NaN
     VG = house_of_gauss_vg(p)
     evals = 0
@@ -300,14 +308,16 @@ which of them come from the cache.
 function emulate_sweep(ps::AbstractVector{Params}; ids = eachindex(ps), cache = nothing, progress::Integer = 0,
                        ntasks::Integer = Threads.nthreads(), seed::Union{Nothing,Integer} = nothing, kw...)
     length(ids) == length(ps) || throw(ArgumentError("one id per input: $(length(ids)) ids, $(length(ps)) inputs"))
-    noisy = get(kw, :replicates, 0) > 0 || get(kw, :loci, :rare_alleles) === :blocks
-    noisy && seed === nothing && throw(ArgumentError("replicates > 0 (and loci = :blocks) need a base `seed`"))
+    noisy = get(kw, :replicates, 0) > 0 || get(kw, :loci, :rare_alleles) in (:blocks, :two_stage)
+    noisy && seed === nothing && throw(ArgumentError("replicates > 0 (and loci = :blocks or :two_stage) need a base `seed`"))
     jobs = collect(zip(ids, ps))
     sweep(jobs; cache, id = first, progress, ntasks, cost = j -> j[2].NoQTL) do (i, p)
         r = noisy ? emulate(p; seed = job_seed(seed, i), kw...) : emulate(p; kw...)
         (; P2000 = r.P2000, T = r.T === missing ? NaN : Float64(r.T), r.P240k, r.hazard, r.VG_move,
          r.Wbar_move, r.VG_end, r.lag_end, r.extinct, (haskey(r, :fallback) ? (; fallback = r.fallback) : (;))...,
-         (haskey(r, :alive) ? (; alive = r.alive) : (;))...)
+         (haskey(r, :alive) ? (; alive = r.alive) : (;))...,
+         (haskey(r, :stage) ? (; r.replicates, r.stage, r.inband, r.screen_P2000, r.screen_T, r.screen_probe, r.screen_probe_P2000,
+                               r.screen_evals, r.screen_fallback) : (;))...)
     end
 end
 

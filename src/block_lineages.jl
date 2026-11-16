@@ -626,7 +626,7 @@ end
 # their generators (common random numbers), and P2000(k) ≥ 1/2 is bisected in log k.
 function blocks_half_survival_rate(p::Params; blocks::Integer = 40, replicates::Integer = 40, seed = nothing,
                                    burnin::Integer = 2000, horizon::Integer = 2000, partition::Symbol = :map, within::Symbol = :snap,
-                                   rtol::Real = 1e-3, maxiter::Integer = 40)
+                                   rtol::Real = 1e-3, maxiter::Integer = 40, bracket = nothing)
     replicates >= 1 || throw(ArgumentError("the block model needs replicates ≥ 1, got $replicates"))
     seed === nothing && throw(ArgumentError("the block model needs a `seed`"))
     q = Params(p; Sample = 1, NoGenerations = burnin + horizon, MoveFitnessSDGen = burnin, ChangeFitnessGen = -1)
@@ -655,24 +655,48 @@ function blocks_half_survival_rate(p::Params; blocks::Integer = 40, replicates::
         end
         alive / replicates
     end
+    bisect(lo, hi) = begin
+        for _ in 1:maxiter
+            hi - lo <= rtol && break
+            mid = (lo + hi) / 2
+            P(exp(mid)) >= 0.5 ? (lo = mid) : (hi = mid)
+        end
+        exp((lo + hi) / 2)
+    end
+    if bracket !== nothing
+        # a narrow bracket first (the two-stage emulator's band around the screen's k50): if it
+        # misses the root it is moved toward it, each time four times wider in log k, up to four
+        # times, before falling back to the wide search below (`bracketed = false`)
+        a, b = log(bracket[1]), log(bracket[2])
+        a < b || throw(ArgumentError("bracket must be (lo, hi) with 0 < lo < hi"))
+        pa, pb = P(exp(a)) >= 0.5, P(exp(b)) >= 0.5
+        for _ in 1:4
+            (pa && !pb) && break
+            w = 4(b - a)
+            pb ? ((a, pa) = (b, pb); b = a + w; pb = P(exp(b)) >= 0.5) : ((b, pb) = (a, pa); a = b - w; pa = P(exp(a)) >= 0.5)
+        end
+        pa && !pb && return (; k50 = bisect(a, b), kc = NaN, evals, bracketed = true)
+    end
     kc = drift_critical_rate(p).k
-    kc > 0 || return (; k50 = 0.0, kc, evals)
+    bracket === nothing || return merge(_blocks_wide(P, kc, bisect), (; evals, bracketed = false))
+    merge(_blocks_wide(P, kc, bisect), (; evals))
+end
+
+# the wide search of blocks_half_survival_rate: kc/8 to 2kc, the top doubled up to 64kc, the
+# bottom halved down to kc/512
+function _blocks_wide(P, kc, bisect)
+    kc > 0 || return (; k50 = 0.0, kc)
     lo, hi = log(kc / 8), log(2kc)
     for _ in 1:5
         P(exp(hi)) >= 0.5 || break
         lo = hi; hi += log(2.0)
-        hi > log(64kc) && return (; k50 = Inf, kc, evals)
+        hi > log(64kc) && return (; k50 = Inf, kc)
     end
-    P(exp(hi)) >= 0.5 && return (; k50 = Inf, kc, evals)
+    P(exp(hi)) >= 0.5 && return (; k50 = Inf, kc)
     for _ in 1:6
         P(exp(lo)) >= 0.5 && break
         hi = lo; lo -= log(2.0)
     end
-    P(exp(lo)) >= 0.5 || return (; k50 = 0.0, kc, evals)
-    for _ in 1:maxiter
-        hi - lo <= rtol && break
-        mid = (lo + hi) / 2
-        P(exp(mid)) >= 0.5 ? (lo = mid) : (hi = mid)
-    end
-    (; k50 = exp((lo + hi) / 2), kc, evals)
+    P(exp(lo)) >= 0.5 || return (; k50 = 0.0, kc)
+    (; k50 = bisect(lo, hi), kc)
 end
