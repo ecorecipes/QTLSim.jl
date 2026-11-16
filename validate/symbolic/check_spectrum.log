@@ -96,5 +96,5 @@ QTLSim validate/symbolic/check_spectrum.jl (Symbolics 7.49.0)
   handing the state to the grid keeps V_G exactly (relative 1e-12)         ok
   spectrum_mutate! (beta) adds 2N L μ g f_m(1/(2N)) to P_m                 ok
 
-79 checks, 0 failed; 23 s
+79 checks, 0 failed; 12 s
 PASS

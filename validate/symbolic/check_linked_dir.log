@@ -1,4 +1,4 @@
-QTLSim validate/symbolic/check_linked_dir.jl (Symbolics 7.48.0)
+QTLSim validate/symbolic/check_linked_dir.jl (Symbolics 7.49.0)
 
 (a) the measurement's derivatives under weights 1 + εh
   trial 1: d/dε of y, T, J, H, K, yY = dir_measure!'s formulas (exact)     ok

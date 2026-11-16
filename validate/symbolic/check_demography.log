@@ -1,4 +1,4 @@
-QTLSim validate/symbolic/check_demography.jl (Symbolics 7.48.0)
+QTLSim validate/symbolic/check_demography.jl (Symbolics 7.49.0)
 
 (a) Beverton–Holt
   adults: N* = K(RW̄ − 1)/((R − 1)W̄) solves N = R N W̄/(1 + (R − 1)N W̄/K)    ok

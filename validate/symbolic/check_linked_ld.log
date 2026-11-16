@@ -1,4 +1,4 @@
-QTLSim validate/symbolic/check_linked_ld.jl (Symbolics 7.48.0)
+QTLSim validate/symbolic/check_linked_ld.jl (Symbolics 7.49.0)
 
 (a) the gamete pool under a single switch point
   trial 1: Cov_pool(x_k, x_l) = (1 − ρ_kl) D_kl + ρ_kl Z_kl, all pairs (exact) ok
@@ -53,5 +53,5 @@ QTLSim validate/symbolic/check_linked_ld.jl (Symbolics 7.48.0)
   class_covR: off-diagonal ρ_s ρ_t Σ_B[s,t]                                ok
   class_covR: diagonal adds the within-class spread (ρ2 − ρ̄²) f_s g_b ≥ 0  ok
 
-39 checks, 0 failed; 11 s
+39 checks, 0 failed; 10 s
 PASS

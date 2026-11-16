@@ -42,6 +42,24 @@ Returns a `NamedTuple`:
 
 How well it predicts the published runs: `validate/emulator.jl`, `validate/emulator.log`.
 
+**Haplotype-block lineages** (`loci = :blocks`; off by default). Instead of a moments
+closure, `replicates` (40 when `replicates = 0`) stochastic runs of the block model
+([`run_blocks`](@ref), src/block_lineages.jl): the kernel's life cycle on `PopSize`
+individuals whose chromosomes are reduced to the sums of `blocks` blocks of consecutive
+loci (`partition = :map`, equal shares of QTSim's genetic map, or `:position`), with
+crossovers moved to block boundaries (`within = :snap`) or kept with Gaussian segregation of
+the block that holds them (`within = :gaussian`); with one block per locus it is the kernel in law.
+Each run starts `burnin` generations before the move from the kernel's equilibrium sampler
+summed over the blocks. Replicate `r` draws from `Xoshiro(QTLSim.job_seed(seed, r))` (or
+from seeds drawn from `rng`), so a result is a function of `seed`. `P2000` is the fraction
+of runs alive `horizon` generations into the move, `T` the median of the runs' extinction
+generations (counted as the table counts; `missing` if half or more survive), `hazard` the
+deaths per run-generation at risk in the last quarter of the horizon (a crude end hazard),
+`P240k` its extrapolation as above, and `VG_move`, `Wbar_move`, `VG_end` and `lag_end` means
+over the runs alive then; the result also has `alive` and `replicates`. `VG` and `spectrum`
+are ignored. Validation: `validate/blocks_dev.log` (design, convergence in `blocks`),
+`validate/blocks_criteria.md`, `validate/blocks.log`.
+
 `spectrum` is passed to [`run_moments`](@ref) for `loci = :spectrum`: e.g.
 `spectrum = (; ld = :dynamic)`, the dynamic linkage disequilibrium of src/spectrum.jl
 (off by default; validation `validate/spectrum_ld_criteria.md`, `validate/spectrum_ld.log`), or
@@ -69,7 +87,10 @@ the two is required, and the result is a function of it. Validation:
 """
 function emulate(p::Params; loci::Symbol = :rare_alleles, burnin::Integer = 2000, horizon::Integer = 2000,
                  tail::Integer = 240_000, VG::Real = house_of_gauss_vg(p), replicates::Integer = 0, vgnoise::Bool = true,
-                 rng::Union{Nothing,AbstractRNG} = nothing, seed::Union{Nothing,Integer} = nothing, spectrum = (;))
+                 rng::Union{Nothing,AbstractRNG} = nothing, seed::Union{Nothing,Integer} = nothing, spectrum = (;),
+                 blocks::Integer = 40, partition::Symbol = :map, within::Symbol = :snap)
+    loci === :blocks && return blocks_emulate(p; blocks, replicates = replicates == 0 ? 40 : replicates, seed, rng,
+                                              burnin, horizon, tail, partition, within)
     p.MoveType === :continuous || throw(ArgumentError("emulate is for the published protocol, MoveType = :continuous; got :$(p.MoveType)"))
     p.NoTraits == 1 || throw(ArgumentError("emulate is for one trait; NoTraits = $(p.NoTraits)"))
     burnin >= 0 && horizon >= 2 || throw(ArgumentError("need burnin ≥ 0 and horizon ≥ 2, got $burnin and $horizon"))
@@ -180,11 +201,19 @@ Returns `(; k50, kc, evals)`: the rate, `drift_critical_rate(p).k` (`NaN` when t
 `bracket` sufficed and it was not needed), and the number of emulator evaluations. `k50 = Inf` if half are alive at `64kc`, 0 if not at `kc/512` (and when `kc = 0`).
 With `loci = :spectrum, spectrum = (; solver = :beta)` (the beta closure; see [`emulate`](@ref)) the
 result also has `fallbacks`, the number of evaluations in which the closure fell back to the grid.
+
+With `loci = :blocks` (the block model; see [`emulate`](@ref)) `replicates` runs (default 40)
+are burned in once from `Xoshiro(QTLSim.job_seed(seed, r))` (`seed` required), every rate
+continues copies of them and their generators (common random numbers), and the largest
+`k` with `P2000(k) ≥ 1/2` is bisected in `log k` to `1e-3` within the same bracket as
+above. `P2000(k)` is then a fraction of runs, so `k50` locates a step of a noisy function.
 """
 function emulated_half_survival_rate(p::Params; loci::Symbol = :rare_alleles, burnin::Integer = 2000,
                                      horizon::Integer = 2000, bracket = nothing, rtol::Real = 1e-10,
-                                     maxiter::Integer = 100, spectrum = (;))
+                                     maxiter::Integer = 100, spectrum = (;), blocks::Integer = 40, replicates::Integer = 40,
+                                     seed::Union{Nothing,Integer} = nothing, partition::Symbol = :map, within::Symbol = :snap)
     p.MoveType === :continuous || throw(ArgumentError("emulated_half_survival_rate is for MoveType = :continuous"))
+    loci === :blocks && return blocks_half_survival_rate(p; blocks, replicates, seed, burnin, horizon, partition, within)
     kc = NaN
     VG = house_of_gauss_vg(p)
     evals = 0
@@ -271,13 +300,14 @@ which of them come from the cache.
 function emulate_sweep(ps::AbstractVector{Params}; ids = eachindex(ps), cache = nothing, progress::Integer = 0,
                        ntasks::Integer = Threads.nthreads(), seed::Union{Nothing,Integer} = nothing, kw...)
     length(ids) == length(ps) || throw(ArgumentError("one id per input: $(length(ids)) ids, $(length(ps)) inputs"))
-    noisy = get(kw, :replicates, 0) > 0
-    noisy && seed === nothing && throw(ArgumentError("replicates > 0 needs a base `seed`"))
+    noisy = get(kw, :replicates, 0) > 0 || get(kw, :loci, :rare_alleles) === :blocks
+    noisy && seed === nothing && throw(ArgumentError("replicates > 0 (and loci = :blocks) need a base `seed`"))
     jobs = collect(zip(ids, ps))
     sweep(jobs; cache, id = first, progress, ntasks, cost = j -> j[2].NoQTL) do (i, p)
         r = noisy ? emulate(p; seed = job_seed(seed, i), kw...) : emulate(p; kw...)
         (; P2000 = r.P2000, T = r.T === missing ? NaN : Float64(r.T), r.P240k, r.hazard, r.VG_move,
-         r.Wbar_move, r.VG_end, r.lag_end, r.extinct, (haskey(r, :fallback) ? (; fallback = r.fallback) : (;))...)
+         r.Wbar_move, r.VG_end, r.lag_end, r.extinct, (haskey(r, :fallback) ? (; fallback = r.fallback) : (;))...,
+         (haskey(r, :alive) ? (; alive = r.alive) : (;))...)
     end
 end
 

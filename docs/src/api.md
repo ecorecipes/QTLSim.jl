@@ -76,6 +76,10 @@ under the pre-specified criteria of `validate/emulator_criteria.md`. Needs Catla
 With `replicates > 0` it has between-run variance: replicate moments trajectories
 (`QTLSim.moments_replicates`) with drift of the mean and fluctuation of `V_G`
 (`QTLSim.vg_fluctuation`); off by default (`validate/emulator_variance_criteria.md`).
+With `loci = :blocks` it runs instead the haplotype-block lineage model ([`run_blocks`](@ref),
+src/block_lineages.jl): the kernel's life cycle with each chromosome reduced to the sums of a
+few blocks and crossovers moved to block boundaries (exactly the kernel when every locus is a
+block), replicated; off by default (`validate/blocks_dev.log`, `validate/blocks_criteria.md`).
 
 ```@docs
 QTLSim.Para
@@ -86,6 +90,14 @@ emulate_sweep
 QTLSim.moments_replicates
 QTLSim.vg_fluctuation
 QTLSim.job_seed
+run_blocks
+QTLSim.block_map
+QTLSim.BlockMap
+QTLSim.qtsim_switch_law
+QTLSim.block_equilibrium!
+QTLSim.block_stats
+QTLSim.BlockPop
+QTLSim.blocks_emulate
 ```
 
 ## QTSim options files

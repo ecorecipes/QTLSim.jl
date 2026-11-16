@@ -1,0 +1,432 @@
+validate/blocks_dev.jl — design phase of the haplotype-block lineage representation (src/block_lineages.jl)
+Running log. Each step's hypotheses are written here BEFORE the step is run; the output is pasted
+below them unchanged, then a short reading.
+
+Disclosure. Development uses only inputs already seen by the linked-selection chain: the spectrum
+diagnosis's D (13) and Dctl (8) inputs (validate/spectrum_diagnosis_inputs.csv), their 10 raw kernel
+trajectories per input and their 40 E6′ kernel runs. D was chosen as the inputs on which :spectrum's
+threshold call is wrong, so D is the hardest set for :spectrum by construction. The D, F, G, H′ and J
+sets of validate/linked_decay.jl, linked_source.jl, linked_ld.jl and linked_dir.jl, the E6′ pool, the
+spectrum_ld H pool and held-out set have all been seen, and are excluded from the fresh validation
+(validate/blocks.jl). Nothing here is fitted to kernel outcomes: the block model has no free
+parameter except the number of blocks B (and the partition rule), which is set by convergence in B
+(B against 2B), not by agreement with the kernel.
+
+== Candidates considered ==
+
+(A) Haplotype-block lineages. Each chromosome is reduced to the sums y_b of its B blocks of
+    consecutive loci. The life cycle is the kernel's, on N individuals. KEY OBSERVATION (exact, no
+    closure): if nothing recombines inside a block, the block's sum is a sufficient state for it —
+    a mutation anywhere in the block adds its effect to the sum, and the phenotype reads only sums.
+    So "within-block allele structure" needs no model at all once crossovers are moved to block
+    boundaries: the block model is EXACTLY the kernel with a coarsened crossover map, and with
+    B = L it is the kernel itself (in law). The only approximation is the map. The map follows
+    QTSim's lowest-point rule exactly (QTLSim.qtsim_switch_law: P(c) = Σ_K Pois(K; u)
+    C(M−c−1, K−1)/C(M, K), M = L − 1), and a point inside a block is moved to the block's
+    nearer boundary on the map. Partition :map puts the boundaries at equal steps of the map, so
+    every block carries ≈ 1/B of the switches; :position uses equal numbers of loci.
+    The suggested alternative, a within-block law for the recombinant block (e.g. a Gaussian or
+    beta segregation model), needs exactly the within-block genic variance and LD that the
+    linked-selection chain could not close; splitting the block in two is the exact version of it,
+    i.e. B → 2B. So the within-block model is replaced by convergence in B.
+(B) Hybrid (:spectrum per-site frequencies + an explicit stochastic population of block
+    backgrounds feeding the association term). The explicit block population of (B) already
+    yields V_G, the lag and W̄ — everything the emulator's chain needs — so the spectrum would add
+    only a per-locus genic variance, at the price of a coupling closure (how the background
+    association is shared among sites of different effects and frequencies), which is the part
+    validate/linked_dir.log found cannot be closed at low order. (B) costs at least (A) plus
+    :spectrum. Decision rule (stated now): build (B) only if (A) fails to converge at an
+    affordable B or misses the kernel on the development inputs.
+(C) Deterministic block moments. A Gaussian (second-order) block-moment closure is what
+    `spectrum = (; ld = :dynamic)` already is (LD classes by position bin × split probability);
+    the association needs fourth-order moments whose sources are high-order cumulants that cancel
+    (linked_dir), and it is seeded by drift (genic_decline: 4N cuts it 5–15×), so a deterministic
+    hierarchy must carry drift-generated moments to high order. Decision rule: not built unless
+    (A) and (B) are weak; ld = :dynamic is reported as its second-order representative.
+
+Criteria for the pick (development): (i) V_G through +200 of the move against the kernel;
+(ii) the block-level association where measurable; (iii) survival to +2000 near the threshold
+(threshold accuracy on D + Dctl against the 40 E6′ runs); (iv) cost per emulator call.
+
+== Step 0: implementation check, B = L ==
+
+Hypothesis (written before running). With one block per locus the block model is the kernel in
+law. On the three 100-locus development inputs (06159, 09247, 07602), 40 block runs at B = 100
+against the kernel's 40 E6′ runs and 10 trajectories: survival fractions not different (Fisher
+p > 0.01 on each), V_G before the move within ±10% (10 kernel trajectories: SE of a mean ≈ 3–5%).
+A failure here is a bug, not a modelling result.
+
+Output (2026-11-16; seeds job_seed(51116, "check|id|100|r")):
+  QT0100-Possion3.0/Input-09247.txt alive@2000 blocks 1.000 kernel 1.000 (Fisher-type p 1.000); V_G pre blocks 0.13804 kernel 0.13861 (ratio 0.996); +100 0.13799 / 0.13977
+  QT0100-Possion5.0/Input-06159.txt alive@2000 blocks 0.925 kernel 1.000 (Fisher-type p 0.241); V_G pre blocks 0.10258 kernel 0.11057 (ratio 0.928); +100 0.09977 / 0.10989
+  QT0100-Possion5.0/Input-07602.txt alive@2000 blocks 0.000 kernel 0.000 (Fisher-type p 1.000); V_G pre blocks 0.22632 kernel 0.22539 (ratio 1.004); +100 0.30921 / 0.33332
+Reading: passes (all p > 0.01; V_G before the move 0.93–1.00 of the kernel's 10-run mean). No bug found.
+(A first attempt crashed on a missing helper and left a corrupt cache file, which was deleted; no
+result had been printed.)
+
+== Step 1: convergence in B (partition :map), and the partition ==
+
+Hypotheses (written before running). B ∈ {5, 10, 20, 40, 80, 160, 320} (B ≤ L), 40 runs per input
+and B, D + Dctl (21 inputs).
+ H1a. V_G before the move rises with B toward its limit (coarse blocks remove recombination inside
+      blocks, so more negative LD persists between linked loci under stabilising selection and
+      V_G is lower) and changes by < 3% (median |log ratio|) from 40 → 80.
+ H1b. V_G at +100 changes by < 5% from B to 2B for B ≥ 40, and the survival calls (P > 1/2) differ
+      in at most 1 of 21 inputs from 40 → 80 (mean |ΔP| comparable to sampling noise, ≈ 0.08).
+ H1c. Because the :map partition gives every block the same share of switches, the B needed does
+      not grow with L (same convergence by locus count); :position needs a larger B at the same
+      accuracy (its first blocks carry most of the switches).
+Convergence rule for choosing B (stated now): the smallest B in the doubling sequence such that,
+from B to 2B, the median |log ratio| of V_G is < 0.03 before the move and < 0.05 at +100 and +200,
+mean |ΔP| ≤ 0.10, and at most 1 of 21 threshold calls differ. Chosen by this rule alone, not by
+the kernel.
+
+Output, first attempt (2026-11-16): superseded. check_blocks.jl (c) then showed that block_map's :map
+partition dropped coinciding boundaries, so "B = L" was not one block per locus (and other B gave
+fewer blocks than asked where one gap carries more than a block's share of the map). Fixed
+(exactly min(B, L) blocks; a block is never finer than one locus) before step 1 had printed
+anything (its run was stopped and its cache deleted). Step 0 rerun:
+  QT0100-Possion3.0/Input-09247.txt alive@2000 blocks 1.000 kernel 1.000 (Fisher-type p 1.000); V_G pre blocks 0.13914 kernel 0.13861 (ratio 1.004); +100 0.13612 / 0.13977
+  QT0100-Possion5.0/Input-06159.txt alive@2000 blocks 1.000 kernel 1.000 (Fisher-type p 1.000); V_G pre blocks 0.10308 kernel 0.11057 (ratio 0.932); +100 0.10190 / 0.10989
+  QT0100-Possion5.0/Input-07602.txt alive@2000 blocks 0.000 kernel 0.000 (Fisher-type p 1.000); V_G pre blocks 0.25380 kernel 0.22539 (ratio 1.126); +100 0.35530 / 0.33332
+Reading: survival identical; V_G ratio 1.126 on 07602 is outside the ±10% stated, against only 10
+kernel trajectories. An 80-run comparison of the pre-move V_G (fresh kernel runs, seeds 99001–99080;
+block seeds job_seed(77, r)) gave 07602 kernel 0.2478 (sd 0.036) vs blocks 0.2615 (ratio 1.055,
+Welch t 2.34) and 06159 0.1078 vs 0.1130 (1.049, t 1.60): both above, jointly z ≈ 2.8.
+Step 0b hypothesis (written before running): this is chance. Pre-specified powered test: 400 fresh
+runs per program and input on 07602 and 06159 (kernel seeds 99101–99500, block seeds
+job_seed(78, r)), V_G averaged over −200…−1; passes if |Welch t| < 3 on both and the ratio is in
+[0.97, 1.03]. If it fails, an implementation difference is looked for before anything else.
+
+Output (step 0b, `check400`):
+  QT0100-Possion5.0/Input-07602.txt: V_G pre (mean of −200..−1), 400 runs each: kernel 0.25643 (sd 0.04164), blocks B=L 0.25259 (sd 0.04045), ratio 0.985, Welch t -1.32
+  QT0100-Possion5.0/Input-06159.txt: V_G pre (mean of −200..−1), 400 runs each: kernel 0.10633 (sd 0.01716), blocks B=L 0.10786 (sd 0.01917), ratio 1.014, Welch t 1.19
+Reading: PASS (|t| < 3, ratios 0.985 and 1.014). The 80-run excess was chance. With one block per
+locus the block model is the kernel in law, as constructed.
+
+Output (2026-11-16, both partitions; seeds job_seed(51116, "conv|id|B|r") and "pos|…"):
+step 1 (conv, partition :map): per input and B, P(alive at +2000), V_G before the move, V_G at +100, over 40 runs
+  QT0100-Possion3.0/Input-09247.txt B5 0.00/0.1045/0.1034  B10 0.00/0.1115/0.1116  B20 0.20/0.1333/0.1321  B40 0.75/0.1320/0.1305  B80 1.00/0.1373/0.1407
+  QT0100-Possion5.0/Input-06159.txt B5 0.00/0.0630/0.0580  B10 0.00/0.0721/0.0662  B20 0.03/0.0907/0.0876  B40 0.57/0.0995/0.0935  B80 1.00/0.1085/0.1037
+  QT0100-Possion5.0/Input-07602.txt B5 0.00/0.1305/0.0806  B10 0.00/0.1560/0.1361  B20 0.00/0.1905/0.1945  B40 0.00/0.2037/0.2612  B80 0.00/0.2459/0.3534
+  QT0500-Possion3.0/Input-01192.txt B5 0.00/0.1661/0.0466  B10 0.00/0.2344/0.1103  B20 0.00/0.3053/0.1886  B40 0.00/0.3930/0.2731  B80 0.00/0.4674/0.3861  B160 0.03/0.5125/0.4410  B320 0.15/0.5272/0.4685
+  QT0500-Possion3.0/Input-08172.txt B5 0.00/0.1343/0.1313  B10 0.00/0.1524/0.1490  B20 0.00/0.1725/0.1635  B40 0.00/0.1761/0.1724  B80 0.00/0.1851/0.1774  B160 0.00/0.1795/0.1773  B320 0.00/0.1819/0.1815
+  QT0500-Possion3.0/Input-04943.txt B5 0.00/0.0106/NaN  B10 0.00/0.0141/NaN  B20 0.00/0.0199/NaN  B40 0.00/0.0257/0.0065  B80 0.00/0.0304/0.0101  B160 0.00/0.0336/0.0146  B320 0.00/0.0349/0.0175
+  QT0500-Possion5.0/Input-09607.txt B5 0.00/0.4399/0.2104  B10 0.00/0.5611/0.2991  B20 0.00/0.6285/0.4399  B40 0.00/0.7560/0.5587  B80 0.00/0.8434/0.6820  B160 0.00/0.8828/0.7253  B320 0.00/0.9135/0.7881
+  QT1000-Possion3.0/Input-00854.txt B5 0.00/0.0024/NaN  B10 0.00/0.0032/NaN  B20 0.00/0.0044/0.0016  B40 0.00/0.0058/0.0029  B80 0.00/0.0070/0.0047  B160 0.00/0.0076/0.0057  B320 0.00/0.0079/0.0060
+  QT1000-Possion3.0/Input-06004.txt B5 0.00/0.0301/NaN  B10 0.00/0.0403/0.0064  B20 0.00/0.0549/0.0163  B40 0.00/0.0734/0.0323  B80 0.00/0.0896/0.0523  B160 0.00/0.0986/0.0701  B320 0.00/0.1044/0.0765
+  QT1000-Possion3.0/Input-09697.txt B5 0.00/0.1883/0.0641  B10 0.00/0.2549/0.1120  B20 0.00/0.3469/0.1841  B40 0.00/0.4366/0.2854  B80 0.00/0.5192/0.3888  B160 0.00/0.5687/0.4757  B320 0.00/0.5750/0.4889
+  QT1000-Possion3.0/Input-13132.txt B5 0.00/0.1270/0.0453  B10 0.00/0.1666/0.0684  B20 0.00/0.2107/0.1121  B40 0.00/0.2745/0.1672  B80 0.00/0.2844/0.1951  B160 0.00/0.3058/0.2303  B320 0.00/0.3055/0.2388
+  QT1000-Possion5.0/Input-06028.txt B5 1.00/0.0872/0.0826  B10 1.00/0.1100/0.1043  B20 1.00/0.1183/0.1139  B40 1.00/0.1204/0.1188  B80 1.00/0.1300/0.1295  B160 1.00/0.1337/0.1319  B320 1.00/0.1302/0.1311
+  QT1000-Possion5.0/Input-14110.txt B5 0.00/0.0371/0.0115  B10 0.00/0.0507/0.0189  B20 0.00/0.0650/0.0312  B40 0.00/0.0822/0.0498  B80 0.00/0.0987/0.0698  B160 0.00/0.1096/0.0831  B320 0.00/0.1137/0.0933
+  QT1000-Possion5.0/Input-07594.txt B5 0.00/0.0017/NaN  B10 0.00/0.0023/0.0006  B20 0.00/0.0032/0.0013  B40 0.00/0.0040/0.0023  B80 0.00/0.0048/0.0032  B160 0.00/0.0055/0.0042  B320 0.00/0.0057/0.0046
+  QT5000-Possion3.0/Input-12000.txt B5 0.00/0.0325/NaN  B10 0.00/0.0448/NaN  B20 0.00/0.0628/NaN  B40 0.00/0.0897/0.0148  B80 0.00/0.1157/0.0374  B160 0.00/0.1315/0.0695  B320 0.00/0.1372/0.0876
+  QT5000-Possion3.0/Input-14771.txt B5 0.00/0.0300/NaN  B10 0.00/0.0416/NaN  B20 0.00/0.0586/NaN  B40 0.00/0.0844/NaN  B80 0.00/0.1084/NaN  B160 0.00/0.1251/NaN  B320 0.00/0.1294/0.0200
+  QT5000-Possion3.0/Input-06126.txt B5 0.00/0.0518/0.0461  B10 0.00/0.0505/0.0438  B20 0.00/0.0563/0.0525  B40 0.00/0.0588/0.0583  B80 0.00/0.0584/0.0576  B160 0.00/0.0576/0.0564  B320 0.00/0.0581/0.0584
+  QT5000-Possion5.0/Input-01925.txt B5 0.00/0.2191/0.1628  B10 0.00/0.2626/0.2240  B20 0.00/0.3423/0.2924  B40 0.00/0.3737/0.3286  B80 0.00/0.4305/0.3863  B160 0.00/0.4432/0.4045  B320 0.00/0.4618/0.4485
+  QT5000-Possion5.0/Input-12463.txt B5 0.00/0.1168/0.0479  B10 0.00/0.1624/0.0820  B20 0.00/0.2096/0.1290  B40 0.00/0.2546/0.1790  B80 0.00/0.2959/0.2396  B160 0.00/0.3269/0.2884  B320 0.00/0.3381/0.3019
+  QT5000-Possion5.0/Input-05562.txt B5 0.00/0.0900/NaN  B10 0.00/0.1258/0.0139  B20 0.00/0.1703/0.0309  B40 0.00/0.2231/0.0737  B80 0.00/0.2732/0.1221  B160 0.00/0.3110/0.1848  B320 0.00/0.3267/0.2252
+  QT5000-Possion5.0/Input-11865.txt B5 0.00/0.0614/0.0120  B10 0.00/0.0784/0.0188  B20 0.00/0.1107/0.0377  B40 0.00/0.1333/0.0587  B80 0.00/0.1606/0.0910  B160 0.00/0.1728/0.1133  B320 0.00/0.1799/0.1291
+
+  successive doublings B → 2B (over inputs with both): median |log V_G ratio| before / at +100 / at +200, mean |ΔP|, calls P > 1/2 that differ
+     5 →   10 (n 21): 0.287 / 0.382 / 0.232, 0.000, 0
+    10 →   20 (n 21): 0.264 / 0.452 / 0.368, 0.011, 0
+    20 →   40 (n 21): 0.224 / 0.349 / 0.432, 0.052, 2
+    40 →   80 (n 21): 0.173 / 0.306 / 0.339, 0.032, 0
+    80 →  160 (n 18): 0.092 / 0.180 / 0.309, 0.001, 0
+   160 →  320 (n 18): 0.035 / 0.083 / 0.160, 0.007, 0
+
+  the same by locus count (median |log V_G ratio| at +100; mean |ΔP|)
+  L = 100 (3 inputs): 5→10 0.132 0.00; 10→20 0.280 0.07; 20→40 0.065 0.37; 40→80 0.104 0.23
+  L = 500 (4 inputs): 5→10 0.352 0.00; 10→20 0.386 0.00; 20→40 0.239 0.00; 40→80 0.273 0.00; 80→160 0.097 0.01; 160→320 0.072 0.03
+  L = 1000 (7 inputs): 5→10 0.458 0.00; 10→20 0.498 0.00; 20→40 0.469 0.00; 40→80 0.334 0.00; 80→160 0.180 0.00; 160→320 0.054 0.00
+  L = 5000 (7 inputs): 5→10 0.385 0.00; 10→20 0.452 0.00; 20→40 0.328 0.00; 40→80 0.365 0.00; 80→160 0.202 0.00; 160→320 0.117 0.00
+step 1 (pos, partition :position): per input and B, P(alive at +2000), V_G before the move, V_G at +100, over 40 runs
+  QT0100-Possion3.0/Input-09247.txt B5 0.00/0.1153/0.1058  B10 0.00/0.1204/0.1124  B20 0.42/0.1360/0.1302  B40 0.95/0.1359/0.1337  B80 1.00/0.1320/0.1299
+  QT0100-Possion5.0/Input-06159.txt B5 0.00/0.0715/0.0681  B10 0.00/0.0993/0.0918  B20 0.30/0.0998/0.0997  B40 0.80/0.1040/0.1048  B80 0.97/0.1075/0.1097
+  QT0100-Possion5.0/Input-07602.txt B5 0.00/0.1639/0.1093  B10 0.00/0.2068/0.1627  B20 0.00/0.2464/0.2343  B40 0.00/0.2388/0.2805  B80 0.00/0.2577/0.3215
+  QT0500-Possion3.0/Input-01192.txt B5 0.00/0.1821/0.0527  B10 0.00/0.2566/0.1126  B20 0.00/0.3455/0.1928  B40 0.00/0.4353/0.3012  B80 0.00/0.5023/0.4037  B160 0.00/0.5348/0.4642  B320 0.05/0.5172/0.4638
+  QT0500-Possion3.0/Input-08172.txt B5 0.00/0.1551/0.1465  B10 0.00/0.1693/0.1719  B20 0.00/0.1871/0.1806  B40 0.00/0.1850/0.1842  B80 0.00/0.1890/0.1854  B160 0.00/0.1811/0.1846  B320 0.00/0.1893/0.1929
+  QT0500-Possion3.0/Input-04943.txt B5 0.00/0.0121/NaN  B10 0.00/0.0158/NaN  B20 0.00/0.0214/NaN  B40 0.00/0.0277/0.0059  B80 0.00/0.0320/0.0103  B160 0.00/0.0337/0.0149  B320 0.00/0.0344/0.0172
+  QT0500-Possion5.0/Input-09607.txt B5 0.00/0.5335/0.2645  B10 0.00/0.6772/0.4090  B20 0.00/0.7985/0.5503  B40 0.00/0.8588/0.6521  B80 0.00/0.8938/0.7257  B160 0.00/0.8999/0.7562  B320 0.00/0.9080/0.7876
+  QT1000-Possion3.0/Input-00854.txt B5 0.00/0.0026/NaN  B10 0.00/0.0035/NaN  B20 0.00/0.0048/0.0018  B40 0.00/0.0060/0.0033  B80 0.00/0.0072/0.0046  B160 0.00/0.0079/0.0061  B320 0.00/0.0080/0.0063
+  QT1000-Possion3.0/Input-06004.txt B5 0.00/0.0317/NaN  B10 0.00/0.0436/0.0070  B20 0.00/0.0618/0.0183  B40 0.00/0.0802/0.0357  B80 0.00/0.0927/0.0568  B160 0.00/0.1031/0.0733  B320 0.00/0.1038/0.0777
+  QT1000-Possion3.0/Input-09697.txt B5 0.00/0.2130/0.0661  B10 0.00/0.2846/0.1154  B20 0.00/0.3983/0.2074  B40 0.00/0.4829/0.3325  B80 0.00/0.5386/0.4262  B160 0.00/0.5667/0.4679  B320 0.00/0.5815/0.4921
+  QT1000-Possion3.0/Input-13132.txt B5 0.00/0.1395/0.0442  B10 0.00/0.1933/0.0810  B20 0.00/0.2441/0.1252  B40 0.00/0.2846/0.1765  B80 0.00/0.2952/0.2117  B160 0.00/0.3051/0.2377  B320 0.00/0.3149/0.2453
+  QT1000-Possion5.0/Input-06028.txt B5 1.00/0.1091/0.1087  B10 1.00/0.1240/0.1272  B20 1.00/0.1291/0.1270  B40 1.00/0.1304/0.1261  B80 1.00/0.1339/0.1268  B160 1.00/0.1316/0.1343  B320 1.00/0.1325/0.1366
+  QT1000-Possion5.0/Input-14110.txt B5 0.00/0.0421/0.0131  B10 0.00/0.0604/0.0224  B20 0.00/0.0827/0.0382  B40 0.00/0.0964/0.0595  B80 0.00/0.1074/0.0772  B160 0.00/0.1092/0.0872  B320 0.00/0.1134/0.0970
+  QT1000-Possion5.0/Input-07594.txt B5 0.00/0.0020/0.0004  B10 0.00/0.0027/0.0007  B20 0.00/0.0036/0.0014  B40 0.00/0.0044/0.0025  B80 0.00/0.0051/0.0033  B160 0.00/0.0054/0.0040  B320 0.00/0.0056/0.0044
+  QT5000-Possion3.0/Input-12000.txt B5 0.00/0.0352/NaN  B10 0.00/0.0494/NaN  B20 0.00/0.0677/NaN  B40 0.00/0.0935/0.0163  B80 0.00/0.1152/0.0442  B160 0.00/0.1276/0.0678  B320 0.00/0.1353/0.0853
+  QT5000-Possion3.0/Input-14771.txt B5 0.00/0.0326/NaN  B10 0.00/0.0463/NaN  B20 0.00/0.0649/NaN  B40 0.00/0.0861/NaN  B80 0.00/0.1075/NaN  B160 0.00/0.1225/NaN  B320 0.00/0.1288/NaN
+  QT5000-Possion3.0/Input-06126.txt B5 0.00/0.0533/0.0486  B10 0.00/0.0564/0.0528  B20 0.00/0.0576/0.0562  B40 0.00/0.0587/0.0591  B80 0.00/0.0589/0.0577  B160 0.00/0.0598/0.0600  B320 0.00/0.0584/0.0581
+  QT5000-Possion5.0/Input-01925.txt B5 0.00/0.2600/0.1991  B10 0.00/0.3435/0.2849  B20 0.00/0.4204/0.3759  B40 0.00/0.4385/0.3991  B80 0.00/0.4573/0.4294  B160 0.00/0.4676/0.4449  B320 0.00/0.4674/0.4520
+  QT5000-Possion5.0/Input-12463.txt B5 0.00/0.1330/0.0605  B10 0.00/0.1988/0.1017  B20 0.00/0.2526/0.1747  B40 0.00/0.2936/0.2281  B80 0.00/0.3225/0.2662  B160 0.00/0.3330/0.2898  B320 0.00/0.3502/0.3154
+  QT5000-Possion5.0/Input-05562.txt B5 0.00/0.1059/NaN  B10 0.00/0.1473/0.0161  B20 0.00/0.1980/0.0399  B40 0.00/0.2474/0.0910  B80 0.00/0.2956/0.1470  B160 0.00/0.3089/0.1847  B320 0.00/0.3295/0.2301
+  QT5000-Possion5.0/Input-11865.txt B5 0.00/0.0721/0.0125  B10 0.00/0.1001/0.0227  B20 0.00/0.1251/0.0414  B40 0.00/0.1489/0.0661  B80 0.00/0.1715/0.1027  B160 0.00/0.1807/0.1240  B320 0.00/0.1853/0.1353
+
+  successive doublings B → 2B (over inputs with both): median |log V_G ratio| before / at +100 / at +200, mean |ΔP|, calls P > 1/2 that differ
+     5 →   10 (n 21): 0.315 / 0.436 / 0.415, 0.000, 0
+    10 →   20 (n 21): 0.240 / 0.436 / 0.524, 0.035, 0
+    20 →   40 (n 21): 0.154 / 0.305 / 0.365, 0.049, 2
+    40 →   80 (n 21): 0.107 / 0.215 / 0.325, 0.011, 0
+    80 →  160 (n 18): 0.047 / 0.121 / 0.296, 0.000, 0
+   160 →  320 (n 18): 0.026 / 0.050 / 0.124, 0.003, 0
+
+  the same by locus count (median |log V_G ratio| at +100; mean |ΔP|)
+  L = 100 (3 inputs): 5→10 0.299 0.00; 10→20 0.148 0.24; 20→40 0.050 0.34; 40→80 0.046 0.07
+  L = 500 (4 inputs): 5→10 0.436 0.00; 10→20 0.297 0.00; 20→40 0.170 0.00; 40→80 0.200 0.00; 80→160 0.090 0.00; 160→320 0.042 0.01
+  L = 1000 (7 inputs): 5→10 0.557 0.00; 10→20 0.559 0.00; 20→40 0.472 0.00; 40→80 0.261 0.00; 80→160 0.121 0.00; 160→320 0.050 0.00
+  L = 5000 (7 inputs): 5→10 0.439 0.00; 10→20 0.541 0.00; 20→40 0.267 0.00; 40→80 0.298 0.00; 80→160 0.137 0.00; 160→320 0.086 0.00
+
+Reading. H1a, H1b and H1c are all REJECTED, decisively:
+- V_G rises steadily with B and has not converged at B = 320: before the move the median change
+  160 → 320 is 3.5% (:map) / 2.6% (:position), at +100 8.3% / 5.0%, at +200 16% / 12%; at 40 → 80
+  it is 17% before the move and 31% at +100. At 1000 and 5000 loci V_G at B = 40 is 0.5–0.8 of its
+  value at B = 320 (e.g. 12000: 0.0897 vs 0.1372 before the move; 0.0148 vs 0.0876 at +100).
+- The survival calls barely move (most D inputs die at every B; the three 100-locus inputs flip
+  from dead to alive between B = 20 and 80), so P is not a sensitive convergence measure here.
+- :position converges somewhat FASTER than :map (H1c wrong): QTSim's map puts so few switches at
+  the end of the chromosome that the :map partition's last blocks hold 10–20% of the loci, and the
+  pairs inside them, although tightly linked (split probability ~1e-3–1e-2), are not unlinked
+  enough to be treated as one non-recombining unit.
+Why: removing recombination inside a block is not a small error even when the block's share of
+the map is small. What matters is the split probability ρ of a pair relative to the drift and
+selection time scales, 1/(2N) = 5e-4 and V_G/S (the δ of validate/genic_decline.md); a block of
+map share 0.95/B leaves its pairs at ρ = 0 instead of up to 0.95/B, and with B ≤ 320 that is still
+≫ 1/(2N). Non-recombining blocks then suffer Hill–Robertson interference (Hill & Robertson 1966;
+Barton 1995) of their own: linked selection and drift inside a block reduce the variance it can
+hold (and its response under the move). Convergence would need a block's map share ≪ 1/(2N),
+i.e. B ≳ 2N = 2000, which is the kernel's own cost at these L. The exact block model (A) as built
+(non-recombining blocks) therefore FAILS the convergence rule at every affordable B.
+
+Decision (made now, before any comparison with the kernel at B < L): keep the representation, but
+restore recombination inside blocks with a within-block law, the variant the task suggested:
+(A2) Gaussian segregation within blocks. A crossover inside block b at a point that leaves a
+fraction f of the block's loci on the starting strand gives the recombinant block
+    y = ȳ_b + f (y_A − ȳ_b) + (1 − f)(y_B − ȳ_b) + √(2 f (1 − f) V_b) ξ,   ξ ~ N(0, 1),
+where V_b is the variance of y_b among the parents' chromosomes. This is exact in law if the two
+parts of the block are Gaussian, in linkage equilibrium with each other, and carry variance in
+proportion to their numbers of loci: E[left | y] = f y and Var(left | y) = f(1 − f) V_b. It keeps
+every crossover where the kernel puts it (no snapping), so a pair inside a block is split at its
+kernel rate in the sense that the parts' association is broken; what it loses is the structure
+inside the block (non-Gaussian allele distributions, LD within a part). It is a closure, so it can
+be wrong; it is tested by convergence in B (B → 2B must change little: the closure then acts on
+small pieces) and only then against the kernel.
+
+== Step 1b: convergence in B with Gaussian segregation within blocks (A2) ==
+
+A smoke test while implementing (one input, 00854, 6 runs, V_G before the move; not a test):
+snap B 20 0.0042, gaussian B 20 0.0046, snap B 80 0.0069, gaussian B 80 0.0075 (snap B 320 in
+step 1: 0.0079). So the within-block law recovers only part of the deficit at a given B.
+Hypotheses (written before running). B ∈ {10, 20, 40, 80, 160}, both partitions, the same 21
+inputs and 40 runs. H1b′: the Gaussian law converges faster in B than snapping (smaller
+|log ratio| at each doubling), but, given the smoke test, the convergence rule of step 1 is
+expected to be met at B = 160 at best, not at B ≤ 80. With one block per locus the two laws are
+the same model (every switch is on a boundary).
+
+Step 1c (added while step 1b ran; hypothesis written before running): the Gaussian law at B = 320
+(the 18 inputs with L ≥ 500, same tag "gmap", seeds as step 1b's) changes V_G by less than 5% from
+160 → 320 before the move and at +100 (i.e. it converges by 320, where snapping does not).
+
+Output (step 1b/1c, :map partition; B ≤ 160 from the step 1b run, B = 320 from step 1c, which ran after a
+performance-only change to the per-block variance loop: same law, different summation order):
+step 1 (gmap, partition :map, within :gaussian): per input and B, P(alive at +2000), V_G before the move, V_G at +100, over 40 runs
+  QT0100-Possion3.0/Input-09247.txt B10 0.97/0.1122/0.1090  B20 1.00/0.1277/0.1205  B40 1.00/0.1262/0.1284  B80 0.97/0.1307/0.1310
+  QT0100-Possion5.0/Input-06159.txt B10 0.85/0.0742/0.0685  B20 0.97/0.0846/0.0823  B40 0.95/0.0932/0.0896  B80 0.95/0.1046/0.1037
+  QT0100-Possion5.0/Input-07602.txt B10 0.00/0.1946/0.1869  B20 0.00/0.2269/0.2456  B40 0.00/0.2292/0.2863  B80 0.00/0.2387/0.2995
+  QT0500-Possion3.0/Input-01192.txt B10 0.00/0.2339/0.1806  B20 0.00/0.3202/0.2532  B40 0.00/0.4144/0.3423  B80 0.03/0.4872/0.4154  B160 0.15/0.5161/0.4488  B320 0.12/0.5401/0.4860
+  QT0500-Possion3.0/Input-08172.txt B10 0.12/0.1449/0.1377  B20 0.05/0.1682/0.1619  B40 0.00/0.1723/0.1673  B80 0.00/0.1788/0.1787  B160 0.00/0.1789/0.1821  B320 0.00/0.1800/0.1796
+  QT0500-Possion3.0/Input-04943.txt B10 0.00/0.0158/NaN  B20 0.00/0.0212/NaN  B40 0.00/0.0277/0.0081  B80 0.00/0.0330/0.0132  B160 0.00/0.0352/0.0176  B320 0.00/0.0342/0.0165
+  QT0500-Possion5.0/Input-09607.txt B10 0.00/0.5025/0.4794  B20 0.00/0.6036/0.5685  B40 0.00/0.6856/0.6164  B80 0.00/0.8186/0.6983  B160 0.00/0.8781/0.7255  B320 0.00/0.9001/0.7715
+  QT1000-Possion3.0/Input-00854.txt B10 0.00/0.0035/0.0017  B20 0.00/0.0048/0.0025  B40 0.00/0.0062/0.0040  B80 0.00/0.0074/0.0053  B160 0.00/0.0082/0.0062  B320 0.00/0.0080/0.0063
+  QT1000-Possion3.0/Input-06004.txt B10 0.00/0.0399/0.0196  B20 0.00/0.0566/0.0361  B40 0.00/0.0727/0.0475  B80 0.00/0.0889/0.0634  B160 0.00/0.1003/0.0748  B320 0.00/0.1045/0.0809
+  QT1000-Possion3.0/Input-09697.txt B10 0.00/0.2539/0.2174  B20 0.00/0.3320/0.2800  B40 0.00/0.4345/0.3654  B80 0.00/0.5217/0.4376  B160 0.00/0.5524/0.4747  B320 0.00/0.5723/0.4957
+  QT1000-Possion3.0/Input-13132.txt B10 0.00/0.1580/0.1360  B20 0.00/0.2089/0.1770  B40 0.00/0.2514/0.2005  B80 0.00/0.2867/0.2280  B160 0.00/0.2984/0.2416  B320 0.00/0.3028/0.2456
+  QT1000-Possion5.0/Input-06028.txt B10 1.00/0.0995/0.0987  B20 1.00/0.1082/0.1016  B40 1.00/0.1256/0.1227  B80 1.00/0.1228/0.1186  B160 1.00/0.1278/0.1275  B320 1.00/0.1355/0.1330
+  QT1000-Possion5.0/Input-14110.txt B10 0.00/0.0478/0.0372  B20 0.00/0.0644/0.0510  B40 0.00/0.0839/0.0676  B80 0.00/0.0964/0.0804  B160 0.00/0.1091/0.0888  B320 0.00/0.1153/0.0941
+  QT1000-Possion5.0/Input-07594.txt B10 0.00/0.0024/0.0014  B20 0.00/0.0031/0.0021  B40 0.00/0.0041/0.0031  B80 0.00/0.0051/0.0037  B160 0.00/0.0056/0.0042  B320 0.00/0.0056/0.0046
+  QT5000-Possion3.0/Input-12000.txt B10 0.00/0.0445/NaN  B20 0.00/0.0630/0.0165  B40 0.00/0.0860/0.0323  B80 0.00/0.1129/0.0609  B160 0.00/0.1285/0.0795  B320 0.00/0.1380/0.0941
+  QT5000-Possion3.0/Input-14771.txt B10 0.00/0.0413/NaN  B20 0.00/0.0574/NaN  B40 0.00/0.0819/NaN  B80 0.00/0.1051/NaN  B160 0.00/0.1228/NaN  B320 0.00/0.1304/0.0221
+  QT5000-Possion3.0/Input-06126.txt B10 0.00/0.0470/0.0476  B20 0.00/0.0521/0.0518  B40 0.00/0.0568/0.0551  B80 0.00/0.0566/0.0559  B160 0.00/0.0580/0.0563  B320 0.00/0.0581/0.0573
+  QT5000-Possion5.0/Input-01925.txt B10 0.03/0.2561/0.2461  B20 0.00/0.3129/0.2915  B40 0.00/0.3666/0.3499  B80 0.00/0.3934/0.3602  B160 0.00/0.4530/0.4293  B320 0.00/0.4534/0.4378
+  QT5000-Possion5.0/Input-12463.txt B10 0.00/0.1465/0.1295  B20 0.00/0.1929/0.1751  B40 0.00/0.2419/0.2134  B80 0.00/0.2897/0.2570  B160 0.00/0.3228/0.2928  B320 0.00/0.3402/0.3046
+  QT5000-Possion5.0/Input-05562.txt B10 0.00/0.1196/0.0598  B20 0.00/0.1612/0.0869  B40 0.00/0.2106/0.1244  B80 0.00/0.2722/0.1726  B160 0.00/0.3076/0.2057  B320 0.00/0.3161/0.2257
+  QT5000-Possion5.0/Input-11865.txt B10 0.00/0.0745/0.0529  B20 0.00/0.1037/0.0762  B40 0.00/0.1264/0.0872  B80 0.00/0.1557/0.1098  B160 0.00/0.1736/0.1271  B320 0.00/0.1788/0.1313
+
+  successive doublings B → 2B (over inputs with both): median |log V_G ratio| before / at +100 / at +200, mean |ΔP|, calls P > 1/2 that differ
+    10 →   20 (n 21): 0.275 / 0.268 / 0.250, 0.012, 0
+    20 →   40 (n 21): 0.227 / 0.189 / 0.201, 0.004, 0
+    40 →   80 (n 21): 0.173 / 0.174 / 0.163, 0.002, 0
+    80 →  160 (n 18): 0.093 / 0.131 / 0.110, 0.007, 0
+   160 →  320 (n 18): 0.029 / 0.043 / 0.048, 0.001, 0
+
+  the same by locus count (median |log V_G ratio| at +100; mean |ΔP|)
+  L = 100 (3 inputs): 10→20 0.184 0.05; 20→40 0.085 0.01; 40→80 0.045 0.01
+  L = 500 (4 inputs): 10→20 0.171 0.02; 20→40 0.081 0.01; 40→80 0.159 0.01; 80→160 0.058 0.03; 160→320 0.061 0.01
+  L = 1000 (7 inputs): 10→20 0.315 0.00; 20→40 0.275 0.00; 40→80 0.175 0.00; 80→160 0.099 0.00; 160→320 0.043 0.00
+  L = 5000 (7 inputs): 10→20 0.301 0.00; 20→40 0.190 0.00; 40→80 0.208 0.00; 80→160 0.161 0.00; 160→320 0.036 0.00
+
+Reading. H1b′ confirmed in part: the Gaussian law converges faster during the move (160 → 320:
+2.9% before, 4.3% at +100, 4.8% at +200; snapping 3.5%, 8.3%, 16%), not before it, and it meets
+the convergence rule of step 1 at B = 160 (160 → 320 all below the thresholds, |ΔP| 0.001, no call
+changes) — Step 1c's hypothesis holds. By locus count the 160 → 320 change at +100 is 6.1% at
+500 loci, 4.3% at 1000, 3.6% at 5000. Snapping meets the rule at no B ≤ 320.
+The :position partition with the Gaussian law (tag "gpos", B ≤ 160) was still running when the
+choice below was made; it is appended at the end of this log for the record and did not enter the
+choice (the rule could be evaluated only for :map, where B = 320 was run).
+
+== Step 2: development comparison with the kernel (cached runs; D + Dctl) ==
+
+Hypothesis (written before printing): if the block model's error is only the one that the
+convergence in B measures, its V_G approaches the kernel's as B grows, within ~5% at B = 160 with
+the Gaussian law before and during the move, and its threshold calls agree with the kernel's
+majority on (nearly) all 21 inputs. (These inputs were seen; not a test.)
+Output (`kcompare`):
+  default :spectrum (deterministic, as in E6′): threshold calls agree with the kernel on 8 of 21 (D: 0 of 13)
+  snap  B   5 (n 21): blocks/kernel V_G median pre 0.329 +50 0.349 +100 0.254 +200 0.409; threshold calls agree 19/21; mean |P − f| 0.110
+  snap  B  10 (n 21): blocks/kernel V_G median pre 0.438 +50 0.397 +100 0.279 +200 0.257; threshold calls agree 19/21; mean |P − f| 0.110
+  snap  B  20 (n 21): blocks/kernel V_G median pre 0.590 +50 0.561 +100 0.420 +200 0.397; threshold calls agree 19/21; mean |P − f| 0.099
+  snap  B  40 (n 21): blocks/kernel V_G median pre 0.734 +50 0.675 +100 0.548 +200 0.530; threshold calls agree 21/21; mean |P − f| 0.046
+  snap  B  80 (n 21): blocks/kernel V_G median pre 0.873 +50 0.845 +100 0.768 +200 0.637; threshold calls agree 21/21; mean |P − f| 0.014
+  snap  B 160 (n 18): blocks/kernel V_G median pre 0.954 +50 0.927 +100 0.897 +200 0.780; threshold calls agree 18/18; mean |P − f| 0.015
+  snap  B 320 (n 18): blocks/kernel V_G median pre 0.978 +50 0.980 +100 0.960 +200 0.919; threshold calls agree 18/18; mean |P − f| 0.008
+  gaussian B  10 (n 21): blocks/kernel V_G median pre 0.435 +50 0.415 +100 0.485 +200 0.605; threshold calls agree 21/21; mean |P − f| 0.030
+  gaussian B  20 (n 21): blocks/kernel V_G median pre 0.587 +50 0.561 +100 0.573 +200 0.656; threshold calls agree 21/21; mean |P − f| 0.018
+  gaussian B  40 (n 21): blocks/kernel V_G median pre 0.757 +50 0.702 +100 0.713 +200 0.754; threshold calls agree 21/21; mean |P − f| 0.017
+  gaussian B  80 (n 21): blocks/kernel V_G median pre 0.895 +50 0.848 +100 0.837 +200 0.848; threshold calls agree 21/21; mean |P − f| 0.017
+  gaussian B 160 (n 18): blocks/kernel V_G median pre 0.948 +50 0.955 +100 0.924 +200 0.932; threshold calls agree 18/18; mean |P − f| 0.008
+  gaussian B 320 (n 18): blocks/kernel V_G median pre 0.974 +50 0.966 +100 0.984 +200 0.965; threshold calls agree 18/18; mean |P − f| 0.010
+
+Reading. V_G approaches the kernel monotonically in B for both laws: Gaussian B = 160 at 0.95, 0.96,
+0.92, 0.93 of the kernel's (before, +50, +100, +200), B = 320 at 0.97, 0.97, 0.98, 0.97; snapping is
+worse during the move at every B (B = 160: +200 at 0.78). The remaining bias at B = 160 is ~5–8%
+low, i.e. the convergence rule leaves an error of that size; it is the same sign at every B (more
+blocks → more variance), so the rule's 160 → 320 change underestimates the distance to B = L by
+roughly a factor 2. Threshold calls agree with the kernel on all D + Dctl inputs at B ≥ 40 for
+both laws, where the default :spectrum agrees on 8 of 21 (0 of the 13 D inputs, which were chosen
+as :spectrum's failures). Caveat: most of these inputs die in the kernel (f = 0) far from the
+threshold of the block model, so the calls are not a sensitive test; the fresh validation is.
+
+== Choice (made here, before any fresh data) ==
+
+Representation (A2): haplotype-block lineages, partition :map, Gaussian segregation within blocks,
+B = 160 blocks (min(160, L); at L = 100 every locus is a block and the model is the kernel in
+law), chosen by the convergence rule stated before step 1. Not (A) with snapping (no convergence
+at B ≤ 320). (B) and (C) not built: (A2) converges at an affordable B on the development inputs and
+reproduces the kernel's V_G trajectory within 5–8%, and the decision rules stated at the top
+build (B)/(C) only if (A) fails. The cost is reported in step 4: it is NOT much cheaper than the
+kernel at this B (see there), which is the main weakness of the representation.
+
+== Step 3: the association at block level (kernel genomes summed over the same 160 blocks) ==
+
+Hypotheses (written before running). On the 13 D inputs (kernel: 4 runs each, seeds as the
+diagnosis's KSEED + 100j + r, reading genomes only; model: 16 runs, Gaussian law, B = 160): the
+block-level genic variance (2Σ_b Var y_b) falls under the move in both, and the model's ratio
+block-genic(t)/block-genic(−1) is within ±10% of the kernel's at +50 and +100 (median log ratio);
+the block-level association Σ_b Cov(G − y_b, d_b²)/block-genic² is negative under the move in both
+(the sign-symmetric association of validate/genic_decline.md, at block resolution). The kernel's
+per-locus genic ratio is printed for reference; the model has no per-locus genic variance.
+
+== Step 4: cost per emulator call ==
+
+Hypothesis (written before running): one call (40 replicates, burn-in 1000, horizon 2000) at
+B = 160 with the Gaussian law costs about half of 40 kernel runs at 1000–5000 loci and about the
+same at 100–500 loci; it is slower than the deterministic :spectrum per call. (One thread, while
+other jobs ran on the machine: ratios are more reliable than absolute times.)
+
+Output (`assoc`, BASSOC=160, within :gaussian):
+step 3: block-level statistics at B = 160 on D (13 inputs; kernel 4 runs, model 16 runs, means over runs alive)
+  per input: block-genic(t)/block-genic(−1) kernel | model at t = 50, 100, 200;  Σ assoc / block-genic² kernel | model at 50, 100, 200;  kernel per-locus genic(t)/genic(−1)
+  QT0100-Possion5.0/Input-06159.txt 1.025|0.988  -0.001|+0.001   0.985|1.003  -0.004|-0.003   0.889|0.970  -0.011|-0.013   genic 1.025 0.985 0.889
+  QT0500-Possion3.0/Input-01192.txt 0.995|0.989  -0.009|-0.003   0.925|0.917  -0.005|-0.003   0.709|0.725  -0.003|-0.003   genic 1.014 0.951 0.720
+  QT0500-Possion3.0/Input-04943.txt 0.845|0.872  -0.028|-0.028   0.556|0.512  -0.018|-0.016   NaN|NaN  +NaN|+NaN   genic 0.879 0.562 NaN
+  QT1000-Possion3.0/Input-00854.txt 0.830|0.870  -0.010|-0.021   0.654|0.666  -0.020|-0.023   0.495|0.468  -0.019|-0.019   genic 0.917 0.698 0.505
+  QT1000-Possion3.0/Input-06004.txt 0.913|0.918  -0.010|-0.002   0.740|0.738  -0.001|-0.005   0.421|0.415  -0.007|-0.005   genic 0.931 0.788 0.454
+  QT1000-Possion3.0/Input-09697.txt 0.994|0.998  -0.002|-0.002   0.892|0.925  -0.001|-0.001   0.645|0.682  -0.000|-0.002   genic 0.983 0.915 0.709
+  QT1000-Possion5.0/Input-14110.txt 0.945|0.953  +0.007|+0.001   0.728|0.802  -0.008|+0.000   0.490|0.528  +0.007|-0.002   genic 0.960 0.789 0.571
+  QT1000-Possion5.0/Input-07594.txt 0.962|0.907  -0.034|+0.005   0.795|0.708  +0.014|-0.031   0.630|0.512  -0.026|-0.018   genic 0.987 0.779 0.542
+  QT5000-Possion3.0/Input-12000.txt 0.912|0.856  +0.000|+0.000   0.657|0.569  +0.001|-0.000   0.249|0.137  -0.000|-0.001   genic 0.907 0.705 0.285
+  QT5000-Possion3.0/Input-14771.txt 0.650|0.526  +0.002|-0.002   0.165|NaN  -0.000|+NaN   NaN|NaN  +NaN|+NaN   genic 0.672 0.210 NaN
+  QT5000-Possion5.0/Input-01925.txt 0.996|0.987  +0.002|-0.002   1.000|0.952  -0.006|-0.003   0.855|0.832  -0.008|-0.001   genic 0.997 0.983 0.854
+  QT5000-Possion5.0/Input-12463.txt 0.997|0.955  +0.002|+0.000   0.972|0.864  -0.002|-0.002   0.696|0.658  -0.005|-0.000   genic 0.991 0.945 0.723
+  QT5000-Possion5.0/Input-05562.txt 0.916|0.920  +0.005|-0.003   0.754|0.656  +0.001|-0.001   0.348|0.250  -0.001|-0.001   genic 0.936 0.773 0.396
+  t =  50: median log(model/kernel) of block-genic(t)/(−1) -0.006 (n 13); median model − kernel association/bg² -0.000
+  t = 100: median log(model/kernel) of block-genic(t)/(−1) -0.029 (n 12); median model − kernel association/bg² -0.000
+  t = 200: median log(model/kernel) of block-genic(t)/(−1) -0.026 (n 11); median model − kernel association/bg² +0.000
+
+Reading. Confirmed for the variance: the block-genic variance falls under the move in both, by
+the same amount (median log ratio model/kernel −0.006, −0.029, −0.026 at +50, +100, +200; per input
+mostly within ±10%, worst 12000 at +200 (0.137 vs 0.249) and 14771 (dies)); and in the kernel the
+block-level fall tracks the per-locus genic fall closely (e.g. 00854: 0.654 vs 0.698 at +100), so
+at B = 160 the block-genic variance is a usable proxy of the genic decline that :spectrum misses.
+The association statistic Σ_b Cov(G − y_b, d_b²)/bg² is small and noisy at block level with 4
+kernel runs (−0.03…+0.01): mostly negative under the move in both, with a median difference of
+0.000; "where measurable" it agrees, but it is not a sharp test at this resolution.
+
+Output (`cost`, -t 1):
+  L  100  QT0100-Possion3.0/Input-09247.txt B 160 gaussian: 28.1 s for 40 replicates (P2000 1.00)
+  L  100  QT0100-Possion3.0/Input-09247.txt B 320 gaussian: 27.8 s for 40 replicates (P2000 1.00)
+  L  100  QT0100-Possion3.0/Input-09247.txt B 320 snap    : 20.1 s for 40 replicates (P2000 1.00)
+  L  100  :spectrum 6.1 s, ld = :dynamic 4.7 s; kernel 4 runs 3.6 s (×10 for 40)
+  L  500  QT0500-Possion3.0/Input-01192.txt B 160 gaussian: 29.9 s for 40 replicates (P2000 0.12)
+  L  500  QT0500-Possion3.0/Input-01192.txt B 320 gaussian: 45.0 s for 40 replicates (P2000 0.12)
+  L  500  QT0500-Possion3.0/Input-01192.txt B 320 snap    : 26.4 s for 40 replicates (P2000 0.15)
+  L  500  :spectrum 3.1 s, ld = :dynamic 5.0 s; kernel 4 runs 4.0 s (×10 for 40)
+  L 1000  QT1000-Possion3.0/Input-00854.txt B 160 gaussian: 19.8 s for 40 replicates (P2000 0.00)
+  L 1000  QT1000-Possion3.0/Input-00854.txt B 320 gaussian: 29.3 s for 40 replicates (P2000 0.00)
+  L 1000  QT1000-Possion3.0/Input-00854.txt B 320 snap    : 16.0 s for 40 replicates (P2000 0.00)
+  L 1000  :spectrum 2.3 s, ld = :dynamic 4.0 s; kernel 4 runs 2.9 s (×10 for 40)
+  L 5000  QT5000-Possion3.0/Input-12000.txt B 160 gaussian: 18.9 s for 40 replicates (P2000 0.00)
+  L 5000  QT5000-Possion3.0/Input-12000.txt B 320 gaussian: 27.6 s for 40 replicates (P2000 0.00)
+  L 5000  QT5000-Possion3.0/Input-12000.txt B 320 snap    : 14.3 s for 40 replicates (P2000 0.00)
+  L 5000  :spectrum 2.9 s, ld = :dynamic 6.1 s; kernel 4 runs 5.4 s (×10 for 40)
+
+Reading. Hypothesis partly wrong: B = 160 with the Gaussian law (B = 100 at 100 loci) costs per call
+of 40 replicates 28 s, 30 s, 20 s, 19 s at 100/500/1000/5000 loci against about 36, 40, 29, 54 s
+for 40 kernel runs (×10 the 4-run time; these inputs die early, so all runs are short): 1.3×,
+1.3×, 1.5×, 2.9× cheaper than the kernel, not 2×; and 4–9× slower than one deterministic
+:spectrum call (2.3–6.1 s) or ld = :dynamic (4.0–6.1 s). The Gaussian law costs 1.3–1.6× snapping
+at the same B (the per-block variance each generation). So the representation is NOT much cheaper
+than the kernel: the kernel's own block genome (√L shared blocks, copy on write) is already
+efficient, and a converged block model needs ~160 values per chromosome. This is recorded as the
+main negative result of the design phase; the fresh validation tests accuracy, and (S4) cost.
+
+== Appendix: step 1b, :position partition with the Gaussian law (finished after the choice) ==
+step 1 (gpos, partition :position, within :gaussian): per input and B, P(alive at +2000), V_G before the move, V_G at +100, over 40 runs
+  QT0100-Possion3.0/Input-09247.txt B10 1.00/0.1237/0.1236  B20 1.00/0.1316/0.1229  B40 1.00/0.1306/0.1313  B80 1.00/0.1345/0.1381
+  QT0100-Possion5.0/Input-06159.txt B10 0.65/0.0900/0.0878  B20 0.97/0.1040/0.1017  B40 1.00/0.1064/0.1056  B80 1.00/0.1063/0.1056
+  QT0100-Possion5.0/Input-07602.txt B10 0.00/0.2330/0.1942  B20 0.00/0.2777/0.2445  B40 0.00/0.2998/0.2995  B80 0.00/0.2697/0.3370
+  QT0500-Possion3.0/Input-01192.txt B10 0.00/0.2540/0.1870  B20 0.00/0.3510/0.2519  B40 0.00/0.4415/0.3526  B80 0.00/0.4970/0.4170  B160 0.35/0.5385/0.4644
+  QT0500-Possion3.0/Input-08172.txt B10 0.07/0.1562/0.1536  B20 0.05/0.1689/0.1633  B40 0.00/0.1859/0.1843  B80 0.03/0.1885/0.1845  B160 0.00/0.1804/0.1851
+  QT0500-Possion3.0/Input-04943.txt B10 0.00/0.0165/NaN  B20 0.00/0.0232/0.0063  B40 0.00/0.0292/0.0097  B80 0.00/0.0341/0.0141  B160 0.00/0.0372/0.0183
+  QT0500-Possion5.0/Input-09607.txt B10 0.00/0.6132/0.5024  B20 0.00/0.7508/0.6240  B40 0.00/0.8489/0.7132  B80 0.00/0.9159/0.7903  B160 0.00/0.9198/0.7948
+  QT1000-Possion3.0/Input-00854.txt B10 0.00/0.0038/0.0015  B20 0.00/0.0050/0.0027  B40 0.00/0.0064/0.0042  B80 0.00/0.0075/0.0055  B160 0.00/0.0081/0.0059
+  QT1000-Possion3.0/Input-06004.txt B10 0.00/0.0426/0.0203  B20 0.00/0.0610/0.0351  B40 0.00/0.0786/0.0515  B80 0.00/0.0930/0.0649  B160 0.00/0.1017/0.0759
+  QT1000-Possion3.0/Input-09697.txt B10 0.00/0.2690/0.2152  B20 0.00/0.3637/0.2933  B40 0.00/0.4757/0.3969  B80 0.00/0.5296/0.4521  B160 0.00/0.5720/0.4990
+  QT1000-Possion3.0/Input-13132.txt B10 0.00/0.1756/0.1373  B20 0.00/0.2344/0.1749  B40 0.00/0.2712/0.2054  B80 0.00/0.2955/0.2290  B160 0.00/0.3011/0.2391
+  QT1000-Possion5.0/Input-06028.txt B10 1.00/0.1155/0.1094  B20 1.00/0.1146/0.1148  B40 1.00/0.1293/0.1285  B80 1.00/0.1295/0.1304  B160 1.00/0.1348/0.1307
+  QT1000-Possion5.0/Input-14110.txt B10 0.00/0.0597/0.0413  B20 0.00/0.0761/0.0563  B40 0.00/0.0935/0.0720  B80 0.00/0.1047/0.0853  B160 0.00/0.1149/0.0948
+  QT1000-Possion5.0/Input-07594.txt B10 0.00/0.0028/0.0016  B20 0.00/0.0036/0.0022  B40 0.00/0.0044/0.0031  B80 0.00/0.0050/0.0038  B160 0.00/0.0056/0.0045
+  QT5000-Possion3.0/Input-12000.txt B10 0.00/0.0486/NaN  B20 0.00/0.0669/0.0167  B40 0.00/0.0911/0.0404  B80 0.00/0.1099/0.0611  B160 0.00/0.1281/0.0815
+  QT5000-Possion3.0/Input-14771.txt B10 0.00/0.0447/NaN  B20 0.00/0.0629/NaN  B40 0.00/0.0857/NaN  B80 0.00/0.1064/NaN  B160 0.00/0.1186/NaN
+  QT5000-Possion3.0/Input-06126.txt B10 0.00/0.0534/0.0517  B20 0.00/0.0522/0.0499  B40 0.00/0.0551/0.0540  B80 0.00/0.0580/0.0565  B160 0.00/0.0565/0.0556
+  QT5000-Possion5.0/Input-01925.txt B10 0.00/0.3092/0.2907  B20 0.03/0.3914/0.3506  B40 0.00/0.4260/0.3977  B80 0.00/0.4508/0.4263  B160 0.00/0.4515/0.4321
+  QT5000-Possion5.0/Input-12463.txt B10 0.00/0.1809/0.1462  B20 0.00/0.2368/0.2005  B40 0.00/0.2858/0.2510  B80 0.00/0.3167/0.2810  B160 0.00/0.3361/0.3087
+  QT5000-Possion5.0/Input-05562.txt B10 0.00/0.1450/0.0646  B20 0.00/0.1939/0.1023  B40 0.00/0.2451/0.1462  B80 0.00/0.2833/0.1863  B160 0.00/0.3080/0.2091
+  QT5000-Possion5.0/Input-11865.txt B10 0.00/0.0966/0.0580  B20 0.00/0.1245/0.0796  B40 0.00/0.1457/0.1003  B80 0.00/0.1704/0.1171  B160 0.00/0.1771/0.1294
+
+  successive doublings B → 2B (over inputs with both): median |log V_G ratio| before / at +100 / at +200, mean |ΔP|, calls P > 1/2 that differ
+    10 →   20 (n 21): 0.254 / 0.261 / 0.243, 0.018, 0
+    20 →   40 (n 21): 0.188 / 0.228 / 0.273, 0.005, 0
+    40 →   80 (n 21): 0.108 / 0.124 / 0.094, 0.001, 0
+    80 →  160 (n 18): 0.078 / 0.099 / 0.120, 0.021, 0
+
+  the same by locus count (median |log V_G ratio| at +100; mean |ΔP|)
+  L = 100 (3 inputs): 10→20 0.147 0.11; 20→40 0.066 0.01; 40→80 0.051 0.00
+  L = 500 (4 inputs): 10→20 0.217 0.01; 20→40 0.235 0.01; 40→80 0.135 0.01; 80→160 0.057 0.09
+  L = 1000 (7 inputs): 10→20 0.309 0.00; 20→40 0.302 0.00; 40→80 0.170 0.00; 80→160 0.099 0.00
+  L = 5000 (7 inputs): 10→20 0.316 0.00; 20→40 0.228 0.00; 40→80 0.134 0.00; 80→160 0.097 0.00
+Reading: at 80 → 160 similar to :map (0.078/0.099/0.120 vs 0.093/0.131/0.110); no reason to revisit
+the choice.
+
+Development CPU time: about 5 CPU-hours (steps 0–4, incl. the 400-run check).
