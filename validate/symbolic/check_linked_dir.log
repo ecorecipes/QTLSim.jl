@@ -1,0 +1,70 @@
+QTLSim validate/symbolic/check_linked_dir.jl (Symbolics 7.48.0)
+
+(a) the measurement's derivatives under weights 1 + εh
+  trial 1: d/dε of y, T, J, H, K, yY = dir_measure!'s formulas (exact)     ok
+  trial 2: d/dε of y, T, J, H, K, yY = dir_measure!'s formulas (exact)     ok
+
+(b) one biallelic locus: d² = s d + v, d³ = (s² + v)d + sv, κ4 = v(s² − 2v), κ5 = v s(s² − 8v)
+  d² = s d + v at both allele values                                       ok
+  d³ = (s² + v) d + s v at both allele values                              ok
+  κ4 = v (s² − 2v)                                                         ok
+  κ5 = v s (s² − 8v)                                                       ok
+  s = a(1 − 2p), v = a²p(1 − p)                                            ok
+
+(c) biallelic X, any background (exact rational populations)
+  trial 1: T_A = s y_A, H_A = s J_A, K3_A = w y_A                          ok
+  trial 1: s κ(A,B,B,X) = Cov(AB², d²) − 2Cov(A,B)C − Var(B)T_A            ok
+  trial 2: T_A = s y_A, H_A = s J_A, K3_A = w y_A                          ok
+  trial 2: s κ(A,B,B,X) = Cov(AB², d²) − 2Cov(A,B)C − Var(B)T_A            ok
+  trial 3: T_A = s y_A, H_A = s J_A, K3_A = w y_A                          ok
+  trial 3: s κ(A,B,B,X) = Cov(AB², d²) − 2Cov(A,B)C − Var(B)T_A            ok
+
+(d) the directional change under weights 1 + ε(G − Ḡ), biallelic X (exact)
+  trial 1: dH_A/dε = w J_A − 2Y(T_A + J_A) + s κ(A,B,B,X)  (†)             ok
+  trial 1: (the form without −2Y T_A is wrong)                             ok
+  trial 1: ds/dε = −2(v + Y)                                               ok
+  trial 1: dT_A/dε = K_A + K3_A; dy_A/dε = T_A + J_A                       ok
+  trial 1: dJ_A/dε = K_A + κ(A,B,B,X)                                      ok
+  trial 1: dK_A/dε = κ₅(A,B,X,X,G)                                         ok
+  trial 2: dH_A/dε = w J_A − 2Y(T_A + J_A) + s κ(A,B,B,X)  (†)             ok
+  trial 2: (the form without −2Y T_A is wrong)                             ok
+  trial 2: ds/dε = −2(v + Y)                                               ok
+  trial 2: dT_A/dε = K_A + K3_A; dy_A/dε = T_A + J_A                       ok
+  trial 2: dJ_A/dε = K_A + κ(A,B,B,X)                                      ok
+  trial 2: dK_A/dε = κ₅(A,B,X,X,G)                                         ok
+  trial 3: dH_A/dε = w J_A − 2Y(T_A + J_A) + s κ(A,B,B,X)  (†)             ok
+  trial 3: (the form without −2Y T_A is wrong)                             ok
+  trial 3: ds/dε = −2(v + Y)                                               ok
+  trial 3: dT_A/dε = K_A + K3_A; dy_A/dε = T_A + J_A                       ok
+  trial 3: dJ_A/dε = K_A + κ(A,B,B,X)                                      ok
+  trial 3: dK_A/dε = κ₅(A,B,X,X,G)                                         ok
+
+(e) Gaussian background: the cubic heterogeneity cancels −2Cov(A,B)C − Var(B)T_A
+  Cov(AB², d²) − 2Cov(A,B)C − Var(B)T_A = 0                                ok
+
+(f) two biallelic loci, joint law P_kP_l(1 + D d_k d_l/(v_k v_l)): cumulants in powers of D
+  trial 1: κ(k,k,l) = s_k D exactly                                        ok
+  trial 1: κ(k,k,l,l) = s_k s_l D − 2D² exactly                            ok
+  trial 1: κ(k,l,l,l) = w_l D exactly                                      ok
+  trial 1: κ(k,k,k,l,l) = s_l w_k D − 6 s_k D² exactly                     ok
+  trial 2: κ(k,k,l) = s_k D exactly                                        ok
+  trial 2: κ(k,k,l,l) = s_k s_l D − 2D² exactly                            ok
+  trial 2: κ(k,l,l,l) = w_l D exactly                                      ok
+  trial 2: κ(k,k,k,l,l) = s_l w_k D − 6 s_k D² exactly                     ok
+  trial 3: κ(k,k,l) = s_k D exactly                                        ok
+  trial 3: κ(k,k,l,l) = s_k s_l D − 2D² exactly                            ok
+  trial 3: κ(k,l,l,l) = w_l D exactly                                      ok
+  trial 3: κ(k,k,k,l,l) = s_l w_k D − 6 s_k D² exactly                     ok
+
+(g) iid sampling of M: E[T̂_A ŷ_B]
+  E[T̂_A ŷ_B] = T_A y_B + [−5T_Ay_B − 2y_AT_B + μ(A,B,X³) − vμ(A,B,X)]/M + O(1/M²) ok
+  biallelic seed μ(A,B,X³) − vμ(A,B,X) = s v Cov(A,B) + s² μ(A,B,X) (3 populations) ok
+
+(h) spot checks of validate/linked_dir_theory.jl
+  dir_drivers: ⟨w⟩ = Σκ4/Σv, ⟨s²⟩ = Σ(κ3²/v)/Σv, h = Σv²/(Σv)² (empty group 0) ok
+  k3_source = ⟨w⟩_l m                                                      ok
+  qt_step!: selection, two sampling stages (with −2εQᵀ and the κ3 seed), recombination ok
+  qt_increments: δP = β(Q + Qᵀ), δH = 2δP, δm = β T̄                        ok
+
+50 checks, 0 failed; 5 s
+PASS

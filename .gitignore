@@ -21,3 +21,5 @@ validate/symbolic/Manifest-v*.toml
 /validate/linked_decay_raw
 /validate/linked_source_raw
 /validate/linked_ld_raw/
+/validate/linked_ld_raw
+/validate/linked_dir_raw/
