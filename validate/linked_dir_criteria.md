@@ -84,3 +84,5 @@ section 1); the exploratory driven-spectrum check only if (d) passes.
 ## Amendments
 
 None. Any amendment will be recorded here, with its reason, before the J runs are analysed.
+
+Decision after the J runs were made (72 runs, 1957 CPU-s) and before they were analysed (2026-11-15): no amendment.

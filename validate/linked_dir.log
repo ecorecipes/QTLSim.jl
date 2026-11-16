@@ -163,3 +163,4 @@ directories 0 (104).
 J runs started after the criteria commit (8a916eb, text fix b242636). The analysis code (`confirm`,
 `dir_confirm`: the verdict rules of the criteria file) was written while the J runs were being made and
 smoke-tested for crashes on D with R = 1 (development data; output discarded).
+J kernel runs: 72 runs, 1957 CPU-s (user time). Amendment decision before analysis: none.
