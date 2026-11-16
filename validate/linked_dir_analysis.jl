@@ -341,7 +341,8 @@ function dag_input(r, R, set; io = stdout, variants = DAG)
             push!(get!(cum, :meas_losssym, Float64[]), sum(2 .* m.beta[rg] .* m.Csym[rg]) / g0)
         end
         for (v, kw) in variants
-            o = kw === nothing ? levelBdir(tr, G, ρ2; dir = false) : levelBdag(tr, G, ρ2; kw...)
+            o = kw === nothing ? levelBdir(tr, G, ρ2; dir = false) :
+                haskey(kw, :dir) ? levelBdir(tr, G, ρ2; kw...) : levelBdag(tr, G, ρ2; kw...)
             for (s, x) in ((:yY, o.yY), (:K, o.K), (:C, o.C), (:H, o.H))
                 push!(get!(ser, Symbol(v, :_, s), []), (m.t, x))
             end
@@ -513,3 +514,79 @@ function dr_main(mode, args)
         error("unknown mode $mode")
     end
 end
+
+# ---------------------------------------------------------------------------------------
+# 6. the pre-specified verdicts on J (validate/linked_dir_criteria.md)
+
+const CONF = [(:Bps, nothing), (:Bdag, (;)), (:BdT, (incr = (),)),
+              (:Bd, (dir = true, which = (:P, :K))), (:Bdt, (dir = true, which = (:P, :K), tk3 = true))]
+
+inband(x) = isfinite(x) && 0.75 <= x <= 1.33
+passlr(u) = (md = medf(u); ma = mabs(u); isfinite(md) && abs(md) <= 0.3 && ma <= 0.4)
+
+function dir_confirm(set, R; io = stdout)
+    rows = dr_rows(set)
+    println(io, "\n== linked directional terms, set $set, R = $R: per input (ratios pre / 50..99 / 100..199) ==")
+    bufs = [IOBuffer() for _ in rows]
+    resv = Vector{Any}(undef, length(rows))
+    Threads.@threads :greedy for i in eachindex(rows)
+        resv[i] = dag_input(rows[i], R, set; io = bufs[i], variants = CONF)
+    end
+    foreach(b -> print(io, String(take!(b))), bufs)
+    all_ = [(rows[i], resv[i]) for i in eachindex(rows) if resv[i] !== nothing]
+    elig = summarize(all_, first.(CONF); io)
+    @printf(io, "  P1 (level A), eligible: log(predicted ΣC / measured ΣC) median / median |.|:\n")
+    P1 = Dict{Tuple{Symbol,Tuple{Int,Int}},Vector{Float64}}()
+    for md in AMODES, w in WINS[3:5]
+        u = [lr(x[2][Symbol(:A_, md)][w], x[2][:C][w]) for x in elig]
+        P1[(md, w)] = u
+        @printf(io, "    %-9s %d..%d %+.3f / %.3f (n %d)\n", md, w..., medf(u), mabs(u), count(isfinite, u))
+    end
+    ratio(v, s, w) = medf([x[2][Symbol(v, :_, s)][w] / x[2][s][w] for x in all_])
+    vlab(n, k) = n == k ? "PASS" : n == 0 ? "FAIL" : "PARTIAL"
+    println(io, "\n== pre-specified verdicts (validate/linked_dir_criteria.md), $(length(all_)) inputs, $(length(elig)) eligible ==")
+    for v in (:Bdag, :BdT, :Bps)
+        lab = v === :Bdag ? "level B‡" : "comparator $v"
+        a1 = ratio(v, :yY, (50, 99)); a2 = ratio(v, :yY, (100, 199))
+        b1 = ratio(v, :H, (50, 99))
+        c1 = ratio(v, :K, (-60, -1)); c2 = ratio(v, :K, (50, 99))
+        @printf(io, "%s:\n", lab)
+        @printf(io, "  (a) Σ E[yY] ratio 50..99 %.3f, 100..199 %.3f -> %s\n", a1, a2, vlab(inband(a1) + inband(a2), 2))
+        @printf(io, "  (b) Σ H ratio 50..99 %.3f -> %s\n", b1, inband(b1) ? "PASS" : "FAIL")
+        @printf(io, "  (c) Σ K ratio -60..-1 %.3f, 50..99 %.3f -> %s\n", c1, c2, vlab(inband(c1) + inband(c2), 2))
+        if length(elig) < 6
+            @printf(io, "  (d) INCONCLUSIVE (%d eligible)\n", length(elig))
+        else
+            us = [[lr(x[2][Symbol(v, :_C)][w], x[2][:C][w]) for x in elig] for w in WINS[3:5]]
+            ul = [lr(x[2][Symbol(v, :_loss)], x[2][:meas_losssym]) for x in elig]
+            oks = [passlr(u) for u in us]; okl = passlr(ul)
+            n = count(oks) + okl
+            @printf(io, "  (d) ΣC 25..49 %+.3f/%.3f %s, 50..99 %+.3f/%.3f %s, 100..199 %+.3f/%.3f %s, loss %+.3f/%.3f %s -> %s\n",
+                    medf(us[1]), mabs(us[1]), oks[1] ? "ok" : "fails", medf(us[2]), mabs(us[2]), oks[2] ? "ok" : "fails",
+                    medf(us[3]), mabs(us[3]), oks[3] ? "ok" : "fails", medf(ul), mabs(ul), okl ? "ok" : "fails",
+                    n == 4 ? "PASS" : n >= 2 ? "PARTIAL" : "FAIL")
+        end
+    end
+    if length(elig) < 6
+        println(io, "(e) P1 INCONCLUSIVE")
+    else
+        acc = [abs(medf(P1[(:derived, w)])) <= 0.2 && mabs(P1[(:derived, w)]) <= 0.3 for w in WINS[3:5]]
+        comp = all(mabs(P1[(:derived, w)]) < min(mabs(P1[(:nosel, w)]), mabs(P1[(:spectrum, w)])) for w in WINS[4:5])
+        verdict = (all(acc) && comp) ? "PASS" : (count(acc) == 2 && comp) ? "PARTIAL" : "FAIL"
+        @printf(io, "(e) P1 (decay rate): accuracy %s, comparator condition %s -> %s\n",
+                join([a ? "ok" : "fails" for a in acc], "/"), comp ? "holds" : "fails", verdict)
+    end
+    println(io, "Secondary (diagnosis), rules of (d):")
+    for v in (:Bdt, :Bd)
+        us = [[lr(x[2][Symbol(v, :_C)][w], x[2][:C][w]) for x in elig] for w in WINS[3:5]]
+        ul = [lr(x[2][Symbol(v, :_loss)], x[2][:meas_losssym]) for x in elig]
+        oks = [passlr(u) for u in us]; okl = passlr(ul); n = count(oks) + okl
+        @printf(io, "  %s: ΣC 25..49 %+.3f/%.3f, 50..99 %+.3f/%.3f, 100..199 %+.3f/%.3f, loss %+.3f/%.3f -> %s%s\n", v,
+                medf(us[1]), mabs(us[1]), medf(us[2]), mabs(us[2]), medf(us[3]), mabs(us[3]), medf(ul), mabs(ul),
+                n == 4 ? "PASS" : n >= 2 ? "PARTIAL" : "FAIL", v === :Bdt ? " (pre-specified)" : " (reported)")
+    end
+    all_
+end
+
+dr_main2(mode, args) = mode == "confirm" ? (t = @elapsed dir_confirm(args[1], parse(Int, args[2])); @printf("(analysis %.0f s wall)\n", t)) :
+                       error("unknown mode $mode")

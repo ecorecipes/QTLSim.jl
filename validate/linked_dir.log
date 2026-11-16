@@ -160,3 +160,6 @@ QT1000-3 57, QT1000-5 64, QT5000-3 39, QT5000-5 12). Exclusion check (set inters
 J ∩ D 0 (13 ids), J ∩ F 0 (16), J ∩ G 0 (22), J ∩ H′ 0 (24), J ∩ spectrum_diagnosis_inputs.csv 0 (160),
 J ∩ inputs with raw records in linked_decay/linked_source/linked_ld/spectrum_diagnosis/genic_decline raw
 directories 0 (104).
+J runs started after the criteria commit (8a916eb, text fix b242636). The analysis code (`confirm`,
+`dir_confirm`: the verdict rules of the criteria file) was written while the J runs were being made and
+smoke-tested for crashes on D with R = 1 (development data; output discarded).
