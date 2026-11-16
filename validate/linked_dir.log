@@ -164,3 +164,61 @@ J runs started after the criteria commit (8a916eb, text fix b242636). The analys
 `dir_confirm`: the verdict rules of the criteria file) was written while the J runs were being made and
 smoke-tested for crashes on D with R = 1 (development data; output discarded).
 J kernel runs: 72 runs, 1957 CPU-s (user time). Amendment decision before analysis: none.
+Hypotheses before looking (from development): (a) FAIL or PARTIAL (B‡'s Σ E[yY] too high in 100..199);
+(b) uncertain (D 1.05, H′ 1.43); (c) PASS before the move, uncertain at 50..99; (d) FAIL or PARTIAL
+(100..199 fails); (e) PASS. Diagnosis (Bdt): PASS in 25..49 and 50..99, median within ±0.3 at 100..199.
+
+== linked directional terms, set J, R = 3 (`confirm J 3`, 1437 CPU-s): 24 inputs, 19 eligible ==
+medians (ratios predicted/measured of window means; ΣC lr median/|lr| over eligible inputs):
+                 yY 50..99 / 100..199   H 50..99   K pre / 50..99    ΣC 25..49 / 50..99 / 100..199         loss 0..99
+  B′*            0.855 / 1.019          0.454      0.966 / 1.401     −0.29/0.29  +0.31/0.41  +1.44/1.44    +0.35/0.38
+  B‡ (Bdag)      1.359 / 3.939          1.368      0.966 / 1.176     +0.02/0.34  +0.32/0.50  +2.60/2.60    +0.43/0.56
+  BdT            0.855 / 1.019          0.454      0.966 / 1.401     +0.04/0.34  +0.37/0.40  +1.91/1.91    +0.32/0.45
+  Bd (measured)  0.934 / 1.014          0.926      0.963 / 0.924     −0.07/0.24  +0.12/0.25  +0.79/0.83    +0.14/0.28
+  Bdt (measured) 0.934 / 1.014          0.926      0.963 / 0.924     −0.06/0.26  +0.13/0.29  +0.58/0.79    +0.19/0.22
+  P1 (level A): derived +0.040/0.167, +0.009/0.111, +0.334/0.334; nosel |lr| 0.302/0.340/0.752;
+  spectrum 0.937/1.661/1.120.
+
+== pre-specified verdicts (validate/linked_dir_criteria.md, no amendment) ==
+Level B‡:
+ (a) Σ E[yY] ratio 50..99 1.359, 100..199 3.939 -> FAIL
+ (b) Σ H ratio 50..99 1.368 -> FAIL
+ (c) Σ K ratio −60..−1 0.966, 50..99 1.176 -> PASS
+ (d) ΣC 25..49 +0.023/0.340 ok, 50..99 +0.315/0.498 fails, 100..199 +2.597/2.597 fails, loss +0.433/0.558
+     fails -> FAIL
+ (e) P1 decay rate: accuracy ok/ok/fails (100..199 +0.334, |lr| 0.334), comparator condition holds -> PARTIAL
+Comparators (no verdict, same rules): B′* (a) PASS, (b) FAIL, (c) PARTIAL, (d) FAIL; BdT the same.
+Secondary, the diagnosis (B′* + measured directional terms + measured K3/Σκ3, Bdt): ΣC 25..49
+−0.060/0.255 ok, 50..99 +0.127/0.290 ok, 100..199 +0.581/0.792 fails, loss +0.192/0.223 ok -> PARTIAL
+(Bd, measured directional terms only: PARTIAL, 100..199 +0.788/0.830).
+
+Measured directional terms on J (`terms J 3`, medians per generation ÷ |window mean|, 0..24/25..49/
+50..99/100..199): β Σδ(yY)/yY +0.011/+0.015/+0.001/+0.004 (own-skew part +0.002/+0.004/+0.004/+0.006,
+partner part +0.005/+0.005/−0.010/−0.008); β ΣδH/|H| +0.004/+0.005/+0.003/+0.022; β ΣδK/|K|
+−0.023/−0.014/−0.005/+0.029; β ΣδT vs β Σ(K + K3) equal (identity).
+
+Reading.
+ - The diagnosis replicates on fresh inputs for H and K: adding the measured directional terms to B′*
+   moves Σ H at 50..99 from 0.45 to 0.93 of measured and Σ K from 1.40 to 0.92 (H′: 0.48 → 0.86,
+   1.49 → 0.87); the y term moves Σ E[yY] by +0.08 at 50..99 and lowers its scatter. With the measured
+   K3/Σκ3 as well, ΣC passes 25..49, 50..99 and the cumulative loss, but the 100..199 overprediction
+   is only reduced (lr +1.44 → +0.58), not removed: the directional terms carry most, not all, of it
+   (hypothesis "median within ±0.3 at 100..199" false). Note P1 itself, with the measured K, misses
+   at 100..199 on J (+0.33): part of the late gap is in the T recursion's decay or in what drives it,
+   not in K.
+ - The closure does not. B‡'s own-skew y term grows without the saturation the kernel shows
+   (Σ E[yY] 3.9× measured at 100..199, as on development), which inflates H; its K3 closure moves the
+   early windows the right way but does not fix 50..99. The K term (the main one) and the partner part
+   of the y term are not closed at this order (section 4: the partner part is dominated by three-locus
+   third cumulants; the K term is a ~5% residual of a cancellation that needs the cubic heterogeneity
+   Cov(B_sB², d_l²) as a state). (c) passes for B‡ only because its inflated H offsets B′*'s K error
+   at 50..99 (1.18 vs B′*'s 1.40), not because K is closed: an error cancellation, not a success.
+ - P1 is PARTIAL on J (first non-PASS after F, G, H′): the decay rate holds in 25..99, late-window
+   accuracy fails narrowly (median lr +0.334 > 0.2).
+ - The optional driven-spectrum check was not run ((d) failed, as the task prescribes).
+
+Symbolics: validate/symbolic/check_linked_dir.jl 50 checks PASS; check_all.jl PASS (all 12 files, 117 CPU-s).
+CPU (user time; the wall clock jumped while the machine slept, so thread-s printed by the scripts are not
+CPU): kernel runs D 1909 s, J 1957 s, H′ not timed (≈ 1950 s by J's identical design); analyses: driven
+H′ 1075 s, exploration + Bt/Bdt on H′ ≈ 600 s (not timed), dev H′ 1033 s, dev D 774 s, confirm J 1437 s,
+checks and small scripts ≈ 400 s. Total ≈ 3.1 CPU-h.

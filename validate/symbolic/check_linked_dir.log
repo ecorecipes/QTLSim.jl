@@ -66,5 +66,5 @@ QTLSim validate/symbolic/check_linked_dir.jl (Symbolics 7.48.0)
   qt_step!: selection, two sampling stages (with −2εQᵀ and the κ3 seed), recombination ok
   qt_increments: δP = β(Q + Qᵀ), δH = 2δP, δm = β T̄                        ok
 
-50 checks, 0 failed; 5 s
+50 checks, 0 failed; 1 s
 PASS
