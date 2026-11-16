@@ -80,6 +80,10 @@ With `loci = :blocks` it runs instead the haplotype-block lineage model ([`run_b
 src/block_lineages.jl): the kernel's life cycle with each chromosome reduced to the sums of a
 few blocks and crossovers moved to block boundaries (exactly the kernel when every locus is a
 block), replicated; off by default (`validate/blocks_dev.log`, `validate/blocks_criteria.md`).
+With `loci = :two_stage` a cheap deterministic screen (`:spectrum` with dynamic LD) runs on
+every input and the block model only where the input's rate is within a band of the screen's
+own half-survival rate ([`QTLSim.two_stage_screen`](@ref)); off by default
+(`validate/two_stage_dev.log`, `validate/two_stage_criteria.md`).
 
 ```@docs
 QTLSim.Para
@@ -98,6 +102,9 @@ QTLSim.block_equilibrium!
 QTLSim.block_stats
 QTLSim.BlockPop
 QTLSim.blocks_emulate
+QTLSim.two_stage_screen
+QTLSim.TWO_STAGE_BAND
+QTLSim.TWO_STAGE_SCREEN
 ```
 
 ## QTSim options files

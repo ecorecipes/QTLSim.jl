@@ -44,6 +44,7 @@ include("sweep.jl")
 include("para.jl")
 include("emulator.jl")
 include("block_lineages.jl")
+include("two_stage.jl")
 
 # the simulation kernel
 export Params, World, genomes, setgenomes!, simulate, run!, generation!, init_env!, checkparams,

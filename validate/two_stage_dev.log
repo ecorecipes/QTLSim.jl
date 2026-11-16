@@ -1,0 +1,74 @@
+validate/two_stage_dev.jl — design of the two-stage emulator on development inputs only
+8 threads; 2026-11-16 10:41
+development inputs: Hd 120 (blocks.jl's H: block model 40 run_blocks runs, kernel 40 runs), Fd 320 (blocks.jl's F: block model 10 replicates); Hd ∩ Fd = 0
+RULES, written before any distance was computed (this header is printed before the sweep):
+ - The screen's call is P2000 > 1/2 at the input's rate k; an input is inside the band of half-width w
+   iff d = |log(k/k50_screen)| < w, i.e. iff the screen's call at k·e^{±w} (toward the flip) differs
+   from its call at k (the implemented rule, QTLSim.two_stage_screen, decides this with one more
+   evaluation). Here d is resolved to ±0.01 up to 0.7; candidate widths [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.7].
+ - Target: the screen disagrees with the block model (its call P2000 > 1/2) on < 1% of the
+   development inputs OUTSIDE the band, separately on Hd (near threshold) and on Fd (random table
+   sample). w* = the smallest candidate width meeting both, for each screen.
+ - Screen choice: the beta solver is adequate if it meets the target at a width whose stage-2
+   fraction on Fd (the table estimate) is at most 5 percentage points above the grid's at the grid's
+   own w*, and if the two screens' decisions (inside/outside the band at the chosen width) agree on
+   ≥ 95% of Hd ∪ Fd. Then the beta (≈ 3× cheaper per evaluation) is the default screen; otherwise
+   the grid. Cost per evaluation is measured below on the development inputs.
+ - The chosen width is the beta's (or grid's) w*, unless the stage-2 fraction of Hd at w* exceeds
+   1/2 (then T3, cost ≤ 1/3 of the block model on near-threshold inputs, cannot pass; reported, and
+   the smallest width meeting the target is still chosen).
+ - The kernel's outcomes on Hd are printed for information only; they set nothing.
+
+screen grid: 440 inputs, 1570 evaluations, 11142 s summed over jobs (7.10 s per evaluation, threaded), 1398 s wall this session
+screen beta: 440 inputs, 1552 evaluations, 3175 s summed over jobs (2.05 s per evaluation, threaded), 398 s wall this session
+
+== screen grid: calls at k ==
+  Hd: screen ≠ blocks 4 of 120; screen ≠ kernel majority 3 (info); blocks ≠ kernel 1 (info)
+  Fd: screen ≠ blocks 1 of 320
+  d of the disagreeing inputs: Hd [0.06, 0.06, 0.191, 0.312]; Fd [0.071]
+  width   Hd in band   Fd in band (table est., 95% CI)   Hd outside: ≠blocks (rate)   Fd outside: ≠blocks (rate)   target   Hd 2-stage acc vs kernel (info)
+   0.05     4 (0.033)     2 (0.006, [0.000, 0.015])             4 of 116 (0.0345)             1 of 318 (0.0031)        not      0.9750
+   0.10    12 (0.100)     3 (0.009, [0.000, 0.020])             2 of 108 (0.0185)             0 of 317 (0.0000)        not      0.9917
+   0.15    15 (0.125)     4 (0.013, [0.000, 0.025])             2 of 105 (0.0190)             0 of 316 (0.0000)        not      0.9917
+   0.20    24 (0.200)     7 (0.022, [0.006, 0.038])             1 of  96 (0.0104)             0 of 313 (0.0000)        not      1.0000
+   0.25    30 (0.250)    10 (0.031, [0.012, 0.050])             1 of  90 (0.0111)             0 of 310 (0.0000)        not      1.0000
+   0.30    33 (0.275)    13 (0.041, [0.019, 0.062])             1 of  87 (0.0115)             0 of 307 (0.0000)        not      1.0000
+   0.40    46 (0.383)    22 (0.069, [0.041, 0.096])             0 of  74 (0.0000)             0 of 298 (0.0000)        met      0.9917
+   0.50    54 (0.450)    24 (0.075, [0.046, 0.104])             0 of  66 (0.0000)             0 of 296 (0.0000)        met      0.9917
+   0.70    83 (0.692)    32 (0.100, [0.067, 0.133])             0 of  37 (0.0000)             0 of 288 (0.0000)        met      0.9917
+  w* (grid) = 0.4
+  blocks alone on Hd vs kernel (info): accuracy 0.9917; screen alone 0.9750
+
+== screen beta: calls at k ==
+  Hd: screen ≠ blocks 4 of 120; screen ≠ kernel majority 3 (info); blocks ≠ kernel 1 (info)
+  Fd: screen ≠ blocks 1 of 320
+  d of the disagreeing inputs: Hd [0.06, 0.071, 0.191, 0.246]; Fd [0.071]
+  width   Hd in band   Fd in band (table est., 95% CI)   Hd outside: ≠blocks (rate)   Fd outside: ≠blocks (rate)   target   Hd 2-stage acc vs kernel (info)
+   0.05     4 (0.033)     2 (0.006, [0.000, 0.015])             4 of 116 (0.0345)             1 of 318 (0.0031)        not      0.9750
+   0.10    12 (0.100)     3 (0.009, [0.000, 0.020])             2 of 108 (0.0185)             0 of 317 (0.0000)        not      0.9917
+   0.15    17 (0.142)     3 (0.009, [0.000, 0.020])             2 of 103 (0.0194)             0 of 317 (0.0000)        not      0.9917
+   0.20    24 (0.200)     6 (0.019, [0.004, 0.034])             1 of  96 (0.0104)             0 of 314 (0.0000)        not      1.0000
+   0.25    30 (0.250)     7 (0.022, [0.006, 0.038])             0 of  90 (0.0000)             0 of 313 (0.0000)        met      0.9917
+   0.30    35 (0.292)    10 (0.031, [0.012, 0.050])             0 of  85 (0.0000)             0 of 310 (0.0000)        met      0.9917
+   0.40    45 (0.375)    22 (0.069, [0.041, 0.096])             0 of  75 (0.0000)             0 of 298 (0.0000)        met      0.9917
+   0.50    53 (0.442)    24 (0.075, [0.046, 0.104])             0 of  67 (0.0000)             0 of 296 (0.0000)        met      0.9917
+   0.70    80 (0.667)    32 (0.100, [0.067, 0.133])             0 of  40 (0.0000)             0 of 288 (0.0000)        met      0.9917
+  w* (beta) = 0.25
+  blocks alone on Hd vs kernel (info): accuracy 0.9917; screen alone 0.9750
+
+== beta vs grid: the decision (inside/outside the band) ==
+  w = 0.05: decisions agree on 436 of 440 (0.9909); calls at k agree on 440
+  w = 0.10: decisions agree on 438 of 440 (0.9955); calls at k agree on 440
+  w = 0.15: decisions agree on 435 of 440 (0.9886); calls at k agree on 440
+  w = 0.20: decisions agree on 435 of 440 (0.9886); calls at k agree on 440
+  w = 0.25: decisions agree on 433 of 440 (0.9841); calls at k agree on 440
+  w = 0.30: decisions agree on 435 of 440 (0.9886); calls at k agree on 440
+  w = 0.40: decisions agree on 439 of 440 (0.9977); calls at k agree on 440
+  w = 0.50: decisions agree on 439 of 440 (0.9977); calls at k agree on 440
+  w = 0.70: decisions agree on 437 of 440 (0.9932); calls at k agree on 440
+  |d_grid − d_beta| where both ≤ 0.7: n 112, median 0.011, 90th pct 0.066, max 0.120
+  beta fell back to the grid (at k) in 94 of 440 inputs
+
+== decision ==
+  beta w* 0.25 (Fd stage-2 fraction 0.0219, Hd 0.2500); grid w* 0.4 (Fd 0.0688, Hd 0.3833); decisions agree at the beta's w* on 0.9841
+  CHOSEN: screen = beta, band = 0.25

@@ -8,6 +8,31 @@ All notable changes to QTLSim.jl are recorded here. The format follows
 
 ### Added
 
+- **A two-stage emulator** (off by default; `emulate(p; loci = :two_stage, band, screen, blocks,
+  replicates, seed)`, `emulated_half_survival_rate(p; loci = :two_stage)`,
+  `emulate_sweep(…; loci = :two_stage, seed)`; src/two_stage.jl). Stage 1 is the deterministic
+  `:spectrum` emulator with `screen = (; ld = :dynamic, solver = :beta)` (`QTLSim.TWO_STAGE_SCREEN`)
+  on every input. Stage 2 is the block model (160 blocks, Gaussian law, 40 replicates), run only
+  where the input's rate is within `exp(±band)` of the screen's own half-survival rate
+  (`band = QTLSim.TWO_STAGE_BAND = 0.25`). That condition is decided by one more screen evaluation,
+  toward the flip (`QTLSim.two_stage_screen`). Results record `stage` and the screen's values. The
+  half-survival rate brackets with the screen and bisects the block model from ±band around it,
+  with common random numbers; `blocks_half_survival_rate` gained a `bracket`.
+  Design, on development inputs only (validate/two_stage_dev.log: blocks.jl's 120 near-threshold
+  and 320 table inputs with cached block results): w = 0.25 is the smallest width at which the screen
+  disagrees with the block model on < 1% of inputs outside the band. The margin is narrow (one input
+  at distance 0.246). The beta and grid screens make the same calls at k on all 440 inputs, their
+  band decisions agree on 98%, and the grid would need w = 0.4; the beta is 3.5× cheaper per evaluation.
+  Pre-specified validation (validate/two_stage_criteria.md, validate/two_stage.log; fresh inputs
+  and seeds): on 120 near-threshold inputs, 40 kernel runs each, **(T1) PASS**: accuracy 0.992 and
+  AUC 0.985, against 1.000/1.000 for the block model alone, one discordant input. ld = :dynamic alone
+  scores 0.883 and the default `:spectrum` 0.817. **(T2) PASS**: pooled x50 ratio 0.967, strata
+  0.88–1.07. **(T3) PASS**: median cost 4.7 s against 65 s for the block model alone (0.07), with 25%
+  of these inputs in stage 2. On 2000 fresh table inputs, 4.05% go to stage 2. E1 PASS (AUC 0.999),
+  E3 PASS and E4 PASS (0.95–1.06), but **E2 FAIL**: the deciles are within 0.003, yet the calibration
+  slope is 0.50. Cost per input is 0.17× the block model alone and 0.93× ld = :dynamic (grid) alone. A
+  two-stage run of the whole table is estimated at ≈ 27 h on 8 threads (not run). Not a default.
+
 - **Haplotype-block lineages** (off by default; `run_blocks`, `emulate(p; loci = :blocks,
   blocks, within, partition, replicates, seed)`, `emulated_half_survival_rate(p; loci = :blocks)`,
   `emulate_sweep(…; loci = :blocks, seed)`; src/block_lineages.jl). The kernel's life cycle on
