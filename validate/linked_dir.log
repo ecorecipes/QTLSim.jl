@@ -1,0 +1,224 @@
+validate/linked_dir.jl — running log (2026-11-15). Hypotheses are written before each test.
+Criteria: validate/linked_dir_criteria.md (committed before any comparison on the fresh set J).
+Development data: D (linked_decay's development set, seeds KSEED + 100j + r) and H′ (linked_ld's
+confirmation set, seeds HSEED + 100j + r), re-run with the directional instrumentation (the
+instrumentation draws nothing, so these are bitwise the runs of linked_source/linked_ld). Both sets'
+association statistics have been seen in earlier studies (disclosed); F and G are not re-run
+(budget). The statement that "a mean-skew closure for b κ(B,x,G) failed on D and G" comes from the
+task description (a scratch study not in the repository); it was not re-checked here.
+
+== 0. Instrumentation (`dir_run`, `dir_check`) ==
+
+Exact first-order directional changes as derivatives of the statistics under weights 1 + εh,
+h = G − Ḡ (individual genotypes), multiplied by β (regression of π/π̄ on G, as the T recursion uses):
+  δy_s = E[h e_s d] = κ(B_s, l, G) + (cross-chromosome sampling term, zero in expectation)
+  δT_s, δJ_s, δH_s, δK_s (central-moment derivatives, formulas in dir_measure!), δ(y_s Y_l).
+Check (QT1000-Possion3.0/Input-09697.txt, 6 generations): V_G bitwise identical to `simulate`; y, T, K,
+H, J, yY, K3, TY, JY, yC, yJ equal linked_source's `ls_run`; derivatives equal central finite
+differences of `ls_measure!` under weights 1 ± εh (max relative error 3e-9); bin-matrix row sums equal
+the group × bin statistics. PASS.
+
+== 1. Size of the directional terms on H′ (72 runs re-made with `dir_run`; kernel CPU not timed (the
+   wall clock jumped while the machine slept), estimated ~45 CPU-min from D's 32 CPU-min for 39 runs) ==
+
+Disclosure: the hypotheses for sections 1 and 2 were formulated before the runs but written into this
+log only after seeing section 1's output (a lapse; from section 3 on they are written first).
+Hypotheses: (i) all three directional terms vanish before the move (symmetry G → −G) and grow after
+it; (ii) the T recursion's directional source β(K + K3) equals the measured β δT (identity check);
+(iii) the y term is +0.01–0.015 of Σ yY per generation in 0..49 (linked_ld section 1); (iv) the K term
+makes K fall in magnitude late in the move (linked_source).
+
+Medians over the 24 H′ inputs of (window mean of the per-generation directional change) / |window
+mean of the statistic| (`terms H 3`):
+                       -60..-1    0..24    25..49    50..99   100..199
+  β Σδ(yY) / yY        -0.0001  +0.0125  +0.0066   -0.0004   +0.0046
+    2βΣ Y_l u_l        -0.0001  +0.0129  +0.0069   -0.0006   +0.0054   (identity: equal in mean)
+    own-skew part T    +0.0000  +0.0005  +0.0030   +0.0038   +0.0058
+    partner part J     -0.0001  +0.0166  +0.0029   -0.0032   -0.0024
+  β ΣδH / |H|          +0.0007  +0.0075  +0.0729   +0.0222   +0.0068
+  β ΣδK / |K|          +0.0004  -0.0044  +0.0153   +0.0500   -0.0150
+  β ΣδT / |C|          -0.0001  -0.1385  -0.0857   -0.0379   -0.0332
+  β Σ(K + K3) / |C|    -0.0001  -0.1389  -0.0835   -0.0380   -0.0341
+Reading: (i) holds; (ii) holds (the T recursion's source is the exact directional change); (iii) holds
+in 0..24 (+0.013) but the term changes sign by input later: its own-skew part (s_l y_s y_t) is
+consistently positive, the partner part (Σ_k s_k D_kl) is positive early and strongly negative in the
+5000-locus inputs (−0.07 to −0.25 at 50..99); (iv) holds: K (negative) gains +0.015 to +0.05 of |K|
+per generation in 25..99. Per-input values scatter widely (|K| small in some inputs).
+Two candidate closures of β Σ δK from the pairwise biallelic model (PBM: two-locus binary joint law
+P_kP_l(1 + D d_kd_l/(v_kv_l)), cumulants to second order in D) do NOT reproduce it at the measured
+state: the product terms −β(6ΣT_lY_l + 4ΣJ_lY_l) give −0.011/−0.010/−0.002/−0.020 and the
+first-order pair term β Σ_l (s_l Σ_k w_k D_kl + w_l Σ_k s_k D_kl) (w = s² − 2v = κ4/v) +0.000/+0.004/
++0.001/+0.014, against the measured −0.004/+0.015/+0.050/−0.015.
+
+== 2. Level B′* driven additionally by the measured directional changes (H′; 1075 CPU-s) ==
+
+`levelBdir`: linked_ld's level B′* (FIXES[:Bps]); at each generation's selection stage the measured
+β δP bin matrix (latest recorded generation, every 2nd) is added to P (and 2× to H), β δy to m, and
+the measured row sums β δK_b to K (spread over t in proportion to P_tt); bins are split over split
+classes in proportion to P_ss (a diagnostic device, not derived). BdP = P part only, BdK = K part
+only, Bd = both. Medians over 24 inputs (14 eligible):
+               yY ratio (pre/50..99/100..199)   H ratio            K ratio            ΣC lr 25..49 / 50..99 / 100..199 (|lr|)     loss 0..99
+  B′*          0.954 / 0.891 / 1.010            0.68/0.48/0.57     1.10/1.49/1.65     −0.28 (0.41) / +0.25 (0.58) / +1.31 (1.31)   +0.47 (0.47)
+  BdP          0.953 / 0.908 / 0.901            0.68/0.63/0.58     1.10/1.45/1.45     −0.32 (0.47) / +0.28 (0.52) / +1.28 (1.28)   +0.34 (0.34)
+  BdK          0.954 / 0.899 / 1.057            0.68/0.72/1.04     1.09/1.19/0.94     +0.15 (0.31) / +0.01 (0.42) / +0.75 (0.79)   +0.21 (0.29)
+  Bd           0.953 / 0.910 / 0.954            0.68/0.86/0.93     1.10/0.87/0.94     +0.14 (0.34) / +0.01 (0.48) / +0.70 (0.70)   +0.15 (0.37)
+(|lr| of yY: B′* 0.07/0.20/0.19, Bd 0.07/0.12/0.13.)
+Reading: the measured directional terms carry the gaps of H and K under the move (H 0.48 → 0.86 at
+50..99, 0.57 → 0.93 at 100..199; K 1.49 → 0.87, 1.65 → 0.94), mostly through K's term; the y term
+moves Σ E[yY] only by 0.02–0.1 but lowers its scatter. They do NOT carry the whole ΣC gap: with K
+right in median, ΣC at 100..199 is still overpredicted (lr +0.70, from +1.31), and the 50..99 scatter
+stays (|lr| 0.48). So the directional terms are confirmed as the cause of the H and K shortfalls and
+of about half (in log) of the 100..199 overprediction.
+
+== 3. What else enters ΣC under the move (H′, exploratory) ==
+
+Level B (and B′, B′*) drop two more first-order directional pieces that level A keeps: K3_s =
+κ(B_s,l,l,l) in the T source, and the κ3 coupling −c_s κ3_l/S_c of the T recursion (κ3 = 0 before
+the move by symmetry, systematic after it: Δκ3_l = β κ(l,l,l,G)). Hypothesis before looking: adding
+the measured K3 and Σκ3 to the T step (variant Bt, and with the measured directional terms Bdt)
+removes most of the remaining ΣC overprediction at 100..199 (lr to within ±0.3) and the scatter at
+50..99 partly. Also run (exploratory): the candidate decompositions of δK (k_explore; hypothesis:
+none of the PBM forms correlates with δK above 0.5) and R = Σ_l E[u uᵀ] against ⟨s²⟩_l P
+(r_explore; hypothesis: R_TT ≈ ⟨s²⟩_l P within a factor 2, R_JJ comparable to R_TT, R_TJ small).
+Results (H′, `explore` script; medians over inputs, per generation ÷ |window mean|):
+ - Bt (measured K3 and Σκ3 in the T step, no directional terms): ΣC lr 25..49 −0.165 (|lr| 0.231),
+   50..99 +0.225 (0.277), 100..199 +1.243 (1.243), loss +0.42; Bdt (with the measured directional
+   terms as well): 25..49 +0.111 (0.269), 50..99 −0.117 (0.368), 100..199 +0.031 (0.494), loss +0.169
+   (0.551). The hypothesis holds for the median at 100..199 only together with the directional terms
+   of section 2: K3/κ3 alone fix 25..99, the K term fixes the late overprediction. Remaining: per-input
+   scatter at 100..199 (|lr| 0.49) and of the loss.
+ - Candidate decompositions of β Σ δK at the measured state (÷ |K|; correlation over inputs):
+   25..49: measured +0.015; PBM product −0.010 (cor +0.80), first-order pair +0.004, biallelic
+   projection (w-terms + products) −0.010 (cor +0.84); 50..99: measured +0.050; products −0.002/+0.001
+   (cor +0.99), biallelic projection +0.003 (cor +0.99). None reproduces the size or sign: hypothesis
+   (no correlation above 0.5) false for the correlation, but every candidate's level is wrong.
+ - R = Σ_l E[u uᵀ] / Σ P (trait² units): R_TT 1.4–2.0e-3, ⟨s²⟩_l P 1.4–2.2e-3 (ratio 0.94–1.3: the
+   biallelic closure of the own-skew part holds); R_JJ 2.0–5.0e-2 (14–35× R_TT); R_TJ −0.7 to −1.6e-3.
+   Measured Σ Q^T / Σ P +0.9e-3 to +3.5e-3 after the move, Σ Q^J / Σ P +1.5e-2 (0..24) then −5e-3
+   (50..99).
+
+== 4. Why the partner and K terms resist closure (H′, exploratory, single-thread, ~30 CPU-s) ==
+
+ - The partner part J_s = κ(B_s,B,l) is dominated by three-locus third cumulants: the pairwise part
+   Σ_{k∈s} s_k D_kl (measured exactly per locus) is −0.42 (H′; D −0.39) of J in 50..99 (10–90%:
+   −0.60 to +0.07). So the PBM closures of J, E[J_sJ_t] and Σ_t E[J_s y_t] are not usable; three-locus
+   third cumulants κ(k,j,l) would need their own state.
+ - The K term: for a biallelic locus (†) gives ΔH_s = β[w_l J_s − 2Y_l u_s + s_l κ(B_s,B,B,l)] exactly
+   (u = T + J; a first draft dropped −2Y_lT_s, caught by the Symbolics check (d), corrected here), and
+   s_l κ(B_s,B,B,l) = Cov(B_sB², d_l²) − 2Cov(B_s,B)C_l − Var(B)T_s. With a Gaussian background the last
+   three cancel exactly (checked in Symbolics). Measured: −β(Var(B)ΣT + 2ΣCov(B_s,B)C) is +1.36|H| per
+   generation at 25..49 (+0.91 at 50..99), the measured β ΣδH +0.073|H| (+0.022), and the Gaussian-
+   background closure β Σ(⟨w⟩_l J − 2Y u) −0.001|H| (+0.011) (with the corrected formula; −0.032/+0.003
+   in 0..24/100..199). The K term is a ~5% residual of a
+   cancellation between the background's cubic heterogeneity and the association; closing it needs
+   Cov(B_sB², d_l²) as a state (fifth order), with its own source (sixth order) — beyond this study.
+ - The selection gradient is small per allele: β·(mutational SD) 0.012 (H′; 10–90% 0.002–0.032) and
+   β⟨s²⟩^½ 0.027 at 50..99, so first order in β is adequate per locus; but β²S_c (the lag's share of the
+   quadratic tilt (β² − 1/S)/2) is 0.29/0.51/0.79/1.28 (H′) in 0..24/25..49/50..99/100..199: the
+   dropped term (β² − 1/S)κ₆/2 on K changes sign late in the move.
+ - A first version of the closure that fed the odd states back into the even ones (P → Q → P, H → K →
+   T → H) was unstable (development smoke test on one H′ input: Σ E[yY] ×10²⁵⁴); level B‡ therefore
+   drives the odd states by a zeroth-order level B′* run alongside (second order in β for the even
+   states, no feedback).
+
+== 5. Level B‡ on development (H′, D) ==
+
+B‡ = B′* + (i) K3 = ⟨w⟩_l m in the T source and the group's Σκ3 in its coupling + (ii) the own-skew
+y term Q^T (validate/linked_dir_theory.jl). Variants: Bdag (both), BdT ((i) only). Smoke test on two
+H′ inputs: predicted Σ Q^T 3–4× measured at 25..99 (19× in one), Σ E[yY] then 0.87–7.6 of measured.
+Hypotheses before looking at all inputs: Bdag overpredicts Σ E[yY] under the move (Q^T too large:
+its source omits R_TJ ≈ −0.5 R_TT and the stabilising couplings); BdT reproduces Bt's ΣC (25..49,
+50..99 within ±0.3, |lr| ≤ 0.4; 100..199 and the loss fail) since K3 = ⟨w⟩m ≈ measured (1.0–1.5×);
+neither changes K or H much (the K term is not closed).
+
+Results (`dev H 3`, 1033 CPU-s; `dev D 3`, 774 CPU-s; medians; ΣC over eligible inputs, lr median/|lr|):
+  H′ (24 inputs, 14 eligible)      yY 50..99 / 100..199    H 50..99     K pre / 50..99    ΣC 25..49 / 50..99 / 100..199     loss
+   B′*                             0.891 / 1.010           0.477        1.102 / 1.492     −0.28/0.41  +0.25/0.58  +1.31/1.31  +0.47/0.47
+   Bdag (B‡)                       1.629 / 4.366           1.431        1.102 / 1.328     +0.18/0.44  +0.54/0.54  +2.52/2.52  +0.50/0.50
+   BdT                             0.891 / 1.010           0.477        1.102 / 1.492     +0.13/0.37  +0.42/0.42  +1.55/1.55  +0.51/0.51
+  D (13 inputs, 11 eligible)
+   B′*                             0.854 / 0.870           0.668        0.986 / 0.984     −0.02/0.24  +0.15/0.23  +0.99/0.99  +0.17/0.17
+   Bdag (B‡)                       1.289 / 2.871           1.052        0.986 / 0.918     +0.01/0.23  +0.02/0.08  +1.05/1.05  +0.17/0.17
+   BdT                             0.854 / 0.870           0.668        0.986 / 0.984     +0.04/0.24  +0.06/0.19  +1.09/1.09  +0.21/0.21
+  P1 (level A): H′ derived |lr| 0.158/0.077/0.250 (nosel 0.546/0.451/0.430, spectrum 0.614/1.216/1.604);
+  D 0.074/0.052/0.243.
+Reading: as hypothesised, the own-skew closure of the y term overpredicts Σ E[yY] once the move has
+run (it accumulates without the saturation the kernel shows: measured Σ Q^T stays at 1–3.5e-3 Σ P);
+on D it moves H and the 50..99 ΣC toward the kernel, on H′ it overshoots. The K3 closure (BdT) improves
+25..49 on H′ but worsens 50..99 there (K3 from the predicted mean LD m, not the measured). Neither
+closes the late-move overprediction of ΣC, which section 2 traced to the (unclosed) K term.
+Decision (development, disclosed): level B‡ for the pre-specified test on J is Bdag, the closure with
+every term this study could derive (own-skew y term, K3, Σκ3 coupling); BdT and B′* are comparators.
+The K term and the partner part of the y term are not closed (section 4). Because a closure cannot
+test the diagnosis itself, the driven diagnostic (B′* with the measured directional terms and
+measured K3/Σκ3: Bdt) is also re-tested on J as a pre-specified secondary claim.
+
+== 6. Confirmation set J (criteria validate/linked_dir_criteria.md, committed before any J run) ==
+
+`jrows`: 24 inputs, 3 per stratum (screened: QT0100-3 104 files, QT0100-5 200, QT0500-3 36, QT0500-5 107,
+QT1000-3 57, QT1000-5 64, QT5000-3 39, QT5000-5 12). Exclusion check (set intersections, before any run):
+J ∩ D 0 (13 ids), J ∩ F 0 (16), J ∩ G 0 (22), J ∩ H′ 0 (24), J ∩ spectrum_diagnosis_inputs.csv 0 (160),
+J ∩ inputs with raw records in linked_decay/linked_source/linked_ld/spectrum_diagnosis/genic_decline raw
+directories 0 (104).
+J runs started after the criteria commit (8a916eb, text fix b242636). The analysis code (`confirm`,
+`dir_confirm`: the verdict rules of the criteria file) was written while the J runs were being made and
+smoke-tested for crashes on D with R = 1 (development data; output discarded).
+J kernel runs: 72 runs, 1957 CPU-s (user time). Amendment decision before analysis: none.
+Hypotheses before looking (from development): (a) FAIL or PARTIAL (B‡'s Σ E[yY] too high in 100..199);
+(b) uncertain (D 1.05, H′ 1.43); (c) PASS before the move, uncertain at 50..99; (d) FAIL or PARTIAL
+(100..199 fails); (e) PASS. Diagnosis (Bdt): PASS in 25..49 and 50..99, median within ±0.3 at 100..199.
+
+== linked directional terms, set J, R = 3 (`confirm J 3`, 1437 CPU-s): 24 inputs, 19 eligible ==
+medians (ratios predicted/measured of window means; ΣC lr median/|lr| over eligible inputs):
+                 yY 50..99 / 100..199   H 50..99   K pre / 50..99    ΣC 25..49 / 50..99 / 100..199         loss 0..99
+  B′*            0.855 / 1.019          0.454      0.966 / 1.401     −0.29/0.29  +0.31/0.41  +1.44/1.44    +0.35/0.38
+  B‡ (Bdag)      1.359 / 3.939          1.368      0.966 / 1.176     +0.02/0.34  +0.32/0.50  +2.60/2.60    +0.43/0.56
+  BdT            0.855 / 1.019          0.454      0.966 / 1.401     +0.04/0.34  +0.37/0.40  +1.91/1.91    +0.32/0.45
+  Bd (measured)  0.934 / 1.014          0.926      0.963 / 0.924     −0.07/0.24  +0.12/0.25  +0.79/0.83    +0.14/0.28
+  Bdt (measured) 0.934 / 1.014          0.926      0.963 / 0.924     −0.06/0.26  +0.13/0.29  +0.58/0.79    +0.19/0.22
+  P1 (level A): derived +0.040/0.167, +0.009/0.111, +0.334/0.334; nosel |lr| 0.302/0.340/0.752;
+  spectrum 0.937/1.661/1.120.
+
+== pre-specified verdicts (validate/linked_dir_criteria.md, no amendment) ==
+Level B‡:
+ (a) Σ E[yY] ratio 50..99 1.359, 100..199 3.939 -> FAIL
+ (b) Σ H ratio 50..99 1.368 -> FAIL
+ (c) Σ K ratio −60..−1 0.966, 50..99 1.176 -> PASS
+ (d) ΣC 25..49 +0.023/0.340 ok, 50..99 +0.315/0.498 fails, 100..199 +2.597/2.597 fails, loss +0.433/0.558
+     fails -> FAIL
+ (e) P1 decay rate: accuracy ok/ok/fails (100..199 +0.334, |lr| 0.334), comparator condition holds -> PARTIAL
+Comparators (no verdict, same rules): B′* (a) PASS, (b) FAIL, (c) PARTIAL, (d) FAIL; BdT the same.
+Secondary, the diagnosis (B′* + measured directional terms + measured K3/Σκ3, Bdt): ΣC 25..49
+−0.060/0.255 ok, 50..99 +0.127/0.290 ok, 100..199 +0.581/0.792 fails, loss +0.192/0.223 ok -> PARTIAL
+(Bd, measured directional terms only: PARTIAL, 100..199 +0.788/0.830).
+
+Measured directional terms on J (`terms J 3`, medians per generation ÷ |window mean|, 0..24/25..49/
+50..99/100..199): β Σδ(yY)/yY +0.011/+0.015/+0.001/+0.004 (own-skew part +0.002/+0.004/+0.004/+0.006,
+partner part +0.005/+0.005/−0.010/−0.008); β ΣδH/|H| +0.004/+0.005/+0.003/+0.022; β ΣδK/|K|
+−0.023/−0.014/−0.005/+0.029; β ΣδT vs β Σ(K + K3) equal (identity).
+
+Reading.
+ - The diagnosis replicates on fresh inputs for H and K: adding the measured directional terms to B′*
+   moves Σ H at 50..99 from 0.45 to 0.93 of measured and Σ K from 1.40 to 0.92 (H′: 0.48 → 0.86,
+   1.49 → 0.87); the y term moves Σ E[yY] by +0.08 at 50..99 and lowers its scatter. With the measured
+   K3/Σκ3 as well, ΣC passes 25..49, 50..99 and the cumulative loss, but the 100..199 overprediction
+   is only reduced (lr +1.44 → +0.58), not removed: the directional terms carry most, not all, of it
+   (hypothesis "median within ±0.3 at 100..199" false). Note P1 itself, with the measured K, misses
+   at 100..199 on J (+0.33): part of the late gap is in the T recursion's decay or in what drives it,
+   not in K.
+ - The closure does not. B‡'s own-skew y term grows without the saturation the kernel shows
+   (Σ E[yY] 3.9× measured at 100..199, as on development), which inflates H; its K3 closure moves the
+   early windows the right way but does not fix 50..99. The K term (the main one) and the partner part
+   of the y term are not closed at this order (section 4: the partner part is dominated by three-locus
+   third cumulants; the K term is a ~5% residual of a cancellation that needs the cubic heterogeneity
+   Cov(B_sB², d_l²) as a state). (c) passes for B‡ only because its inflated H offsets B′*'s K error
+   at 50..99 (1.18 vs B′*'s 1.40), not because K is closed: an error cancellation, not a success.
+ - P1 is PARTIAL on J (first non-PASS after F, G, H′): the decay rate holds in 25..99, late-window
+   accuracy fails narrowly (median lr +0.334 > 0.2).
+ - The optional driven-spectrum check was not run ((d) failed, as the task prescribes).
+
+Symbolics: validate/symbolic/check_linked_dir.jl 50 checks PASS; check_all.jl PASS (all 12 files, 117 CPU-s).
+CPU (user time; the wall clock jumped while the machine slept, so thread-s printed by the scripts are not
+CPU): kernel runs D 1909 s, J 1957 s, H′ not timed (≈ 1950 s by J's identical design); analyses: driven
+H′ 1075 s, exploration + Bt/Bdt on H′ ≈ 600 s (not timed), dev H′ 1033 s, dev D 774 s, confirm J 1437 s,
+checks and small scripts ≈ 400 s. Total ≈ 3.1 CPU-h.
