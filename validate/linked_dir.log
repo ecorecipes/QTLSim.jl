@@ -103,11 +103,13 @@ Results (H′, `explore` script; medians over inputs, per generation ÷ |window 
    Σ_{k∈s} s_k D_kl (measured exactly per locus) is −0.42 (H′; D −0.39) of J in 50..99 (10–90%:
    −0.60 to +0.07). So the PBM closures of J, E[J_sJ_t] and Σ_t E[J_s y_t] are not usable; three-locus
    third cumulants κ(k,j,l) would need their own state.
- - The K term: for a biallelic locus (†) gives ΔH_s = β[w_l J_s − 2Y_lJ_s + s_l κ(B_s,B,B,l)] exactly, and
+ - The K term: for a biallelic locus (†) gives ΔH_s = β[w_l J_s − 2Y_l u_s + s_l κ(B_s,B,B,l)] exactly
+   (u = T + J; a first draft dropped −2Y_lT_s, caught by the Symbolics check (d), corrected here), and
    s_l κ(B_s,B,B,l) = Cov(B_sB², d_l²) − 2Cov(B_s,B)C_l − Var(B)T_s. With a Gaussian background the last
    three cancel exactly (checked in Symbolics). Measured: −β(Var(B)ΣT + 2ΣCov(B_s,B)C) is +1.36|H| per
    generation at 25..49 (+0.91 at 50..99), the measured β ΣδH +0.073|H| (+0.022), and the Gaussian-
-   background closure β Σ(⟨w⟩_l J − 2Y J) +0.002|H| (+0.013). The K term is a ~5% residual of a
+   background closure β Σ(⟨w⟩_l J − 2Y u) −0.001|H| (+0.011) (with the corrected formula; −0.032/+0.003
+   in 0..24/100..199). The K term is a ~5% residual of a
    cancellation between the background's cubic heterogeneity and the association; closing it needs
    Cov(B_sB², d_l²) as a state (fifth order), with its own source (sixth order) — beyond this study.
  - The selection gradient is small per allele: β·(mutational SD) 0.012 (H′; 10–90% 0.002–0.032) and
