@@ -1,0 +1,97 @@
+QTLSim validate/symbolic/check_blocks.jl (Symbolics 7.49.0)
+
+(a) the lowest of K distinct points among M gaps
+  P(min ≥ c) − P(min ≥ c+1) = C(M−c−1, K−1)/C(M, K), K = 1                 ok
+  r_{c+1}/r_c = (M−c−K)/(M−c−1), K = 1                                     ok
+  r_0 = C(M−1, K−1)/C(M, K) = K/M, K = 1                                   ok
+  P(min ≥ c) − P(min ≥ c+1) = C(M−c−1, K−1)/C(M, K), K = 2                 ok
+  r_{c+1}/r_c = (M−c−K)/(M−c−1), K = 2                                     ok
+  r_0 = C(M−1, K−1)/C(M, K) = K/M, K = 2                                   ok
+  P(min ≥ c) − P(min ≥ c+1) = C(M−c−1, K−1)/C(M, K), K = 3                 ok
+  r_{c+1}/r_c = (M−c−K)/(M−c−1), K = 3                                     ok
+  r_0 = C(M−1, K−1)/C(M, K) = K/M, K = 3                                   ok
+  P(min ≥ c) − P(min ≥ c+1) = C(M−c−1, K−1)/C(M, K), K = 4                 ok
+  r_{c+1}/r_c = (M−c−K)/(M−c−1), K = 4                                     ok
+  r_0 = C(M−1, K−1)/C(M, K) = K/M, K = 4                                   ok
+  P(min ≥ c) − P(min ≥ c+1) = C(M−c−1, K−1)/C(M, K), K = 5                 ok
+  r_{c+1}/r_c = (M−c−K)/(M−c−1), K = 5                                     ok
+  r_0 = C(M−1, K−1)/C(M, K) = K/M, K = 5                                   ok
+  P(min ≥ c) − P(min ≥ c+1) = C(M−c−1, K−1)/C(M, K), K = 6                 ok
+  r_{c+1}/r_c = (M−c−K)/(M−c−1), K = 6                                     ok
+  r_0 = C(M−1, K−1)/C(M, K) = K/M, K = 6                                   ok
+  enumeration of all K-subsets, M = 2..9: counts of the minimum = C(M−c−1, K−1) ok
+  hockey stick Σ_c C(M−c−1, K−1) = C(M, K), M = 2..9                       ok
+  hockey stick at M = 99, 499, 4999, K = 1, 2, 5, 17                       ok
+
+(b) qtsim_switch_law against a BigFloat sum and the kernel's gamete!
+  L =    2, u = 3: max |P(c) − BigFloat| = 0.0e+00, pnone 0.850639 vs 0.850639 ok
+  L =    2: pnone + Σ P(c) = 1 (0.0e+00)                                   ok
+  L =    5, u = 3: max |P(c) − BigFloat| = 5.6e-17, pnone 0.234524 vs 0.234524 ok
+  L =    5: pnone + Σ P(c) = 1 (1.1e-16)                                   ok
+  L =   20, u = 5: max |P(c) − BigFloat| = 1.1e-16, pnone 0.006738 vs 0.006738 ok
+  L =   20: pnone + Σ P(c) = 1 (0.0e+00)                                   ok
+  L =  100, u = 3: max |P(c) − BigFloat| = 6.9e-18, pnone 0.049787 vs 0.049787 ok
+  L =  100: pnone + Σ P(c) = 1 (1.1e-16)                                   ok
+  L = 1000, u = 5: max |P(c) − BigFloat| = 2.6e-18, pnone 0.006738 vs 0.006738 ok
+  L = 1000: pnone + Σ P(c) = 1 (0.0e+00)                                   ok
+  L = 12, u = 3: 400000 gamete! draws, max |z| over the switch points 2.19, no switch z 0.51 ok
+  L = 30, u = 5: 400000 gamete! draws, max |z| over the switch points 2.29, no switch z -0.31 ok
+
+(c) block_map
+  L 100, B 10: pnone + Σ bmass = 1 (2.2e-16)                               ok
+  L 100, B 10: exactly min(B, L) blocks covering the loci in order         ok
+  L 100, qtsim, B 10: max |split error| 0.1061 ≤ largest within-block share + 2 max point 0.1531 ok
+  L 100, B 40: pnone + Σ bmass = 1 (2.2e-16)                               ok
+  L 100, B 40: exactly min(B, L) blocks covering the loci in order         ok
+  L 100, qtsim, B 40: max |split error| 0.0280 ≤ largest within-block share + 2 max point 0.0843 ok
+  L 100, B 100: pnone + Σ bmass = 1 (1.1e-16)                              ok
+  L 100, B 100: exactly min(B, L) blocks covering the loci in order        ok
+  L 100, qtsim, one block per locus: split probabilities exact (max err 1.1e-16) ok
+  L 500, B 10: pnone + Σ bmass = 1 (4.4e-16)                               ok
+  L 500, B 10: exactly min(B, L) blocks covering the loci in order         ok
+  L 500, qtsim, B 10: max |split error| 0.1030 ≤ largest within-block share + 2 max point 0.1186 ok
+  L 500, B 40: pnone + Σ bmass = 1 (2.2e-16)                               ok
+  L 500, B 40: exactly min(B, L) blocks covering the loci in order         ok
+  L 500, qtsim, B 40: max |split error| 0.0280 ≤ largest within-block share + 2 max point 0.0447 ok
+  L 500, B 500: pnone + Σ bmass = 1 (2.2e-16)                              ok
+  L 500, B 500: exactly min(B, L) blocks covering the loci in order        ok
+  L 500, qtsim, one block per locus: split probabilities exact (max err 2.2e-16) ok
+  L 1000, B 10: pnone + Σ bmass = 1 (1.1e-16)                              ok
+  L 1000, B 10: exactly min(B, L) blocks covering the loci in order        ok
+  L 1000, qtsim, B 10: max |split error| 0.0926 ≤ largest within-block share + 2 max point 0.1009 ok
+  L 1000, B 40: pnone + Σ bmass = 1 (2.2e-16)                              ok
+  L 1000, B 40: exactly min(B, L) blocks covering the loci in order        ok
+  L 1000, qtsim, B 40: max |split error| 0.0238 ≤ largest within-block share + 2 max point 0.0297 ok
+  L 1000, B 1000: pnone + Σ bmass = 1 (0.0e+00)                            ok
+  L 1000, B 1000: exactly min(B, L) blocks covering the loci in order      ok
+  L 1000, qtsim, one block per locus: split probabilities exact (max err 3.3e-16) ok
+  L 200, B 10: exactly min(B, L) blocks covering the loci in order         ok
+  L 200, all, B 10: max |split error| 0.2864 ≤ largest within-block share + 2 max point 0.3166 ok
+  L 200, B 40: exactly min(B, L) blocks covering the loci in order         ok
+  L 200, all, B 40: max |split error| 0.0754 ≤ largest within-block share + 2 max point 0.0905 ok
+  L 200, B 200: exactly min(B, L) blocks covering the loci in order        ok
+  L 200, all, one block per locus: split probabilities exact (max err 0.0e+00) ok
+  :map partition, L 1000, u 3, B 40: boundary masses 0.0219–0.0258 (≈ (1 − pnone)/B = 0.0238) ok
+
+(d) mutation
+  log pgf: mλ(Σ s_h/m − 1) = Σ λ(s_h − 1)                                  ok
+  expected input per individual: Ploidy·(Lμ)·σ²_mut = m·V_E (unchanged by blocks) ok
+  mutations fall in block b with probability n_b/L (max |z| 2.40)          ok
+
+(e) sufficiency of block sums
+  block sums of a gamete switching at a boundary, and of a mutated chromosome (200 random cases) ok
+
+(f) block_stats
+  block_stats: block-genic and association against their definitions (20 random populations) ok
+
+(g) Gaussian segregation within a block (within = :gaussian)
+  Cov(L, y)/Var(y) = f                                                     ok
+  Var(L | y) = fV − (fV)²/V = f(1 − f)V                                    ok
+  Var(L_A | y_A) + Var(R_B | y_B) = 2f(1 − f)V                             ok
+  Var of the recombinant block = V (homologues uncorrelated)               ok
+  Monte Carlo (f = 0.3): variance and covariances with both parents match exact recombination (1.0002, 1.0000, 1.0005) ok
+  block_map(within = :gaussian): f = loci of the block at or before the switch / block size; f = 1 exactly on boundaries ok
+  block_map(within = :gaussian): the switch law is the kernel's (gcum)     ok
+
+79 checks, 0 failed; 2 s
+PASS
