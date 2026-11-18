@@ -35,6 +35,7 @@ include("rare_alleles_traits.jl")
 include("local_alleles.jl")
 include("spectrum.jl")
 include("critical.jl")
+include("xu_shen.jl")
 include("init.jl")
 include("migration.jl")
 include("ancestry.jl")
@@ -65,6 +66,10 @@ export selection_variance, gaussian_vg, gaussian_vg_exact, gaussian_vg_loci, mul
        spectrum_equilibrium, spectrum_vg,
        stationary_spectrum, equilibrium_genomes, equilibrium_world,
        steady_lag, critical_rate, mutation_adjusted, extinction_distribution, rescue_probability
+# the continuous-time eco-evolutionary model of Xu and Shen (2026, bioRxiv preprint), re-implemented from its equations
+export XuShen, xu_shen_field, xu_shen_vmax, xu_shen_balance_variance, xu_shen_critical_rate, xu_shen_equilibria,
+       xu_shen_equilibrium, xu_shen_jacobian, xu_shen_stability, xu_shen_trajectory, xu_shen_persists, xu_shen_boundary,
+       xu_shen_critical_size, xu_shen_max_rate, xu_shen_max_duration
 # fluctuating optima
 export periodic_response, red_noise_lag_var, expected_lag2, lag_load
 # several traits (Lande 1979, 1980)

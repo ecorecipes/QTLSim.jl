@@ -21,7 +21,7 @@ end
 # `Pkg.test(test_args = ["traits", "demes"])` or `julia --project=vignettes test/runtests.jl
 # traits demes`, or in ENV["QTLSIM_TEST"] (space- or comma-separated). Names are the files
 # test/<topic>.jl.
-const TOPICS = ["core", "catlab", "blocks", "io", "theory", "demography", "closures", "demes", "fluctuating", "lowering", "sweep", "traits", "init", "ancestry", "plasticity", "declarations", "critical", "laws", "emulator", "block_lineages", "two_stage", "k50_gradient"]
+const TOPICS = ["core", "catlab", "blocks", "io", "theory", "demography", "closures", "demes", "fluctuating", "lowering", "sweep", "traits", "init", "ancestry", "plasticity", "declarations", "critical", "laws", "emulator", "block_lineages", "two_stage", "k50_gradient", "xu_shen"]
 const CHOSEN = let a = isempty(ARGS) ? split(get(ENV, "QTLSIM_TEST", ""), r"[\s,]+"; keepempty = false) : ARGS
     bad = setdiff(a, TOPICS)
     isempty(bad) || error("unknown test topic(s) $(join(bad, ", ")); topics are $(join(TOPICS, ", "))")
