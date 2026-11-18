@@ -1,0 +1,288 @@
+validate/elasticity.jl table — the published table's own elasticities of the half-survival rate
+2026-11-18 09:27; 8 threads; no emulator is called in this mode
+inputs: 119984 files; matched to a unique table row: 119984
+
+== which inputs vary (all strata pooled; per-file Params from read_qtsim_options) ==
+  MoveFitnessSD k        distinct  14998   min 7.3509e-06 q05 0.014656   median 0.15043    q95 0.28457    max 0.29996   
+  PhenotypeVar           distinct  14998   min 0.010001   q05 0.010836   median 0.022269   q95 0.060534   max 0.089981  
+  Heritability           distinct  14998   min 0.010138   q05 0.062526   median 0.31542    q95 0.75105    max 0.98982   
+  MutationScalar         distinct  14998   min 0.00010021 q05 0.0004411  median 0.0039866  q95 0.015917   max 0.052103  
+  InitFitnessSD ω        distinct  14998   min 0.0030953  q05 0.48282    median 5.0329     q95 9.4855     max 9.9997    
+  MutationRatePerGamete  distinct      1   min 0.0001     q05 0.0001     median 0.0001     q95 0.0001     max 0.0001    
+  PopSize                distinct      1   min 1000       q05 1000       median 1000       q95 1000       max 1000      
+  (ω is given per file as InitFitnessSD: it is drawn, not derived from h², V_P and m;
+   analytical ω = h²V_P/√(m·V_E) for comparison: median 0.95)
+
+  Spearman correlations of the inputs (pooled), and the largest |r| within any stratum
+    k      V_P      0.0021   max |r| in a stratum 0.0021
+    k      h2      -0.0115   max |r| in a stratum 0.0115
+    k      m       -0.0015   max |r| in a stratum 0.0015
+    k      omega   -0.0048   max |r| in a stratum 0.0048
+    V_P    h2       0.0009   max |r| in a stratum 0.0009
+    V_P    m        0.0062   max |r| in a stratum 0.0062
+    V_P    omega    0.0067   max |r| in a stratum 0.0067
+    h2     m        0.0186   max |r| in a stratum 0.0186
+    h2     omega   -0.0015   max |r| in a stratum 0.0015
+    m      omega    0.0010   max |r| in a stratum 0.0010
+
+  alive at 2000 (table 'Generations to extinction' > 2000) by stratum, and the rate's range among them
+    QT0100-Possion3.0  n 14998  alive  1416 (0.094)  k of the alive: q05 0.00136 median 0.0149 q95 0.08716; all: 7.351e-06–0.3
+    QT0100-Possion5.0  n 14998  alive  1317 (0.088)  k of the alive: q05 0.001247 median 0.0139 q95 0.07989; all: 7.351e-06–0.3
+    QT0500-Possion3.0  n 14998  alive  1275 (0.085)  k of the alive: q05 0.001232 median 0.01325 q95 0.06634; all: 7.351e-06–0.3
+    QT0500-Possion5.0  n 14998  alive  1196 (0.080)  k of the alive: q05 0.001158 median 0.01257 q95 0.06239; all: 7.351e-06–0.3
+    QT1000-Possion3.0  n 14998  alive  1219 (0.081)  k of the alive: q05 0.001191 median 0.01268 q95 0.05486; all: 7.351e-06–0.3
+    QT1000-Possion5.0  n 14998  alive  1144 (0.076)  k of the alive: q05 0.001134 median 0.01184 q95 0.05125; all: 7.351e-06–0.3
+    QT5000-Possion3.0  n 14998  alive  1099 (0.073)  k of the alive: q05 0.001107 median 0.01115 q95 0.03974; all: 7.351e-06–0.3
+    QT5000-Possion5.0  n 14998  alive  1039 (0.069)  k of the alive: q05 0.001073 median 0.01054 q95 0.03662; all: 7.351e-06–0.3
+
+== the linear logistic model per stratum: logit P(alive at 2000) = β0 + βk log k + Σ βθ log θ ==
+   rate in raw units (k = MoveFitnessSD per generation); the elasticity of the standardised rate
+   x50 = k50/√V_P in V_P is e_VP − 1/2, the others are unchanged.
+   e_θ = −βθ/βk with [bootstrap percentile 95% CI, 1000 resamples of the rows, seed 20261118] and (delta-method SE)
+  QT0100-Possion3.0  n 14998 alive  1416  ok true  βk -5.554  β0 7.761  bootstrap fits usable 1000/1000; log k50 at the median inputs -3.9590
+       e_V_P     0.5905  [ 0.5477,  0.6331]  (se 0.0207)  CI excludes 0
+       e_h2     -0.2177  [-0.2461, -0.1880]  (se 0.0138)  CI excludes 0
+       e_m       0.5321  [ 0.4973,  0.5705]  (se 0.0131)  CI excludes 0
+       e_omega  -0.2604  [-0.2818, -0.2376]  (se 0.0086)  CI excludes 0
+  QT0100-Possion5.0  n 14998 alive  1317  ok true  βk -5.579  β0 5.620  bootstrap fits usable 1000/1000; log k50 at the median inputs -4.0027
+       e_V_P     0.5576  [ 0.5138,  0.6015]  (se 0.0214)  CI excludes 0
+       e_h2     -0.2142  [-0.2405, -0.1874]  (se 0.0143)  CI excludes 0
+       e_m       0.4951  [ 0.4614,  0.5289]  (se 0.0134)  CI excludes 0
+       e_omega  -0.2477  [-0.2712, -0.2234]  (se 0.0090)  CI excludes 0
+  QT0500-Possion3.0  n 14998 alive  1275  ok true  βk -6.718  β0 4.724  bootstrap fits usable 1000/1000; log k50 at the median inputs -3.9698
+       e_V_P     0.5178  [ 0.4789,  0.5554]  (se 0.0197)  CI excludes 0
+       e_h2     -0.1905  [-0.2153, -0.1674]  (se 0.0132)  CI excludes 0
+       e_m       0.4693  [ 0.4353,  0.5021]  (se 0.0123)  CI excludes 0
+       e_omega  -0.2042  [-0.2270, -0.1798]  (se 0.0086)  CI excludes 0
+  QT0500-Possion5.0  n 14998 alive  1196  ok true  βk -6.251  β0 3.146  bootstrap fits usable 1000/1000; log k50 at the median inputs -4.0270
+       e_V_P     0.4878  [ 0.4481,  0.5294]  (se 0.0212)  CI excludes 0
+       e_h2     -0.1864  [-0.2135, -0.1595]  (se 0.0142)  CI excludes 0
+       e_m       0.4665  [ 0.4316,  0.5029]  (se 0.0130)  CI excludes 0
+       e_omega  -0.1932  [-0.2158, -0.1683]  (se 0.0093)  CI excludes 0
+  QT1000-Possion3.0  n 14998 alive  1219  ok true  βk -7.015  β0 3.640  bootstrap fits usable 1000/1000; log k50 at the median inputs -3.9817
+       e_V_P     0.5163  [ 0.4790,  0.5580]  (se 0.0197)  CI excludes 0
+       e_h2     -0.1824  [-0.2084, -0.1567]  (se 0.0132)  CI excludes 0
+       e_m       0.4494  [ 0.4153,  0.4824]  (se 0.0121)  CI excludes 0
+       e_omega  -0.1632  [-0.1853, -0.1391]  (se 0.0089)  CI excludes 0
+  QT1000-Possion5.0  n 14998 alive  1144  ok true  βk -6.694  β0 1.879  bootstrap fits usable 1000/1000; log k50 at the median inputs -4.0356
+       e_V_P     0.4816  [ 0.4416,  0.5271]  (se 0.0209)  CI excludes 0
+       e_h2     -0.1882  [-0.2157, -0.1624]  (se 0.0140)  CI excludes 0
+       e_m       0.4457  [ 0.4068,  0.4804]  (se 0.0126)  CI excludes 0
+       e_omega  -0.1480  [-0.1722, -0.1242]  (se 0.0096)  CI excludes 0
+  QT5000-Possion3.0  n 14998 alive  1099  ok true  βk -8.273  β0 -1.282  bootstrap fits usable 1000/1000; log k50 at the median inputs -4.0066
+       e_V_P     0.4434  [ 0.4044,  0.4809]  (se 0.0192)  CI excludes 0
+       e_h2     -0.1814  [-0.2042, -0.1572]  (se 0.0130)  CI excludes 0
+       e_m       0.4139  [ 0.3820,  0.4480]  (se 0.0115)  CI excludes 0
+       e_omega  -0.0541  [-0.0815, -0.0249]  (se 0.0109)  CI excludes 0
+  QT5000-Possion5.0  n 14998 alive  1039  ok true  βk -7.741  β0 -3.517  bootstrap fits usable 1000/1000; log k50 at the median inputs -4.0509
+       e_V_P     0.4091  [ 0.3688,  0.4474]  (se 0.0205)  CI excludes 0
+       e_h2     -0.1733  [-0.2025, -0.1464]  (se 0.0142)  CI excludes 0
+       e_m       0.3935  [ 0.3599,  0.4285]  (se 0.0121)  CI excludes 0
+       e_omega  -0.0408  [-0.0711, -0.0112]  (se 0.0116)  CI excludes 0
+
+== adequacy 1: quadratic model (all squares and products of the five centred logs, 15 terms) ==
+   likelihood-ratio statistic against the linear model (χ², 15 df; 5% point 25.0, 0.1% point 37.7), and the
+   local elasticities of the quadratic fit over the inputs near the boundary (linear-fit P in [0.1, 0.9]):
+   median [10%, 90% quantile]; and the linear fit's e for comparison
+  QT0100-Possion3.0  converged true  LR 559.5  near-boundary inputs 1067  (∂η/∂log k > 0 at 0 of them)
+       e_V_P    quadratic local median  0.615 [ 0.456,  0.727]   linear  0.591
+       e_h2     quadratic local median -0.349 [-0.621, -0.010]   linear -0.218
+       e_m      quadratic local median  0.583 [ 0.405,  0.822]   linear  0.532
+       e_omega  quadratic local median -0.385 [-0.480, -0.154]   linear -0.260
+  QT0100-Possion5.0  converged true  LR 479.1  near-boundary inputs 999  (∂η/∂log k > 0 at 0 of them)
+       e_V_P    quadratic local median  0.574 [ 0.411,  0.734]   linear  0.558
+       e_h2     quadratic local median -0.321 [-0.512, -0.058]   linear -0.214
+       e_m      quadratic local median  0.537 [ 0.374,  0.795]   linear  0.495
+       e_omega  quadratic local median -0.359 [-0.472, -0.122]   linear -0.248
+  QT0500-Possion3.0  converged true  LR 406.2  near-boundary inputs 807  (∂η/∂log k > 0 at 0 of them)
+       e_V_P    quadratic local median  0.542 [ 0.408,  0.649]   linear  0.518
+       e_h2     quadratic local median -0.292 [-0.508, -0.027]   linear -0.191
+       e_m      quadratic local median  0.516 [ 0.364,  0.722]   linear  0.469
+       e_omega  quadratic local median -0.280 [-0.369, -0.125]   linear -0.204
+  QT0500-Possion5.0  converged true  LR 412.0  near-boundary inputs 806  (∂η/∂log k > 0 at 0 of them)
+       e_V_P    quadratic local median  0.522 [ 0.387,  0.627]   linear  0.488
+       e_h2     quadratic local median -0.298 [-0.520, -0.002]   linear -0.186
+       e_m      quadratic local median  0.508 [ 0.346,  0.765]   linear  0.467
+       e_omega  quadratic local median -0.257 [-0.358, -0.081]   linear -0.193
+  QT1000-Possion3.0  converged true  LR 428.2  near-boundary inputs 732  (∂η/∂log k > 0 at 0 of them)
+       e_V_P    quadratic local median  0.528 [ 0.413,  0.678]   linear  0.516
+       e_h2     quadratic local median -0.292 [-0.534, -0.008]   linear -0.182
+       e_m      quadratic local median  0.491 [ 0.338,  0.730]   linear  0.449
+       e_omega  quadratic local median -0.223 [-0.337, -0.040]   linear -0.163
+  QT1000-Possion5.0  converged true  LR 434.1  near-boundary inputs 715  (∂η/∂log k > 0 at 0 of them)
+       e_V_P    quadratic local median  0.498 [ 0.375,  0.620]   linear  0.482
+       e_h2     quadratic local median -0.312 [-0.583,  0.016]   linear -0.188
+       e_m      quadratic local median  0.481 [ 0.329,  0.721]   linear  0.446
+       e_omega  quadratic local median -0.186 [-0.296, -0.004]   linear -0.148
+  QT5000-Possion3.0  converged true  LR 371.9  near-boundary inputs 549  (∂η/∂log k > 0 at 0 of them)
+       e_V_P    quadratic local median  0.465 [ 0.346,  0.561]   linear  0.443
+       e_h2     quadratic local median -0.263 [-0.483, -0.037]   linear -0.181
+       e_m      quadratic local median  0.450 [ 0.316,  0.594]   linear  0.414
+       e_omega  quadratic local median -0.064 [-0.167,  0.105]   linear -0.054
+  QT5000-Possion5.0  converged true  LR 441.6  near-boundary inputs 555  (∂η/∂log k > 0 at 0 of them)
+       e_V_P    quadratic local median  0.429 [ 0.274,  0.564]   linear  0.409
+       e_h2     quadratic local median -0.272 [-0.529,  0.006]   linear -0.173
+       e_m      quadratic local median  0.412 [ 0.275,  0.631]   linear  0.393
+       e_omega  quadratic local median -0.041 [-0.189,  0.172]   linear -0.041
+
+== adequacy 2: the linear model within terciles of each input (rows of the stratum split by the input's terciles) ==
+   e_θ of the input θ itself in its low / middle / high tercile (delta-method SE), then the spread max − min
+  QT0100-Possion3.0
+       e_V_P     0.738 (0.158)   0.842 (0.135)   0.656 (0.056)   spread 0.186  largest |z| 1.3
+       e_h2     -0.039 (0.028)  -0.468 (0.108)  -0.729 (0.107)   spread 0.690  largest |z| 6.3  VARIES
+       e_m       0.222 (0.042)   0.550 (0.074)   0.688 (0.036)   spread 0.466  largest |z| 8.5  VARIES
+       e_omega  -0.236 (0.014)  -0.139 (0.094)   0.113 (0.124)   spread 0.349  largest |z| 2.8
+  QT0100-Possion5.0
+       e_V_P     0.727 (0.164)   0.800 (0.134)   0.574 (0.059)   spread 0.226  largest |z| 1.5
+       e_h2     -0.085 (0.029)  -0.446 (0.112)  -0.711 (0.109)   spread 0.626  largest |z| 5.6  VARIES
+       e_m       0.232 (0.043)   0.420 (0.079)   0.636 (0.037)   spread 0.405  largest |z| 7.2  VARIES
+       e_omega  -0.239 (0.014)  -0.137 (0.091)   0.259 (0.123)   spread 0.498  largest |z| 4.0  VARIES
+  QT0500-Possion3.0
+       e_V_P     0.567 (0.156)   0.712 (0.125)   0.588 (0.055)   spread 0.145  largest |z| 0.9
+       e_h2     -0.052 (0.028)  -0.347 (0.101)  -0.705 (0.104)   spread 0.653  largest |z| 6.1  VARIES
+       e_m       0.228 (0.040)   0.482 (0.071)   0.595 (0.034)   spread 0.368  largest |z| 7.0  VARIES
+       e_omega  -0.215 (0.013)  -0.120 (0.085)   0.164 (0.117)   spread 0.379  largest |z| 3.2  VARIES
+  QT0500-Possion5.0
+       e_V_P     0.603 (0.166)   0.763 (0.134)   0.538 (0.058)   spread 0.225  largest |z| 1.5
+       e_h2     -0.017 (0.030)  -0.465 (0.106)  -0.733 (0.111)   spread 0.716  largest |z| 6.2  VARIES
+       e_m       0.235 (0.044)   0.474 (0.076)   0.597 (0.035)   spread 0.362  largest |z| 6.4  VARIES
+       e_omega  -0.223 (0.013)  -0.027 (0.095)   0.463 (0.121)   spread 0.686  largest |z| 5.6  VARIES
+  QT1000-Possion3.0
+       e_V_P     0.531 (0.161)   0.755 (0.129)   0.542 (0.052)   spread 0.224  largest |z| 1.5
+       e_h2     -0.020 (0.028)  -0.442 (0.101)  -0.654 (0.107)   spread 0.633  largest |z| 5.7  VARIES
+       e_m       0.228 (0.038)   0.419 (0.068)   0.582 (0.034)   spread 0.354  largest |z| 6.9  VARIES
+       e_omega  -0.192 (0.013)  -0.090 (0.084)   0.267 (0.114)   spread 0.458  largest |z| 4.0  VARIES
+  QT1000-Possion5.0
+       e_V_P     0.576 (0.166)   0.658 (0.134)   0.547 (0.056)   spread 0.111  largest |z| 0.8
+       e_h2      0.006 (0.029)  -0.451 (0.106)  -0.769 (0.108)   spread 0.775  largest |z| 7.0  VARIES
+       e_m       0.206 (0.042)   0.412 (0.073)   0.548 (0.036)   spread 0.342  largest |z| 6.2  VARIES
+       e_omega  -0.193 (0.014)  -0.054 (0.096)   0.378 (0.117)   spread 0.571  largest |z| 4.8  VARIES
+  QT5000-Possion3.0
+       e_V_P     0.437 (0.147)   0.596 (0.119)   0.431 (0.052)   spread 0.165  largest |z| 1.3
+       e_h2     -0.034 (0.028)  -0.472 (0.092)  -0.708 (0.102)   spread 0.675  largest |z| 6.4  VARIES
+       e_m       0.217 (0.037)   0.389 (0.064)   0.528 (0.030)   spread 0.311  largest |z| 6.5  VARIES
+       e_omega  -0.133 (0.014)  -0.013 (0.086)   0.350 (0.110)   spread 0.483  largest |z| 4.4  VARIES
+  QT5000-Possion5.0
+       e_V_P     0.365 (0.154)   0.625 (0.123)   0.436 (0.058)   spread 0.259  largest |z| 1.4
+       e_h2      0.018 (0.030)  -0.353 (0.099)  -0.679 (0.105)   spread 0.696  largest |z| 6.4  VARIES
+       e_m       0.204 (0.035)   0.316 (0.069)   0.505 (0.033)   spread 0.301  largest |z| 6.3  VARIES
+       e_omega  -0.146 (0.015)   0.062 (0.094)   0.364 (0.110)   spread 0.510  largest |z| 4.6  VARIES
+
+  cells (stratum × input) whose elasticity differs between two of its terciles by more than 3 SE: 23 of 32
+
+== adequacy 3: is the quadratic model's local elasticity consistent with the tercile fits? ==
+   mean over the tercile's rows, weighted by μ(1 − μ) of the quadratic fit, of the quadratic local e_θ at each row's
+   inputs and boundary rate, beside the tercile's own linear fit (adequacy 2); low / middle / high
+  QT0100-Possion3.0   (boundary root of the quadratic found for 14998 of 14998 rows)
+       e_V_P    quadratic | tercile fit:    0.531 |  0.738 (0.158)     0.576 |  0.842 (0.135)     0.635 |  0.656 (0.056)
+       e_h2     quadratic | tercile fit:   -0.124 | -0.039 (0.028)    -0.384 | -0.468 (0.108)    -0.607 | -0.729 (0.107)
+       e_m      quadratic | tercile fit:    0.377 |  0.222 (0.042)     0.608 |  0.550 (0.074)     0.703 |  0.688 (0.036)
+       e_omega  quadratic | tercile fit:   -0.240 | -0.236 (0.014)    -0.386 | -0.139 (0.094)    -0.403 |  0.113 (0.124)
+  QT0100-Possion5.0   (boundary root of the quadratic found for 14998 of 14998 rows)
+       e_V_P    quadratic | tercile fit:    0.544 |  0.727 (0.164)     0.558 |  0.800 (0.134)     0.584 |  0.574 (0.059)
+       e_h2     quadratic | tercile fit:   -0.138 | -0.085 (0.029)    -0.338 | -0.446 (0.112)    -0.496 | -0.711 (0.109)
+       e_m      quadratic | tercile fit:    0.376 |  0.232 (0.043)     0.583 |  0.420 (0.079)     0.656 |  0.636 (0.037)
+       e_omega  quadratic | tercile fit:   -0.226 | -0.239 (0.014)    -0.350 | -0.137 (0.091)    -0.369 |  0.259 (0.123)
+  QT0500-Possion3.0   (boundary root of the quadratic found for 14996 of 14998 rows)
+       e_V_P    quadratic | tercile fit:    0.457 |  0.567 (0.156)     0.499 |  0.712 (0.125)     0.561 |  0.588 (0.055)
+       e_h2     quadratic | tercile fit:   -0.106 | -0.052 (0.028)    -0.301 | -0.347 (0.101)    -0.498 | -0.705 (0.104)
+       e_m      quadratic | tercile fit:    0.357 |  0.228 (0.040)     0.550 |  0.482 (0.071)     0.597 |  0.595 (0.034)
+       e_omega  quadratic | tercile fit:   -0.187 | -0.215 (0.013)    -0.264 | -0.120 (0.085)    -0.274 |  0.164 (0.117)
+  QT0500-Possion5.0   (boundary root of the quadratic found for 14980 of 14998 rows)
+       e_V_P    quadratic | tercile fit:    0.460 |  0.603 (0.166)     0.482 |  0.763 (0.134)     0.512 |  0.538 (0.058)
+       e_h2     quadratic | tercile fit:   -0.089 | -0.017 (0.030)    -0.311 | -0.465 (0.106)    -0.507 | -0.733 (0.111)
+       e_m      quadratic | tercile fit:    0.353 |  0.235 (0.044)     0.548 |  0.474 (0.076)     0.586 |  0.597 (0.035)
+       e_omega  quadratic | tercile fit:   -0.163 | -0.223 (0.013)    -0.216 | -0.027 (0.095)    -0.225 |  0.463 (0.121)
+  QT1000-Possion3.0   (boundary root of the quadratic found for 14996 of 14998 rows)
+       e_V_P    quadratic | tercile fit:    0.479 |  0.531 (0.161)     0.507 |  0.755 (0.129)     0.548 |  0.542 (0.052)
+       e_h2     quadratic | tercile fit:   -0.087 | -0.020 (0.028)    -0.290 | -0.442 (0.101)    -0.516 | -0.654 (0.107)
+       e_m      quadratic | tercile fit:    0.315 |  0.228 (0.038)     0.503 |  0.419 (0.068)     0.570 |  0.582 (0.034)
+       e_omega  quadratic | tercile fit:   -0.148 | -0.192 (0.013)    -0.187 | -0.090 (0.084)    -0.195 |  0.267 (0.114)
+  QT1000-Possion5.0   (boundary root of the quadratic found for 14995 of 14998 rows)
+       e_V_P    quadratic | tercile fit:    0.406 |  0.576 (0.166)     0.463 |  0.658 (0.134)     0.529 |  0.547 (0.056)
+       e_h2     quadratic | tercile fit:   -0.073 |  0.006 (0.029)    -0.312 | -0.451 (0.106)    -0.567 | -0.769 (0.108)
+       e_m      quadratic | tercile fit:    0.313 |  0.206 (0.042)     0.501 |  0.412 (0.073)     0.558 |  0.548 (0.036)
+       e_omega  quadratic | tercile fit:   -0.114 | -0.193 (0.014)    -0.137 | -0.054 (0.096)    -0.135 |  0.378 (0.117)
+  QT5000-Possion3.0   (boundary root of the quadratic found for 14982 of 14998 rows)
+       e_V_P    quadratic | tercile fit:    0.360 |  0.437 (0.147)     0.412 |  0.596 (0.119)     0.490 |  0.431 (0.052)
+       e_h2     quadratic | tercile fit:   -0.094 | -0.034 (0.028)    -0.258 | -0.472 (0.092)    -0.475 | -0.708 (0.102)
+       e_m      quadratic | tercile fit:    0.312 |  0.217 (0.037)     0.448 |  0.389 (0.064)     0.491 |  0.528 (0.030)
+       e_omega  quadratic | tercile fit:   -0.006 | -0.133 (0.014)    -0.006 | -0.013 (0.086)     0.018 |  0.350 (0.110)
+  QT5000-Possion5.0   (boundary root of the quadratic found for 14997 of 14998 rows)
+       e_V_P    quadratic | tercile fit:    0.296 |  0.365 (0.154)     0.385 |  0.625 (0.123)     0.491 |  0.436 (0.058)
+       e_h2     quadratic | tercile fit:   -0.067 |  0.018 (0.030)    -0.275 | -0.353 (0.099)    -0.516 | -0.679 (0.105)
+       e_m      quadratic | tercile fit:    0.302 |  0.204 (0.035)     0.416 |  0.316 (0.069)     0.470 |  0.505 (0.033)
+       e_omega  quadratic | tercile fit:   -0.014 | -0.146 (0.015)     0.022 |  0.062 (0.094)     0.074 |  0.364 (0.110)
+
+== the emulator's sample and the table's local elasticities on it ==
+   per stratum 16 inputs drawn without replacement with probability ∝ μ(1 − μ) of the linear fit above
+   (MersenneTwister(20261119 + stratum), Efraimidis–Spirakis keys): the inputs that carry the table's information
+   about the boundary. Table truth per input: the quadratic fit's local elasticity at the input's (V_P, h², m, ω)
+   and at the quadratic fit's boundary rate; 1000 bootstrap refits of the quadratic model (rows resampled, seed 20261118 + 1).
+   sample: 128 inputs; quadratic boundary root found for 128; alive at 2000 in the table: 59
+   ids: QT0100-Possion3.0/Input-10388.txt QT0100-Possion3.0/Input-03063.txt QT0100-Possion3.0/Input-02639.txt QT0100-Possion3.0/Input-06543.txt QT0100-Possion3.0/Input-03987.txt QT0100-Possion3.0/Input-01762.txt QT0100-Possion3.0/Input-08926.txt QT0100-Possion3.0/Input-06121.txt QT0100-Possion3.0/Input-06279.txt QT0100-Possion3.0/Input-06638.txt QT0100-Possion3.0/Input-12940.txt QT0100-Possion3.0/Input-05210.txt QT0100-Possion3.0/Input-14989.txt QT0100-Possion3.0/Input-14110.txt QT0100-Possion3.0/Input-08035.txt QT0100-Possion3.0/Input-07118.txt QT0100-Possion5.0/Input-03000.txt QT0100-Possion5.0/Input-14634.txt QT0100-Possion5.0/Input-01281.txt QT0100-Possion5.0/Input-11337.txt QT0100-Possion5.0/Input-12453.txt QT0100-Possion5.0/Input-07191.txt QT0100-Possion5.0/Input-03063.txt QT0100-Possion5.0/Input-14466.txt QT0100-Possion5.0/Input-14077.txt QT0100-Possion5.0/Input-03596.txt QT0100-Possion5.0/Input-12303.txt QT0100-Possion5.0/Input-01839.txt QT0100-Possion5.0/Input-12383.txt QT0100-Possion5.0/Input-11034.txt QT0100-Possion5.0/Input-04622.txt QT0100-Possion5.0/Input-05080.txt QT0500-Possion3.0/Input-03338.txt QT0500-Possion3.0/Input-04328.txt QT0500-Possion3.0/Input-10985.txt QT0500-Possion3.0/Input-01983.txt QT0500-Possion3.0/Input-03628.txt QT0500-Possion3.0/Input-00194.txt QT0500-Possion3.0/Input-11614.txt QT0500-Possion3.0/Input-06959.txt QT0500-Possion3.0/Input-04125.txt QT0500-Possion3.0/Input-07341.txt QT0500-Possion3.0/Input-08157.txt QT0500-Possion3.0/Input-08173.txt QT0500-Possion3.0/Input-08264.txt QT0500-Possion3.0/Input-14364.txt QT0500-Possion3.0/Input-01700.txt QT0500-Possion3.0/Input-13837.txt QT0500-Possion5.0/Input-09763.txt QT0500-Possion5.0/Input-04994.txt QT0500-Possion5.0/Input-08669.txt QT0500-Possion5.0/Input-08911.txt QT0500-Possion5.0/Input-09113.txt QT0500-Possion5.0/Input-08016.txt QT0500-Possion5.0/Input-08498.txt QT0500-Possion5.0/Input-11348.txt QT0500-Possion5.0/Input-06999.txt QT0500-Possion5.0/Input-13677.txt QT0500-Possion5.0/Input-00059.txt QT0500-Possion5.0/Input-04511.txt QT0500-Possion5.0/Input-02762.txt QT0500-Possion5.0/Input-14708.txt QT0500-Possion5.0/Input-07864.txt QT0500-Possion5.0/Input-09215.txt QT1000-Possion3.0/Input-07183.txt QT1000-Possion3.0/Input-03910.txt QT1000-Possion3.0/Input-05497.txt QT1000-Possion3.0/Input-11097.txt QT1000-Possion3.0/Input-02879.txt QT1000-Possion3.0/Input-06667.txt QT1000-Possion3.0/Input-00207.txt QT1000-Possion3.0/Input-01773.txt QT1000-Possion3.0/Input-06468.txt QT1000-Possion3.0/Input-13457.txt QT1000-Possion3.0/Input-08185.txt QT1000-Possion3.0/Input-02567.txt QT1000-Possion3.0/Input-10004.txt QT1000-Possion3.0/Input-13607.txt QT1000-Possion3.0/Input-01983.txt QT1000-Possion3.0/Input-11434.txt QT1000-Possion5.0/Input-01120.txt QT1000-Possion5.0/Input-12950.txt QT1000-Possion5.0/Input-07561.txt QT1000-Possion5.0/Input-06037.txt QT1000-Possion5.0/Input-08789.txt QT1000-Possion5.0/Input-14854.txt QT1000-Possion5.0/Input-10781.txt QT1000-Possion5.0/Input-02934.txt QT1000-Possion5.0/Input-08498.txt QT1000-Possion5.0/Input-05672.txt QT1000-Possion5.0/Input-09252.txt QT1000-Possion5.0/Input-10544.txt QT1000-Possion5.0/Input-11353.txt QT1000-Possion5.0/Input-02586.txt QT1000-Possion5.0/Input-08389.txt QT1000-Possion5.0/Input-14553.txt QT5000-Possion3.0/Input-01586.txt QT5000-Possion3.0/Input-13537.txt QT5000-Possion3.0/Input-14754.txt QT5000-Possion3.0/Input-08669.txt QT5000-Possion3.0/Input-05746.txt QT5000-Possion3.0/Input-11043.txt QT5000-Possion3.0/Input-08640.txt QT5000-Possion3.0/Input-04198.txt QT5000-Possion3.0/Input-03299.txt QT5000-Possion3.0/Input-01752.txt QT5000-Possion3.0/Input-08911.txt QT5000-Possion3.0/Input-05672.txt QT5000-Possion3.0/Input-10246.txt QT5000-Possion3.0/Input-07254.txt QT5000-Possion3.0/Input-11801.txt QT5000-Possion3.0/Input-05066.txt QT5000-Possion5.0/Input-11353.txt QT5000-Possion5.0/Input-09535.txt QT5000-Possion5.0/Input-11850.txt QT5000-Possion5.0/Input-05339.txt QT5000-Possion5.0/Input-03338.txt QT5000-Possion5.0/Input-07558.txt QT5000-Possion5.0/Input-06510.txt QT5000-Possion5.0/Input-07500.txt QT5000-Possion5.0/Input-13178.txt QT5000-Possion5.0/Input-12567.txt QT5000-Possion5.0/Input-10791.txt QT5000-Possion5.0/Input-12351.txt QT5000-Possion5.0/Input-13465.txt QT5000-Possion5.0/Input-03909.txt QT5000-Possion5.0/Input-12613.txt QT5000-Possion5.0/Input-00545.txt
+
+   table-local elasticities on the sample: median over the stratum's inputs [bootstrap 95% CI of that median], and the mean
+     QT0100-Possion3.0  V_P  0.622 [ 0.583,  0.662] mean  0.621   h2 -0.394 [-0.450, -0.333] mean -0.357   m  0.616 [ 0.588,  0.654] mean  0.636   omega -0.360 [-0.385, -0.338] mean -0.330
+     QT0100-Possion5.0  V_P  0.605 [ 0.530,  0.636] mean  0.572   h2 -0.350 [-0.385, -0.300] mean -0.409   m  0.559 [ 0.528,  0.596] mean  0.674   omega -0.339 [-0.366, -0.308] mean -0.200
+     QT0500-Possion3.0  V_P  0.532 [ 0.497,  0.575] mean  0.529   h2 -0.269 [-0.303, -0.220] mean -0.215   m  0.517 [ 0.478,  0.553] mean  0.501   omega -0.293 [-0.325, -0.268] mean -0.288
+     QT0500-Possion5.0  V_P  0.538 [ 0.505,  0.585] mean  0.537   h2 -0.284 [-0.330, -0.239] mean -0.303   m  0.575 [ 0.543,  0.614] mean  0.603   omega -0.249 [-0.277, -0.219] mean -0.217
+     QT1000-Possion3.0  V_P  0.548 [ 0.515,  0.602] mean  0.574   h2 -0.293 [-0.334, -0.254] mean -0.331   m  0.525 [ 0.497,  0.565] mean  0.567   omega -0.183 [-0.209, -0.146] mean -0.175
+     QT1000-Possion5.0  V_P  0.479 [ 0.416,  0.558] mean  0.500   h2 -0.313 [-0.370, -0.275] mean -0.337   m  0.475 [ 0.444,  0.510] mean  0.531   omega -0.159 [-0.193, -0.121] mean -0.117
+     QT5000-Possion3.0  V_P  0.474 [ 0.443,  0.515] mean  0.448   h2 -0.197 [-0.231, -0.158] mean -0.192   m  0.449 [ 0.423,  0.478] mean  0.426   omega -0.092 [-0.117, -0.034] mean -0.069
+     QT5000-Possion5.0  V_P  0.421 [ 0.397,  0.476] mean  0.428   h2 -0.436 [-0.500, -0.369] mean -0.420   m  0.451 [ 0.429,  0.493] mean  0.469   omega -0.046 [-0.069, -0.003] mean  0.004
+
+== the primary cells (criteria): tercile fits by locus number, input and information tercile ==
+   per locus number (u = 3 and 5 pooled, with an indicator of u = 5) and input θ: the linear logistic model within each
+   tercile of θ, terciles of the information weights μ(1 − μ) of the per-stratum linear fits; e_θ of θ itself
+   [bootstrap percentile 95% CI, 600 resamples of the cell's rows]; n rows, alive, share of the information,
+   and the number of the emulator's sample inputs in the cell
+   L  100  V_P    tercile 1  θ in [0.01, 0.02045]  e  0.484 [ 0.351,  0.601] *  n 13368 alive  854 info 0.33  sample 12
+   L  100  V_P    tercile 2  θ in [0.02045, 0.03667]  e  0.666 [ 0.521,  0.808] *  n 10040 alive  953 info 0.33  sample 11
+   L  100  V_P    tercile 3  θ in [0.03667, 0.08998]  e  0.711 [ 0.608,  0.836] *  n  6588 alive  926 info 0.33  sample  9
+   L  100  h2     tercile 1  θ in [0.01014, 0.2014]  e -0.052 [-0.094, -0.011] *  n  8656 alive  883 info 0.33  sample  7  (|e| < 0.1)
+   L  100  h2     tercile 2  θ in [0.2014, 0.3849]  e -0.308 [-0.451, -0.153] *  n  9824 alive 1014 info 0.33  sample 15
+   L  100  h2     tercile 3  θ in [0.3849, 0.9898]  e -0.644 [-0.777, -0.489] *  n 11516 alive  836 info 0.33  sample 10
+   L  100  m      tercile 1  θ in [0.0001002, 0.00443]  e  0.337 [ 0.289,  0.393] *  n 16198 alive  927 info 0.33  sample  9
+   L  100  m      tercile 2  θ in [0.00443, 0.009158]  e  0.762 [ 0.625,  0.902] *  n  8080 alive  838 info 0.33  sample 13
+   L  100  m      tercile 3  θ in [0.009158, 0.0521]  e  0.654 [ 0.568,  0.743] *  n  5718 alive  968 info 0.33  sample 10
+   L  100  omega  tercile 1  θ in [0.003095, 2.541]  e -0.174 [-0.204, -0.143] *  n  7538 alive 1022 info 0.33  sample 14
+   L  100  omega  tercile 2  θ in [2.541, 6.054]  e -0.099 [-0.199,  0.003]    n 10530 alive  792 info 0.33  sample  8  (|e| < 0.1)
+   L  100  omega  tercile 3  θ in [6.054, 10]  e  0.295 [ 0.162,  0.443] *  n 11928 alive  919 info 0.33  sample 10
+   L  500  V_P    tercile 1  θ in [0.01, 0.02004]  e  0.397 [ 0.263,  0.536] *  n 12986 alive  767 info 0.33  sample 12
+   L  500  V_P    tercile 2  θ in [0.02004, 0.03627]  e  0.545 [ 0.395,  0.706] *  n 10260 alive  871 info 0.33  sample 11
+   L  500  V_P    tercile 3  θ in [0.03627, 0.08998]  e  0.542 [ 0.433,  0.643] *  n  6750 alive  833 info 0.33  sample  9
+   L  500  h2     tercile 1  θ in [0.01014, 0.2038]  e -0.035 [-0.076,  0.010]    n  8812 alive  786 info 0.33  sample 10  (|e| < 0.1)
+   L  500  h2     tercile 2  θ in [0.2038, 0.3888]  e -0.322 [-0.453, -0.196] *  n  9854 alive  914 info 0.33  sample 16
+   L  500  h2     tercile 3  θ in [0.3888, 0.9898]  e -0.631 [-0.789, -0.486] *  n 11330 alive  771 info 0.33  sample  6
+   L  500  m      tercile 1  θ in [0.0001002, 0.004328]  e  0.294 [ 0.242,  0.345] *  n 15858 alive  840 info 0.33  sample 11
+   L  500  m      tercile 2  θ in [0.004328, 0.009011]  e  0.675 [ 0.571,  0.785] *  n  8274 alive  767 info 0.33  sample  5
+   L  500  m      tercile 3  θ in [0.009011, 0.0521]  e  0.612 [ 0.535,  0.690] *  n  5864 alive  864 info 0.33  sample 16
+   L  500  omega  tercile 1  θ in [0.003095, 2.727]  e -0.191 [-0.219, -0.163] *  n  8036 alive  880 info 0.33  sample 11
+   L  500  omega  tercile 2  θ in [2.727, 6.333]  e -0.022 [-0.124,  0.065]    n 10850 alive  738 info 0.33  sample  8  (|e| < 0.1)
+   L  500  omega  tercile 3  θ in [6.333, 10]  e  0.381 [ 0.253,  0.511] *  n 11110 alive  853 info 0.33  sample 13
+   L 1000  V_P    tercile 1  θ in [0.01, 0.02006]  e  0.371 [ 0.241,  0.509] *  n 13002 alive  733 info 0.33  sample 14
+   L 1000  V_P    tercile 2  θ in [0.02006, 0.03645]  e  0.542 [ 0.394,  0.687] *  n 10340 alive  842 info 0.33  sample  8
+   L 1000  V_P    tercile 3  θ in [0.03645, 0.08998]  e  0.532 [ 0.424,  0.629] *  n  6654 alive  788 info 0.33  sample 10
+   L 1000  h2     tercile 1  θ in [0.01014, 0.2046]  e -0.009 [-0.046,  0.026]    n  8870 alive  760 info 0.33  sample  9  (|e| < 0.1)
+   L 1000  h2     tercile 2  θ in [0.2046, 0.3881]  e -0.374 [-0.503, -0.243] *  n  9768 alive  867 info 0.33  sample 13
+   L 1000  h2     tercile 3  θ in [0.3881, 0.9898]  e -0.596 [-0.753, -0.434] *  n 11358 alive  736 info 0.33  sample 10
+   L 1000  m      tercile 1  θ in [0.0001002, 0.00415]  e  0.276 [ 0.230,  0.327] *  n 15384 alive  796 info 0.33  sample 13
+   L 1000  m      tercile 2  θ in [0.00415, 0.008995]  e  0.719 [ 0.620,  0.822] *  n  8734 alive  749 info 0.33  sample  9
+   L 1000  m      tercile 3  θ in [0.008995, 0.0521]  e  0.585 [ 0.505,  0.658] *  n  5878 alive  818 info 0.33  sample 10
+   L 1000  omega  tercile 1  θ in [0.003095, 2.894]  e -0.179 [-0.205, -0.152] *  n  8552 alive  816 info 0.33  sample 16
+   L 1000  omega  tercile 2  θ in [2.894, 6.449]  e -0.047 [-0.144,  0.050]    n 10730 alive  731 info 0.33  sample  4  (|e| < 0.1)
+   L 1000  omega  tercile 3  θ in [6.449, 10]  e  0.377 [ 0.239,  0.505] *  n 10714 alive  816 info 0.33  sample 12
+   L 5000  V_P    tercile 1  θ in [0.01, 0.01932]  e  0.303 [ 0.163,  0.439] *  n 12274 alive  640 info 0.33  sample 11
+   L 5000  V_P    tercile 2  θ in [0.01932, 0.03436]  e  0.578 [ 0.420,  0.726] *  n 10194 alive  752 info 0.33  sample 14
+   L 5000  V_P    tercile 3  θ in [0.03436, 0.08998]  e  0.416 [ 0.313,  0.519] *  n  7528 alive  746 info 0.33  sample  7
+   L 5000  h2     tercile 1  θ in [0.01014, 0.2109]  e -0.023 [-0.065,  0.018]    n  9178 alive  708 info 0.33  sample  9  (|e| < 0.1)
+   L 5000  h2     tercile 2  θ in [0.2109, 0.3909]  e -0.384 [-0.516, -0.253] *  n  9590 alive  760 info 0.33  sample 10
+   L 5000  h2     tercile 3  θ in [0.3909, 0.9898]  e -0.602 [-0.739, -0.444] *  n 11228 alive  670 info 0.33  sample 13
+   L 5000  m      tercile 1  θ in [0.0001002, 0.003959]  e  0.263 [ 0.218,  0.315] *  n 14932 alive  712 info 0.33  sample 11
+   L 5000  m      tercile 2  θ in [0.003959, 0.008852]  e  0.474 [ 0.375,  0.562] *  n  9028 alive  702 info 0.33  sample  9
+   L 5000  m      tercile 3  θ in [0.008852, 0.0521]  e  0.551 [ 0.489,  0.616] *  n  6036 alive  724 info 0.33  sample 12
+   L 5000  omega  tercile 1  θ in [0.003095, 3.325]  e -0.138 [-0.166, -0.101] *  n  9842 alive  733 info 0.33  sample 11
+   L 5000  omega  tercile 2  θ in [3.325, 6.79]  e -0.012 [-0.116,  0.090]    n 10448 alive  663 info 0.33  sample 11  (|e| < 0.1)
+   L 5000  omega  tercile 3  θ in [6.79, 10]  e  0.288 [ 0.136,  0.425] *  n  9706 alive  742 info 0.33  sample 10
+   cells defined: 48 of 48; CI excludes 0 (*): 41; |e| ≥ 0.1: 40
