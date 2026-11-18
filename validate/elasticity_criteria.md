@@ -161,3 +161,19 @@ Any change after the commit of this file is recorded here with its reason and wh
 emulator result had been seen.
 
 (none at the time of the first commit)
+
+No criterion was amended after the commit. Notes on the run (2026-11-18, written after the
+results were seen; they change no rule and no verdict):
+
+- The screen stopped after round 8 (64 inputs) under the cost rule: its summed job seconds were
+  7603 > 6000. Job seconds are wall time inside 8 concurrent threads and overstated the CPU time
+  (the whole emulator mode took 94 CPU-minutes by `/usr/bin/time`), so the rule stopped earlier
+  than the budget required. Not extended after the fact.
+- N2 is logged "NOT VERIFIED" because the rule asks for all 5 × 4 values and one of the five
+  brute-force inputs has an undefined (saturated) implicit elasticity; the 16 comparable values
+  agree to 0.0065. The log's flag "numerically unreliable" is the rule applied as written.
+- 12 of the 64 screen inputs are undefined (P2000 exactly 0 or 1 at a difference point even at
+  δ = 1e-3). They all have ω < 2.2 (post hoc line in the log), so the undefined inputs are not a
+  random subset: 17 of the 48 cells have fewer than 4 defined inputs and are excluded, among them
+  all four low-ω cells. The verdicts cover 31 cells.
+- The only code added after the results is the "post hoc" block at the end of `analyse`.

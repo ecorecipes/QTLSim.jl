@@ -1,0 +1,276 @@
+validate/elasticity.jl analyse — the emulator's elasticities of the half-survival rate against the published table's
+criteria: validate/elasticity_criteria.md; table side: validate/elasticity_table.log; 2026-11-18 10:22
+
+== the runs ==
+screen: 8 rounds of one input per stratum = 64 inputs (sample of 16 per stratum, draw order); :rare_alleles on all 128; default :spectrum on 8 (round 1)
+summed job seconds: screen 7603, :rare_alleles 494, default :spectrum 957, step check 217, brute force 3615, grid recomputation 203; total 13088 s = 3.64 h
+process times of the emulator mode (/usr/bin/time -p): real 2849.08, user 5640.10, sys 20.48
+  screen                           defined  52 of  64; no k50 0 (k50 = 0: 0, ∞: 0); saturated 12; ∂h/∂log k ≥ 0: 0; step 1e-3 used after saturation at 1e-2: 17; evaluations for k50 median 10
+  :rare_alleles (screen's inputs)  defined  46 of  64; no k50 0 (k50 = 0: 0, ∞: 0); saturated 18; ∂h/∂log k ≥ 0: 0; step 1e-3 used after saturation at 1e-2: 24; evaluations for k50 median 16
+  default :spectrum                defined   6 of   8; no k50 0 (k50 = 0: 0, ∞: 0); saturated 2; ∂h/∂log k ≥ 0: 0; step 1e-3 used after saturation at 1e-2: 2; evaluations for k50 median 10
+  screen at k50 (defined inputs): |h| median 0.142, max 10.533; ∂h/∂log k median -192.8 (range -6630.1 to -62.4)
+
+== fallback of the beta solver (screen) ==
+  inputs whose run at k50 fell back: 24 of 64; with ≥ 1 of the 10 difference points falling back: 24; all 10: 24
+  defined inputs with a pair straddling a switch (one point fell back, the other not): 0; with only shifts (both fell back, different generations): 10
+  straddling inputs recomputed with the grid and used in the consistent screen values: 0; straddling inputs left undefined (beyond the cap of 10, or the grid undefined): 0
+    QT0100-Possion3.0/Input-06543.txt  shift    beta e  0.231 -0.073  0.231  0.530   grid e  0.253 -0.078  0.253  0.490   max |diff| 0.040
+    QT0100-Possion3.0/Input-01762.txt  shift    beta e  0.578 -0.035  0.579 -0.181   grid e  0.577 -0.036  0.577 -0.154   max |diff| 0.027
+    QT0100-Possion3.0/Input-06121.txt  shift    beta e  0.591 -0.093  0.591 -0.182   grid e  0.525 -0.084  0.525 -0.069   max |diff| 0.113
+
+== numerical checks of the screen (round 1) ==
+  N1 QT0100-Possion3.0/Input-10388.txt  δ = 1e-2:  0.099 -0.339  0.099  0.801   δ = 1e-3:  0.099 -0.340  0.099  0.801
+  N1 QT0100-Possion5.0/Input-03000.txt  δ = 1e-2:  0.277 -0.093  0.277  0.441   δ = 1e-3:  0.279 -0.094  0.279  0.459
+  N1 QT0500-Possion3.0/Input-03338.txt  δ = 1e-2:  0.431 -0.226  0.431  0.128   δ = 1e-3:  0.435 -0.229  0.435  0.130
+  N1 QT0500-Possion5.0/Input-09763.txt  δ = 1e-2:  NaN  NaN  NaN  NaN   δ = 1e-3:  0.781 -1.260  0.794 -0.562
+  N1 QT1000-Possion3.0/Input-07183.txt  δ = 1e-2:  0.667 -0.067  0.672 -0.334   δ = 1e-3:  0.667 -0.067  0.672 -0.334
+  N1 QT1000-Possion5.0/Input-01120.txt  δ = 1e-2:  0.160 -0.013  0.160  0.678   δ = 1e-3:  0.161 -0.013  0.161  0.679
+  N1 QT5000-Possion3.0/Input-01586.txt  δ = 1e-2:  0.690 -0.221  0.690 -0.380   δ = 1e-3:  0.690 -0.221  0.690 -0.380
+  N1 QT5000-Possion5.0/Input-11353.txt  δ = 1e-2:  NaN  NaN  NaN  NaN   δ = 1e-3:  NaN  NaN  NaN  NaN
+  N1 step: |e(1e-2) − e(1e-3)| over 24 values: median 0.0003 (≤ 0.02), 90th percentile 0.0034 (≤ 0.05), max 0.0174: stable
+  N2 QT0100-Possion3.0/Input-10388.txt  implicit:  0.099 -0.339  0.099  0.801   brute force:  0.099 -0.341  0.099  0.803
+  N2 QT0500-Possion3.0/Input-03338.txt  implicit:  0.431 -0.226  0.431  0.128   brute force:  0.435 -0.232  0.435  0.127
+  N2 QT1000-Possion3.0/Input-07183.txt  implicit:  0.667 -0.067  0.672 -0.334   brute force:  0.673 -0.066  0.673 -0.335
+  N2 QT5000-Possion3.0/Input-01586.txt  implicit:  0.690 -0.221  0.690 -0.380   brute force:  0.696 -0.221  0.696 -0.379
+  N2 QT5000-Possion5.0/Input-11353.txt  implicit:  NaN  NaN  NaN  NaN   brute force:  0.668 -1.271  0.683 -1.087
+  N2 brute force: |brute − implicit| over 16 values (4 undefined): median 0.0017 (≤ 0.03), max 0.0065 (≤ 0.10): NOT VERIFIED
+  numerical status of the verdicts below: NUMERICALLY UNRELIABLE (N1 or N2 failed)
+
+== primary comparison: 48 cells (locus number × input × information tercile of the input) ==
+
+-- the screen, consistent values (grid where a difference straddles a fallback switch) (VERDICT) --
+   cell: L, input, tercile; table e [CI]; emulator median (mean) over n defined of N inputs; G1 sign, G2 size
+   L  100 V_P    t1  table  0.484 [ 0.351,  0.601]   emulator  0.501 ( 0.423)  n  4/ 6   sign ok    size ok
+   L  100 V_P    t2  table  0.666 [ 0.521,  0.808]   emulator  0.800 ( 0.684)  n  5/ 5   sign ok    size ok
+   L  100 V_P    t3  table  0.711 [ 0.608,  0.836]   emulator  0.578 ( 0.517)  n  5/ 5   sign ok    size ok
+   L  100 h2     t1  table -0.052 [-0.094, -0.011]   emulator -0.090 (-0.077)  n  4/ 4   sign ok    
+   L  100 h2     t2  table -0.308 [-0.451, -0.153]   emulator -0.266 (-0.241)  n  9/ 9   sign ok    size ok
+   L  100 h2     t3  table -0.644 [-0.777, -0.489]   emulator: 1 defined of 3 — EXCLUDED
+   L  100 m      t1  table  0.337 [ 0.289,  0.393]   emulator  0.254 ( 0.373)  n  4/ 5   sign ok    size ok
+   L  100 m      t2  table  0.762 [ 0.625,  0.902]   emulator  0.636 ( 0.618)  n  8/ 8   sign ok    size ok
+   L  100 m      t3  table  0.654 [ 0.568,  0.743]   emulator: 2 defined of 3 — EXCLUDED
+   L  100 omega  t1  table -0.174 [-0.204, -0.143]   emulator: 3 defined of 5 — EXCLUDED
+   L  100 omega  t2  table -0.099 [-0.199,  0.003]   emulator -0.359 (-0.381)  n  5/ 5              
+   L  100 omega  t3  table  0.295 [ 0.162,  0.443]   emulator  0.486 ( 0.398)  n  6/ 6   sign ok    size ok
+   L  500 V_P    t1  table  0.397 [ 0.263,  0.536]   emulator  0.281 ( 0.357)  n  5/ 6   sign ok    size ok
+   L  500 V_P    t2  table  0.545 [ 0.395,  0.706]   emulator  0.452 ( 0.493)  n  5/ 6   sign ok    size ok
+   L  500 V_P    t3  table  0.542 [ 0.433,  0.643]   emulator: 2 defined of 4 — EXCLUDED
+   L  500 h2     t1  table -0.035 [-0.076,  0.010]   emulator: 1 defined of 4 — EXCLUDED
+   L  500 h2     t2  table -0.322 [-0.453, -0.196]   emulator -0.174 (-0.187)  n  8/ 8   sign ok    size ok
+   L  500 h2     t3  table -0.631 [-0.789, -0.486]   emulator: 3 defined of 4 — EXCLUDED
+   L  500 m      t1  table  0.294 [ 0.242,  0.345]   emulator  0.214 ( 0.288)  n  4/ 6   sign ok    size ok
+   L  500 m      t2  table  0.675 [ 0.571,  0.785]   emulator: 1 defined of 1 — EXCLUDED
+   L  500 m      t3  table  0.612 [ 0.535,  0.690]   emulator  0.453 ( 0.510)  n  7/ 9   sign ok    size ok
+   L  500 omega  t1  table -0.191 [-0.219, -0.163]   emulator: 2 defined of 6 — EXCLUDED
+   L  500 omega  t2  table -0.022 [-0.124,  0.065]   emulator: 2 defined of 2 — EXCLUDED
+   L  500 omega  t3  table  0.381 [ 0.253,  0.511]   emulator  0.282 ( 0.290)  n  8/ 8   sign ok    size ok
+   L 1000 V_P    t1  table  0.371 [ 0.241,  0.509]   emulator  0.388 ( 0.456)  n  7/ 7   sign ok    size ok
+   L 1000 V_P    t2  table  0.542 [ 0.394,  0.687]   emulator: 2 defined of 3 — EXCLUDED
+   L 1000 V_P    t3  table  0.532 [ 0.424,  0.629]   emulator  0.288 ( 0.361)  n  4/ 6   sign ok    size ok
+   L 1000 h2     t1  table -0.009 [-0.046,  0.026]   emulator -0.036 (-0.037)  n  6/ 7              
+   L 1000 h2     t2  table -0.374 [-0.503, -0.243]   emulator: 3 defined of 4 — EXCLUDED
+   L 1000 h2     t3  table -0.596 [-0.753, -0.434]   emulator -0.371 (-0.404)  n  4/ 5   sign ok    size ok
+   L 1000 m      t1  table  0.276 [ 0.230,  0.327]   emulator  0.288 ( 0.333)  n  6/ 6   sign ok    size ok
+   L 1000 m      t2  table  0.719 [ 0.620,  0.822]   emulator  0.569 ( 0.562)  n  5/ 6   sign ok    size ok
+   L 1000 m      t3  table  0.585 [ 0.505,  0.658]   emulator: 2 defined of 4 — EXCLUDED
+   L 1000 omega  t1  table -0.179 [-0.205, -0.152]   emulator: 3 defined of 6 — EXCLUDED
+   L 1000 omega  t2  table -0.047 [-0.144,  0.050]   emulator: 2 defined of 2 — EXCLUDED
+   L 1000 omega  t3  table  0.377 [ 0.239,  0.505]   emulator  0.402 ( 0.393)  n  8/ 8   sign ok    size ok
+   L 5000 V_P    t1  table  0.303 [ 0.163,  0.439]   emulator  0.122 ( 0.178)  n  4/ 5   sign ok    size ok
+   L 5000 V_P    t2  table  0.578 [ 0.420,  0.726]   emulator  0.593 ( 0.610)  n  5/ 6   sign ok    size ok
+   L 5000 V_P    t3  table  0.416 [ 0.313,  0.519]   emulator  0.735 ( 0.731)  n  4/ 5   sign ok    SIZE FAIL
+   L 5000 h2     t1  table -0.023 [-0.065,  0.018]   emulator: 2 defined of 2 — EXCLUDED
+   L 5000 h2     t2  table -0.384 [-0.516, -0.253]   emulator -0.225 (-0.247)  n  6/ 6   sign ok    size ok
+   L 5000 h2     t3  table -0.602 [-0.739, -0.444]   emulator -0.300 (-0.343)  n  5/ 8   sign ok    size ok
+   L 5000 m      t1  table  0.263 [ 0.218,  0.315]   emulator  0.125 ( 0.316)  n  5/ 6   sign ok    size ok
+   L 5000 m      t2  table  0.474 [ 0.375,  0.562]   emulator: 3 defined of 4 — EXCLUDED
+   L 5000 m      t3  table  0.551 [ 0.489,  0.616]   emulator  0.593 ( 0.594)  n  5/ 6   sign ok    size ok
+   L 5000 omega  t1  table -0.138 [-0.166, -0.101]   emulator: 1 defined of 4 — EXCLUDED
+   L 5000 omega  t2  table -0.012 [-0.116,  0.090]   emulator -0.407 (-0.196)  n  7/ 7              
+   L 5000 omega  t3  table  0.288 [ 0.136,  0.425]   emulator  0.126 ( 0.226)  n  5/ 5   sign ok    size ok
+   G1 sign: 28 of 28 cells whose table CI excludes 0 (1.000; ≥ 0.90): PASS
+   G2 size: 26 of 27 cells with |table e| ≥ 0.1 (0.963; ≥ 0.75): PASS
+   G3 ranking: Spearman over 31 cells = 0.904 (≥ 0.8): PASS
+   failing G2 cells:
+     L 5000 V_P    t3: table  0.416 [ 0.313,  0.519], tol 0.150, emulator  0.735
+   excluded cells (< 4 defined inputs): L  100 h2     t3 (n = 1); L  100 m      t3 (n = 2); L  100 omega  t1 (n = 3); L  500 V_P    t3 (n = 2); L  500 h2     t1 (n = 1); L  500 h2     t3 (n = 3); L  500 m      t2 (n = 1); L  500 omega  t1 (n = 2); L  500 omega  t2 (n = 2); L 1000 V_P    t2 (n = 2); L 1000 h2     t2 (n = 3); L 1000 m      t3 (n = 2); L 1000 omega  t1 (n = 3); L 1000 omega  t2 (n = 2); L 5000 h2     t1 (n = 2); L 5000 m      t2 (n = 3); L 5000 omega  t1 (n = 1)
+   OVERALL GATE (G1 and G2): PASS
+
+-- the screen as run (beta values for every input) (comparator, no verdict) --
+   cell: L, input, tercile; table e [CI]; emulator median (mean) over n defined of N inputs; G1 sign, G2 size
+   L  100 V_P    t1  table  0.484 [ 0.351,  0.601]   emulator  0.501 ( 0.423)  n  4/ 6   sign ok    size ok
+   L  100 V_P    t2  table  0.666 [ 0.521,  0.808]   emulator  0.800 ( 0.684)  n  5/ 5   sign ok    size ok
+   L  100 V_P    t3  table  0.711 [ 0.608,  0.836]   emulator  0.578 ( 0.517)  n  5/ 5   sign ok    size ok
+   L  100 h2     t1  table -0.052 [-0.094, -0.011]   emulator -0.090 (-0.077)  n  4/ 4   sign ok    
+   L  100 h2     t2  table -0.308 [-0.451, -0.153]   emulator -0.266 (-0.241)  n  9/ 9   sign ok    size ok
+   L  100 h2     t3  table -0.644 [-0.777, -0.489]   emulator: 1 defined of 3 — EXCLUDED
+   L  100 m      t1  table  0.337 [ 0.289,  0.393]   emulator  0.254 ( 0.373)  n  4/ 5   sign ok    size ok
+   L  100 m      t2  table  0.762 [ 0.625,  0.902]   emulator  0.636 ( 0.618)  n  8/ 8   sign ok    size ok
+   L  100 m      t3  table  0.654 [ 0.568,  0.743]   emulator: 2 defined of 3 — EXCLUDED
+   L  100 omega  t1  table -0.174 [-0.204, -0.143]   emulator: 3 defined of 5 — EXCLUDED
+   L  100 omega  t2  table -0.099 [-0.199,  0.003]   emulator -0.359 (-0.381)  n  5/ 5              
+   L  100 omega  t3  table  0.295 [ 0.162,  0.443]   emulator  0.486 ( 0.398)  n  6/ 6   sign ok    size ok
+   L  500 V_P    t1  table  0.397 [ 0.263,  0.536]   emulator  0.281 ( 0.357)  n  5/ 6   sign ok    size ok
+   L  500 V_P    t2  table  0.545 [ 0.395,  0.706]   emulator  0.452 ( 0.493)  n  5/ 6   sign ok    size ok
+   L  500 V_P    t3  table  0.542 [ 0.433,  0.643]   emulator: 2 defined of 4 — EXCLUDED
+   L  500 h2     t1  table -0.035 [-0.076,  0.010]   emulator: 1 defined of 4 — EXCLUDED
+   L  500 h2     t2  table -0.322 [-0.453, -0.196]   emulator -0.174 (-0.187)  n  8/ 8   sign ok    size ok
+   L  500 h2     t3  table -0.631 [-0.789, -0.486]   emulator: 3 defined of 4 — EXCLUDED
+   L  500 m      t1  table  0.294 [ 0.242,  0.345]   emulator  0.214 ( 0.288)  n  4/ 6   sign ok    size ok
+   L  500 m      t2  table  0.675 [ 0.571,  0.785]   emulator: 1 defined of 1 — EXCLUDED
+   L  500 m      t3  table  0.612 [ 0.535,  0.690]   emulator  0.453 ( 0.510)  n  7/ 9   sign ok    size ok
+   L  500 omega  t1  table -0.191 [-0.219, -0.163]   emulator: 2 defined of 6 — EXCLUDED
+   L  500 omega  t2  table -0.022 [-0.124,  0.065]   emulator: 2 defined of 2 — EXCLUDED
+   L  500 omega  t3  table  0.381 [ 0.253,  0.511]   emulator  0.282 ( 0.290)  n  8/ 8   sign ok    size ok
+   L 1000 V_P    t1  table  0.371 [ 0.241,  0.509]   emulator  0.388 ( 0.456)  n  7/ 7   sign ok    size ok
+   L 1000 V_P    t2  table  0.542 [ 0.394,  0.687]   emulator: 2 defined of 3 — EXCLUDED
+   L 1000 V_P    t3  table  0.532 [ 0.424,  0.629]   emulator  0.288 ( 0.361)  n  4/ 6   sign ok    size ok
+   L 1000 h2     t1  table -0.009 [-0.046,  0.026]   emulator -0.036 (-0.037)  n  6/ 7              
+   L 1000 h2     t2  table -0.374 [-0.503, -0.243]   emulator: 3 defined of 4 — EXCLUDED
+   L 1000 h2     t3  table -0.596 [-0.753, -0.434]   emulator -0.371 (-0.404)  n  4/ 5   sign ok    size ok
+   L 1000 m      t1  table  0.276 [ 0.230,  0.327]   emulator  0.288 ( 0.333)  n  6/ 6   sign ok    size ok
+   L 1000 m      t2  table  0.719 [ 0.620,  0.822]   emulator  0.569 ( 0.562)  n  5/ 6   sign ok    size ok
+   L 1000 m      t3  table  0.585 [ 0.505,  0.658]   emulator: 2 defined of 4 — EXCLUDED
+   L 1000 omega  t1  table -0.179 [-0.205, -0.152]   emulator: 3 defined of 6 — EXCLUDED
+   L 1000 omega  t2  table -0.047 [-0.144,  0.050]   emulator: 2 defined of 2 — EXCLUDED
+   L 1000 omega  t3  table  0.377 [ 0.239,  0.505]   emulator  0.402 ( 0.393)  n  8/ 8   sign ok    size ok
+   L 5000 V_P    t1  table  0.303 [ 0.163,  0.439]   emulator  0.122 ( 0.178)  n  4/ 5   sign ok    size ok
+   L 5000 V_P    t2  table  0.578 [ 0.420,  0.726]   emulator  0.593 ( 0.610)  n  5/ 6   sign ok    size ok
+   L 5000 V_P    t3  table  0.416 [ 0.313,  0.519]   emulator  0.735 ( 0.731)  n  4/ 5   sign ok    SIZE FAIL
+   L 5000 h2     t1  table -0.023 [-0.065,  0.018]   emulator: 2 defined of 2 — EXCLUDED
+   L 5000 h2     t2  table -0.384 [-0.516, -0.253]   emulator -0.225 (-0.247)  n  6/ 6   sign ok    size ok
+   L 5000 h2     t3  table -0.602 [-0.739, -0.444]   emulator -0.300 (-0.343)  n  5/ 8   sign ok    size ok
+   L 5000 m      t1  table  0.263 [ 0.218,  0.315]   emulator  0.125 ( 0.316)  n  5/ 6   sign ok    size ok
+   L 5000 m      t2  table  0.474 [ 0.375,  0.562]   emulator: 3 defined of 4 — EXCLUDED
+   L 5000 m      t3  table  0.551 [ 0.489,  0.616]   emulator  0.593 ( 0.594)  n  5/ 6   sign ok    size ok
+   L 5000 omega  t1  table -0.138 [-0.166, -0.101]   emulator: 1 defined of 4 — EXCLUDED
+   L 5000 omega  t2  table -0.012 [-0.116,  0.090]   emulator -0.407 (-0.196)  n  7/ 7              
+   L 5000 omega  t3  table  0.288 [ 0.136,  0.425]   emulator  0.126 ( 0.226)  n  5/ 5   sign ok    size ok
+   G1 sign: 28 of 28 cells whose table CI excludes 0 (1.000; ≥ 0.90): (would pass)
+   G2 size: 26 of 27 cells with |table e| ≥ 0.1 (0.963; ≥ 0.75): (would pass)
+   G3 ranking: Spearman over 31 cells = 0.904 (≥ 0.8): (would pass)
+   failing G2 cells:
+     L 5000 V_P    t3: table  0.416 [ 0.313,  0.519], tol 0.150, emulator  0.735
+   excluded cells (< 4 defined inputs): L  100 h2     t3 (n = 1); L  100 m      t3 (n = 2); L  100 omega  t1 (n = 3); L  500 V_P    t3 (n = 2); L  500 h2     t1 (n = 1); L  500 h2     t3 (n = 3); L  500 m      t2 (n = 1); L  500 omega  t1 (n = 2); L  500 omega  t2 (n = 2); L 1000 V_P    t2 (n = 2); L 1000 h2     t2 (n = 3); L 1000 m      t3 (n = 2); L 1000 omega  t1 (n = 3); L 1000 omega  t2 (n = 2); L 5000 h2     t1 (n = 2); L 5000 m      t2 (n = 3); L 5000 omega  t1 (n = 1)
+
+-- :rare_alleles on the screen's inputs (comparator, no verdict) --
+   cell: L, input, tercile; table e [CI]; emulator median (mean) over n defined of N inputs; G1 sign, G2 size
+   L  100 V_P    t1  table  0.484 [ 0.351,  0.601]   emulator  0.650 ( 0.537)  n  5/ 6   sign ok    size ok
+   L  100 V_P    t2  table  0.666 [ 0.521,  0.808]   emulator: 3 defined of 5 — EXCLUDED
+   L  100 V_P    t3  table  0.711 [ 0.608,  0.836]   emulator  0.491 ( 0.496)  n  4/ 5   sign ok    size ok
+   L  100 h2     t1  table -0.052 [-0.094, -0.011]   emulator -0.074 (-0.074)  n  4/ 4   sign ok    
+   L  100 h2     t2  table -0.308 [-0.451, -0.153]   emulator -0.224 (-0.224)  n  6/ 9   sign ok    size ok
+   L  100 h2     t3  table -0.644 [-0.777, -0.489]   emulator: 2 defined of 3 — EXCLUDED
+   L  100 m      t1  table  0.337 [ 0.289,  0.393]   emulator  0.493 ( 0.473)  n  4/ 5   sign ok    size ok
+   L  100 m      t2  table  0.762 [ 0.625,  0.902]   emulator  0.652 ( 0.558)  n  6/ 8   sign ok    size ok
+   L  100 m      t3  table  0.654 [ 0.568,  0.743]   emulator: 2 defined of 3 — EXCLUDED
+   L  100 omega  t1  table -0.174 [-0.204, -0.143]   emulator: 1 defined of 5 — EXCLUDED
+   L  100 omega  t2  table -0.099 [-0.199,  0.003]   emulator -0.299 (-0.244)  n  5/ 5              
+   L  100 omega  t3  table  0.295 [ 0.162,  0.443]   emulator -0.004 ( 0.061)  n  6/ 6   SIGN WRONG SIZE FAIL
+   L  500 V_P    t1  table  0.397 [ 0.263,  0.536]   emulator  0.497 ( 0.492)  n  5/ 6   sign ok    size ok
+   L  500 V_P    t2  table  0.545 [ 0.395,  0.706]   emulator  0.706 ( 0.656)  n  4/ 6   sign ok    size ok
+   L  500 V_P    t3  table  0.542 [ 0.433,  0.643]   emulator: 2 defined of 4 — EXCLUDED
+   L  500 h2     t1  table -0.035 [-0.076,  0.010]   emulator: 1 defined of 4 — EXCLUDED
+   L  500 h2     t2  table -0.322 [-0.453, -0.196]   emulator -0.215 (-0.242)  n  7/ 8   sign ok    size ok
+   L  500 h2     t3  table -0.631 [-0.789, -0.486]   emulator: 3 defined of 4 — EXCLUDED
+   L  500 m      t1  table  0.294 [ 0.242,  0.345]   emulator  0.371 ( 0.424)  n  4/ 6   sign ok    size ok
+   L  500 m      t2  table  0.675 [ 0.571,  0.785]   emulator: 1 defined of 1 — EXCLUDED
+   L  500 m      t3  table  0.612 [ 0.535,  0.690]   emulator  0.723 ( 0.692)  n  6/ 9   sign ok    size ok
+   L  500 omega  t1  table -0.191 [-0.219, -0.163]   emulator: 1 defined of 6 — EXCLUDED
+   L  500 omega  t2  table -0.022 [-0.124,  0.065]   emulator: 2 defined of 2 — EXCLUDED
+   L  500 omega  t3  table  0.381 [ 0.253,  0.511]   emulator -0.199 (-0.096)  n  8/ 8   SIGN WRONG SIZE FAIL
+   L 1000 V_P    t1  table  0.371 [ 0.241,  0.509]   emulator  0.656 ( 0.627)  n  6/ 7   sign ok    size ok
+   L 1000 V_P    t2  table  0.542 [ 0.394,  0.687]   emulator: 2 defined of 3 — EXCLUDED
+   L 1000 V_P    t3  table  0.532 [ 0.424,  0.629]   emulator  0.491 ( 0.551)  n  4/ 6   sign ok    size ok
+   L 1000 h2     t1  table -0.009 [-0.046,  0.026]   emulator -0.048 (-0.053)  n  5/ 7              
+   L 1000 h2     t2  table -0.374 [-0.503, -0.243]   emulator: 3 defined of 4 — EXCLUDED
+   L 1000 h2     t3  table -0.596 [-0.753, -0.434]   emulator -0.697 (-0.682)  n  4/ 5   sign ok    size ok
+   L 1000 m      t1  table  0.276 [ 0.230,  0.327]   emulator  0.491 ( 0.539)  n  6/ 6   sign ok    SIZE FAIL
+   L 1000 m      t2  table  0.719 [ 0.620,  0.822]   emulator  0.703 ( 0.697)  n  4/ 6   sign ok    size ok
+   L 1000 m      t3  table  0.585 [ 0.505,  0.658]   emulator: 2 defined of 4 — EXCLUDED
+   L 1000 omega  t1  table -0.179 [-0.205, -0.152]   emulator: 2 defined of 6 — EXCLUDED
+   L 1000 omega  t2  table -0.047 [-0.144,  0.050]   emulator: 2 defined of 2 — EXCLUDED
+   L 1000 omega  t3  table  0.377 [ 0.239,  0.505]   emulator -0.107 (-0.097)  n  8/ 8   SIGN WRONG SIZE FAIL
+   L 5000 V_P    t1  table  0.303 [ 0.163,  0.439]   emulator  0.226 ( 0.294)  n  4/ 5   sign ok    size ok
+   L 5000 V_P    t2  table  0.578 [ 0.420,  0.726]   emulator  0.765 ( 0.756)  n  4/ 6   sign ok    size ok
+   L 5000 V_P    t3  table  0.416 [ 0.313,  0.519]   emulator: 3 defined of 5 — EXCLUDED
+   L 5000 h2     t1  table -0.023 [-0.065,  0.018]   emulator: 1 defined of 2 — EXCLUDED
+   L 5000 h2     t2  table -0.384 [-0.516, -0.253]   emulator -0.260 (-0.263)  n  5/ 6   sign ok    size ok
+   L 5000 h2     t3  table -0.602 [-0.739, -0.444]   emulator -0.526 (-0.484)  n  5/ 8   sign ok    size ok
+   L 5000 m      t1  table  0.263 [ 0.218,  0.315]   emulator  0.271 ( 0.413)  n  5/ 6   sign ok    size ok
+   L 5000 m      t2  table  0.474 [ 0.375,  0.562]   emulator: 3 defined of 4 — EXCLUDED
+   L 5000 m      t3  table  0.551 [ 0.489,  0.616]   emulator: 3 defined of 6 — EXCLUDED
+   L 5000 omega  t1  table -0.138 [-0.166, -0.101]   emulator: 1 defined of 4 — EXCLUDED
+   L 5000 omega  t2  table -0.012 [-0.116,  0.090]   emulator -0.628 (-0.410)  n  6/ 7              
+   L 5000 omega  t3  table  0.288 [ 0.136,  0.425]   emulator  0.129 ( 0.158)  n  4/ 5   sign ok    size ok
+   G1 sign: 22 of 25 cells whose table CI excludes 0 (0.880; ≥ 0.90): (would fail)
+   G2 size: 20 of 24 cells with |table e| ≥ 0.1 (0.833; ≥ 0.75): (would pass)
+   G3 ranking: Spearman over 28 cells = 0.838 (≥ 0.8): (would pass)
+   failing G2 cells:
+     L  100 omega  t3: table  0.295 [ 0.162,  0.443], tol 0.150, emulator -0.004
+     L  500 omega  t3: table  0.381 [ 0.253,  0.511], tol 0.150, emulator -0.199
+     L 1000 m      t1: table  0.276 [ 0.230,  0.327], tol 0.150, emulator  0.491
+     L 1000 omega  t3: table  0.377 [ 0.239,  0.505], tol 0.150, emulator -0.107
+   excluded cells (< 4 defined inputs): L  100 V_P    t2 (n = 3); L  100 h2     t3 (n = 2); L  100 m      t3 (n = 2); L  100 omega  t1 (n = 1); L  500 V_P    t3 (n = 2); L  500 h2     t1 (n = 1); L  500 h2     t3 (n = 3); L  500 m      t2 (n = 1); L  500 omega  t1 (n = 1); L  500 omega  t2 (n = 2); L 1000 V_P    t2 (n = 2); L 1000 h2     t2 (n = 3); L 1000 m      t3 (n = 2); L 1000 omega  t1 (n = 2); L 1000 omega  t2 (n = 2); L 5000 V_P    t3 (n = 3); L 5000 h2     t1 (n = 1); L 5000 m      t2 (n = 3); L 5000 m      t3 (n = 3); L 5000 omega  t1 (n = 1)
+
+== S1: the literal per-stratum reading (32 cells; no verdict; distorted by the non-constancy, see the criteria) ==
+  screen (consistent)
+    QT0100-Possion3.0   V_P table  0.591 emu median  0.591 mean  0.540 |  h2 table -0.218 emu median -0.090 mean -0.158 |  m table  0.532 emu median  0.591 mean  0.541 |  omega table -0.260 emu median -0.182 mean -0.087 |
+    QT0100-Possion5.0   V_P table  0.558 emu median  0.546 mean  0.560 |  h2 table -0.214 emu median -0.266 mean -0.244 |  m table  0.495 emu median  0.546 mean  0.562 |  omega table -0.248 emu median -0.099 mean -0.123 |
+    QT0500-Possion3.0   V_P table  0.518 emu median  0.281 mean  0.380 |  h2 table -0.191 emu median -0.226 mean -0.224 |  m table  0.469 emu median  0.281 mean  0.381 |  omega table -0.204 emu median  0.435 mean  0.236 |
+    QT0500-Possion5.0   V_P table  0.488 emu median  0.508 mean  0.562 |  h2 table -0.186 emu median -0.267 mean -0.355 |  m table  0.467 emu median  0.508 mean  0.563 |  omega table -0.193 emu median -0.027 mean -0.145 |
+    QT1000-Possion3.0   V_P table  0.516 emu median  0.585 mean  0.553 |  h2 table -0.182 emu median -0.122 mean -0.181 |  m table  0.449 emu median  0.586 mean  0.555 |  omega table -0.163 emu median -0.177 mean -0.072 |
+    QT1000-Possion5.0   V_P table  0.482 emu median  0.299 mean  0.326 |  h2 table -0.188 emu median -0.129 mean -0.192 |  m table  0.446 emu median  0.299 mean  0.326 |  omega table -0.148 emu median  0.399 mean  0.344 |
+    QT5000-Possion3.0   V_P table  0.443 emu median  0.716 mean  0.635 |  h2 table -0.181 emu median -0.190 mean -0.250 |  m table  0.414 emu median  0.718 mean  0.635 |  omega table -0.054 emu median -0.433 mean -0.272 |
+    QT5000-Possion5.0   V_P table  0.409 emu median  0.434 mean  0.321 |  h2 table -0.173 emu median -0.249 mean -0.261 |  m table  0.393 emu median  0.434 mean  0.322 |  omega table -0.041 emu median  0.126 mean  0.353 |
+    for information: sign 29/32, size 24/30, Spearman 0.698 over 32 cells
+  :rare_alleles
+    QT0100-Possion3.0   V_P table  0.591 emu median  0.559 mean  0.525 |  h2 table -0.218 emu median -0.107 mean -0.208 |  m table  0.532 emu median  0.561 mean  0.526 |  omega table -0.260 emu median -0.127 mean -0.054 |
+    QT0100-Possion5.0   V_P table  0.558 emu median  0.577 mean  0.557 |  h2 table -0.214 emu median -0.258 mean -0.243 |  m table  0.495 emu median  0.578 mean  0.558 |  omega table -0.248 emu median -0.162 mean -0.121 |
+    QT0500-Possion3.0   V_P table  0.518 emu median  0.497 mean  0.525 |  h2 table -0.191 emu median -0.329 mean -0.300 |  m table  0.469 emu median  0.497 mean  0.526 |  omega table -0.204 emu median -0.002 mean -0.056 |
+    QT0500-Possion5.0   V_P table  0.488 emu median  0.732 mean  0.732 |  h2 table -0.186 emu median -0.294 mean -0.464 |  m table  0.467 emu median  0.732 mean  0.733 |  omega table -0.193 emu median -0.464 mean -0.465 |
+    QT1000-Possion3.0   V_P table  0.516 emu median  0.752 mean  0.661 |  h2 table -0.182 emu median -0.213 mean -0.317 |  m table  0.449 emu median  0.752 mean  0.662 |  omega table -0.163 emu median -0.504 mean -0.325 |
+    QT1000-Possion5.0   V_P table  0.482 emu median  0.587 mean  0.577 |  h2 table -0.188 emu median -0.252 mean -0.329 |  m table  0.446 emu median  0.587 mean  0.578 |  omega table -0.148 emu median -0.185 mean -0.164 |
+    QT5000-Possion3.0   V_P table  0.443 emu median  0.814 mean  0.703 |  h2 table -0.181 emu median -0.235 mean -0.299 |  m table  0.414 emu median  0.815 mean  0.703 |  omega table -0.054 emu median -0.628 mean -0.406 |
+    QT5000-Possion5.0   V_P table  0.409 emu median  0.682 mean  0.487 |  h2 table -0.173 emu median -0.416 mean -0.405 |  m table  0.393 emu median  0.682 mean  0.487 |  omega table -0.041 emu median -0.382 mean  0.019 |
+    for information: sign 32/32, size 18/30, Spearman 0.598 over 32 cells
+
+== S2: input by input against the table's quadratic-model local elasticity (no verdict; the quadratic is poor for ω) ==
+  screen (consistent)  e_V_P    n  52  Spearman 0.698  median |emu − table| 0.149  median (emu − table) -0.005   emu quartiles  0.280  0.510  0.693   table  0.430  0.493  0.542
+  screen (consistent)  e_h2     n  52  Spearman 0.842  median |emu − table| 0.079  median (emu − table)  0.040   emu quartiles -0.303 -0.200 -0.076   table -0.375 -0.292 -0.168
+  screen (consistent)  e_m      n  52  Spearman 0.862  median |emu − table| 0.135  median (emu − table)  0.037   emu quartiles  0.280  0.510  0.694   table  0.388  0.469  0.510
+  screen (consistent)  e_omega  n  52  Spearman 0.186  median |emu − table| 0.384  median (emu − table)  0.212   emu quartiles -0.387 -0.031  0.437   table -0.342 -0.222 -0.101
+  :rare_alleles        e_V_P    n  46  Spearman 0.390  median |emu − table| 0.149  median (emu − table)  0.126   emu quartiles  0.478  0.652  0.750   table  0.420  0.480  0.536
+  :rare_alleles        e_h2     n  46  Spearman 0.930  median |emu − table| 0.055  median (emu − table) -0.013   emu quartiles -0.474 -0.255 -0.107   table -0.401 -0.298 -0.179
+  :rare_alleles        e_m      n  46  Spearman 0.581  median |emu − table| 0.177  median (emu − table)  0.167   emu quartiles  0.478  0.652  0.750   table  0.378  0.445  0.487
+  :rare_alleles        e_omega  n  46  Spearman -0.095  median |emu − table| 0.304  median (emu − table)  0.015   emu quartiles -0.500 -0.310  0.037   table -0.344 -0.222 -0.101
+
+== S3: default :spectrum beside the screen (round 1, one input per stratum; no verdict) ==
+  QT0100-Possion3.0/Input-10388.txt  screen  0.099 -0.339  0.099  0.801   default :spectrum  0.107 -0.366  0.107  0.785   :rare_alleles  0.158 -0.539  0.158  0.683   k50 0.01781 / 0.0179 / 0.01852
+  QT0100-Possion5.0/Input-03000.txt  screen  0.277 -0.093  0.277  0.441   default :spectrum  0.304 -0.102  0.304  0.387   :rare_alleles  0.569 -0.189  0.569 -0.152   k50 0.01556 / 0.01594 / 0.02503
+  QT0500-Possion3.0/Input-03338.txt  screen  0.431 -0.226  0.431  0.128   default :spectrum  0.478 -0.250  0.478  0.034   :rare_alleles  0.690 -0.353  0.690 -0.397   k50 0.02716 / 0.02811 / 0.04255
+  QT0500-Possion5.0/Input-09763.txt  screen  NaN  NaN  NaN  NaN   default :spectrum  NaN  NaN  NaN  NaN   :rare_alleles  NaN  NaN  NaN  NaN   k50 0.01582 / 0.02226 / 0.03296
+  QT1000-Possion3.0/Input-07183.txt  screen  0.667 -0.067  0.672 -0.334   default :spectrum  0.824 -0.082  0.831 -0.648   :rare_alleles  0.776 -0.077  0.783 -0.554   k50 0.02187 / 0.02639 / 0.04623
+  QT1000-Possion5.0/Input-01120.txt  screen  0.160 -0.013  0.160  0.678   default :spectrum  0.168 -0.014  0.168  0.663   :rare_alleles  0.357 -0.030  0.358  0.281   k50 0.01571 / 0.01578 / 0.01903
+  QT5000-Possion3.0/Input-01586.txt  screen  0.690 -0.221  0.690 -0.380   default :spectrum  0.753 -0.241  0.753 -0.505   :rare_alleles  0.812 -0.260  0.813 -0.625   k50 0.03712 / 0.03955 / 0.06388
+  QT5000-Possion5.0/Input-11353.txt  screen  NaN  NaN  NaN  NaN   default :spectrum  NaN  NaN  NaN  NaN   :rare_alleles  NaN  NaN  NaN  NaN   k50 0.03452 / 0.06904 / 0.05484
+  e_V_P    default :spectrum − screen: median  0.037, median |diff| 0.037, max |diff| 0.157 (n 6)
+  e_h2     default :spectrum − screen: median -0.018, median |diff| 0.018, max |diff| 0.027 (n 6)
+  e_m      default :spectrum − screen: median  0.037, median |diff| 0.037, max |diff| 0.159 (n 6)
+  e_omega  default :spectrum − screen: median -0.074, median |diff| 0.074, max |diff| 0.314 (n 6)
+
+== S4: levels (no verdict) ==
+  k50 of the emulator / the table's boundary rate at the same inputs (quadratic fit): median [quartiles] by locus number
+    screen          L 100: 0.79 [0.73, 0.83]   L 500: 0.95 [0.83, 1.15]   L 1000: 0.99 [0.88, 1.06]   L 5000: 1.18 [1.08, 1.45]
+    :rare_alleles   L 100: 1.25 [1.19, 1.34]   L 500: 1.66 [1.53, 1.85]   L 1000: 1.54 [1.26, 1.82]   L 5000: 1.94 [1.61, 2.78]
+  least squares of the screen's log k50 on the logs of the inputs (per locus number, u indicator): slope (SE); beside the
+  per-stratum linear table elasticities (u = 3, u = 5). A global slope from levels, not a gradient.
+    L 100 (n 16): V_P  0.799 (0.077) | table  0.591,  0.558   h2  0.068 (0.058) | table -0.218, -0.214   m  0.539 (0.052) | table  0.532,  0.495   omega -0.083 (0.044) | table -0.260, -0.248
+    L 500 (n 16): V_P  0.491 (0.108) | table  0.518,  0.488   h2 -0.367 (0.101) | table -0.191, -0.186   m  0.430 (0.058) | table  0.469,  0.467   omega -0.206 (0.046) | table -0.204, -0.193
+    L 1000 (n 16): V_P  0.479 (0.186) | table  0.516,  0.482   h2 -0.249 (0.105) | table -0.182, -0.188   m  0.560 (0.127) | table  0.449,  0.446   omega  0.008 (0.133) | table -0.163, -0.148
+    L 5000 (n 16): V_P  0.344 (0.181) | table  0.443,  0.409   h2 -0.138 (0.120) | table -0.181, -0.173   m  0.517 (0.082) | table  0.414,  0.393   omega -0.218 (0.064) | table -0.054, -0.041
+
+== post hoc (added after the results were seen; not part of the criteria) ==
+  the screen's 12 saturated (undefined) inputs have ω in [0.136, 2.1] (median 1.32); the 52 defined ones ω in [1.05, 9.76] (median 6.43);
+  of the 17 screen inputs with ω < 2.2, 12 are undefined: the undefined inputs are not a random subset, and the four low-ω cells are all excluded.
+  cells entering G1–G3 for the screen: 31 of 48. |∂h/∂log k| of the defined inputs: median 193, so P2000 goes from 0.9 to 0.1 over a factor e^(0.0160) in k.

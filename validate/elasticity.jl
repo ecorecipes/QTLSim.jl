@@ -639,3 +639,239 @@ function emulator_mode()
 end
 
 GMODE == "emulator" && emulator_mode()
+
+# ---------------------------------------------------------------------------------------------
+# comparison and verdicts (validate/elasticity_criteria.md)
+# ---------------------------------------------------------------------------------------------
+"A sweep cache as Dict id => Dict column => Float64 (Bools as 0/1)."
+function g_cache(name)
+    out = Dict{String,Dict{Symbol,Float64}}()
+    isfile(gcache(name)) || return out
+    lines = readlines(gcache(name))
+    hdr = Symbol.(split(lines[1], ','))
+    for l in lines[2:end]
+        f = split(l, ',')
+        length(f) == length(hdr) || continue
+        out[String(f[1])] = Dict(hdr[c] => (f[c] == "true" ? 1.0 : f[c] == "false" ? 0.0 : parse(Float64, f[c])) for c in 2:length(hdr))
+    end
+    out
+end
+g_e(r) = r[:status] == 0 ? [r[:e1], r[:e2], r[:e3], r[:e4]] : fill(NaN, 4)
+fin(v) = filter(isfinite, v)
+med(v) = (w = fin(v); isempty(w) ? NaN : median(w))
+avg(v) = (w = fin(v); isempty(w) ? NaN : mean(w))
+
+function g_read_cells()
+    A, _ = readdlm(gcache("table_cells.tsv"), '\t'; header = true)
+    [(; L = Int(A[r, 1]), li = Int(A[r, 2]), j = Int(A[r, 3]), t = Int(A[r, 5]), lo_θ = Float64(A[r, 6]), hi_θ = Float64(A[r, 7]),
+        e = Float64(A[r, 8]), lo = Float64(A[r, 9]), hi = Float64(A[r, 10]), ok = Bool(A[r, 15])) for r in axes(A, 1)]
+end
+
+"G1–G3 for the elasticities E (inputs × 4; NaN = undefined) of the sample rows `run` against the table's cells."
+function g_gstats(name, E, S, run, cells; verdict::Bool, minn = 4)
+    say("\n-- ", name, verdict ? " (VERDICT)" : " (comparator, no verdict)", " --")
+    say("   cell: L, input, tercile; table e [CI]; emulator median (mean) over n defined of N inputs; G1 sign, G2 size")
+    Sv = (S.VP, S.h2, S.m, S.omega)
+    te = Float64[]; ee = Float64[]; g1 = Bool[]; g2 = Bool[]; fails = String[]; excl = String[]
+    for c in cells
+        c.ok || continue
+        ins = [a for (a, i) in enumerate(run) if (S.strat[i] + 1) ÷ 2 == c.li && g_tercile(cells, c.li, c.j, Sv[c.j][i]) == c.t]
+        v = fin(E[ins, c.j])
+        lab = @sprintf("L %4d %-6s t%d", c.L, GLAB[c.j], c.t)
+        if length(v) < minn
+            push!(excl, lab * " (n = $(length(v)))")
+            sayf("   %s  table % .3f [% .3f, % .3f]   emulator: %d defined of %d — EXCLUDED", lab, c.e, c.lo, c.hi, length(v), length(ins))
+            continue
+        end
+        m = median(v); push!(te, c.e); push!(ee, m)
+        s1 = ""; s2 = ""
+        if c.lo > 0 || c.hi < 0
+            ok = sign(m) == sign(c.e); push!(g1, ok); s1 = ok ? "sign ok" : "SIGN WRONG"
+        end
+        if abs(c.e) >= 0.1
+            tol = max(0.15, 0.30 * abs(c.e))
+            ok = c.lo - tol <= m <= c.hi + tol; push!(g2, ok); s2 = ok ? "size ok" : "SIZE FAIL"
+            ok || push!(fails, @sprintf("%s: table % .3f [% .3f, % .3f], tol %.3f, emulator % .3f", lab, c.e, c.lo, c.hi, tol, m))
+        end
+        sayf("   %s  table % .3f [% .3f, % .3f]   emulator % .3f (% .3f)  n %2d/%2d   %-10s %s", lab, c.e, c.lo, c.hi, m, mean(v), length(v),
+             length(ins), s1, s2)
+    end
+    r = length(te) >= 3 ? spearman(te, ee) : NaN
+    p1 = isempty(g1) ? NaN : count(g1) / length(g1); p2 = isempty(g2) ? NaN : count(g2) / length(g2)
+    v(b) = verdict ? pf(b) : (b ? "(would pass)" : "(would fail)")
+    sayf("   G1 sign: %d of %d cells whose table CI excludes 0 (%.3f; ≥ 0.90): %s", count(g1), length(g1), p1, v(p1 >= 0.9))
+    sayf("   G2 size: %d of %d cells with |table e| ≥ 0.1 (%.3f; ≥ 0.75): %s", count(g2), length(g2), p2, v(p2 >= 0.75))
+    sayf("   G3 ranking: Spearman over %d cells = %.3f (≥ 0.8): %s", length(te), r, v(r >= 0.8))
+    isempty(fails) || (say("   failing G2 cells:"); foreach(f -> say("     ", f), fails))
+    isempty(excl) || say("   excluded cells (< $minn defined inputs): ", join(excl, "; "))
+    verdict && say("   OVERALL GATE (G1 and G2): ", pf(p1 >= 0.9 && p2 >= 0.75))
+    (; p1, p2, r)
+end
+
+function analyse_mode()
+    LOG[] = open(joinpath(@__DIR__, "elasticity.log"), "w")
+    say("validate/elasticity.jl analyse — the emulator's elasticities of the half-survival rate against the published table's")
+    say("criteria: validate/elasticity_criteria.md; table side: validate/elasticity_table.log; ", Libc.strftime("%Y-%m-%d %H:%M", time()))
+    S = g_read_sample(); cells = g_read_cells()
+    nround = parse(Int, strip(read(gcache("rounds.txt"), String)))
+    run = [i for i in eachindex(S.id) if S.order[i] <= nround]
+    scr, rare, spc, stp, brt, grd = g_cache("screen.csv"), g_cache("rare.csv"), g_cache("spectrum.csv"), g_cache("screen_step.csv"),
+                                    g_cache("screen_brute.csv"), g_cache("screen_grid.csv")
+    say("\n== the runs ==")
+    say("screen: $(nround) rounds of one input per stratum = $(length(run)) inputs (sample of 16 per stratum, draw order); ",
+        ":rare_alleles on all $(length(S.id)); default :spectrum on $(length(spc)) (round 1)")
+    tsec(d) = sum(r[:seconds] for r in values(d); init = 0.0)
+    sayf("summed job seconds: screen %.0f, :rare_alleles %.0f, default :spectrum %.0f, step check %.0f, brute force %.0f, grid recomputation %.0f; total %.0f s = %.2f h",
+         tsec(scr), tsec(rare), tsec(spc), tsec(stp), tsec(brt), tsec(grd), sum(tsec, (scr, rare, spc, stp, brt, grd)),
+         sum(tsec, (scr, rare, spc, stp, brt, grd)) / 3600)
+    isfile(gcache("emulator_run.out")) &&
+        say("process times of the emulator mode (/usr/bin/time -p): ", join(filter(l -> occursin(r"^(real|user|sys) ", l), readlines(gcache("emulator_run.out"))), ", "))
+    R = [scr[S.id[i]] for i in run]
+    for (nm, d, ids) in (("screen", scr, S.id[run]), (":rare_alleles (screen's inputs)", rare, S.id[run]), ("default :spectrum", spc, collect(keys(spc))))
+        st = [Int(d[id][:status]) for id in ids]
+        sayf("  %-32s defined %3d of %3d; no k50 %d (k50 = 0: %d, ∞: %d); saturated %d; ∂h/∂log k ≥ 0: %d; step 1e-3 used after saturation at 1e-2: %d; evaluations for k50 median %d",
+             nm, count(==(0), st), length(st), count(==(1), st), count(id -> d[id][:k50] == 0, ids), count(id -> d[id][:k50] == Inf, ids),
+             count(==(2), st), count(==(3), st), count(id -> d[id][:status] == 0 && d[id][:step] < GSTEP / 2, ids),
+             round(Int, median([d[id][:evals] for id in ids])))
+    end
+    ok = [r[:status] == 0 for r in R]
+    sayf("  screen at k50 (defined inputs): |h| median %.3f, max %.3f; ∂h/∂log k median %.1f (range %.1f to %.1f)",
+         median(abs(r[:h0]) for r in R[ok]), maximum(abs(r[:h0]) for r in R[ok]), median(r[:hk] for r in R[ok]),
+         minimum(r[:hk] for r in R[ok]), maximum(r[:hk] for r in R[ok]))
+
+    say("\n== fallback of the beta solver (screen) ==")
+    nss = count(r -> r[:status] == 0 && r[:sstat] > 0, R); nsg = count(r -> r[:status] == 0 && r[:sstat] == 0 && r[:sgen] > 0, R)
+    say("  inputs whose run at k50 fell back: $(count(r -> r[:fb0] >= 0, R)) of $(length(R)); with ≥ 1 of the 10 difference points falling back: ",
+        count(r -> r[:nfb] > 0, R), "; all 10: ", count(r -> r[:nfb] == 10, R))
+    say("  defined inputs with a pair straddling a switch (one point fell back, the other not): $nss; with only shifts (both fell back, different generations): $nsg")
+    Eas = fill(NaN, length(run), 4); Eco = fill(NaN, length(run), 4); Era = fill(NaN, length(run), 4)
+    nre = 0; nlost = 0
+    for (a, i) in enumerate(run)
+        id = S.id[i]; r = R[a]
+        Eas[a, :] .= g_e(r); Era[a, :] .= g_e(rare[id])
+        if r[:status] == 0 && r[:sstat] > 0
+            if haskey(grd, id) && grd[id][:status] == 0
+                Eco[a, :] .= g_e(grd[id]); nre += 1
+            else
+                nlost += 1
+            end
+        else
+            Eco[a, :] .= Eas[a, :]
+        end
+    end
+    say("  straddling inputs recomputed with the grid and used in the consistent screen values: $nre; straddling inputs left undefined (beyond the cap of $(GREGRID_STATUS), or the grid undefined): $nlost")
+    for (a, i) in enumerate(run)
+        id = S.id[i]; haskey(grd, id) || continue
+        g = grd[id]; r = R[a]
+        sayf("    %-34s %-8s beta e %s   grid e %s   max |diff| %.3f%s", id, r[:sstat] > 0 ? "straddle" : "shift",
+             join([@sprintf("% .3f", x) for x in g_e(r)], " "), join([@sprintf("% .3f", x) for x in g_e(g)], " "),
+             maximum(abs.(g_e(r) .- g_e(g))), g[:resolved] == 1 ? "  (grid at its own k50)" : "")
+    end
+
+    say("\n== numerical checks of the screen (round 1) ==")
+    d1 = Float64[]
+    for id in sort(collect(keys(stp)))
+        a, b = g_e(scr[id]), g_e(stp[id])
+        append!(d1, abs.(a .- b))
+        sayf("  N1 %-34s δ = 1e-2: %s   δ = 1e-3: %s", id, join([@sprintf("% .3f", x) for x in a], " "), join([@sprintf("% .3f", x) for x in b], " "))
+    end
+    d1 = fin(d1)
+    n1 = !isempty(d1) && median(d1) <= 0.02 && quantile(d1, 0.9) <= 0.05
+    isempty(d1) || sayf("  N1 step: |e(1e-2) − e(1e-3)| over %d values: median %.4f (≤ 0.02), 90th percentile %.4f (≤ 0.05), max %.4f: %s", length(d1),
+                        median(d1), quantile(d1, 0.9), maximum(d1), n1 ? "stable" : "NOT STABLE")
+    d2 = Float64[]
+    for id in sort(collect(keys(brt)))
+        a = g_e(scr[id]); b = [brt[id][:b1], brt[id][:b2], brt[id][:b3], brt[id][:b4]]
+        append!(d2, abs.(a .- b))
+        sayf("  N2 %-34s implicit: %s   brute force: %s", id, join([@sprintf("% .3f", x) for x in a], " "), join([@sprintf("% .3f", x) for x in b], " "))
+    end
+    nd2 = length(d2); d2 = fin(d2)
+    n2 = !isempty(d2) && length(d2) == nd2 && median(d2) <= 0.03 && maximum(d2) <= 0.10
+    isempty(d2) || sayf("  N2 brute force: |brute − implicit| over %d values (%d undefined): median %.4f (≤ 0.03), max %.4f (≤ 0.10): %s", length(d2), nd2 - length(d2),
+                        median(d2), maximum(d2), n2 ? "verified" : "NOT VERIFIED")
+    say("  numerical status of the verdicts below: ", n1 && n2 ? "reliable (N1 and N2 pass)" : "NUMERICALLY UNRELIABLE (N1 or N2 failed)")
+
+    say("\n== primary comparison: 48 cells (locus number × input × information tercile of the input) ==")
+    g_gstats("the screen, consistent values (grid where a difference straddles a fallback switch)", Eco, S, run, cells; verdict = true)
+    g_gstats("the screen as run (beta values for every input)", Eas, S, run, cells; verdict = false)
+    g_gstats(":rare_alleles on the screen's inputs", Era, S, run, cells; verdict = false)
+
+    say("\n== S1: the literal per-stratum reading (32 cells; no verdict; distorted by the non-constancy, see the criteria) ==")
+    A, _ = readdlm(gcache("table_elasticities.tsv"), '\t'; header = true)
+    for (nm, E) in (("screen (consistent)", Eco), (":rare_alleles", Era))
+        te = Float64[]; em = Float64[]; g1 = Bool[]; g2 = Bool[]
+        say("  ", nm)
+        for s in eachindex(STRATA)
+            ins = [a for (a, i) in enumerate(run) if S.strat[i] == s]
+            line = ""
+            for j in 1:4
+                r = findfirst(q -> Int(A[q, 1]) == s && A[q, 2] == GLAB[j], axes(A, 1))
+                e, lo, hi = Float64(A[r, 3]), Float64(A[r, 5]), Float64(A[r, 6])
+                v = fin(E[ins, j]); isempty(v) && continue
+                m = median(v); push!(te, e); push!(em, m)
+                (lo > 0 || hi < 0) && push!(g1, sign(m) == sign(e))
+                tol = max(0.15, 0.3abs(e))
+                abs(e) >= 0.1 && push!(g2, lo - tol <= m <= hi + tol)
+                line *= @sprintf("  %s table % .3f emu median % .3f mean % .3f |", GLAB[j], e, m, mean(v))
+            end
+            say("    ", rpad(STRATA[s][1], 18), line)
+        end
+        sayf("    for information: sign %d/%d, size %d/%d, Spearman %.3f over %d cells", count(g1), length(g1), count(g2), length(g2), spearman(te, em), length(te))
+    end
+
+    say("\n== S2: input by input against the table's quadratic-model local elasticity (no verdict; the quadratic is poor for ω) ==")
+    for (nm, E) in (("screen (consistent)", Eco), (":rare_alleles", Era))
+        for j in 1:4
+            k = [a for a in eachindex(run) if isfinite(E[a, j])]
+            q = S.q[run[k], j]
+            sayf("  %-20s e_%-6s n %3d  Spearman %.3f  median |emu − table| %.3f  median (emu − table) % .3f   emu quartiles % .3f % .3f % .3f   table % .3f % .3f % .3f",
+                 nm, GLAB[j], length(k), spearman(E[k, j], q), median(abs.(E[k, j] .- q)), median(E[k, j] .- q),
+                 quantile(E[k, j], 0.25), median(E[k, j]), quantile(E[k, j], 0.75), quantile(q, 0.25), median(q), quantile(q, 0.75))
+        end
+    end
+
+    say("\n== S3: default :spectrum beside the screen (round 1, one input per stratum; no verdict) ==")
+    for id in S.id[S.order.==1]
+        haskey(spc, id) || continue
+        a = findfirst(i -> S.id[i] == id, run)
+        sayf("  %-34s screen %s   default :spectrum %s   :rare_alleles %s   k50 %.4g / %.4g / %.4g", id,
+             join([@sprintf("% .3f", x) for x in Eco[a, :]], " "), join([@sprintf("% .3f", x) for x in g_e(spc[id])], " "),
+             join([@sprintf("% .3f", x) for x in Era[a, :]], " "), scr[id][:k50], spc[id][:k50], rare[id][:k50])
+    end
+    for j in 1:4
+        d = fin([g_e(spc[id])[j] - Eco[findfirst(i -> S.id[i] == id, run), j] for id in keys(spc)])
+        isempty(d) || sayf("  e_%-6s default :spectrum − screen: median % .3f, median |diff| %.3f, max |diff| %.3f (n %d)", GLAB[j], median(d), median(abs.(d)), maximum(abs.(d)), length(d))
+    end
+
+    say("\n== S4: levels (no verdict) ==")
+    say("  k50 of the emulator / the table's boundary rate at the same inputs (quadratic fit): median [quartiles] by locus number")
+    for (nm, d) in (("screen", scr), (":rare_alleles", rare))
+        cellsL = map(1:4) do li
+            v = [d[S.id[i]][:k50] / exp(S.lkq[i]) for i in run if (S.strat[i] + 1) ÷ 2 == li && 0 < d[S.id[i]][:k50] < Inf]
+            @sprintf("L %d: %.2f [%.2f, %.2f]", GLS[li], median(v), quantile(v, 0.25), quantile(v, 0.75))
+        end
+        say("    ", rpad(nm, 16), join(cellsL, "   "))
+    end
+    say("  least squares of the screen's log k50 on the logs of the inputs (per locus number, u indicator): slope (SE); beside the")
+    say("  per-stratum linear table elasticities (u = 3, u = 5). A global slope from levels, not a gradient.")
+    for li in 1:4
+        ins = [i for i in run if (S.strat[i] + 1) ÷ 2 == li && 0 < scr[S.id[i]][:k50] < Inf]
+        X = [ones(length(ins)) Float64.(iseven.(S.strat[ins])) log.(S.VP[ins]) log.(S.h2[ins]) log.(S.m[ins]) log.(S.omega[ins])]
+        y = [log(scr[S.id[i]][:k50]) for i in ins]
+        b = X \ y; res = y - X * b
+        se = sqrt.(diag(inv(X' * X)) .* (sum(abs2, res) / max(length(y) - size(X, 2), 1)))
+        tb(j, s) = Float64(A[findfirst(q -> Int(A[q, 1]) == s && A[q, 2] == GLAB[j], axes(A, 1)), 3])
+        say("    L ", GLS[li], " (n ", length(ins), "): ", join([@sprintf("%s % .3f (%.3f) | table % .3f, % .3f", GLAB[j], b[2+j], se[2+j], tb(j, 2li - 1), tb(j, 2li)) for j in 1:4], "   "))
+    end
+    say("\n== post hoc (added after the results were seen; not part of the criteria) ==")
+    sat = [i for (a, i) in enumerate(run) if R[a][:status] == 2]; def = [i for (a, i) in enumerate(run) if R[a][:status] == 0]
+    sayf("  the screen's %d saturated (undefined) inputs have ω in [%.3g, %.3g] (median %.3g); the %d defined ones ω in [%.3g, %.3g] (median %.3g);",
+         length(sat), minimum(S.omega[sat]), maximum(S.omega[sat]), median(S.omega[sat]), length(def), minimum(S.omega[def]), maximum(S.omega[def]), median(S.omega[def]))
+    sayf("  of the %d screen inputs with ω < 2.2, %d are undefined: the undefined inputs are not a random subset, and the four low-ω cells are all excluded.",
+         count(i -> S.omega[i] < 2.2, run), count(i -> S.omega[i] < 2.2, sat))
+    sayf("  cells entering G1–G3 for the screen: 31 of 48. |∂h/∂log k| of the defined inputs: median %.0f, so P2000 goes from 0.9 to 0.1 over a factor e^(%.4f) in k.",
+         median(abs(r[:hk]) for r in R[ok]), (log(-log(0.1)) - log(-log(0.9))) / median(abs(r[:hk]) for r in R[ok]))
+    close(LOG[])
+end
+
+GMODE == "analyse" && analyse_mode()
