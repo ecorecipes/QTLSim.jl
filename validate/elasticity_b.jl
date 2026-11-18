@@ -298,7 +298,58 @@ function report_mode()
     end, "   "))
     kr = [R[a][:k50] / A[S.id[run[a]]][:k50] for a in oa if 0 < R[a][:k50] < Inf && 0 < A[S.id[run[a]]][:k50] < Inf]
     sayf("  k50 on the new target / phase A's k50 (to 1e-2 in log k) on its %d inputs: median %.5f, range %.5f to %.5f", length(kr), median(kr), minimum(kr), maximum(kr))
+    say("\n== post hoc (added after the results were seen; not part of the criteria; no verdict changed) ==")
+    ph = g_cache("b_posthoc.csv")
+    if !isempty(ph)
+        say("  N2's one large difference, e_ω of QT5000-Possion5.0/Input-11353.txt (ω = 0.372; implicit ", @sprintf("%.3f", Eco[findfirst(i -> S.id[i] == "QT5000-Possion5.0/Input-11353.txt", run), 4]),
+            ", phase A's brute force over ω·e^{±0.05}: ", @sprintf("%.3f", brt["QT5000-Possion5.0/Input-11353.txt"][:b4]), "). Brute force on the new target, k50 re-solved to |h| ≤ 1e-3:")
+        for s in sort(collect(keys(ph)); by = x -> -parse(Float64, x))
+            r = ph[s]
+            sayf("    ω·e^{±%s}: Δlog k50/Δlog ω = % .3f   (local implicit e_ω at ω·e^{+%s}: % .3f, at ω·e^{−%s}: % .3f)", s, r[:brute], s, r[:eplus], s, r[:eminus])
+        end
+    end
+    nr = g_cache("b_posthoc_noroot.csv")
+    for id in sort(collect(keys(nr)))
+        r = nr[id]
+        sayf("  no_root %-34s at k50·e^{−1e-9}: h % .3f (fallback %d, trajectory died in the horizon %d, continued %d); at k50·e^{+1e-9}: h % .3f (fallback %d, died %d, continued %d)",
+             id, r[:hlo], r[:fblo], r[:extlo], r[:contlo], r[:hhi], r[:fbhi], r[:exthi], r[:conthi])
+    end
+    bad = [a for a in def if abs(Eas[a, 2] + S.h2[run[a]] / (1 - S.h2[run[a]]) * Eas[a, 1]) > 0.005]
+    say("  C2, inputs where the identity in h² is off by more than 0.005 (", length(bad), "):")
+    for a in bad
+        i = run[a]
+        sayf("    %-34s h² %.3f ω %.3g  e_V_P % .4f  e_h² % .4f  −h²/(1−h²)·e_V_P % .4f  steps V_P %.2g h² %.2g (log k %.2g)", S.id[i], S.h2[i], S.omega[i], Eas[a, 1], Eas[a, 2],
+             -S.h2[i] / (1 - S.h2[i]) * Eas[a, 1], R[a][:s1], R[a][:s2], R[a][:step])
+    end
     close(LOG[])
 end
+
+# Post hoc (added after the results were seen; no verdict, changes none): N2's one large difference,
+# e_ω of QT5000-Possion5.0/Input-11353 (ω = 0.37). Brute force on the new target with smaller steps.
+function posthoc_mode()
+    id = "QT5000-Possion5.0/Input-11353.txt"
+    p = g_params(id)
+    k0 = g_cache("b_screen.csv")[id][:k50]
+    rows = sweep([0.05, 0.02, 0.005]; cache = gcache("b_posthoc.csv")) do s
+        ks = map((s, -s)) do d
+            k50_gradient(Params(p; InitFitnessSD = p.InitFitnessSD * exp(d)); names = (:InitFitnessSD,), htol = 1e-3,
+                         bracket = (k0 * exp(-0.1), k0 * exp(0.1)), onswitch = :flag)
+        end
+        (; kplus = ks[1].k50, kminus = ks[2].k50, brute = (log(ks[1].k50) - log(ks[2].k50)) / 2s, eplus = ks[1].elasticities[1],
+         eminus = ks[2].elasticities[1], evals = ks[1].evals + ks[2].evals)
+    end
+    foreach(println, rows)
+    # the inputs with status no_root: the target on either side of the closed bracket
+    S = g_read_sample(); scr = g_cache("b_screen.csv")
+    nr = [x for x in S.id if haskey(scr, x) && scr[x][:status] == 2]
+    r2 = sweep(nr; cache = gcache("b_posthoc_noroot.csv")) do x
+        q = g_params(x); k = scr[x][:k50]
+        lo = QTLSim.emulated_log_hazard(Params(q; MoveFitnessSD = k * exp(-1e-9)))
+        hi = QTLSim.emulated_log_hazard(Params(q; MoveFitnessSD = k * exp(1e-9)))
+        (; hlo = lo.h, hhi = hi.h, fblo = lo.fallback, fbhi = hi.fallback, extlo = lo.extinct, exthi = hi.extinct, contlo = lo.continued, conthi = hi.continued)
+    end
+    foreach(println, r2)
+end
+BMODE == "posthoc" && posthoc_mode()
 
 BMODE == "report" && report_mode()

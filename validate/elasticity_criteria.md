@@ -295,3 +295,26 @@ S3 (default `:spectrum`) and S4's regression are not rerun.
 ### Amendments to the addendum
 
 (none at the time of its commit)
+
+No rule was amended after the commit. Notes on the run (2026-11-18, written after the results were
+seen; they change no rule and no verdict):
+
+- All 16 rounds ran (128 inputs): the run took 1.49 CPU-hours (clock()), below the 3.0 that would
+  have stopped it. No input kept a fallback switch after the step reductions, so no input was
+  recomputed with the grid for the consistent values (they are the beta's); the grid check ran on 3.
+- 126 of 128 inputs are defined, among them all 12 that phase A left undefined. The two undefined
+  (status no_root, ω = 0.05 and 0.16) have a jump of the trajectory itself at k50: within 2e-9 in
+  log k the target goes from h = 84–111 to a trajectory that dies more than 1000 generations before
+  the end of the horizon (post hoc lines in the log). The continuation does not help there.
+- 10 inputs (all with ω < 2.2) relied on the continuation.
+- N2 is NOT VERIFIED under the rule fixed above: 19 of the 20 values agree within 0.0065, one does
+  not (e_ω of QT5000-Possion5.0/Input-11353, ω = 0.37: implicit −0.326, phase A's brute force
+  −1.087). The log's flag "numerically unreliable" is the rule applied as written. Post hoc (mode
+  `posthoc`, added after the results): brute force on the new target over ω·e^{±0.05} reproduces
+  −1.088, over ±0.02 and ±0.005 gives −0.328, so k50(ω) is not smooth over ±5% there and the
+  brute-force comparator, not the implicit value, is off; this is an explanation, not a verdict.
+- C2's identity in h², called exact above, holds to 4.5e-4 in 90% of the inputs but is off by
+  0.007, 0.007 and 0.058 in three inputs with ω ≤ 0.37 (listed in the log); not diagnosed
+  (numerical error at very steep targets, or a small dependence on h²V_P that the argument missed).
+- Code added after the results: the `posthoc` mode of validate/elasticity_b.jl and the "post hoc"
+  section of its report.
