@@ -45,6 +45,7 @@ include("para.jl")
 include("emulator.jl")
 include("block_lineages.jl")
 include("two_stage.jl")
+include("k50_gradient.jl")
 
 # the simulation kernel
 export Params, World, genomes, setgenomes!, simulate, run!, generation!, init_env!, checkparams,
@@ -56,7 +57,7 @@ export Params, World, genomes, setgenomes!, simulate, run!, generation!, init_en
 export OneTraitModel, TraitModel, ReactionNormModel, model_of, step_schema
 # phenotypic plasticity (Chevin, Lande and Mace 2010)
 export drift_critical_rate, half_survival_rate
-export emulate, emulated_half_survival_rate, emulate_sweep, sensitivities, run_blocks
+export emulate, emulated_half_survival_rate, emulate_sweep, sensitivities, run_blocks, k50_gradient
 export plasticity_ratio, plasticity_cost, red_noise_lag_autocov, sustainable_rate, reaction_norm_response, reaction_norm_lag
 # analytical predictions
 export selection_variance, gaussian_vg, gaussian_vg_exact, gaussian_vg_loci, multilocus_equilibrium, effective_size, house_of_cards_vg,

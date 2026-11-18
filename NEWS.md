@@ -8,6 +8,35 @@ All notable changes to QTLSim.jl are recorded here. The format follows
 
 ### Added
 
+- **`k50_gradient`: the emulator's half-survival rate and its elasticities on a target that does not
+  saturate** (additive; `emulate`, `extinction_distribution` and every default are unchanged;
+  src/k50_gradient.jl, with `QTLSim.emulated_log_hazard` and `QTLSim.log_cumulative_hazard`). Phase A
+  of the elasticity study left 12 of 64 near-boundary inputs undefined, all with ω < 2.2. The cause:
+  under strong selection `P2000` is exactly 1 in `Float64` while the cumulative hazard is below
+  1.1e-16 (the product of survival factors does not move), and exactly 0 once the deterministic
+  moments trajectory dies inside the horizon (taken as certain extinction, although the hazard
+  accumulated until then can be far below log 2), with the whole range of log H crossed over 1e-3
+  to 1e-9 in log k. The target is now log H summed in logs along the trajectory continued through
+  its deterministic extinction (quadratic extrapolation of log W̄, used over one or two
+  generations); k50 is its root, and the elasticities are the implicit-function formula with a
+  central difference spanning about ±0.5 in the target, refused across a fallback switch of the beta
+  solver. Finite differences, not AD. Validation under phase A's unchanged criteria with a
+  pre-committed addendum (validate/elasticity_criteria.md, validate/elasticity_b.jl,
+  validate/elasticity_b.log; 128 inputs, 1.5 CPU-h): 126 of 128 defined (phase A's 12 undefined
+  inputs all defined; the two undefined, ω = 0.05 and 0.16, have a true jump of the trajectory at
+  k50). **G1 PASS** (sign 41/41), **G2 PASS** (size 34/40), **G3 PASS** (Spearman 0.921) over all 48
+  cells, none excluded; but **all four low-ω cells fail G2**: the emulator's e_ω there is −0.43 to
+  −0.63 against the table's −0.14 to −0.19 (right sign, about three times too strong). N1 stable
+  (max 0.003); **N2 NOT VERIFIED** as written (19 of 20 values within 0.007; one, e_ω at ω = 0.37,
+  −0.33 against phase A's brute force −1.09; post hoc, brute force over ±2% and ±0.5% gives −0.33,
+  so the ±5% brute-force value is not local), hence the verdicts carry the flag "numerically
+  unreliable" under the rule. On phase A's 52 defined inputs the new values agree within 0.02 on
+  all 42 without a fallback shift and differ by up to 0.16 on the 10 with one (phase A's values
+  carried the jump). The emulator reads V_P, h² and m only through V_E and m·V_E, so
+  e_h² = −h²/(1 − h²)·e_V_P (to 5e-4 in 90% of inputs; three low-ω inputs off by 0.007–0.058,
+  not diagnosed) and e_V_P − e_m is the elasticity in V_E: below 0.005 for ω ≥ 2.2, down to −0.69
+  for ω < 1. Tests: topic `k50_gradient` (78).
+
 - **A two-stage emulator** (off by default; `emulate(p; loci = :two_stage, band, screen, blocks,
   replicates, seed)`, `emulated_half_survival_rate(p; loci = :two_stage)`,
   `emulate_sweep(…; loci = :two_stage, seed)`; src/two_stage.jl). Stage 1 is the deterministic
