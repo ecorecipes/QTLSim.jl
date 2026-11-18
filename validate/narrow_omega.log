@@ -1,0 +1,68 @@
+validate/narrow_omega.log — running log of an exploratory diagnosis: why is the emulator's
+elasticity of the half-survival rate k50 in ω = InitFitnessSD about three times the published
+table's in the lowest tercile of ω? (validate/elasticity_b.log: two-stage screen, cell medians
+−0.43 to −0.63 at L = 100…5000; table tercile fits −0.14 to −0.19; sign right, size FAIL in all
+four cells.) Exploratory, NOT a verdict study: no pass/fail criteria; hypotheses and predictions
+are written here BEFORE each test, every test run is reported, seeds are fixed, and any choice
+made after seeing a result is marked "post hoc". Script: validate/narrow_omega.jl; raw caches:
+validate/narrow_omega_raw/ (git-ignored). No change to src/, test/ or defaults.
+
+== 2026-11-18, step 0: what is known before any new computation ==
+
+From validate/elasticity_table.log and validate/elasticity_b.log only (nothing new run):
+ - ω is drawn per file, about uniform on 0–10 (5% quantile 0.48); the "low tercile" of the
+   table's information is ω ≤ 2.5–3.3 and reaches down to ω = 0.003. The tercile fit is one
+   logistic slope in log ω over log ω from −5.8 to +1: its leverage is where log ω spreads, i.e.
+   at the smallest ω, which hold few rows.
+ - Phase B's 42 emulator elasticities at ω < 2.2 are not constant either: for ω between about
+   0.4 and 2.4 they are −0.40 to −0.68 (the cell medians), but for ω ≤ 0.2 they are POSITIVE or
+   near zero (+0.32, +0.18, +0.31, +0.09, −0.07, +0.67 at ω = 0.136, 0.112, 0.083, 0.109, 0.214,
+   0.003), and −0.27 to −0.40 at ω = 0.36–0.42. The cell MEANS (−0.17 to −0.43) are already much
+   closer to the table than the medians.
+ - The table's e_ω changes sign across terciles (−0.2, ≈0, +0.3), so it is not constant in ω.
+ - The same 14,998 parameter draws are used in all eight strata.
+
+Candidate explanations, with predictions (stated before step 1):
+ T  (the table's number is not a local elasticity). The tercile slope is a leverage-weighted
+    average over ω from 0.003 to 2.5–3.3, the emulator's a median of local values at inputs that
+    are mostly at ω of 0.4–2.4.
+    T-a: within the tercile the TABLE's own local e_ω varies: near zero or positive for ω ≲ 0.3,
+         more negative than the tercile value for ω of 0.5–2 (prediction: −0.3 or below
+         somewhere in 0.5–2.2), returning to ≈ 0 above 2.5–3.
+    T-b: the leverage of the tercile fit is mostly at ω < 1 (prediction: more than half of it
+         below ω = 1, although those rows are a minority).
+    T-c: re-weighted like the tercile fit, the emulator's value moves most of the way to the
+         table's (prediction: |emulator − table| < 0.15 once the weights agree).
+    T-d: pre-move deaths. Prediction: NONE at a fixed size (the fixed-size table has no T ≤ 0;
+         pre-move deaths in CLAUDE.md are a density-regulation result of vignette 11); but rows
+         with very small ω may die at once after the move at any rate, or never (survival not
+         governed by k), which flattens a logistic in log k. To be counted.
+ E  (the emulator is too sensitive to ω under strong selection). If T does not close the gap,
+    then at ω of 0.5–2.2 the table's local e_ω stays near −0.2 while the emulator's is −0.5.
+    Candidate links, each with what it predicts:
+    E-1: V_G at the move depends on ω too steeply in the emulator (house-of-cards regime,
+         strong negative LD; ld = :dynamic is first order in 1/S). Prediction if true:
+         emulator/table ratio of V_G at 10000 trends with ω below 2.2.
+    E-2: V_G under the move (the open linked-selection decline) differs with ω.
+    E-3: response / mean fitness formulas when ω² ≲ V_P (Gaussian approximations, QTSim's 0.4).
+    E-4: the extinction link (few breeders before the move at narrow ω; drift; between-run
+         variance), including the continuation of the runaway in k50_gradient's target.
+    E-5: numerical: beta solver vs grid; with and without ld = :dynamic.
+ My prior (stated before any test): T explains most of the gap (the sign change of the
+ emulator's own elasticity at ω ≲ 0.2 and the cell means point that way), with a residual E of
+ unknown size at 0.5–2.2 where both sides are negative. The decisive evidence is the kernel's
+ own local elasticity over ω·e^{±0.2} at fixed other inputs (step 3), because both the table's
+ binned slope and the emulator's value are then compared with a direct measurement.
+
+Plan. Step 1 (table alone, mode `table`): T0 deaths not governed by the rate; T1 e_ω by 15 fixed
+ω bins (edges 0.15, 0.3, 0.5, 0.75, 1, 1.4, 1.8, 2.2, 2.7, 3.3, 4, 5, 6.5, 8; fixed before any
+fit), by (A) a piecewise-linear spline in log ω per locus number and (B) separate fits per bin
+with the binned k50(ω); T2 the tercile fit on sub-ranges and its leverage; T3 phase B's emulator
+elasticities re-binned and re-weighted, and the level of the emulator's k50 against the table
+model's. Step 2 (modes `curve`, `vgmove`): the emulator's k50(ω) curve at reference inputs
+against the table's binned k50(ω) (level and shape, and the tercile-style weighted slope of the
+emulator's curve); the emulator's V_G and W̄ at the move against the table's own columns at
+10000 on 660 rows. Step 3 (modes `select`, `pilot`, `kernel`, `emfd`, `local`): the kernel's
+local elasticity on 12 inputs (L = 100, 500, 1000; ω from 0.3 to 2.2) against the emulators'
+finite difference over the same interval. Step 4 (if E survives): trajectories at ω·e^{±0.2}.
+Budget about 6 CPU-hours, at most 6 threads.
