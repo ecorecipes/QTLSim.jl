@@ -66,3 +66,492 @@ emulator's curve); the emulator's V_G and W̄ at the move against the table's ow
 local elasticity on 12 inputs (L = 100, 500, 1000; ω from 0.3 to 2.2) against the emulators'
 finite difference over the same interval. Step 4 (if E survives): trajectories at ω·e^{±0.2}.
 Budget about 6 CPU-hours, at most 6 threads.
+
+== step 1 (mode `table`; 27 CPU-s): the table alone. Output of the script, then my reading ==
+
+== table mode: the published table alone (119,984 rows), and phase B's emulator elasticities re-binned ==
+2026-11-18 15:19; alive at 2000 = 'Generations to extinction' > 2000
+
+-- T0: deaths that do not depend on the rate --
+  rows with T ≤ 0 (death before the move): 0; T = 1: 11; T ≤ 5: 1100; smallest T: 1
+  by ω bin (all strata pooled): n, alive at 2000, T ≤ 5, T ≤ 5 among rates k < 0.01, alive among k < 0.003, median
+  'P Survived at 10000' / 1000 (survivors of viability selection in the last generation before the move) and its 5% quantile,
+  median Genotype Var at 10000 / (h²V_P)
+    ω [0.003, 0.15)    n   1776  alive   172 (0.097)  T≤5  813  T≤5|k<0.01   0/48    alive|k<0.003  32/32   ns/N median 0.406 q05 0.062  gv/(h²V_P) 0.598
+    ω [0.15, 0.3)      n   2056  alive   337 (0.164)  T≤5  273  T≤5|k<0.01   0/48    alive|k<0.003   8/8    ns/N median 0.797 q05 0.607  gv/(h²V_P) 1.376
+    ω [0.3, 0.5)       n   2360  alive   322 (0.136)  T≤5   14  T≤5|k<0.01   0/80    alive|k<0.003   8/8    ns/N median 0.906 q05 0.771  gv/(h²V_P) 2.628
+    ω [0.5, 0.75)      n   2736  alive   408 (0.149)  T≤5    0  T≤5|k<0.01   0/112   alive|k<0.003  56/56   ns/N median 0.943 q05 0.859  gv/(h²V_P) 4.019
+    ω [0.75, 1)        n   2984  alive   362 (0.121)  T≤5    0  T≤5|k<0.01   0/72    alive|k<0.003   8/8    ns/N median 0.964 q05 0.898  gv/(h²V_P) 5.652
+    ω [1, 1.4)         n   4760  alive   429 (0.090)  T≤5    0  T≤5|k<0.01   0/96    alive|k<0.003  40/40   ns/N median 0.974 q05 0.930  gv/(h²V_P) 7.589
+    ω [1.4, 1.8)       n   4760  alive   451 (0.095)  T≤5    0  T≤5|k<0.01   0/168   alive|k<0.003  72/72   ns/N median 0.983 q05 0.949  gv/(h²V_P) 8.199
+    ω [1.8, 2.2)       n   4768  alive   367 (0.077)  T≤5    0  T≤5|k<0.01   0/136   alive|k<0.003  56/56   ns/N median 0.986 q05 0.958  gv/(h²V_P) 10.391
+    ω [2.2, 2.7)       n   5616  alive   481 (0.086)  T≤5    0  T≤5|k<0.01   0/224   alive|k<0.003  56/56   ns/N median 0.989 q05 0.970  gv/(h²V_P) 11.157
+    ω [2.7, 3.3)       n   7304  alive   549 (0.075)  T≤5    0  T≤5|k<0.01   0/304   alive|k<0.003 128/128  ns/N median 0.992 q05 0.974  gv/(h²V_P) 11.655
+    ω [3.3, 4)         n   8200  alive   527 (0.064)  T≤5    0  T≤5|k<0.01   0/200   alive|k<0.003  80/80   ns/N median 0.993 q05 0.980  gv/(h²V_P) 13.125
+    ω [4, 5)           n  12272  alive   807 (0.066)  T≤5    0  T≤5|k<0.01   0/328   alive|k<0.003 112/112  ns/N median 0.994 q05 0.984  gv/(h²V_P) 15.322
+    ω [5, 6.5)         n  18168  alive  1286 (0.071)  T≤5    0  T≤5|k<0.01   0/656   alive|k<0.003 200/200  ns/N median 0.995 q05 0.988  gv/(h²V_P) 14.452
+    ω [6.5, 8)         n  18384  alive  1403 (0.076)  T≤5    0  T≤5|k<0.01   0/712   alive|k<0.003 144/144  ns/N median 0.996 q05 0.990  gv/(h²V_P) 14.828
+    ω [8, 10)          n  23840  alive  1804 (0.076)  T≤5    0  T≤5|k<0.01   0/848   alive|k<0.003 256/256  ns/N median 0.996 q05 0.992  gv/(h²V_P) 15.291
+  rows with ω < 0.05, in detail (ω, k, T, ns at 10000, gv at 10000), first 30 by ω:
+    QT0100-Possion3.0/Input-13199.txt  ω 0.0031  k 0.2586  T      2  ns   25  gv 0.000588
+    QT0100-Possion5.0/Input-13199.txt  ω 0.0031  k 0.2586  T      2  ns   25  gv 0.000125
+    QT0500-Possion3.0/Input-13199.txt  ω 0.0031  k 0.2586  T      2  ns   27  gv 0.000295
+    QT0500-Possion5.0/Input-13199.txt  ω 0.0031  k 0.2586  T      2  ns   21  gv 0.00168
+    QT1000-Possion3.0/Input-13199.txt  ω 0.0031  k 0.2586  T      2  ns   18  gv 0.00295
+    QT1000-Possion5.0/Input-13199.txt  ω 0.0031  k 0.2586  T      2  ns   23  gv 0.00126
+    QT5000-Possion3.0/Input-13199.txt  ω 0.0031  k 0.2586  T      2  ns   25  gv 0.00174
+    QT5000-Possion5.0/Input-13199.txt  ω 0.0031  k 0.2586  T      2  ns   26  gv 0.00206
+    QT0100-Possion3.0/Input-01839.txt  ω 0.0032  k 0.0883  T      3  ns   48  gv 0.000273
+    QT0100-Possion5.0/Input-01839.txt  ω 0.0032  k 0.0883  T      3  ns   42  gv 0.000129
+    QT0500-Possion3.0/Input-01839.txt  ω 0.0032  k 0.0883  T      3  ns   47  gv 0.000276
+    QT0500-Possion5.0/Input-01839.txt  ω 0.0032  k 0.0883  T      3  ns   41  gv 0.000458
+    QT1000-Possion3.0/Input-01839.txt  ω 0.0032  k 0.0883  T      3  ns   42  gv 0.000679
+    QT1000-Possion5.0/Input-01839.txt  ω 0.0032  k 0.0883  T      3  ns   40  gv 0.000463
+    QT5000-Possion3.0/Input-01839.txt  ω 0.0032  k 0.0883  T      5  ns   51  gv 0.00127
+    QT5000-Possion5.0/Input-01839.txt  ω 0.0032  k 0.0883  T      3  ns   36  gv 0.000849
+    QT0100-Possion3.0/Input-00783.txt  ω 0.0035  k 0.0162  T     35  ns   39  gv 0.000102
+    QT0100-Possion5.0/Input-00783.txt  ω 0.0035  k 0.0162  T     16  ns   37  gv 0.000432
+    QT0500-Possion3.0/Input-00783.txt  ω 0.0035  k 0.0162  T     20  ns   41  gv 0.000526
+    QT0500-Possion5.0/Input-00783.txt  ω 0.0035  k 0.0162  T     18  ns   37  gv 0.000785
+    QT1000-Possion3.0/Input-00783.txt  ω 0.0035  k 0.0162  T     30  ns   38  gv 0.00117
+    QT1000-Possion5.0/Input-00783.txt  ω 0.0035  k 0.0162  T     29  ns   39  gv 0.000547
+    QT5000-Possion3.0/Input-00783.txt  ω 0.0035  k 0.0162  T     39  ns   26  gv 0.00199
+    QT5000-Possion5.0/Input-00783.txt  ω 0.0035  k 0.0162  T     41  ns   38  gv 0.00119
+    QT0100-Possion3.0/Input-08855.txt  ω 0.0036  k 0.2874  T      2  ns   18  gv 0.000361
+    QT0100-Possion5.0/Input-08855.txt  ω 0.0036  k 0.2874  T      3  ns   23  gv 0.00864
+    QT0500-Possion3.0/Input-08855.txt  ω 0.0036  k 0.2874  T      1  ns   21  gv 0.00526
+    QT0500-Possion5.0/Input-08855.txt  ω 0.0036  k 0.2874  T      2  ns   17  gv 0.00344
+    QT1000-Possion3.0/Input-08855.txt  ω 0.0036  k 0.2874  T      2  ns   13  gv 0.00365
+    QT1000-Possion5.0/Input-08855.txt  ω 0.0036  k 0.2874  T      2  ns   22  gv 0.00149
+
+-- T1: e_ω by ω bin --
+  model A (per locus number, strata u = 3, 5 pooled with an indicator): logit = β0 + βk log k + β log(V_P, h², m) + u5 +
+  piecewise-linear in log ω with knots at the bin edges; local e_ω = −(slope in the bin)/βk (delta-method SE).
+  model B: a separate linear model per bin (all coefficients free): its own e_ω (se) and log k50 at the reference inputs
+  (V_P 0.0223, h² 0.315, m 0.004, u = 3) and the bin's geometric-mean ω; then e between neighbouring bins from B's k50.
+  L 100: model A converged true, βk -6.940
+    ω [0.003, 0.15)    n   444 alive   59  A: e  0.422 (0.060) k50 0.0395 | B: e  0.477 (0.025) k50 0.0455 βk -41.70  e from the previous bin's k50  NaN | info 9
+    ω [0.15, 0.3)      n   514 alive  113  A: e -0.032 (0.113) k50 0.0598 | B: e  0.204 (0.158) k50 0.0519 βk -8.87  e from the previous bin's k50  0.094 | info 17
+    ω [0.3, 0.5)       n   590 alive  122  A: e -0.400 (0.146) k50 0.0528 | B: e -0.647 (0.198) k50 0.0507 βk -10.44  e from the previous bin's k50 -0.036 | info 19
+    ω [0.5, 0.75)      n   684 alive  136  A: e -0.366 (0.173) k50 0.0446 | B: e -0.415 (0.221) k50 0.0390 βk -14.73  e from the previous bin's k50 -0.606 | info 18
+    ω [0.75, 1)        n   746 alive  114  A: e -0.292 (0.243) k50 0.0398 | B: e  NaN (NaN) k50 NaN βk -7384.19  e from the previous bin's k50  NaN | info 14
+    ω [1, 1.4)         n  1190 alive  140  A: e -0.927 (0.210) k50 0.0325 | B: e -0.613 (0.296) k50 0.0271 βk -8.92  e from the previous bin's k50 -0.553 | info 19
+    ω [1.4, 1.8)       n  1190 alive  135  A: e -0.298 (0.280) k50 0.0269 | B: e -0.193 (0.365) k50 0.0247 βk -23.00  e from the previous bin's k50 -0.321 | info 18
+    ω [1.8, 2.2)       n  1192 alive  113  A: e -0.704 (0.384) k50 0.0242 | B: e -0.920 (0.460) k50 0.0222 βk -16.66  e from the previous bin's k50 -0.472 | info 15
+    ω [2.2, 2.7)       n  1404 alive  135  A: e -0.431 (0.364) k50 0.0216 | B: e -0.422 (0.601) k50 0.0182 βk -7.28  e from the previous bin's k50 -0.985 | info 17
+    ω [2.7, 3.3)       n  1826 alive  153  A: e -0.910 (0.334) k50 0.0188 | B: e -1.196 (0.356) k50 0.0184 βk -17.60  e from the previous bin's k50  0.044 | info 21
+    ω [3.3, 4)         n  2050 alive  142  A: e  0.525 (0.320) k50 0.0181 | B: e  0.646 (0.429) k50 0.0179 βk -11.39  e from the previous bin's k50 -0.136 | info 23
+    ω [4, 5)           n  3068 alive  218  A: e -0.238 (0.243) k50 0.0185 | B: e -0.140 (0.338) k50 0.0178 βk -12.02  e from the previous bin's k50 -0.028 | info 33
+    ω [5, 6.5)         n  4542 alive  335  A: e -0.395 (0.188) k50 0.0171 | B: e -0.263 (0.268) k50 0.0192 βk -8.70  e from the previous bin's k50  0.313 | info 39
+    ω [6.5, 8)         n  4596 alive  363  A: e  0.775 (0.214) k50 0.0177 | B: e  0.572 (0.289) k50 0.0196 βk -10.82  e from the previous bin's k50  0.083 | info 52
+    ω [8, 10)          n  5960 alive  455  A: e -0.194 (0.211) k50 0.0187 | B: e  0.020 (0.237) k50 0.0215 βk -11.21  e from the previous bin's k50  0.442 | info 69
+  L 500: model A converged true, βk -7.665
+    ω [0.003, 0.15)    n   444 alive   50  A: e  0.319 (0.051) k50 0.0391 | B: e  NaN (NaN) k50 NaN βk -6589.87  e from the previous bin's k50  NaN | info 8
+    ω [0.15, 0.3)      n   514 alive   94  A: e -0.282 (0.113) k50 0.0487 | B: e -0.164 (0.100) k50 0.0434 βk -20.13  e from the previous bin's k50  NaN | info 12
+    ω [0.3, 0.5)       n   590 alive   84  A: e -0.394 (0.155) k50 0.0397 | B: e -0.534 (0.216) k50 0.0371 βk -10.12  e from the previous bin's k50 -0.257 | info 12
+    ω [0.5, 0.75)      n   684 alive  107  A: e -0.181 (0.204) k50 0.0350 | B: e -0.584 (0.312) k50 0.0306 βk -10.82  e from the previous bin's k50 -0.444 | info 12
+    ω [0.75, 1)        n   746 alive   93  A: e -0.288 (0.277) k50 0.0323 | B: e  NaN (NaN) k50 NaN βk -6280.51  e from the previous bin's k50  NaN | info 9
+    ω [1, 1.4)         n  1190 alive  111  A: e -0.829 (0.224) k50 0.0269 | B: e -0.570 (0.301) k50 0.0228 βk -13.14  e from the previous bin's k50 -0.447 | info 13
+    ω [1.4, 1.8)       n  1190 alive  120  A: e -0.098 (0.304) k50 0.0232 | B: e  0.542 (0.317) k50 0.0223 βk -18.39  e from the previous bin's k50 -0.075 | info 14
+    ω [1.8, 2.2)       n  1192 alive   93  A: e -0.717 (0.406) k50 0.0214 | B: e -0.034 (0.444) k50 0.0199 βk -20.28  e from the previous bin's k50 -0.517 | info 12
+    ω [2.2, 2.7)       n  1404 alive  122  A: e -0.226 (0.377) k50 0.0194 | B: e -0.130 (0.624) k50 0.0175 βk -8.14  e from the previous bin's k50 -0.643 | info 13
+    ω [2.7, 3.3)       n  1826 alive  139  A: e -0.452 (0.335) k50 0.0181 | B: e -0.110 (0.510) k50 0.0162 βk -20.24  e from the previous bin's k50 -0.386 | info 17
+    ω [3.3, 4)         n  2050 alive  131  A: e  0.246 (0.315) k50 0.0178 | B: e  0.277 (0.329) k50 0.0170 βk -17.96  e from the previous bin's k50  0.256 | info 20
+    ω [4, 5)           n  3068 alive  204  A: e -0.033 (0.238) k50 0.0181 | B: e -0.227 (0.330) k50 0.0171 βk -17.99  e from the previous bin's k50  0.032 | info 28
+    ω [5, 6.5)         n  4542 alive  322  A: e -0.451 (0.186) k50 0.0170 | B: e -0.221 (0.258) k50 0.0188 βk -11.03  e from the previous bin's k50  0.381 | info 33
+    ω [6.5, 8)         n  4596 alive  349  A: e  1.031 (0.211) k50 0.0179 | B: e  0.953 (0.274) k50 0.0193 βk -13.18  e from the previous bin's k50  0.112 | info 46
+    ω [8, 10)          n  5960 alive  452  A: e -0.195 (0.201) k50 0.0194 | B: e -0.056 (0.225) k50 0.0217 βk -13.20  e from the previous bin's k50  0.540 | info 63
+  L 1000: model A converged true, βk -7.797
+    ω [0.003, 0.15)    n   444 alive   41  A: e  0.298 (0.065) k50 0.0338 | B: e  NaN (NaN) k50 NaN βk -1384.84  e from the previous bin's k50  NaN | info 7
+    ω [0.15, 0.3)      n   514 alive   78  A: e -0.308 (0.120) k50 0.0407 | B: e  0.000 (0.149) k50 0.0352 βk -13.67  e from the previous bin's k50  NaN | info 10
+    ω [0.3, 0.5)       n   590 alive   70  A: e -0.359 (0.167) k50 0.0333 | B: e -0.175 (0.249) k50 0.0314 βk -9.73  e from the previous bin's k50 -0.188 | info 9
+    ω [0.5, 0.75)      n   684 alive   92  A: e -0.109 (0.235) k50 0.0300 | B: e -0.565 (0.307) k50 0.0271 βk -12.49  e from the previous bin's k50 -0.342 | info 8
+    ω [0.75, 1)        n   746 alive   88  A: e -0.097 (0.318) k50 0.0289 | B: e  NaN (NaN) k50 NaN βk -1042.92  e from the previous bin's k50  NaN | info 9
+    ω [1, 1.4)         n  1190 alive   99  A: e -0.786 (0.230) k50 0.0249 | B: e -0.411 (0.341) k50 0.0203 βk -9.47  e from the previous bin's k50 -0.438 | info 12
+    ω [1.4, 1.8)       n  1190 alive  108  A: e -0.475 (0.325) k50 0.0206 | B: e -0.013 (0.310) k50 0.0200 βk -26.88  e from the previous bin's k50 -0.045 | info 13
+    ω [1.8, 2.2)       n  1192 alive   85  A: e -0.071 (0.422) k50 0.0193 | B: e  NaN (NaN) k50 NaN βk -4550.24  e from the previous bin's k50  NaN | info 10
+    ω [2.2, 2.7)       n  1404 alive  118  A: e -0.179 (0.379) k50 0.0188 | B: e  0.876 (0.590) k50 0.0172 βk -9.35  e from the previous bin's k50 -0.368 | info 13
+    ω [2.7, 3.3)       n  1826 alive  135  A: e -0.242 (0.334) k50 0.0180 | B: e  0.259 (0.439) k50 0.0158 βk -32.68  e from the previous bin's k50 -0.394 | info 17
+    ω [3.3, 4)         n  2050 alive  131  A: e  0.120 (0.313) k50 0.0178 | B: e  0.049 (0.336) k50 0.0169 βk -17.30  e from the previous bin's k50  0.332 | info 19
+    ω [4, 5)           n  3068 alive  200  A: e  0.007 (0.238) k50 0.0180 | B: e  0.054 (0.331) k50 0.0172 βk -15.94  e from the previous bin's k50  0.095 | info 27
+    ω [5, 6.5)         n  4542 alive  318  A: e -0.467 (0.186) k50 0.0169 | B: e -0.285 (0.258) k50 0.0188 βk -12.03  e from the previous bin's k50  0.350 | info 31
+    ω [6.5, 8)         n  4596 alive  349  A: e  1.123 (0.211) k50 0.0180 | B: e  1.089 (0.256) k50 0.0194 βk -14.96  e from the previous bin's k50  0.126 | info 45
+    ω [8, 10)          n  5960 alive  451  A: e -0.231 (0.200) k50 0.0196 | B: e  0.010 (0.225) k50 0.0217 βk -13.58  e from the previous bin's k50  0.539 | info 62
+  L 5000: model A converged true, βk -9.087
+    ω [0.003, 0.15)    n   444 alive   22  A: e  0.400 (0.104) k50 0.0221 | B: e  NaN (NaN) k50 NaN βk -600.71  e from the previous bin's k50  NaN | info 3
+    ω [0.15, 0.3)      n   514 alive   52  A: e -0.385 (0.137) k50 0.0287 | B: e -0.283 (0.240) k50 0.0256 βk -9.92  e from the previous bin's k50  NaN | info 8
+    ω [0.3, 0.5)       n   590 alive   46  A: e -0.307 (0.163) k50 0.0232 | B: e  NaN (NaN) k50 NaN βk -1657.70  e from the previous bin's k50  NaN | info 6
+    ω [0.5, 0.75)      n   684 alive   73  A: e  0.005 (0.239) k50 0.0217 | B: e -0.820 (0.434) k50 0.0199 βk -17.47  e from the previous bin's k50 -0.240 | info 5
+    ω [0.75, 1)        n   746 alive   67  A: e -0.143 (0.336) k50 0.0212 | B: e  NaN (NaN) k50 NaN βk -1232.44  e from the previous bin's k50  NaN | info 7
+    ω [1, 1.4)         n  1190 alive   79  A: e -0.495 (0.232) k50 0.0191 | B: e  0.198 (0.334) k50 0.0184 βk -16.13  e from the previous bin's k50 -0.121 | info 7
+    ω [1.4, 1.8)       n  1190 alive   88  A: e -0.040 (0.343) k50 0.0175 | B: e  0.522 (0.351) k50 0.0177 βk -17.36  e from the previous bin's k50 -0.128 | info 10
+    ω [1.8, 2.2)       n  1192 alive   76  A: e -0.247 (0.416) k50 0.0170 | B: e  0.002 (0.644) k50 0.0171 βk -32.72  e from the previous bin's k50 -0.168 | info 7
+    ω [2.2, 2.7)       n  1404 alive  106  A: e  0.226 (0.360) k50 0.0170 | B: e  0.983 (0.540) k50 0.0160 βk -11.74  e from the previous bin's k50 -0.316 | info 11
+    ω [2.7, 3.3)       n  1826 alive  122  A: e -0.235 (0.332) k50 0.0170 | B: e  0.126 (0.507) k50 0.0146 βk -21.94  e from the previous bin's k50 -0.449 | info 12
+    ω [3.3, 4)         n  2050 alive  123  A: e  0.283 (0.312) k50 0.0171 | B: e  0.104 (0.254) k50 0.0162 βk -35.43  e from the previous bin's k50  0.509 | info 15
+    ω [4, 5)           n  3068 alive  185  A: e  0.059 (0.227) k50 0.0177 | B: e -0.064 (0.320) k50 0.0165 βk -14.27  e from the previous bin's k50  0.085 | info 22
+    ω [5, 6.5)         n  4542 alive  311  A: e -0.299 (0.176) k50 0.0170 | B: e -0.270 (0.258) k50 0.0182 βk -12.93  e from the previous bin's k50  0.411 | info 25
+    ω [6.5, 8)         n  4596 alive  342  A: e  1.049 (0.202) k50 0.0184 | B: e  0.940 (0.231) k50 0.0193 βk -18.77  e from the previous bin's k50  0.263 | info 38
+    ω [8, 10)          n  5960 alive  446  A: e -0.139 (0.187) k50 0.0201 | B: e  0.098 (0.218) k50 0.0218 βk -15.40  e from the previous bin's k50  0.551 | info 53
+
+-- T2: the tercile-1 fit of the criteria (phase B's table side), and the same model on sub-ranges of ω --
+  (delta-method SE; 'lev' = share of the fit's leverage Σ w (x − x̄_w)², w = μ(1 − μ), x = log ω, carried by ω < 0.3 and by ω < 1)
+  L 100, tercile 1 = ω ≤ 2.541; criteria value -0.174 [-0.204, -0.143]
+    whole tercile    n  7538 alive 1022  e_ω -0.174 (0.011)  βk -5.85  lev(ω<0.3) 0.69 lev(ω<1) 0.71; info share ω<0.3 0.20, ω<1 0.49
+    ω < 0.3          n   958 alive  172  e_ω  0.290 (0.028)  βk -8.60
+    ω < 1            n  2978 alive  544  e_ω  0.028 (0.016)  βk -6.91
+    0.3 ≤ ω          n  6580 alive  850  e_ω -0.511 (0.019)  βk -11.15
+    0.5 ≤ ω          n  5990 alive  728  e_ω -0.518 (0.026)  βk -11.39
+    1 ≤ ω            n  4560 alive  478  e_ω -0.503 (0.059)  βk -10.45
+    0.3 ≤ ω < 1      n  2020 alive  372  e_ω -0.438 (0.047)  βk -13.23
+    0.5 ≤ ω < 1.5    n  2910 alive  426  e_ω -0.499 (0.049)  βk -11.73
+    1.5 ≤ ω          n  3080 alive  302  e_ω -0.478 (0.141)  βk -11.16
+  L 500, tercile 1 = ω ≤ 2.727; criteria value -0.191 [-0.219, -0.163]
+    whole tercile    n  8036 alive  880  e_ω -0.191 (0.010)  βk -6.81  lev(ω<0.3) 0.69 lev(ω<1) 0.71; info share ω<0.3 0.20, ω<1 0.47
+    ω < 0.3          n   958 alive  144  e_ω  0.201 (0.021)  βk -12.59
+    ω < 1            n  2978 alive  428  e_ω -0.027 (0.017)  βk -7.65
+    0.3 ≤ ω          n  7078 alive  736  e_ω -0.422 (0.018)  βk -11.26
+    0.5 ≤ ω          n  6488 alive  652  e_ω -0.454 (0.025)  βk -11.70
+    1 ≤ ω            n  5058 alive  452  e_ω -0.427 (0.051)  βk -11.57
+    0.3 ≤ ω < 1      n  2020 alive  284  e_ω -0.305 (0.055)  βk -11.31
+    0.5 ≤ ω < 1.5    n  2910 alive  337  e_ω -0.512 (0.051)  βk -12.13
+    1.5 ≤ ω          n  3578 alive  315  e_ω -0.638 (0.105)  βk -11.82
+  L 1000, tercile 1 = ω ≤ 2.894; criteria value -0.179 [-0.205, -0.152]
+    whole tercile    n  8552 alive  816  e_ω -0.179 (0.010)  βk -7.34  lev(ω<0.3) 0.69 lev(ω<1) 0.72; info share ω<0.3 0.19, ω<1 0.43
+    ω < 0.3          n   958 alive  119  e_ω  0.172 (0.028)  βk -12.37
+    ω < 1            n  2978 alive  369  e_ω -0.014 (0.018)  βk -8.49
+    0.3 ≤ ω          n  7594 alive  697  e_ω -0.369 (0.018)  βk -11.13
+    0.5 ≤ ω          n  7004 alive  627  e_ω -0.396 (0.024)  βk -11.63
+    1 ≤ ω            n  5574 alive  447  e_ω -0.335 (0.049)  βk -11.43
+    0.3 ≤ ω < 1      n  2020 alive  250  e_ω -0.187 (0.057)  βk -11.81
+    0.5 ≤ ω < 1.5    n  2910 alive  303  e_ω -0.426 (0.055)  βk -11.12
+    1.5 ≤ ω          n  4094 alive  324  e_ω -0.393 (0.089)  βk -12.42
+  L 5000, tercile 1 = ω ≤ 3.325; criteria value -0.138 [-0.166, -0.101]
+    whole tercile    n  9842 alive  733  e_ω -0.138 (0.011)  βk -10.39  lev(ω<0.3) 0.65 lev(ω<1) 0.72; info share ω<0.3 0.14, ω<1 0.36
+    ω < 0.3          n   958 alive   74  e_ω  0.130 (0.048)  βk -10.34
+    ω < 1            n  2978 alive  260  e_ω -0.017 (0.017)  βk -10.77
+    0.3 ≤ ω          n  8884 alive  659  e_ω -0.201 (0.019)  βk -14.34
+    0.5 ≤ ω          n  8294 alive  613  e_ω -0.206 (0.025)  βk -14.00
+    1 ≤ ω            n  6864 alive  473  e_ω -0.145 (0.041)  βk -13.62
+    0.3 ≤ ω < 1      n  2020 alive  186  e_ω -0.122 (0.048)  βk -23.06
+    0.5 ≤ ω < 1.5    n  2910 alive  236  e_ω -0.294 (0.064)  βk -15.46
+    1.5 ≤ ω          n  5384 alive  377  e_ω -0.195 (0.065)  βk -13.97
+
+-- T3: phase B's emulator elasticities (two-stage screen, k50_gradient; validate/elasticity_raw/b_screen.csv) by the same ω bins --
+  beside model A's local e_ω of the input's locus number and bin; then per bin: n, emulator median (mean), table A mean
+    ω [0.003, 0.15)    n  6  emulator e_ω median  0.280 mean  0.302 [min  0.089, max  0.671]   table A (same L, bin) mean  0.346
+    ω [0.15, 0.3)      n  2  emulator e_ω median -0.023 mean -0.023 [min -0.065, max  0.018]   table A (same L, bin) mean -0.347
+    ω [0.3, 0.5)       n  4  emulator e_ω median -0.363 mean -0.365 [min -0.466, max -0.267]   table A (same L, bin) mean -0.365
+    ω [0.5, 0.75)      n  1  emulator e_ω median -0.459 mean -0.459 [min -0.459, max -0.459]   table A (same L, bin) mean -0.109
+    ω [0.75, 1)        n  5  emulator e_ω median -0.601 mean -0.582 [min -0.638, max -0.501]   table A (same L, bin) mean -0.251
+    ω [1, 1.4)         n  7  emulator e_ω median -0.497 mean -0.515 [min -0.623, max -0.423]   table A (same L, bin) mean -0.805
+    ω [1.4, 1.8)       n  8  emulator e_ω median -0.543 mean -0.543 [min -0.676, max -0.385]   table A (same L, bin) mean -0.260
+    ω [1.8, 2.2)       n  7  emulator e_ω median -0.560 mean -0.387 [min -0.678, max  0.744]   table A (same L, bin) mean -0.395
+    ω [2.2, 2.7)       n  7  emulator e_ω median -0.335 mean -0.222 [min -0.547, max  0.590]   table A (same L, bin) mean -0.077
+    ω [2.7, 3.3)       n  7  emulator e_ω median -0.449 mean -0.330 [min -0.581, max  0.006]   table A (same L, bin) mean -0.424
+    ω [3.3, 4)         n  8  emulator e_ω median -0.421 mean -0.373 [min -0.649, max  0.220]   table A (same L, bin) mean  0.278
+    ω [4, 5)           n  9  emulator e_ω median -0.410 mean -0.385 [min -0.607, max -0.031]   table A (same L, bin) mean -0.093
+    ω [5, 6.5)         n 11  emulator e_ω median -0.027 mean  0.042 [min -0.381, max  0.750]   table A (same L, bin) mean -0.383
+    ω [6.5, 8)         n 22  emulator e_ω median  0.305 mean  0.183 [min -0.509, max  0.808]   table A (same L, bin) mean  1.030
+    ω [8, 10)          n 22  emulator e_ω median  0.454 mean  0.371 [min -0.380, max  0.945]   table A (same L, bin) mean -0.184
+  levels: emulator k50 / model A's k50 at the same inputs (own ω, V_P, h², m, u), by ω bin: n, median ratio, quartiles
+    ω [0.003, 0.15)    n  7  ratio median 1.08  [0.87, 1.22]
+    ω [0.15, 0.3)      n  3  ratio median 1.23  [1.16, 1.61]
+    ω [0.3, 0.5)       n  4  ratio median 1.02  [0.87, 1.24]
+    ω [0.5, 0.75)      n  1  ratio median 1.00  [1.00, 1.00]
+    ω [0.75, 1)        n  5  ratio median 0.90  [0.85, 1.06]
+    ω [1, 1.4)         n  7  ratio median 0.86  [0.75, 1.14]
+    ω [1.4, 1.8)       n  8  ratio median 1.32  [0.81, 1.78]
+    ω [1.8, 2.2)       n  7  ratio median 0.99  [0.89, 1.13]
+    ω [2.2, 2.7)       n  7  ratio median 0.92  [0.81, 1.04]
+    ω [2.7, 3.3)       n  7  ratio median 0.95  [0.75, 1.11]
+    ω [3.3, 4)         n  8  ratio median 1.11  [1.00, 1.15]
+    ω [4, 5)           n  9  ratio median 1.07  [0.87, 1.12]
+    ω [5, 6.5)         n 11  ratio median 0.93  [0.88, 1.01]
+    ω [6.5, 8)         n 22  ratio median 0.93  [0.85, 1.08]
+    ω [8, 10)          n 22  ratio median 0.96  [0.86, 1.13]
+  the low-ω tercile cell, emulator side re-weighted: inputs of the cell (ω ≤ cut), their e_ω averaged (i) plainly, (ii) by a
+  weight that makes the sample mimic the tercile fit's leverage in ω: the fit's leverage per ω bin / the number of sample inputs in the bin
+    L  100: table -0.174 | emulator n 12 median -0.626 mean -0.434 leverage-weighted mean  0.118 (bins with sample inputs carry 0.80 of the leverage)
+    L  500: table -0.191 | emulator n 11 median -0.547 mean -0.387 leverage-weighted mean  0.005 (bins with sample inputs carry 0.87 of the leverage)
+    L 1000: table -0.179 | emulator n 16 median -0.426 mean -0.174 leverage-weighted mean  0.147 (bins with sample inputs carry 0.94 of the leverage)
+    L 5000: table -0.138 | emulator n 11 median -0.473 mean -0.413 leverage-weighted mean -0.315 (bins with sample inputs carry 0.46 of the leverage)
+
+[mode table: process CPU 27 s (clock(): user + system, all threads, with compilation), wall 18 s, 6 threads]
+
+Reading of step 1 (written after seeing it):
+ - T0. No row dies before the move (T ≥ 1 everywhere): prediction T-d (none at a fixed size) holds;
+   "pre-move deaths" are not a cause. But for ω < 0.15, 813 of 1776 rows die within 5 generations of
+   the move (273 of 2056 at 0.15–0.3, 14 at 0.3–0.5, none above), never at k < 0.01: there the first
+   steps of the optimum (k against ω) kill, a different regime in which a wider ω helps (e_ω > 0).
+   Before the move 59% of the population fails viability selection at ω < 0.15 (median), 20% at
+   0.15–0.3, 6–9% at 0.3–0.75, under 4% above 0.75.
+ - T-a HOLDS, more strongly than predicted. The table's own e_ω inside its low tercile is not one
+   number: +0.13 to +0.29 for ω < 0.3 (model A: +0.30 to +0.42 below 0.15), and for ω ≥ 0.3 within
+   the tercile −0.51 (L 100), −0.42 (500), −0.37 (1000), −0.20 (5000), se 0.02 (T2, "0.3 ≤ ω"; the
+   sub-ranges 0.5 ≤ ω, 1 ≤ ω, 0.5–1.5 agree: −0.50/−0.52, −0.43/−0.51, −0.34/−0.43, −0.15/−0.29).
+   The per-bin slopes of T1 scatter around the same values with se of 0.15–0.4 each (too noisy
+   one by one; the sub-range fits are the usable summary).
+ - T-b HOLDS: 69% of the tercile fit's leverage in log ω (65% at L 5000) sits at ω < 0.3, which
+   holds 13% of the tercile's rows and 14–20% of its information. The tercile value −0.14…−0.19 is
+   a mixture of a positive branch and a negative branch and is the local elasticity of neither.
+ - T3. Phase B's emulator values by bin follow the table's two branches: +0.28 median below 0.15
+   (table A +0.35), about 0 at 0.15–0.3, −0.36 at 0.3–0.5, −0.46 to −0.60 from 0.5 to 2.2. Against
+   the table's sub-range fits for 0.3 ≤ ω ≤ cut, phase B's cell medians (which are medians of inputs
+   mostly in that range) are −0.63 vs −0.51 (L 100), −0.55 vs −0.42 (500), −0.43 vs −0.37 (1000),
+   −0.47 vs −0.20 (5000). So T removes most of the "3×": a residual of −0.06 to −0.13 at
+   L ≤ 1000 and −0.27 at L = 5000 is left for E.
+   The crude leverage re-weighting of the 11–16 sample inputs per cell (last block) gives +0.12,
+   +0.01, +0.15, −0.32: it overshoots the table (−0.14…−0.19), i.e. it is dominated by the one or
+   two sample inputs below ω = 0.15 and is too noisy to test T-c; the curve of step 2 does that
+   properly.
+ - Levels: phase B's k50 over the table model's at the same inputs has medians 0.86–1.32 by bin
+   with no trend in ω below 2.2 (few inputs per bin).
+ - NOT expected (post hoc observation, from phase B's own log and T1/T3 together): for ω of about
+   2.2 to 5 the emulator's e_ω is still −0.34 to −0.45 (bin medians) while the table's middle
+   tercile is −0.10 to −0.01 (se ≈ 0.05) and its top tercile +0.29 to +0.38. Phase B did not test
+   those cells (|table e| < 0.1), but the difference there (about 0.3) is larger than the residual
+   in the low tercile. So the emulator's e_ω may turn from negative to positive at a larger ω than
+   the table's. This is the candidate residual E; it is outside the "narrow ω" question as posed.
+
+== step 2: hypotheses before running `curve` and `vgmove` ==
+
+ curve (the screen's k50(ω) at V_P 0.0223, h² 0.315, m 0.004, u = 3, L = 100, 500, 1000, ω from
+ 0.05 to 9): predictions. (i) The emulator's curve has the table's shape: rising for ω ≲ 0.2,
+ a maximum near 0.15–0.3, falling with slope −0.4 to −0.6 between 0.3 and 2. (ii) Its
+ tercile-style weighted slope (the table's rows and weights, the emulator's curve) is within 0.15
+ of the table's −0.17…−0.19 (T-c), and its slope over 0.3 ≤ ω ≤ cut within 0.15 of the table's
+ −0.37…−0.51. (iii) Level: screen/table within 0.8–1.25 at all ω. (iv) Residual E: the
+ emulator's curve keeps falling beyond ω ≈ 2.5 where the table's k50(ω) is flat; if so the
+ ratio screen/table falls with ω between 2 and 5.
+ vgmove (660 rows; emulator state before the move against the table's own V_G and survivors at
+ 10000): predictions. E-1 predicts a trend of emulator/table V_G with ω below 2.2; my guess is
+ that the screen is within 10% at ω ≥ 0.5 (spectrum_ld validated V_G at the move at 1.00 overall)
+ and off at ω < 0.3 (very strong selection), with no LD (default :spectrum) too high by 10–40%
+ at ω of 0.5–2 and :rare_alleles in between; W̄ before the move within 1% everywhere.
+
+== step 2a (mode `curve`; 2001 CPU-s): the screen's k50(ω) at the reference inputs. Output: ==
+
+== curve mode: the emulator's k50(ω) at the reference inputs; 51 points to do ==
+  L 100 (V_P 0.0223, h² 0.315, m 0.004, u = 3): ω, screen k50, local e_ω (status), e from neighbouring k50s, table model A k50 at the same inputs, ratio; :rare_alleles k50, ratio, its e from neighbours
+    ω  0.05  screen k50 0.04288  e  0.444 (ok, continued)  e_fd  NaN | table A k50 0.03805  screen/table 1.13 | rare k50 0.01111 rare/table 0.29 e_fd  NaN
+    ω  0.10  screen k50 0.05440  e  NaN (not_finite, continued)  e_fd  0.255 | table A k50 0.05098  screen/table 1.07 | rare k50 0.01395 rare/table 0.27 e_fd  0.364
+    ω  0.15  screen k50 0.05676  e  NaN (not_finite, continued)  e_fd  0.060 | table A k50 0.06050  screen/table 0.94 | rare k50 0.01656 rare/table 0.27 e_fd  0.443
+    ω  0.20  screen k50 0.05672  e  NaN (not_finite, continued)  e_fd -0.083 | table A k50 0.05994  screen/table 0.95 | rare k50 0.01896 rare/table 0.32 e_fd  0.471
+    ω  0.30  screen k50 0.05358  e -0.219 (ok, continued)  e_fd -0.197 | table A k50 0.05916  screen/table 0.91 | rare k50 0.02296 rare/table 0.39 e_fd  0.453
+    ω  0.40  screen k50 0.04946  e -0.338 (ok, continued)  e_fd -0.346 | table A k50 0.05273  screen/table 0.94 | rare k50 0.02596 rare/table 0.49 e_fd  0.390
+    ω  0.55  screen k50 0.04345  e -0.481 (ok)  e_fd -0.468 | table A k50 0.04657  screen/table 0.93 | rare k50 0.02908 rare/table 0.62 e_fd  0.307
+    ω  0.75  screen k50 0.03685  e -0.570 (ok)  e_fd -0.562 | table A k50 0.04157  screen/table 0.89 | rare k50 0.03149 rare/table 0.76 e_fd  0.203
+    ω  1.00  screen k50 0.03105  e -0.621 (ok)  e_fd -0.611 | table A k50 0.03822  screen/table 0.81 | rare k50 0.03283 rare/table 0.86 e_fd  0.091
+    ω  1.30  screen k50 0.02634  e -0.633 (ok)  e_fd -0.622 | table A k50 0.02997  screen/table 0.88 | rare k50 0.03311 rare/table 1.11 e_fd -0.022
+    ω  1.70  screen k50 0.02232  e -0.602 (ok)  e_fd -0.584 | table A k50 0.02641  screen/table 0.85 | rare k50 0.03245 rare/table 1.23 e_fd -0.127
+    ω  2.20  screen k50 0.01937  e -0.511 (ok)  e_fd -0.492 | table A k50 0.02254  screen/table 0.86 | rare k50 0.03098 rare/table 1.37 e_fd -0.220
+    ω  2.80  screen k50 0.01746  e -0.363 (ok)  e_fd -0.343 | table A k50 0.01996  screen/table 0.87 | rare k50 0.02907 rare/table 1.46 e_fd -0.292
+    ω  3.60  screen k50 0.01636  e -0.159 (ok)  e_fd -0.193 | table A k50 0.01799  screen/table 0.91 | rare k50 0.02683 rare/table 1.49 e_fd -0.314
+    ω  5.00  screen k50 0.01561  e  0.224 (ok)  e_fd  0.092 | table A k50 0.01803  screen/table 0.87 | rare k50 0.02423 rare/table 1.34 e_fd -0.235
+    ω  7.00  screen k50 0.01740  e  0.443 (ok)  e_fd  0.400 | table A k50 0.01722  screen/table 1.01 | rare k50 0.02295 rare/table 1.33 e_fd -0.056
+    ω  9.00  screen k50 0.01974  e  NaN (fallback_switch)  e_fd  NaN | table A k50 0.01867  screen/table 1.06 | rare k50 0.02345 rare/table 1.26 e_fd  NaN
+    tercile-style slope over whole tercile (curve extrapolated below ω = 0.05)         : emulator curve -0.213 | table's own fit -0.174 (0.011)
+    tercile-style slope over ω ≥ 0.05                                                  : emulator curve -0.345 | table's own fit -0.298 (0.011)
+    tercile-style slope over ω ≥ 0.3                                                   : emulator curve -0.557 | table's own fit -0.511 (0.019)
+    tercile-style slope over ω ≥ 1                                                     : emulator curve -0.585 | table's own fit -0.503 (0.059)
+  L 500 (V_P 0.0223, h² 0.315, m 0.004, u = 3): ω, screen k50, local e_ω (status), e from neighbouring k50s, table model A k50 at the same inputs, ratio; :rare_alleles k50, ratio, its e from neighbours
+    ω  0.05  screen k50 0.04168  e  0.459 (ok, continued)  e_fd  NaN | table A k50 0.03808  screen/table 1.09 | rare k50 0.04037 rare/table 1.06 e_fd  NaN
+    ω  0.10  screen k50 0.05406  e  0.276 (ok, continued)  e_fd  0.297 | table A k50 0.04751  screen/table 1.14 | rare k50 0.05357 rare/table 1.13 e_fd  0.358
+    ω  0.15  screen k50 0.05779  e  0.076 (ok, continued)  e_fd  0.098 | table A k50 0.05407  screen/table 1.07 | rare k50 0.05981 rare/table 1.11 e_fd  0.229
+    ω  0.20  screen k50 0.05787  e -0.064 (ok, continued)  e_fd -0.089 | table A k50 0.04985  screen/table 1.16 | rare k50 0.06281 rare/table 1.26 e_fd  0.113
+    ω  0.30  screen k50 0.05435  e -0.245 (ok, continued)  e_fd -0.214 | table A k50 0.04446  screen/table 1.22 | rare k50 0.06470 rare/table 1.46 e_fd  0.037
+    ω  0.40  screen k50 0.04988  e -0.351 (ok, continued)  e_fd -0.354 | table A k50 0.03970  screen/table 1.26 | rare k50 0.06443 rare/table 1.62 e_fd -0.052
+    ω  0.55  screen k50 0.04386  e -0.452 (ok)  e_fd -0.446 | table A k50 0.03574  screen/table 1.23 | rare k50 0.06267 rare/table 1.75 e_fd -0.125
+    ω  0.75  screen k50 0.03767  e -0.526 (ok)  e_fd -0.519 | table A k50 0.03379  screen/table 1.11 | rare k50 0.05956 rare/table 1.76 e_fd -0.203
+    ω  1.00  screen k50 0.03216  e -0.570 (ok)  e_fd -0.627 | table A k50 0.03111  screen/table 1.03 | rare k50 0.05550 rare/table 1.78 e_fd -0.285
+    ω  1.30  screen k50 0.02669  e -0.555 (ok)  e_fd -0.714 | table A k50 0.02503  screen/table 1.07 | rare k50 0.05091 rare/table 2.03 e_fd -0.372
+    ω  1.70  screen k50 0.02202  e -0.481 (ok)  e_fd -0.611 | table A k50 0.02309  screen/table 0.95 | rare k50 0.04557 rare/table 1.97 e_fd -0.452
+    ω  2.20  screen k50 0.01936  e -0.400 (ok)  e_fd -0.444 | table A k50 0.01988  screen/table 0.97 | rare k50 0.04014 rare/table 2.02 e_fd -0.518
+    ω  2.80  screen k50 0.01764  e -0.279 (ok)  e_fd -0.333 | table A k50 0.01867  screen/table 0.94 | rare k50 0.03519 rare/table 1.88 e_fd -0.553
+    ω  3.60  screen k50 0.01643  e -0.076 (ok)  e_fd -0.112 | table A k50 0.01771  screen/table 0.93 | rare k50 0.03057 rare/table 1.73 e_fd -0.524
+    ω  5.00  screen k50 0.01654  e  0.127 (ok)  e_fd  0.135 | table A k50 0.01805  screen/table 0.92 | rare k50 0.02598 rare/table 1.44 e_fd -0.386
+    ω  7.00  screen k50 0.01797  e  0.366 (ok)  e_fd  0.333 | table A k50 0.01731  screen/table 1.04 | rare k50 0.02365 rare/table 1.37 e_fd -0.150
+    ω  9.00  screen k50 0.02012  e  0.526 (ok)  e_fd  NaN | table A k50 0.01941  screen/table 1.04 | rare k50 0.02379 rare/table 1.23 e_fd  NaN
+    tercile-style slope over whole tercile (curve extrapolated below ω = 0.05)         : emulator curve -0.200 | table's own fit -0.191 (0.010)
+    tercile-style slope over ω ≥ 0.05                                                  : emulator curve -0.342 | table's own fit -0.308 (0.010)
+    tercile-style slope over ω ≥ 0.3                                                   : emulator curve -0.564 | table's own fit -0.422 (0.018)
+    tercile-style slope over ω ≥ 1                                                     : emulator curve -0.594 | table's own fit -0.427 (0.051)
+  L 1000 (V_P 0.0223, h² 0.315, m 0.004, u = 3): ω, screen k50, local e_ω (status), e from neighbouring k50s, table model A k50 at the same inputs, ratio; :rare_alleles k50, ratio, its e from neighbours
+    ω  0.05  screen k50 0.04152  e  0.450 (ok, continued)  e_fd  NaN | table A k50 0.03292  screen/table 1.26 | rare k50 0.04757 rare/table 1.45 e_fd  NaN
+    ω  0.10  screen k50 0.05390  e  0.291 (ok, continued)  e_fd  0.300 | table A k50 0.04047  screen/table 1.33 | rare k50 0.06248 rare/table 1.54 e_fd  0.342
+    ω  0.15  screen k50 0.05775  e  0.085 (ok, continued)  e_fd  0.104 | table A k50 0.04566  screen/table 1.26 | rare k50 0.06924 rare/table 1.52 e_fd  0.209
+    ω  0.20  screen k50 0.05795  e -0.056 (ok, continued)  e_fd -0.079 | table A k50 0.04179  screen/table 1.39 | rare k50 0.07223 rare/table 1.73 e_fd  0.088
+    ω  0.30  screen k50 0.05466  e -0.244 (ok, continued)  e_fd -0.202 | table A k50 0.03688  screen/table 1.48 | rare k50 0.07358 rare/table 2.00 e_fd  0.008
+    ω  0.40  screen k50 0.05038  e -0.333 (ok, continued)  e_fd -0.336 | table A k50 0.03326  screen/table 1.51 | rare k50 0.07262 rare/table 2.18 e_fd -0.086
+    ω  0.55  screen k50 0.04458  e -0.429 (ok)  e_fd -0.472 | table A k50 0.03038  screen/table 1.47 | rare k50 0.06985 rare/table 2.30 e_fd -0.164
+    ω  0.75  screen k50 0.03745  e -0.479 (ok)  e_fd -0.598 | table A k50 0.02937  screen/table 1.27 | rare k50 0.06552 rare/table 2.23 e_fd -0.249
+    ω  1.00  screen k50 0.03118  e -0.488 (ok)  e_fd -0.600 | table A k50 0.02857  screen/table 1.09 | rare k50 0.06020 rare/table 2.11 e_fd -0.337
+    ω  1.30  screen k50 0.02693  e -0.495 (ok)  e_fd -0.552 | table A k50 0.02325  screen/table 1.16 | rare k50 0.05443 rare/table 2.34 e_fd -0.427
+    ω  1.70  screen k50 0.02326  e -0.469 (ok)  e_fd -0.575 | table A k50 0.02000  screen/table 1.16 | rare k50 0.04799 rare/table 2.40 e_fd -0.507
+    ω  2.20  screen k50 0.01990  e -0.335 (ok)  e_fd -0.463 | table A k50 0.01919  screen/table 1.04 | rare k50 0.04170 rare/table 2.17 e_fd -0.567
+    ω  2.80  screen k50 0.01846  e -0.280 (ok)  e_fd -0.271 | table A k50 0.01833  screen/table 1.01 | rare k50 0.03615 rare/table 1.97 e_fd -0.595
+    ω  3.60  screen k50 0.01741  e -0.174 (ok)  e_fd -0.139 | table A k50 0.01780  screen/table 0.98 | rare k50 0.03111 rare/table 1.75 e_fd -0.555
+    ω  5.00  screen k50 0.01703  e  0.053 (ok)  e_fd  0.063 | table A k50 0.01806  screen/table 0.94 | rare k50 0.02621 rare/table 1.45 e_fd -0.406
+    ω  7.00  screen k50 0.01816  e  0.329 (ok)  e_fd  0.290 | table A k50 0.01736  screen/table 1.05 | rare k50 0.02374 rare/table 1.37 e_fd -0.162
+    ω  9.00  screen k50 0.02020  e  0.509 (ok)  e_fd  NaN | table A k50 0.01963  screen/table 1.03 | rare k50 0.02383 rare/table 1.21 e_fd  NaN
+    tercile-style slope over whole tercile (curve extrapolated below ω = 0.05)         : emulator curve -0.202 | table's own fit -0.179 (0.010)
+    tercile-style slope over ω ≥ 0.05                                                  : emulator curve -0.348 | table's own fit -0.290 (0.011)
+    tercile-style slope over ω ≥ 0.3                                                   : emulator curve -0.540 | table's own fit -0.369 (0.018)
+    tercile-style slope over ω ≥ 1                                                     : emulator curve -0.528 | table's own fit -0.335 (0.049)
+
+[mode curve: process CPU 2001 s (clock(): user + system, all threads, with compilation), wall 362 s, 6 threads]
+
+Reading of step 2a (after seeing it):
+ - Prediction (i) HOLDS: the emulator's k50(ω) rises to a maximum at ω ≈ 0.15–0.2 (e = +0.45 at
+   0.05, 0 at about 0.18), then falls with e = −0.22…−0.25 at 0.3, −0.43…−0.48 at 0.55, −0.49…−0.63
+   from 0.75 to 1.7, −0.34…−0.51 at 2.2, back to 0 near ω = 4–4.5 and +0.33…+0.44 at 7. The local
+   value (k50_gradient) and the finite difference of neighbouring k50s agree (the three
+   `not_finite` points at L = 100, ω 0.1–0.2, are k50_gradient failures on a continued target;
+   their k50 is fine).
+ - Prediction (ii), T-c, HOLDS: with the table's own rows and weights, the emulator's curve gives
+   the tercile slope −0.21 (L 100), −0.20 (500), −0.20 (1000) against the table's −0.174, −0.191,
+   −0.179: differences of 0.04, 0.01, 0.02. Phase B's "size FAIL" in the low-ω cells (−0.43…−0.63
+   against −0.14…−0.19) therefore compared a median of local values on the negative branch with a
+   slope that averages the positive and the negative branch: on the table's own summary the
+   emulator agrees with the table.
+ - Residual on the negative branch (ω ≥ 0.3 within the tercile): emulator curve −0.56, −0.56, −0.54
+   against the table's −0.51 (0.02), −0.42 (0.02), −0.37 (0.02): −0.05, −0.14, −0.17. One reference
+   input against a fit over all inputs, so indicative only; step 3 measures it directly.
+ - Prediction (iii) FAILS in part, and this is where the residual comes from: the screen's k50
+   over the table model's is 0.81–0.95 at L = 100 for all ω ≥ 0.15, but at L = 500 it is
+   1.16–1.26 for ω of 0.2–0.55 and at L = 1000 1.39–1.51 for ω of 0.2–0.55 (1.27 at 0.75), falling
+   to 0.95–1.16 by ω = 1–2.2 and 0.92–1.05 above. So at L ≥ 500 the emulator puts k50 20–50% too
+   high around ω ≈ 0.2–0.75, and the return of that excess to zero by ω ≈ 2 is the extra negative
+   slope. (The table model's k50 by bin has its own error of roughly 5–10%.)
+ - Prediction (iv): not supported at the reference inputs. Between ω = 2.8 and 5 the emulator's
+   k50 falls by 5–11% and the table model's by 0–10%; the ratio stays within 0.87–1.01. The
+   post hoc observation of step 1 (phase B's bin medians of −0.34…−0.45 at 2.2–5) is weaker at
+   these reference inputs (−0.36…−0.08 at 2.8–3.6, positive at 5).
+ - :rare_alleles (no verdict; for the record): its k50(ω) has a different shape (maximum near
+   ω = 1.3 at L = 100 and 0.3 at L ≥ 500; k50 up to 2.4× the table's at L = 1000).
+
+== step 2b (mode `vgmove`; 3114 CPU-s, more than planned: the grid burn-in of default :spectrum is slow): ==
+
+== vgmove mode: emulator state before the move vs the table's 'Genotype Var at 10000' and 'P Survived at 10000' ==
+  20 rows per (L ∈ {100, 500, 1000}, ω bin below 4), drawn uniformly (MersenneTwister(20261127)): 660 rows; to do 660
+  per ω bin (three locus numbers pooled, then each): median of emulator V_G / table V_G (one run per row, so the table side is noisy;
+  medians over 20 rows), for the screen (dynamic LD, beta), default :spectrum (no LD, grid), :rare_alleles; and median emulator W̄ / (ns/1000)
+  all three L
+    ω [0.003, 0.15)    n  60  V_G ratio: screen 1.228  no-LD 1.075  rare 1.220 | W̄ ratio: screen 0.988 no-LD 1.000 rare 0.991 | table median V_G 0.003613, ns/N 0.403
+    ω [0.15, 0.3)      n  60  V_G ratio: screen 1.120  no-LD 1.126  rare 1.075 | W̄ ratio: screen 0.994 no-LD 0.993 rare 0.994 | table median V_G 0.007698, ns/N 0.796
+    ω [0.3, 0.5)       n  60  V_G ratio: screen 1.051  no-LD 1.201  rare 0.960 | W̄ ratio: screen 0.997 no-LD 0.992 rare 1.000 | table median V_G 0.01524, ns/N 0.915
+    ω [0.5, 0.75)      n  60  V_G ratio: screen 1.023  no-LD 1.217  rare 0.980 | W̄ ratio: screen 1.001 no-LD 0.995 rare 1.002 | table median V_G 0.02211, ns/N 0.952
+    ω [0.75, 1)        n  60  V_G ratio: screen 1.054  no-LD 1.202  rare 1.005 | W̄ ratio: screen 0.999 no-LD 0.996 rare 1.000 | table median V_G 0.03021, ns/N 0.966
+    ω [1, 1.4)         n  60  V_G ratio: screen 1.050  no-LD 1.184  rare 0.982 | W̄ ratio: screen 1.001 no-LD 0.997 rare 1.001 | table median V_G 0.04526, ns/N 0.975
+    ω [1.4, 1.8)       n  60  V_G ratio: screen 1.038  no-LD 1.197  rare 0.986 | W̄ ratio: screen 0.999 no-LD 0.998 rare 1.001 | table median V_G 0.06339, ns/N 0.982
+    ω [1.8, 2.2)       n  60  V_G ratio: screen 1.031  no-LD 1.162  rare 1.000 | W̄ ratio: screen 1.000 no-LD 0.999 rare 1.000 | table median V_G 0.06101, ns/N 0.988
+    ω [2.2, 2.7)       n  60  V_G ratio: screen 0.995  no-LD 1.091  rare 0.967 | W̄ ratio: screen 0.999 no-LD 0.999 rare 0.999 | table median V_G 0.08553, ns/N 0.990
+    ω [2.7, 3.3)       n  60  V_G ratio: screen 1.025  no-LD 1.125  rare 1.010 | W̄ ratio: screen 0.999 no-LD 0.999 rare 1.000 | table median V_G 0.07526, ns/N 0.992
+    ω [3.3, 4)         n  60  V_G ratio: screen 0.993  no-LD 1.109  rare 0.958 | W̄ ratio: screen 1.000 no-LD 0.999 rare 1.000 | table median V_G 0.1302, ns/N 0.993
+  L 100
+    ω [0.003, 0.15)    n  20  V_G ratio: screen 1.137  no-LD 1.061  rare 1.351 | W̄ ratio: screen 0.991 no-LD 0.992 rare 0.981 | table median V_G 0.001044, ns/N 0.482
+    ω [0.15, 0.3)      n  20  V_G ratio: screen 1.126  no-LD 1.007  rare 1.572 | W̄ ratio: screen 0.998 no-LD 1.002 rare 0.989 | table median V_G 0.003013, ns/N 0.823
+    ω [0.3, 0.5)       n  20  V_G ratio: screen 1.130  no-LD 1.035  rare 1.225 | W̄ ratio: screen 1.001 no-LD 1.002 rare 0.998 | table median V_G 0.007037, ns/N 0.941
+    ω [0.5, 0.75)      n  20  V_G ratio: screen 1.060  no-LD 1.048  rare 1.059 | W̄ ratio: screen 0.998 no-LD 1.000 rare 0.996 | table median V_G 0.01251, ns/N 0.966
+    ω [0.75, 1)        n  20  V_G ratio: screen 1.020  no-LD 1.050  rare 1.105 | W̄ ratio: screen 1.000 no-LD 1.000 rare 0.999 | table median V_G 0.02164, ns/N 0.968
+    ω [1, 1.4)         n  20  V_G ratio: screen 1.051  no-LD 0.975  rare 1.052 | W̄ ratio: screen 1.001 no-LD 1.002 rare 1.001 | table median V_G 0.03544, ns/N 0.976
+    ω [1.4, 1.8)       n  20  V_G ratio: screen 1.029  no-LD 1.025  rare 1.031 | W̄ ratio: screen 1.000 no-LD 1.000 rare 1.000 | table median V_G 0.05427, ns/N 0.984
+    ω [1.8, 2.2)       n  20  V_G ratio: screen 1.033  no-LD 1.076  rare 1.046 | W̄ ratio: screen 1.000 no-LD 1.000 rare 1.000 | table median V_G 0.05636, ns/N 0.988
+    ω [2.2, 2.7)       n  20  V_G ratio: screen 1.014  no-LD 1.039  rare 0.993 | W̄ ratio: screen 0.998 no-LD 0.998 rare 0.998 | table median V_G 0.09819, ns/N 0.988
+    ω [2.7, 3.3)       n  20  V_G ratio: screen 1.073  no-LD 1.074  rare 1.073 | W̄ ratio: screen 1.000 no-LD 1.000 rare 1.000 | table median V_G 0.07526, ns/N 0.992
+    ω [3.3, 4)         n  20  V_G ratio: screen 1.017  no-LD 1.077  rare 0.982 | W̄ ratio: screen 1.000 no-LD 1.000 rare 1.000 | table median V_G 0.131, ns/N 0.993
+  L 500
+    ω [0.003, 0.15)    n  20  V_G ratio: screen 1.321  no-LD 0.917  rare 1.257 | W̄ ratio: screen 0.993 no-LD 1.029 rare 0.981 | table median V_G 0.006378, ns/N 0.347
+    ω [0.15, 0.3)      n  20  V_G ratio: screen 1.129  no-LD 1.016  rare 1.066 | W̄ ratio: screen 0.994 no-LD 1.000 rare 0.998 | table median V_G 0.01162, ns/N 0.798
+    ω [0.3, 0.5)       n  20  V_G ratio: screen 0.977  no-LD 1.180  rare 0.915 | W̄ ratio: screen 0.997 no-LD 0.991 rare 0.999 | table median V_G 0.01621, ns/N 0.913
+    ω [0.5, 0.75)      n  20  V_G ratio: screen 1.048  no-LD 1.236  rare 0.965 | W̄ ratio: screen 1.001 no-LD 0.994 rare 1.002 | table median V_G 0.03719, ns/N 0.933
+    ω [0.75, 1)        n  20  V_G ratio: screen 1.070  no-LD 1.221  rare 1.010 | W̄ ratio: screen 1.002 no-LD 0.996 rare 1.003 | table median V_G 0.0481, ns/N 0.955
+    ω [1, 1.4)         n  20  V_G ratio: screen 1.000  no-LD 1.167  rare 0.959 | W̄ ratio: screen 1.000 no-LD 0.998 rare 1.001 | table median V_G 0.04423, ns/N 0.976
+    ω [1.4, 1.8)       n  20  V_G ratio: screen 1.053  no-LD 1.211  rare 0.997 | W̄ ratio: screen 0.999 no-LD 0.996 rare 1.000 | table median V_G 0.0616, ns/N 0.984
+    ω [1.8, 2.2)       n  20  V_G ratio: screen 1.012  no-LD 1.146  rare 0.968 | W̄ ratio: screen 1.000 no-LD 0.998 rare 1.001 | table median V_G 0.05539, ns/N 0.988
+    ω [2.2, 2.7)       n  20  V_G ratio: screen 1.000  no-LD 1.109  rare 0.975 | W̄ ratio: screen 0.999 no-LD 0.998 rare 0.999 | table median V_G 0.05554, ns/N 0.991
+    ω [2.7, 3.3)       n  20  V_G ratio: screen 1.056  no-LD 1.126  rare 1.012 | W̄ ratio: screen 1.000 no-LD 1.000 rare 1.000 | table median V_G 0.06391, ns/N 0.992
+    ω [3.3, 4)         n  20  V_G ratio: screen 0.998  no-LD 1.099  rare 0.952 | W̄ ratio: screen 0.999 no-LD 0.998 rare 0.999 | table median V_G 0.1512, ns/N 0.994
+  L 1000
+    ω [0.003, 0.15)    n  20  V_G ratio: screen 1.233  no-LD 1.268  rare 1.056 | W̄ ratio: screen 0.982 no-LD 0.987 rare 1.003 | table median V_G 0.008654, ns/N 0.405
+    ω [0.15, 0.3)      n  20  V_G ratio: screen 1.090  no-LD 1.297  rare 0.945 | W̄ ratio: screen 0.987 no-LD 0.978 rare 0.997 | table median V_G 0.01232, ns/N 0.787
+    ω [0.3, 0.5)       n  20  V_G ratio: screen 1.081  no-LD 1.341  rare 0.936 | W̄ ratio: screen 0.992 no-LD 0.965 rare 1.006 | table median V_G 0.03507, ns/N 0.875
+    ω [0.5, 0.75)      n  20  V_G ratio: screen 0.964  no-LD 1.397  rare 0.875 | W̄ ratio: screen 1.003 no-LD 0.985 rare 1.009 | table median V_G 0.02764, ns/N 0.939
+    ω [0.75, 1)        n  20  V_G ratio: screen 1.038  no-LD 1.398  rare 0.948 | W̄ ratio: screen 0.998 no-LD 0.993 rare 0.999 | table median V_G 0.03831, ns/N 0.966
+    ω [1, 1.4)         n  20  V_G ratio: screen 1.079  no-LD 1.444  rare 0.958 | W̄ ratio: screen 1.000 no-LD 0.987 rare 1.002 | table median V_G 0.0758, ns/N 0.971
+    ω [1.4, 1.8)       n  20  V_G ratio: screen 1.038  no-LD 1.358  rare 0.928 | W̄ ratio: screen 1.000 no-LD 0.995 rare 1.001 | table median V_G 0.07366, ns/N 0.978
+    ω [1.8, 2.2)       n  20  V_G ratio: screen 1.052  no-LD 1.310  rare 0.999 | W̄ ratio: screen 0.999 no-LD 0.994 rare 0.999 | table median V_G 0.08019, ns/N 0.986
+    ω [2.2, 2.7)       n  20  V_G ratio: screen 0.951  no-LD 1.153  rare 0.934 | W̄ ratio: screen 1.001 no-LD 1.000 rare 1.001 | table median V_G 0.08646, ns/N 0.989
+    ω [2.7, 3.3)       n  20  V_G ratio: screen 1.008  no-LD 1.155  rare 0.986 | W̄ ratio: screen 0.999 no-LD 0.998 rare 0.999 | table median V_G 0.08116, ns/N 0.993
+    ω [3.3, 4)         n  20  V_G ratio: screen 0.950  no-LD 1.127  rare 0.939 | W̄ ratio: screen 1.000 no-LD 1.000 rare 1.000 | table median V_G 0.1062, ns/N 0.994
+  slopes of log V_G at the move on log ω over 0.3 ≤ ω < 2.2 (least squares over the sampled rows, with log V_P, log h², log m as covariates):
+    gv         d log V_G / d log ω =  0.819 (se 0.036), n 360
+    VG_screen  d log V_G / d log ω =  0.801 (se 0.034), n 360
+    VG_noLD    d log V_G / d log ω =  0.819 (se 0.038), n 360
+    VG_rare    d log V_G / d log ω =  0.798 (se 0.030), n 360
+
+[mode vgmove: process CPU 3114 s (clock(): user + system, all threads, with compilation), wall 530 s, 6 threads]
+
+Reading of step 2b (after seeing it):
+ - E-1 is REJECTED for ω ≥ 0.3: the screen's V_G in the last generation before the move is
+   1.02–1.05 × the table's (bin medians of 60 rows, all between 0.3 and 2.2; 0.95–1.13 by locus
+   number), without a trend in ω, and the regression slope of log V_G on log ω over 0.3–2.2 is
+   +0.80 (0.03) for the screen against +0.82 (0.04) for the table's own column. Below 0.3 the
+   screen is 12% (0.15–0.3) and 23% (< 0.15) too high, as guessed.
+ - Without LD (default :spectrum) V_G is 16–22% too high pooled, 31–44% at L = 1000 (known:
+   validate/spectrum_diagnosis.md); :rare_alleles 0.96–1.00 pooled.
+ - W̄ before the move: emulator/table 0.99–1.00 from ω = 0.15 up (screen), so the height of the
+   fitness function and V_P before the move are right (part of E-3 and E-4).
+ - So the 20–50% excess of the screen's k50 at L ≥ 500 around ω = 0.2–0.75 (step 2a) is not in the
+   state at the move. What is left: V_G under the move (E-2), the response and mean fitness under a
+   lag when ω² ≲ V_P (E-3), and the extinction link (E-4).
+
+== step 3: the kernel's own local elasticity. Design and predictions, before any kernel run ==
+
+Design (fixed now). 12 inputs: one per L ∈ {100, 500, 1000} and ω range [0.3, 0.6), [0.6, 1),
+[1, 1.5), [1.5, 2.2), drawn near the table's boundary by mode `select` (seed 20261120 + 10·(index
+of L) + range; phase B's inputs excluded). Arms ω·e^{−0.2} and ω·e^{+0.2} (a factor 1.49 between
+them), all other inputs fixed. Kernel: `equilibrium_world` with a burn-in of 1000 generations
+before the move (not the protocol's 10,000 from zero: cost; validate/init_equilibrium.jl found
+100–1000 generations enough at 100–1000 loci outside the Gaussian regime; the kernel's V_G at the
+move is checked below against the table's column for the same input), move at 10000, alive =
+completes generation 11999 (the table's T > 2000). Pilot at the input's own ω: 11 rates = the table
+model's k50 × exp(−0.75:0.15:0.75), 6 runs each; then 8 rates = pilot k50 × exp(±0.04, ±0.12,
+±0.20, ±0.28), 30 runs per rate and arm, the same seeds in both arms. Estimate: Spearman–Kärber
+mean of log k50 per arm, e = Δ log k50/0.4, paired bootstrap CI; a logistic fit as comparator. An
+arm whose lowest rate has < 80% alive or whose highest has > 20% alive is flagged (and may be
+extended, reported as such). Emulators over the same arms: the screen at ω−, ω, ω+ (all 12), the
+same closure on the grid (inputs 5, 6, 7, 9, 10, 11) and default :spectrum (5, 7, 9, 11) — the
+grid closures on a subset because step 2b cost 0.4 CPU-h more than planned (decided before any of
+them is run); :rare_alleles on all.
+
+Predictions:
+ K1. The kernel's local e_ω is negative in all 12 inputs and far from the tercile value: pooled
+     −0.35 to −0.5 (the table's sub-range fits say −0.51, −0.42, −0.37 for L = 100, 500, 1000). If
+     instead the kernel gave about −0.17, T would be wrong and the table's sub-range fits misleading.
+ K2. The screen's finite difference over the same arms is more negative than the kernel's by about
+     0.05 at L = 100 and 0.1–0.2 at L = 500 and 1000 (step 2a's residual), i.e. the screen is
+     modestly too sensitive; the difference is within the kernel's CI for most single inputs.
+ K3. Level: screen k50 / kernel k50 above 1.15 at L ≥ 500 for ω < 0.75 and larger at ω− than at
+     ω+ (that is what an excess sensitivity means); 0.85–1.1 at L = 100.
+ K4. Beta against grid: the same finite difference within 0.03. Default :spectrum (no LD): k50
+     higher than the screen's, elasticity within 0.1 of the screen's.
+== select mode: inputs for the kernel's local elasticities ==
+  one per (L ∈ {100, 500, 1000}, ω range ∈ [(0.3, 0.6), (0.6, 1.0), (1.0, 1.5), (1.5, 2.2)]), from both recombination strata, drawn with probability ∝ μ(1 − μ) of model A
+  (rows near the table's boundary; Efraimidis–Spirakis, MersenneTwister(20261120 + 10·(index of L) + range)); phase B's 128 inputs and
+  its three development inputs excluded. The file's own rate is not used below (rates are scanned).
+     1 QT0100-Possion5.0/Input-07137.txt  ω 0.361 V_P 0.0273 h² 0.381 m 0.00373 | file k 0.0738 T     75 | table model A k50 0.0530
+     2 QT0100-Possion5.0/Input-12231.txt  ω 0.934 V_P 0.0739 h² 0.187 m 0.00253 | file k 0.0770 T    257 | table model A k50 0.0637
+     3 QT0100-Possion3.0/Input-03404.txt  ω 1.366 V_P 0.0217 h² 0.273 m 0.00803 | file k 0.0565 T   2036 | table model A k50 0.0418
+     4 QT0100-Possion5.0/Input-14789.txt  ω 2.143 V_P 0.0214 h² 0.589 m 0.01704 | file k 0.0442 T   1033 | table model A k50 0.0386
+     5 QT0500-Possion3.0/Input-08249.txt  ω 0.536 V_P 0.0153 h² 0.400 m 0.00726 | file k 0.0409 T   1375 | table model A k50 0.0375
+     6 QT0500-Possion3.0/Input-04007.txt  ω 0.690 V_P 0.0334 h² 0.303 m 0.00892 | file k 0.0667 T 240000 | table model A k50 0.0620
+     7 QT0500-Possion3.0/Input-09773.txt  ω 1.369 V_P 0.0351 h² 0.290 m 0.00173 | file k 0.0173 T   5400 | table model A k50 0.0207
+     8 QT0500-Possion5.0/Input-08615.txt  ω 1.822 V_P 0.0433 h² 0.428 m 0.00341 | file k 0.0281 T    906 | table model A k50 0.0262
+     9 QT1000-Possion5.0/Input-11094.txt  ω 0.349 V_P 0.0236 h² 0.026 m 0.00824 | file k 0.0899 T    171 | table model A k50 0.0736
+    10 QT1000-Possion5.0/Input-14211.txt  ω 0.649 V_P 0.0454 h² 0.741 m 0.00153 | file k 0.0169 T    542 | table model A k50 0.0222
+    11 QT1000-Possion5.0/Input-13607.txt  ω 1.468 V_P 0.0327 h² 0.489 m 0.00984 | file k 0.0328 T 240000 | table model A k50 0.0337
+    12 QT1000-Possion5.0/Input-09914.txt  ω 1.552 V_P 0.0131 h² 0.483 m 0.00438 | file k 0.0120 T   1989 | table model A k50 0.0144
+
+[mode select: process CPU 9 s (clock(): user + system, all threads, with compilation), wall 4 s, 6 threads]

@@ -609,6 +609,8 @@ function kernel_elasticity(R, j; boot = 1000)
 end
 
 # ---- emulators over the same ±δ
+const GRID_J = [5, 6, 7, 9, 10, 11]        # L = 500, 1000 with ω < 1.5
+const NOLD_J = [5, 7, 9, 11]
 const EMHEAD = "key,j,closure,arm,omega,k50,e,status,evals,continued,sec"
 function emfd_mode()
     ins = kinputs()
@@ -633,7 +635,9 @@ function emfd_mode()
     E = read_csv(f)
     ks(j, arm) = (r = [pf64(e.k50) for e in E if e.key == "$j|screen|$arm"]; isempty(r) ? NaN : r[1])
     have = done_keys(f)
-    jobs2 = [(x, arm, cl) for cl in ("gridld", "nold") for x in ins for arm in (-1, 1) if !("$(x.j)|$cl|$arm" in have)]
+    # (cost, decided before any of these was run: the grid closures only on some inputs; see the log, step 3)
+    jobs2 = [(x, arm, cl) for cl in ("gridld", "nold") for x in ins for arm in (-1, 1)
+             if x.j in (cl == "gridld" ? GRID_J : NOLD_J) && !("$(x.j)|$cl|$arm" in have)]
     Threads.@threads :greedy for (x, arm, cl) in jobs2
         p = Params(readp(x.id); InitFitnessSD = armω(x.omega, arm))
         k0 = ks(x.j, arm)
@@ -703,10 +707,163 @@ function local_mode()
     serialize(ncache("local.jls"), rows)
 end
 
+
+# ---------------------------------------------------------------------------------------------
+# trajectories at ω·e^{±δ}, one rate per input: which link carries a difference in sensitivity
+# ---------------------------------------------------------------------------------------------
+const TRAJ_R = 6
+const TRAJ_FRAC = 0.85                   # the rate: this fraction of the smaller of the kernel's two k50s
+const WINDOWS = [(-100, -1), (50, 150), (250, 350), (900, 1100), (1700, 1999)]
+const C0 = 1 / (0.4 * sqrt(2π))
+trajfile(j, arm, r) = joinpath(NRAW, "traj", "j$(j)_arm$(arm)_r$(r).jls")
+function traj_rate(R, j)
+    ke = kernel_elasticity(R, j; boot = 2)
+    TRAJ_FRAC * min(ke.k50m, ke.k50p)
+end
+function emul_traj(p; spectrum = NSCREEN)
+    q = Params(p; Sample = 1, NoGenerations = 2000 + HOR, MoveFitnessSDGen = 2000)
+    m = run_moments(q; VG = house_of_gauss_vg(p), erosion = true, loci = :spectrum, spectrum)
+    (; t = m.gen .- 2000, VG = m.geno_var, VP = m.pheno_var, lag = m.theta .- m.pheno_mean, Wbar = m.mean_fitness, extinct = m.extinct)
+end
+function traj_mode()
+    ins = kinputs(); R = kruns()
+    mkpath(joinpath(NRAW, "traj"))
+    say("== traj mode: kernel ($TRAJ_R runs per arm, same seeds in both arms) and emulator trajectories at ω·e^{±$NDELTA}, rate = $TRAJ_FRAC × the smaller kernel k50 ==")
+    jobs = [(x, arm, r) for x in ins for arm in (-1, 1) for r in 1:TRAJ_R if !isfile(trajfile(x.j, arm, r))]
+    sort!(jobs; by = c -> -c[1].L)
+    rates = Dict(x.j => traj_rate(R, x.j) for x in ins)
+    Threads.@threads :greedy for (x, arm, r) in jobs
+        p = Params(readp(x.id); InitFitnessSD = armω(x.omega, arm), MoveFitnessSD = rates[x.j])
+        serialize(trajfile(x.j, arm, r), krun(p, KSEED + 10_000_000 * x.j + 300_000 + r; traj = true))
+    end
+    ef = ncache("emtraj.jls")
+    E = isfile(ef) ? deserialize(ef) : Dict{Any,Any}()
+    ejobs = [(x, arm, cl) for x in ins for arm in (-1, 1) for cl in (:screen, :nold) if !haskey(E, (x.j, arm, cl))]
+    lk = ReentrantLock()
+    Threads.@threads :greedy for (x, arm, cl) in ejobs
+        p = Params(readp(x.id); InitFitnessSD = armω(x.omega, arm), MoveFitnessSD = rates[x.j])
+        tr = emul_traj(p; spectrum = cl === :screen ? NSCREEN : (;))
+        lock(lk) do
+            E[(x.j, arm, cl)] = tr
+        end
+    end
+    serialize(ef, E)
+    links_mode()
+end
+
+"Mean over the kernel runs alive of field f over the window (a, b) of generations after the move."
+function kwin(runs, f, a, b; x = :gen)
+    s = 0.0; n = 0
+    for r in runs
+        g = getfield(r, x); v = getfield(r, f)
+        for i in eachindex(g)
+            t = g[i] - MOVE
+            (a <= t <= b && isfinite(v[i])) || continue
+            s += v[i]; n += 1
+        end
+    end
+    n > 0 ? s / n : NaN
+end
+function ewin(tr, f, a, b)
+    v = [getfield(tr, f)[i] for i in eachindex(tr.t) if a <= tr.t[i] <= b && isfinite(getfield(tr, f)[i])]
+    isempty(v) ? NaN : mean(v)
+end
+function links_mode()
+    ins = kinputs(); R = kruns()
+    E = deserialize(ncache("emtraj.jls"))
+    say("\n== links: kernel against emulator along the trajectory at ω− = ω·e^{−$NDELTA} and ω+ = ω·e^{+$NDELTA}, and the sensitivities s_X = Δ log X / (2δ) ==")
+    say("  windows of generations after the move: $(WINDOWS); kernel: mean over the $TRAJ_R runs (alive) and the window; lag = θ − z̄;")
+    say("  Gaussian checks in the kernel over the whole move: realised selection response of the mean genotype / (V_G·λ/S), and mean fitness /")
+    say("  (c·ω/√S·exp(−λ²/2S)), S = ω² + V_P (the run's own V_G, V_P, λ per generation).")
+    S = Dict{Tuple{String,Int},Vector{NamedTuple}}()
+    for x in ins
+        runs = Dict(arm => [deserialize(trajfile(x.j, arm, r)) for r in 1:TRAJ_R if isfile(trajfile(x.j, arm, r))] for arm in (-1, 1))
+        (isempty(runs[-1]) || isempty(runs[1])) && continue
+        k = traj_rate(R, x.j)
+        sayf("  %2d %-34s L %4d ω %.3f  rate %.4f; kernel runs dead before +2000: ω− %d/%d, ω+ %d/%d; emulator extinct: screen %s/%s, no-LD %s/%s", x.j, x.id, x.L,
+             x.omega, k, count(r -> r.extinct_gen >= 0, runs[-1]), length(runs[-1]), count(r -> r.extinct_gen >= 0, runs[1]), length(runs[1]),
+             E[(x.j, -1, :screen)].extinct, E[(x.j, 1, :screen)].extinct, E[(x.j, -1, :nold)].extinct, E[(x.j, 1, :nold)].extinct)
+        for arm in (-1, 1)
+            ω = armω(x.omega, arm)
+            num = 0.0; den = 0.0; wr = 0.0; nw = 0
+            for r in runs[arm], i in eachindex(r.gen)
+                r.gen[i] >= MOVE || continue
+                isfinite(r.sg[i]) || continue
+                λ = r.θ[i] - r.zbar[i]; Sx = ω^2 + r.VP[i]
+                num += r.sg[i]; den += r.VG[i] * λ / Sx
+                wr += r.Wbar[i] / (C0 * ω / sqrt(Sx) * exp(-λ^2 / (2Sx))); nw += 1
+            end
+            sayf("       ω%s = %.3f: response ratio %.3f, W̄ ratio %.3f", arm < 0 ? "−" : "+", ω, num / den, wr / nw)
+        end
+        for (wi, (a, b)) in enumerate(WINDOWS)
+            line = @sprintf("       t %5d..%-5d", a, b)
+            for (lab, f) in (("V_G", :VG), ("lag", :lag), ("W̄", :Wbar))
+                kv = [f === :lag ? kwin(runs[arm], :θ, a, b) - kwin(runs[arm], :zbar, a, b) : kwin(runs[arm], f, a, b) for arm in (-1, 1)]
+                sv = [ewin(E[(x.j, arm, :screen)], f, a, b) for arm in (-1, 1)]
+                nv = [ewin(E[(x.j, arm, :nold)], f, a, b) for arm in (-1, 1)]
+                sens(v) = f === :Wbar ? (log(-log(v[2] / C0)) - log(-log(v[1] / C0))) / (2NDELTA) : (log(abs(v[2])) - log(abs(v[1]))) / (2NDELTA)
+                line *= @sprintf(" | %s k %.4g %.4g s %.4g %.4g n %.4g %.4g", lab, kv[1], kv[2], sv[1], sv[2], nv[1], nv[2])
+                f === :Wbar || push!(get!(S, (lab, wi), NamedTuple[]), (; x.j, x.L, x.omega, k = sens(kv), s = sens(sv), n = sens(nv),
+                                                                       rm = sv[1] / kv[1], rp = sv[2] / kv[2], nm = nv[1] / kv[1], np = nv[2] / kv[2]))
+            end
+            say(line)
+            if wi <= 2
+                kg = [kwin(runs[arm], :genic, a, b; x = :xg) for arm in (-1, 1)]
+                kv = [kwin(runs[arm], :VG, a, b) for arm in (-1, 1)]
+                sayf("                        kernel genic %.4g %.4g (V_G/genic %.3f %.3f)", kg[1], kg[2], kv[1] / kg[1], kv[2] / kg[2])
+            end
+        end
+    end
+    say("\n  summary over inputs: sensitivity to ω (Δ log X / 2δ) of X in each window: kernel | screen | no-LD (medians), the median difference")
+    say("  screen − kernel, and the level ratios screen/kernel at ω− and ω+ (medians)")
+    for lab in ("V_G", "lag"), wi in eachindex(WINDOWS)
+        v = get(S, (lab, wi), NamedTuple[])
+        v = [z for z in v if isfinite(z.k) && isfinite(z.s)]
+        isempty(v) && continue
+        sayf("    %-4s t %5d..%-5d n %2d  kernel % .3f | screen % .3f | no-LD % .3f | screen − kernel median % .3f mean % .3f | level screen/kernel ω− %.3f ω+ %.3f; no-LD/kernel %.3f %.3f",
+             lab, WINDOWS[wi][1], WINDOWS[wi][2], length(v), median(z.k for z in v), median(z.s for z in v), med([z.n for z in v]), median(z.s - z.k for z in v),
+             mean(z.s - z.k for z in v), median(z.rm for z in v), median(z.rp for z in v), med([z.nm for z in v]), med([z.np for z in v]))
+    end
+    serialize(ncache("links.jls"), S)
+end
+
+
+# ---------------------------------------------------------------------------------------------
+# the block-lineage model over the same ±δ (common random numbers within a call)
+# ---------------------------------------------------------------------------------------------
+const BLOCK_R = 20
+function blocks_mode()
+    R = kruns()
+    want = length(ARGS) > 1 ? parse.(Int, split(ARGS[2], ",")) : Int[]
+    ins = [x for x in kinputs() if x.j in want]
+    f = ncache("blocks.csv")
+    have = done_keys(f)
+    say("== blocks mode: QTLSim.blocks_half_survival_rate (min(160, L) blocks, within = :gaussian, $BLOCK_R replicates, the same seed in both arms),")
+    say("   bracket = the kernel's k50 of the arm · e^{±0.3}, at ω·e^{±$NDELTA}; inputs $(want) ==")
+    jobs = [(x, arm) for x in ins for arm in (-1, 1) if !("$(x.j)|$arm" in have)]
+    kes = Dict(x.j => kernel_elasticity(R, x.j; boot = 2) for x in ins)
+    Threads.@threads :greedy for (x, arm) in jobs
+        p = Params(readp(x.id); InitFitnessSD = armω(x.omega, arm))
+        k0 = arm < 0 ? kes[x.j].k50m : kes[x.j].k50p
+        t = time()
+        r = QTLSim.blocks_half_survival_rate(p; blocks = min(160, x.L), within = :gaussian, replicates = BLOCK_R, seed = NSELSEED + 500 + x.j,
+                                             bracket = (k0 * exp(-0.3), k0 * exp(0.3)))
+        append_line(f, "key,j,arm,omega,k50,evals,sec", join(Any["$(x.j)|$arm", x.j, arm, p.InitFitnessSD, r.k50, r.evals, round(time() - t; digits = 1)], ","))
+    end
+    B = read_csv(f)
+    for x in kinputs()
+        a = [pf64(b.k50) for b in B if b.key == "$(x.j)|-1"]; c = [pf64(b.k50) for b in B if b.key == "$(x.j)|1"]
+        (isempty(a) || isempty(c)) && continue
+        ke = kernel_elasticity(R, x.j)
+        sayf("    %2d %-34s L %4d ω %.3f  blocks k50(ω−) %.4f k50(ω+) %.4f  e_ω % .3f | kernel k50 %.4f %.4f  e_ω % .3f [% .3f, % .3f] | blocks/kernel %.2f %.2f",
+             x.j, x.id, x.L, x.omega, a[1], c[1], (log(c[1]) - log(a[1])) / (2NDELTA), ke.k50m, ke.k50p, ke.e, ke.lo, ke.hi, a[1] / ke.k50m, c[1] / ke.k50p)
+    end
+end
+
 # ---------------------------------------------------------------------------------------------
 dispatch() = NMODE == "table" ? table_mode() : NMODE == "curve" ? curve_mode() : NMODE == "vgmove" ? vgmove_mode() : NMODE == "select" ? select_mode() :
              NMODE == "pilot" ? pilot_mode() : NMODE == "pilotreport" ? pilot_report() : NMODE == "kernel" ? kernel_mode() : NMODE == "emfd" ? emfd_mode() :
-             NMODE == "local" ? local_mode() : isdefined(Main, :extra_dispatch) ? extra_dispatch() : error("unknown mode $NMODE")
+             NMODE == "local" ? local_mode() : NMODE == "traj" ? traj_mode() : NMODE == "links" ? links_mode() : NMODE == "blocks" ? blocks_mode() : error("unknown mode $NMODE")
 if abspath(PROGRAM_FILE) == @__FILE__
     t0 = time()
     LOG[] = open(ncache("out_$(NMODE).txt"), "w")
