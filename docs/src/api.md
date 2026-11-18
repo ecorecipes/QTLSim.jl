@@ -84,6 +84,13 @@ With `loci = :two_stage` a cheap deterministic screen (`:spectrum` with dynamic 
 every input and the block model only where the input's rate is within a band of the screen's
 own half-survival rate ([`QTLSim.two_stage_screen`](@ref)); off by default
 (`validate/two_stage_dev.log`, `validate/two_stage_criteria.md`).
+[`k50_gradient`](@ref) gives the half-survival rate of a deterministic emulator and its
+elasticities in the inputs by the implicit-function formula on a target that does not saturate:
+the log cumulative hazard carried in logs along the trajectory continued through its
+deterministic extinction ([`QTLSim.emulated_log_hazard`](@ref),
+[`QTLSim.log_cumulative_hazard`](@ref)), where `emulate`'s `P2000` is exactly 0 or 1 in `Float64`
+next to the half-survival rate when selection is strong (`validate/elasticity_criteria.md`,
+`validate/elasticity_b.log`). Additive: `emulate` and `extinction_distribution` are unchanged.
 
 ```@docs
 QTLSim.Para
@@ -105,6 +112,9 @@ QTLSim.blocks_emulate
 QTLSim.two_stage_screen
 QTLSim.TWO_STAGE_BAND
 QTLSim.TWO_STAGE_SCREEN
+k50_gradient
+QTLSim.emulated_log_hazard
+QTLSim.log_cumulative_hazard
 ```
 
 ## QTSim options files

@@ -177,3 +177,121 @@ results were seen; they change no rule and no verdict):
   random subset: 17 of the 48 cells have fewer than 4 defined inputs and are excluded, among them
   all four low-ω cells. The verdicts cover 31 cells.
 - The only code added after the results is the "post hoc" block at the end of `analyse`.
+
+## Phase B addendum (2026-11-18): a target that does not saturate
+
+Written after phase A's results (above), and **before any elasticity of a sampled input was
+computed on the new target**. Committed, with the code it describes (src/k50_gradient.jl,
+validate/elasticity_b.jl, test/k50_gradient.jl), before validate/elasticity_b.jl `run`. Output:
+validate/elasticity_b.log. Phase A's log, caches and script are not touched. G1–G3, their
+thresholds and tolerances, the cells, the terciles, the table side, the sample and its draw order,
+and the minimum of 4 defined inputs per cell are **unchanged**.
+
+**What had been looked at when this was written.** (i) A diagnosis of the saturation on five of
+phase A's 12 undefined inputs (QT0500-Possion5.0/Input-09763, QT5000-Possion5.0/Input-11353,
+QT0100-Possion5.0/Input-14634, QT0500-Possion3.0/Input-03628, QT1000-Possion5.0/Input-10781): the
+screen's trajectory at rates within e^{±0.003} of phase A's k50 (mean fitness, per-generation
+hazards, the generation of deterministic extinction, P2000); no derivative in any input and no
+elasticity. (ii) Development of `k50_gradient` on synthetic parameters (test/k50_gradient.jl) and on
+three table inputs **outside the sample** (QT0100-Possion3.0/Input-14211, QT0100-Possion5.0/
+Input-01948 and Input-09336, ω = 0.65, 0.47, 1.10), where its elasticities in V_P and ω agreed with
+a brute-force re-solve to 0.003. Nothing else.
+
+**Where the saturation came from** (diagnosis). At a fixed size the probability of being alive is a
+product over generations of 1 − h_t, h_t = P(Binomial(N, W̄_t) < 2). With narrow ω the trajectory
+sits at a steady lag with h_t far below 1e-16 until it runs away, and then dies within a few
+generations. So (a) P2000 is exactly 1 in Float64 while the cumulative hazard H is below 1.1e-16
+(H from 1e-13 down to 1e-102 was seen at rates 3e-4 to 3e-3 below k50 in log k): the product does
+not move; (b) P2000 is exactly 0 once the **deterministic trajectory itself dies inside the
+horizon** (expected survivors below 2), which `extinction_distribution` takes as certain
+extinction, although the hazard accumulated until then is finite and can be far below log 2 (0.026
+to 5.6 in the five inputs): a jump of the target, not rounding; and (c) between the two, log H
+moves through its whole range over 1e-3 to 1e-5 in log k (|∂h/∂log k| up to 1.6e5 on a development
+input, against phase A's median 193), so a step of 1e-2 or 1e-3 lands on (a) on one side and (b) on
+the other. Not a cause: the truncations of the exact size chain (1e-17, 1e-18), which is not used at
+a fixed size; the breeders are not rounded in the hazard.
+
+**The new target.** h(k, θ) = log(log 2) − log H, with H = Σ_t −log(1 − h_t) over the horizon summed
+in logs (log h_t in closed form; `QTLSim.log_cumulative_hazard`), along the trajectory **continued**
+through its deterministic extinction: log W̄ extrapolated quadratically from its last three
+generations, first and second differences capped at zero (`QTLSim.emulated_log_hazard`). It equals
+phase A's h wherever that was finite and the trajectory survived the horizon. Where the trajectory
+dies inside the horizon the two differ by construction: phase A's P2000 = 1/2 was then the jump (b),
+the new k50 is the root of the continued target, within a fraction of a generation of the runaway
+of it (a relative difference in k of the order of 1/(|∂h/∂log k|), i.e. 1e-3 to 1e-6). Limits,
+accepted in advance: the continuation is an extrapolation (it matters for one or two generations);
+the report counts the inputs that rely on it.
+
+**Method** (`k50_gradient(p; names = (V_P, h², m, ω))`, defaults, in place of method steps 1–3 of
+phase A): k50 is the root of h in log k to |h| ≤ 0.02 (bracket: phase A's k50·e^{±0.006} for its 64
+inputs — a search result, not an elasticity; (k50_rare/4, k50_rare) for the others, as in phase A;
+moved toward the root if it misses it). e_θ = −(∂h/∂log θ)/(∂h/∂log k) by central differences whose
+step is chosen for the difference in k to span about ±0.5 in h (at most 1e-2, at least 1e-10), the
+same step for the four inputs (reduced for one whose difference spans more than ±2). **Undefined**
+(counted, never imputed): no k50; no root (the bracket closes on a discontinuity); a difference
+point not finite at the smallest step; ∂h/∂log k ≥ 0; a fallback switch as below; more than 200
+evaluations.
+
+**Fallback of the beta solver** (replaces step 4 of phase A; needed because the steps are now up to
+10⁴ times smaller, so a jump inside a difference is no longer small beside it). A difference is used
+only if its two points and the base point fell back to the grid in the same generation, or none
+did; otherwise its step is divided by four, up to three times. An input for which a pair still
+differs ("fallback switch"; this now includes phase A's "shifts") is recomputed with the grid solver
+(`spectrum = (; ld = :dynamic)`) at the grid's own k50 (bracket k50·e^{±0.02}), up to 20 such inputs
+in sample order (phase A's cap of 10 for 64 inputs, scaled to 128); beyond 20, or if the grid's
+result is undefined, the input is **undefined**. The primary ("consistent") value is the grid's for
+those inputs and the beta's otherwise. As a check of the size of the beta–grid difference (no
+verdict), the first 3 defined inputs in sample order whose run at k50 fell back are also recomputed
+with the grid.
+
+**Sample.** The 64 inputs of phase A (rounds 1–8) are re-evaluated on the new target, same ids. The
+sample is extended toward the pre-specified 16 per stratum = 128, with the ids already drawn
+(validate/elasticity_table.log, elasticity_raw/sample.tsv), in draw order: rounds 9–12 are always
+run (96 inputs); each of rounds 13–16 starts only if the process CPU time of the run (clock(), user
++ system over all threads) is then below 3.0 hours (a rule on cost alone; the whole of phase B has
+about 5 CPU-hours). No more than 128. Six threads.
+
+**Verdicts.** G1, G2, G3 and the overall gate are recomputed as written above over all 48 cells, on
+the consistent values of **all inputs run** (the verdict), with the same exclusion of cells with
+fewer than 4 defined inputs (listed). Reported beside it without verdict: the beta values alone;
+phase A's 64 inputs alone on the new target; `:rare_alleles` (phase A's values, old target, not
+recomputed). **The four low-ω tercile cells (ω, t1, one per locus number), which phase A could not
+test, are listed one by one** with every input in them. These verdicts supersede nothing: phase A's
+verdicts on 31 cells stand as logged; phase B's are the verdicts on the cells it could not see and
+on the larger sample.
+
+**Numerical checks** (same thresholds as phase A; if N1 or N2 fails the verdicts are reported and
+flagged "numerically unreliable"):
+
+- N1 (step), round 1 (8 inputs): the elasticities with the span ±0.5 against a span of ±0.125 (steps
+  four times smaller) at the same k50. Stable if the median |difference| ≤ 0.02 and the 90th
+  percentile ≤ 0.05 over the values defined at both.
+- N2 (brute force), redone: the brute-force elasticities are **phase A's** (elasticity_raw/
+  screen_brute.csv: k50 by the P2000 search re-solved at θ·e^{±0.05}; five inputs × four inputs, all
+  20 finite; not recomputed). The rule, fixed now: over **every value that brute force defines**
+  (finite), the implicit value on the new target (consistent value) must be defined, and the
+  |brute − implicit| must have median ≤ 0.03 and maximum ≤ 0.10. One undefined implicit value
+  where brute force is defined makes N2 NOT VERIFIED.
+
+**Added descriptive checks (no verdict).**
+
+- C1: on phase A's 52 defined inputs, the new elasticities against phase A's. Expected: agreement
+  within 0.02, except possibly where phase A's pairs fell back in different generations (its 10
+  "shift" inputs, whose phase A values carried a jump; reported separately).
+- C2: e_V_P against e_m. Phase A's values nearly coincide. Analytically (stated now, checked in the
+  report): the emulator reads V_P, h² and m only through V_E = (1 − h²)V_P (the environmental
+  variance in V_s = ω² + V_E and in V_P = V_G + V_E) and V_m = m·V_E (through the variance of a
+  mutation, m·V_E/(2Lμ)); the target h²V_P is not used, since V_G is set by mutation, selection and
+  drift from the house-of-Gauss start. Hence two exact identities: e_h² = −h²/(1 − h²)·e_V_P, and
+  e_V_P − e_m = the elasticity in V_E at fixed V_m and ω. The latter is small when ω² ≫ V_E (V_E ≤
+  0.09 here, so for ω above about 1), and **should differ from zero at low ω**; if ω and V_E acted
+  only through V_s it would equal e_ω·V_E/(2ω²) (they do not exactly: ω also enters the height
+  ω/√(ω² + V_P) of mean fitness). The report gives the identity in h², e_V_P − e_m by ω class, and
+  its relation to V_E/(ω² + V_E) and to that prediction.
+
+**Secondary.** S1, S2 and the level comparison of S4 are recomputed on the new values (no verdict);
+S3 (default `:spectrum`) and S4's regression are not rerun.
+
+### Amendments to the addendum
+
+(none at the time of its commit)
