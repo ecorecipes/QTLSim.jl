@@ -1,0 +1,181 @@
+Critical rate under drift and a cost of fitness: kernel, 30 burn-ins per cell, seeds from 9500000000, 4 threads; the package's defaults (N_e = the breeders, bisection where the iteration fails); grid centred on k_c × 1.15 (100 loci), 0.7 (500 loci)
+  40/960 jobs done (95 s)
+  80/960 jobs done (189 s)
+  120/960 jobs done (296 s)
+  160/960 jobs done (379 s)
+  200/960 jobs done (461 s)
+  240/960 jobs done (526 s)
+  280/960 jobs done (615 s)
+  320/960 jobs done (695 s)
+  360/960 jobs done (753 s)
+  400/960 jobs done (841 s)
+  440/960 jobs done (926 s)
+  480/960 jobs done (987 s)
+  520/960 jobs done (1061 s)
+  560/960 jobs done (1141 s)
+  600/960 jobs done (1228 s)
+  640/960 jobs done (1292 s)
+  680/960 jobs done (1354 s)
+  720/960 jobs done (1403 s)
+  760/960 jobs done (1465 s)
+  800/960 jobs done (1520 s)
+  840/960 jobs done (1561 s)
+  880/960 jobs done (1625 s)
+  920/960 jobs done (1687 s)
+  960/960 jobs done (1732 s)
+960 burn-ins in critical_rate.csv (28.9 min this session)
+
+══ L100, fixed ══  drift_critical_rate (no cost): k_c 0.02269 at λ* 4.421, V_G* 0.0826, n* 542; M = λ*²/s 1.214
+  c = 0.00: V_G at the move 0.1270, N 1000; survival by rate 1.00 1.00 1.00 0.90 0.77 0.07 0.03 0.00 0.00 0.00 0.00 0.00 0.00
+           rates 0.01305 0.01618 0.01879 0.02088 0.02244 0.02401 0.02531 0.02688 0.02845 0.03053 0.03393 0.04045 0.05219
+    k50 0.02281 [0.02246, 0.02319]; half_survival_rate 0.02068 (obs/pred 1.103)  C3 PASS;  k50/k_c 1.005, k50/sustainable_rate 0.205
+  c = 0.25: V_G at the move 0.1037, N 1000; survival by rate 1.00 1.00 1.00 0.97 0.90 0.43 0.13 0.00 0.00 0.00 0.00 0.00 0.00
+           rates 0.01057 0.01311 0.01522 0.01691 0.01818 0.01945 0.02051 0.02178 0.02304 0.02474 0.02748 0.03277 0.04228
+    k50 0.01929 [0.01900, 0.01960]; half_survival_rate 0.01752 (obs/pred 1.101)  C3 PASS;  k50/k_c 1.049, k50/sustainable_rate 0.177
+    ratio k50(c)/k50(0) 0.846 [0.827, 0.864]; drift_critical_rate 0.810 (diff +0.036)  C1 PASS; linear 1 − c/M 0.794; sustainable_rate 0.980 (diff -0.134) FAIL
+  c = 0.50: V_G at the move 0.0864, N 1000; survival by rate 1.00 1.00 1.00 1.00 0.97 0.80 0.73 0.07 0.03 0.00 0.00 0.00 0.00
+           rates 0.008494 0.01053 0.01223 0.01359 0.01461 0.01563 0.01648 0.0175 0.01852 0.01988 0.02208 0.02633 0.03397
+    k50 0.01660 [0.01631, 0.01686]; half_survival_rate 0.01505 (obs/pred 1.103)  C3 PASS;  k50/k_c 1.124, k50/sustainable_rate 0.155
+    ratio k50(c)/k50(0) 0.727 [0.710, 0.743]; drift_critical_rate 0.651 (diff +0.077)  C1 FAIL; linear 1 − c/M 0.588; sustainable_rate 0.959 (diff -0.231) FAIL
+  c = 1.00: V_G at the move 0.0584, N 1000; survival by rate 1.00 1.00 1.00 1.00 1.00 1.00 1.00 0.97 0.77 0.57 0.00 0.00 0.00
+           rates 0.005382 0.006673 0.00775 0.008611 0.009256 0.009902 0.01044 0.01109 0.01173 0.01259 0.01399 0.01668 0.02153
+    k50 0.01250 [0.01225, 0.01275]; half_survival_rate 0.01154 (obs/pred 1.083)  C3 PASS;  k50/k_c 1.335, k50/sustainable_rate 0.123
+    ratio k50(c)/k50(0) 0.548 [0.533, 0.562]; drift_critical_rate 0.412 (diff +0.135)  C1 FAIL; linear 1 − c/M 0.176; sustainable_rate 0.916 (diff -0.368) FAIL
+  M_obs 2.093 [2.018, 2.171] vs M_theory 1.214 (ratio 1.724)  C2 FAIL; SSE linear 3.01e-03, square root 9.03e-03 (M′ 1.364): linear
+
+══ L100, R5 ══  drift_critical_rate (no cost): k_c 0.01958 at λ* 3.696, V_G* 0.0853, n* 563; M = λ*²/s 0.848
+  c = 0.00: V_G at the move 0.1230, N 992; survival by rate 1.00 1.00 1.00 0.70 0.37 0.00 0.03 0.00 0.00 0.00 0.00 0.00 0.00
+           rates 0.01126 0.01396 0.01621 0.01801 0.01936 0.02072 0.02184 0.02319 0.02454 0.02634 0.02927 0.0349 0.04503
+    k50 0.01875 [0.01844, 0.01905]; half_survival_rate 0.01837 (obs/pred 1.021)  C3 PASS;  k50/k_c 0.958, k50/sustainable_rate 0.342
+  c = 0.25: V_G at the move 0.1061, N 930; survival by rate 1.00 1.00 1.00 0.93 0.70 0.30 0.17 0.00 0.00 0.00 0.00 0.00 0.00
+           rates 0.008194 0.01016 0.0118 0.01311 0.01409 0.01508 0.0159 0.01688 0.01786 0.01917 0.0213 0.0254 0.03277
+    k50 0.01461 [0.01433, 0.01493]; half_survival_rate 0.01402 (obs/pred 1.043)  C3 PASS;  k50/k_c 1.025, k50/sustainable_rate 0.290
+    ratio k50(c)/k50(0) 0.779 [0.758, 0.801]; drift_critical_rate 0.728 (diff +0.051)  C1 PASS; linear 1 − c/M 0.705; sustainable_rate 0.919 (diff -0.140) FAIL
+  c = 0.50: V_G at the move 0.0805, N 834; survival by rate 1.00 1.00 1.00 1.00 0.97 0.80 0.37 0.23 0.03 0.00 0.00 0.00 0.00
+           rates 0.005636 0.006988 0.008116 0.009017 0.009694 0.01037 0.01093 0.01161 0.01229 0.01319 0.01465 0.01747 0.02254
+    k50 0.01088 [0.01069, 0.01110]; half_survival_rate 0.01046 (obs/pred 1.041)  C3 PASS;  k50/k_c 1.110, k50/sustainable_rate 0.239
+    ratio k50(c)/k50(0) 0.580 [0.566, 0.595]; drift_critical_rate 0.501 (diff +0.080)  C1 FAIL; linear 1 − c/M 0.411; sustainable_rate 0.829 (diff -0.249) FAIL
+  c = 1.00: V_G at the move 0.0361, N 558; survival by rate 1.00 1.00 1.00 1.00 0.97 1.00 0.93 0.90 0.80 0.57 0.23 0.00 0.00
+           rates 0.001978 0.002453 0.002849 0.003165 0.003403 0.00364 0.003838 0.004076 0.004313 0.00463 0.005144 0.006133 0.007914
+    k50 0.00471 [0.00459, 0.00483]; half_survival_rate 0.00491 (obs/pred 0.960)  C3 PASS;  k50/k_c 1.369, k50/sustainable_rate 0.140
+    ratio k50(c)/k50(0) 0.251 [0.244, 0.259]; drift_critical_rate 0.176 (diff +0.075)  C1 FAIL; linear 1 − c/M -0.179; sustainable_rate 0.613 (diff -0.362) FAIL
+  M_obs 1.295 [1.276, 1.315] vs M_theory 0.848 (ratio 1.526)  C2 FAIL; SSE linear 2.44e-03, square root 3.04e-02 (M′ 1.053): linear
+
+══ L100, R2 ══  drift_critical_rate (no cost): k_c 0.01476 at λ* 2.710, V_G* 0.0877, n* 583; M = λ*²/s 0.456
+  c = 0.00: V_G at the move 0.1342, N 978; survival by rate 1.00 1.00 1.00 0.90 0.50 0.20 0.07 0.00 0.00 0.00 0.00 0.00 0.00
+           rates 0.008489 0.01053 0.01222 0.01358 0.0146 0.01562 0.01647 0.01749 0.01851 0.01986 0.02207 0.02632 0.03396
+    k50 0.01471 [0.01447, 0.01499]; half_survival_rate 0.01562 (obs/pred 0.942)  C3 PASS;  k50/k_c 0.997, k50/sustainable_rate 0.376
+  c = 0.10: V_G at the move 0.1066, N 897; survival by rate 1.00 1.00 1.00 0.97 0.73 0.53 0.20 0.00 0.00 0.00 0.00 0.00 0.00
+           rates 0.006693 0.0083 0.009638 0.01071 0.01151 0.01232 0.01298 0.01379 0.01459 0.01566 0.0174 0.02075 0.02677
+    k50 0.01219 [0.01193, 0.01248]; half_survival_rate 0.01266 (obs/pred 0.964)  C3 PASS;  k50/k_c 1.048, k50/sustainable_rate 0.337
+    ratio k50(c)/k50(0) 0.829 [0.806, 0.855]; drift_critical_rate 0.788 (diff +0.040)  C1 PASS; linear 1 − c/M 0.781; sustainable_rate 0.924 (diff -0.095) FAIL
+  c = 0.20: V_G at the move 0.0881, N 768; survival by rate 1.00 1.00 1.00 0.97 0.87 0.63 0.30 0.17 0.03 0.00 0.00 0.00 0.00
+           rates 0.005042 0.006252 0.00726 0.008067 0.008672 0.009277 0.009781 0.01039 0.01099 0.0118 0.01311 0.01563 0.02017
+    k50 0.00948 [0.00930, 0.00966]; half_survival_rate 0.00991 (obs/pred 0.957)  C3 PASS;  k50/k_c 1.081, k50/sustainable_rate 0.288
+    ratio k50(c)/k50(0) 0.644 [0.627, 0.662]; drift_critical_rate 0.594 (diff +0.051)  C1 PASS; linear 1 − c/M 0.561; sustainable_rate 0.842 (diff -0.197) FAIL
+  c = 0.40: V_G at the move 0.0552, N 501; survival by rate 1.00 1.00 1.00 1.00 0.93 0.87 0.73 0.57 0.40 0.07 0.00 0.00 0.00
+           rates 0.002261 0.002804 0.003256 0.003618 0.003889 0.004161 0.004387 0.004658 0.00493 0.005291 0.005879 0.00701 0.009045
+    k50 0.00469 [0.00458, 0.00481]; half_survival_rate 0.00505 (obs/pred 0.929)  C3 PASS;  k50/k_c 1.194, k50/sustainable_rate 0.186
+    ratio k50(c)/k50(0) 0.319 [0.310, 0.329]; drift_critical_rate 0.266 (diff +0.053)  C1 PASS; linear 1 − c/M 0.123; sustainable_rate 0.646 (diff -0.327) FAIL
+  M_obs 0.582 [0.570, 0.595] vs M_theory 0.456 (ratio 1.277)  C2 FAIL; SSE linear 1.81e-04, square root 1.16e-02 (M′ 0.438): linear
+
+══ L100, R15 ══  drift_critical_rate (no cost): k_c 0.01173 at λ* 2.136, V_G* 0.0884, n* 588; M = λ*²/s 0.283
+  c = 0.00: V_G at the move 0.1260, N 973; survival by rate 1.00 1.00 1.00 0.90 0.77 0.37 0.23 0.00 0.00 0.00 0.00 0.00 0.00
+           rates 0.006742 0.00836 0.009709 0.01079 0.0116 0.01241 0.01308 0.01389 0.0147 0.01578 0.01753 0.0209 0.02697
+    k50 0.01215 [0.01194, 0.01235]; half_survival_rate 0.01347 (obs/pred 0.902)  C3 PASS;  k50/k_c 1.036, k50/sustainable_rate 0.434
+  c = 0.05: V_G at the move 0.1109, N 889; survival by rate 1.00 1.00 1.00 1.00 0.83 0.43 0.27 0.13 0.07 0.00 0.00 0.00 0.00
+           rates 0.005578 0.006917 0.008032 0.008925 0.009594 0.01026 0.01082 0.01149 0.01216 0.01305 0.0145 0.01729 0.02231
+    k50 0.01034 [0.01011, 0.01058]; half_survival_rate 0.01132 (obs/pred 0.914)  C3 PASS;  k50/k_c 1.066, k50/sustainable_rate 0.395
+    ratio k50(c)/k50(0) 0.851 [0.827, 0.876]; drift_critical_rate 0.827 (diff +0.024)  C1 PASS; linear 1 − c/M 0.823; sustainable_rate 0.935 (diff -0.084) FAIL
+  c = 0.10: V_G at the move 0.1017, N 771; survival by rate 1.00 1.00 1.00 0.97 0.87 0.50 0.53 0.20 0.10 0.03 0.00 0.00 0.00
+           rates 0.004473 0.005546 0.006441 0.007157 0.007693 0.00823 0.008677 0.009214 0.009751 0.01047 0.01163 0.01387 0.01789
+    k50 0.00852 [0.00830, 0.00876]; half_survival_rate 0.00927 (obs/pred 0.920)  C3 PASS;  k50/k_c 1.096, k50/sustainable_rate 0.352
+    ratio k50(c)/k50(0) 0.702 [0.681, 0.724]; drift_critical_rate 0.663 (diff +0.038)  C1 PASS; linear 1 − c/M 0.647; sustainable_rate 0.865 (diff -0.164) FAIL
+  c = 0.20: V_G at the move 0.0713, N 545; survival by rate 1.00 1.00 1.00 1.00 0.90 0.80 0.63 0.30 0.20 0.13 0.00 0.00 0.00
+           rates 0.002486 0.003082 0.003579 0.003977 0.004276 0.004574 0.004822 0.005121 0.005419 0.005817 0.006463 0.007706 0.009943
+    k50 0.00497 [0.00485, 0.00510]; half_survival_rate 0.00548 (obs/pred 0.907)  C3 PASS;  k50/k_c 1.150, k50/sustainable_rate 0.252
+    ratio k50(c)/k50(0) 0.409 [0.398, 0.422]; drift_critical_rate 0.369 (diff +0.040)  C1 PASS; linear 1 − c/M 0.294; sustainable_rate 0.706 (diff -0.296) FAIL
+  M_obs 0.338 [0.329, 0.348] vs M_theory 0.283 (ratio 1.193)  C2 PASS; SSE linear 6.42e-06, square root 4.95e-03 (M′ 0.236): linear
+
+══ L500, fixed ══  drift_critical_rate (no cost): k_c 0.09065 at λ* 3.407, V_G* 0.2470, n* 526; M = λ*²/s 1.250
+  c = 0.00: V_G at the move 0.3477, N 1000; survival by rate 1.00 1.00 1.00 0.63 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00
+           rates 0.03173 0.03934 0.04569 0.05077 0.05457 0.05838 0.06155 0.06536 0.06917 0.07425 0.0825 0.09836 0.1269
+    k50 0.05087 [0.05074, 0.05102]; half_survival_rate 0.06705 (obs/pred 0.759)  C3 PASS;  k50/k_c 0.561, k50/sustainable_rate 0.127
+  c = 0.25: V_G at the move 0.2799, N 1000; survival by rate 1.00 1.00 1.00 0.97 0.47 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00
+           rates 0.02585 0.03206 0.03723 0.04136 0.04447 0.04757 0.05015 0.05326 0.05636 0.06049 0.06722 0.08014 0.1034
+    k50 0.04427 [0.04363, 0.04463]; half_survival_rate 0.05264 (obs/pred 0.841)  C3 PASS;  k50/k_c 0.599, k50/sustainable_rate 0.113
+    ratio k50(c)/k50(0) 0.870 [0.857, 0.878]; drift_critical_rate 0.815 (diff +0.056)  C1 PASS; linear 1 − c/M 0.800; sustainable_rate 0.980 (diff -0.109) FAIL
+  c = 0.50: V_G at the move 0.2432, N 1000; survival by rate 1.00 1.00 1.00 1.00 1.00 0.60 0.07 0.00 0.00 0.00 0.00 0.00 0.00
+           rates 0.02088 0.02589 0.03007 0.03341 0.03591 0.03842 0.04051 0.04301 0.04552 0.04886 0.05429 0.06473 0.08352
+    k50 0.03872 [0.03834, 0.03920]; half_survival_rate 0.04135 (obs/pred 0.936)  C3 PASS;  k50/k_c 0.649, k50/sustainable_rate 0.101
+    ratio k50(c)/k50(0) 0.761 [0.753, 0.771]; drift_critical_rate 0.658 (diff +0.103)  C1 FAIL; linear 1 − c/M 0.600; sustainable_rate 0.959 (diff -0.198) FAIL
+  c = 1.00: V_G at the move 0.1550, N 1000; survival by rate 1.00 1.00 1.00 1.00 1.00 1.00 0.97 0.77 0.17 0.00 0.00 0.00 0.00
+           rates 0.01334 0.01654 0.01921 0.02134 0.02294 0.02454 0.02588 0.02748 0.02908 0.03121 0.03468 0.04135 0.05336
+    k50 0.02811 [0.02783, 0.02845]; half_survival_rate 0.02599 (obs/pred 1.082)  C3 PASS;  k50/k_c 0.738, k50/sustainable_rate 0.077
+    ratio k50(c)/k50(0) 0.553 [0.546, 0.559]; drift_critical_rate 0.420 (diff +0.132)  C1 FAIL; linear 1 − c/M 0.200; sustainable_rate 0.916 (diff -0.363) FAIL
+  M_obs 2.190 [2.160, 2.223] vs M_theory 1.250 (ratio 1.752)  C2 FAIL; SSE linear 4.39e-04, square root 3.28e-03 (M′ 1.397): linear
+
+══ L500, R5 ══  drift_critical_rate (no cost): k_c 0.07778 at λ* 2.841, V_G* 0.2543, n* 545; M = λ*²/s 0.869
+  c = 0.00: V_G at the move 0.3329, N 976; survival by rate 1.00 1.00 1.00 0.90 0.37 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00
+           rates 0.02722 0.03376 0.0392 0.04356 0.04682 0.05009 0.05281 0.05608 0.05934 0.0637 0.07078 0.08439 0.1089
+    k50 0.04604 [0.04546, 0.04671]; half_survival_rate 0.06303 (obs/pred 0.730)  C3 FAIL;  k50/k_c 0.592, k50/sustainable_rate 0.238
+  c = 0.25: V_G at the move 0.2611, N 927; survival by rate 1.00 1.00 1.00 1.00 0.83 0.43 0.03 0.00 0.00 0.00 0.00 0.00 0.00
+           rates 0.01995 0.02473 0.02872 0.03191 0.03431 0.0367 0.03869 0.04109 0.04348 0.04667 0.05186 0.06183 0.07978
+    k50 0.03613 [0.03559, 0.03668]; half_survival_rate 0.04516 (obs/pred 0.800)  C3 PASS;  k50/k_c 0.634, k50/sustainable_rate 0.203
+    ratio k50(c)/k50(0) 0.785 [0.769, 0.800]; drift_critical_rate 0.733 (diff +0.052)  C1 PASS; linear 1 − c/M 0.712; sustainable_rate 0.918 (diff -0.133) FAIL
+  c = 0.50: V_G at the move 0.2035, N 830; survival by rate 1.00 1.00 1.00 1.00 1.00 0.97 0.83 0.23 0.07 0.00 0.00 0.00 0.00
+           rates 0.0138 0.01712 0.01988 0.02209 0.02374 0.0254 0.02678 0.02844 0.03009 0.0323 0.03589 0.04279 0.05521
+    k50 0.02777 [0.02729, 0.02821]; half_survival_rate 0.03115 (obs/pred 0.891)  C3 PASS;  k50/k_c 0.704, k50/sustainable_rate 0.173
+    ratio k50(c)/k50(0) 0.603 [0.590, 0.615]; drift_critical_rate 0.507 (diff +0.096)  C1 FAIL; linear 1 − c/M 0.424; sustainable_rate 0.828 (diff -0.225) FAIL
+  c = 1.00: V_G at the move 0.0934, N 565; survival by rate 1.00 1.00 1.00 1.00 1.00 1.00 1.00 0.97 1.00 0.73 0.37 0.00 0.00
+           rates 0.004892 0.006066 0.007044 0.007827 0.008414 0.009001 0.00949 0.01008 0.01066 0.01145 0.01272 0.01516 0.01957
+    k50 0.01226 [0.01196, 0.01257]; half_survival_rate 0.01235 (obs/pred 0.993)  C3 PASS;  k50/k_c 0.877, k50/sustainable_rate 0.104
+    ratio k50(c)/k50(0) 0.266 [0.259, 0.274]; drift_critical_rate 0.180 (diff +0.087)  C1 FAIL; linear 1 − c/M -0.151; sustainable_rate 0.608 (diff -0.342) FAIL
+  M_obs 1.331 [1.313, 1.350] vs M_theory 0.869 (ratio 1.532)  C2 FAIL; SSE linear 1.51e-03, square root 2.41e-02 (M′ 1.062): linear
+
+══ L500, R2 ══  drift_critical_rate (no cost): k_c 0.05782 at λ* 2.074, V_G* 0.2591, n* 557; M = λ*²/s 0.463
+  c = 0.00: V_G at the move 0.3214, N 977; survival by rate 1.00 1.00 1.00 1.00 1.00 0.67 0.20 0.00 0.00 0.00 0.00 0.00 0.00
+           rates 0.02024 0.02509 0.02914 0.03238 0.03481 0.03724 0.03926 0.04169 0.04412 0.04735 0.05262 0.06273 0.08095
+    k50 0.03794 [0.03752, 0.03837]; half_survival_rate 0.05457 (obs/pred 0.695)  C3 FAIL;  k50/k_c 0.656, k50/sustainable_rate 0.312
+  c = 0.10: V_G at the move 0.2795, N 866; survival by rate 1.00 1.00 1.00 1.00 1.00 0.97 0.57 0.20 0.03 0.00 0.00 0.00 0.00
+           rates 0.01601 0.01985 0.02305 0.02561 0.02753 0.02946 0.03106 0.03298 0.0349 0.03746 0.04162 0.04963 0.06403
+    k50 0.03158 [0.03122, 0.03195]; half_survival_rate 0.04296 (obs/pred 0.735)  C3 FAIL;  k50/k_c 0.690, k50/sustainable_rate 0.281
+    ratio k50(c)/k50(0) 0.832 [0.820, 0.847]; drift_critical_rate 0.791 (diff +0.041)  C1 PASS; linear 1 − c/M 0.784; sustainable_rate 0.922 (diff -0.090) FAIL
+  c = 0.20: V_G at the move 0.2398, N 762; survival by rate 1.00 1.00 1.00 1.00 1.00 1.00 0.93 0.70 0.20 0.00 0.00 0.00 0.00
+           rates 0.0121 0.015 0.01742 0.01936 0.02081 0.02226 0.02347 0.02492 0.02637 0.02831 0.03146 0.03751 0.04839
+    k50 0.02541 [0.02501, 0.02581]; half_survival_rate 0.03249 (obs/pred 0.782)  C3 PASS;  k50/k_c 0.735, k50/sustainable_rate 0.249
+    ratio k50(c)/k50(0) 0.670 [0.657, 0.684]; drift_critical_rate 0.598 (diff +0.072)  C1 FAIL; linear 1 − c/M 0.568; sustainable_rate 0.838 (diff -0.168) FAIL
+  c = 0.40: V_G at the move 0.1451, N 485; survival by rate 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 0.90 0.63 0.17 0.00 0.00
+           rates 0.005455 0.006764 0.007855 0.008728 0.009382 0.01004 0.01058 0.01124 0.01189 0.01276 0.01418 0.01691 0.02182
+    k50 0.01314 [0.01281, 0.01353]; half_survival_rate 0.01512 (obs/pred 0.869)  C3 PASS;  k50/k_c 0.843, k50/sustainable_rate 0.170
+    ratio k50(c)/k50(0) 0.346 [0.337, 0.358]; drift_critical_rate 0.270 (diff +0.077)  C1 FAIL; linear 1 − c/M 0.136; sustainable_rate 0.636 (diff -0.289) FAIL
+  M_obs 0.610 [0.600, 0.622] vs M_theory 0.463 (ratio 1.318)  C2 FAIL; SSE linear 2.38e-05, square root 8.28e-03 (M′ 0.448): linear
+
+══ L500, R15 ══  drift_critical_rate (no cost): k_c 0.04512 at λ* 1.628, V_G* 0.2575, n* 553; M = λ*²/s 0.285
+  c = 0.00: V_G at the move 0.3206, N 948; survival by rate 1.00 1.00 1.00 1.00 1.00 1.00 0.83 0.43 0.00 0.00 0.00 0.00 0.00
+           rates 0.01579 0.01958 0.02274 0.02527 0.02716 0.02906 0.03064 0.03253 0.03443 0.03695 0.04106 0.04895 0.06317
+    k50 0.03208 [0.03164, 0.03252]; half_survival_rate 0.04669 (obs/pred 0.687)  C3 FAIL;  k50/k_c 0.711, k50/sustainable_rate 0.349
+  c = 0.05: V_G at the move 0.2849, N 852; survival by rate 1.00 1.00 1.00 1.00 1.00 1.00 0.93 0.60 0.20 0.00 0.00 0.00 0.00
+           rates 0.01308 0.01622 0.01884 0.02093 0.0225 0.02407 0.02538 0.02695 0.02852 0.03061 0.03401 0.04055 0.05233
+    k50 0.02731 [0.02689, 0.02780]; half_survival_rate 0.03852 (obs/pred 0.709)  C3 FAIL;  k50/k_c 0.731, k50/sustainable_rate 0.319
+    ratio k50(c)/k50(0) 0.851 [0.833, 0.870]; drift_critical_rate 0.828 (diff +0.023)  C1 PASS; linear 1 − c/M 0.825; sustainable_rate 0.933 (diff -0.081) FAIL
+  c = 0.10: V_G at the move 0.2477, N 741; survival by rate 1.00 1.00 1.00 1.00 1.00 1.00 1.00 0.73 0.43 0.07 0.00 0.00 0.00
+           rates 0.0105 0.01302 0.01512 0.0168 0.01806 0.01932 0.02037 0.02163 0.02289 0.02457 0.0273 0.03256 0.04201
+    k50 0.02261 [0.02219, 0.02297]; half_survival_rate 0.03086 (obs/pred 0.733)  C3 FAIL;  k50/k_c 0.753, k50/sustainable_rate 0.286
+    ratio k50(c)/k50(0) 0.705 [0.689, 0.720]; drift_critical_rate 0.665 (diff +0.040)  C1 PASS; linear 1 − c/M 0.649; sustainable_rate 0.860 (diff -0.155) FAIL
+  c = 0.20: V_G at the move 0.1733, N 520; survival by rate 1.00 1.00 1.00 1.00 1.00 1.00 1.00 0.93 0.97 0.60 0.17 0.00 0.00
+           rates 0.005844 0.007246 0.008415 0.00935 0.01005 0.01075 0.01134 0.01204 0.01274 0.01367 0.01519 0.01811 0.02337
+    k50 0.01406 [0.01369, 0.01441]; half_survival_rate 0.01723 (obs/pred 0.816)  C3 PASS;  k50/k_c 0.842, k50/sustainable_rate 0.221
+    ratio k50(c)/k50(0) 0.438 [0.425, 0.451]; drift_critical_rate 0.370 (diff +0.068)  C1 FAIL; linear 1 − c/M 0.299; sustainable_rate 0.692 (diff -0.254) FAIL
+  M_obs 0.352 [0.343, 0.361] vs M_theory 0.285 (ratio 1.232)  C2 PASS; SSE linear 2.09e-04, square root 5.78e-03 (M′ 0.242): linear
+
+C1: 13 of 24 pass
+C2: 2 of 8 pass
+C3: 26 of 32 pass
+(sustainable_rate's ratio within 0.06: 0 of 24)
+
+Verdict, relative effect of a cost (drift_critical_rate): MIXED
+Verdict, linear-margin form (C2 2/8; linear form better in 8 of 8): MIXED
+Verdict, half_survival_rate: SUPPORTED
+
+SOME CRITERIA FAIL

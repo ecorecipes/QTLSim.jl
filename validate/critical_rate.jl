@@ -134,6 +134,34 @@
 #   (critical_rate_posthoc.log); it has no criteria.
 # END OF ADDENDUM
 #
+# Notes added after run 2 (2026-11-19; nothing above changed, no run repeated):
+# - Run 2 (seeds from 9_500_000_000, the package's defaults): 960 burn-ins, 12,480 branches,
+#   29 min on 4 threads for the sweep and about 70 min more for the 32 predictions (on a
+#   machine busy with other jobs); critical_rate.log.
+#   C1 13/24, C2 2/8, C3 26/32. Verdicts by the pre-set rules: relative effect of a cost
+#   MIXED, linear-margin form MIXED (its scale fails, the linear shape holds),
+#   half_survival_rate SUPPORTED (the script exits 1 because not every cell passes). This is
+#   what the addendum expected from run 1's data (12/24, 1/8, 26/32).
+# - C1: |ρ_obs − ρ_pred| ≤ 0.06 in 13 of 24 cells, largest error 0.135. The error has one
+#   sign: ρ_obs > ρ_pred in 24 of 24, by 0.02–0.06 at the smallest cost of each group and
+#   0.04–0.14 at the largest. By demography: fixed size 2 of 6, R = 5 2 of 6, R = 2 4 of 6,
+#   R = 1.5 5 of 6. The theory overstates the effect of a cost, most at a fixed size.
+# - C2: M_obs/M_theory is 1.72–1.75 at a fixed size, 1.53 (R = 5), 1.28–1.32 (R = 2) and
+#   1.19–1.23 (R = 1.5): within 0.8–1.25 only for R = 1.5. The theory's M = λ*²/s is 19–75%
+#   low. The linear form still beats the square root in all 8 groups (SSE 3 to 770 times
+#   smaller), and sustainable_rate's ratio is within 0.06 in 0 of 24 (errors −0.08 to −0.37).
+# - C3: unchanged in kind. All 16 cells with 100 loci pass (obs/pred 0.90–1.10); with 500
+#   loci 10 of 16 (0.69–1.08): the failures are R = 5 without a cost (0.73), R = 2 without and
+#   with the smallest cost (0.70, 0.74), R = 1.5 without and with the two smaller costs
+#   (0.69–0.73). The same six kinds of cell as in run 1, where 0.68–0.74.
+# - k50/drift_critical_rate: 0.96–1.37 with 100 loci, 0.56–0.88 with 500, rising with the
+#   cost in every group; k50/sustainable_rate 0.08–0.43. With 100 loci the kernel's
+#   half-survival rate is at or above the deterministic critical rate.
+# - Reading: with the effective size the life cycle has, the steady-state theory gets the
+#   direction, the linear shape and the ordering of the demographies (a smaller M the lower
+#   the growth rate), but not the size of the effect of a cost within the pre-set tolerance.
+#   Run 1's agreement (24/24 within 0.054) depended on the overstated effective size.
+#
 # Run from the package root (estimate: about 960 jobs × 7–10 s, 2–3 CPU-hours, plus about
 # 30 min for the 32 half_survival_rate predictions):
 #   julia -t 3 --project=vignettes validate/critical_rate.jl posthoc   # existing data only

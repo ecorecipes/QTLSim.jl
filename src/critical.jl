@@ -40,13 +40,15 @@
 # `sustainable_rate`, k ∝ √(2s·(L₀ − c)) with L₀ = ln(W̄(0)/W_min), gives
 # √(1 − c/L₀) = 1 − c/(2L₀) + O(c²), the same form with M′ = 2L₀ = λ_thr²/s at its
 # threshold lag. What drift changes is the scale: it makes the critical lag, and so M, much
-# smaller (M = 1.75–1.79 at a fixed size and 0.31–1.09 under Beverton–Holt in
-# validate/critical_rate.log, 2.5–7 times below the M′ that `sustainable_rate` implies
+# smaller (M = 1.21–1.25 at a fixed size and 0.28–0.87 under Beverton–Holt in
+# validate/critical_rate.log, 2.7–10 times below the M′ that `sustainable_rate` implies
 # there), so the same cost removes several times more of the critical rate. Over the
 # tested range (observed cost ratios k50(c)/k50(0) down to 0.25) a ratio linear in the cost
 # fitted better than a square root in 8 of 8 groups, and `sustainable_rate`'s predicted
-# ratio was within tolerance in 0 of 24 cells. Symbolic checks:
-# validate/symbolic/check_critical.jl; test: validate/critical_rate.jl.
+# ratio was within tolerance in 0 of 24 cells. The size of the effect is not predicted
+# within the pre-set tolerance, though: the kernel's ratio is above this theory's in 24 of
+# 24 cells (within 0.06 in 13), and the M fitted to the kernel is 1.2–1.75 times λ*²/s.
+# Symbolic checks: validate/symbolic/check_critical.jl; test: validate/critical_rate.jl.
 
 # the house-of-Gauss V_G (house_of_gauss_vg) with `ng` = Ploidy·N_e genes per locus
 function _house_of_gauss(p::Params, ng::Real)
@@ -183,7 +185,7 @@ variance, breeders, adults and mean fitness, and `M = λ²/s`, the cost scale: b
 envelope theorem `k(cost)/k(0) = 1 − cost/M + o(cost)` (`s` held fixed), with `M` twice
 the lag load at the critical lag. A fixed-`V_G` threshold such as [`sustainable_rate`](@ref)
 has the same first-order form, `√(1 − c/L₀) = 1 − c/(2L₀) + O(c²)`; what drift changes is
-the scale: the critical lag, and so `M`, is much smaller (2.5–7 times in
+the scale: the critical lag, and so `M`, is much smaller (2.7–10 times in
 `validate/critical_rate.log`), so a cost lowers the critical rate several times more.
 
 The feedback is not new: Bürger and Lynch (1995, *Evolution* 49:151–163) describe it from
@@ -198,15 +200,25 @@ cost is derived here (`validate/symbolic/check_critical.jl`).
 
 This is a deterministic threshold, not the rate at which half of finite populations survive
 a finite time: in QTSim's regime the kernel's half-survival rate within 2000 generations
-is 0.29–1.06 times it (lower with more loci; the paper's 710 populations in vignettes 09
+is 0.38–1.12 times it (lower with more loci; the paper's 710 populations in vignettes 09
 and 11, `validate/critical_rate_posthoc.log`), against 0.07–0.56 times
-[`sustainable_rate`](@ref); [`half_survival_rate`](@ref) predicts it. What it predicts well
-is the RELATIVE effect of a cost (`validate/critical_rate.jl`, pre-specified, fresh seeds:
-`k50(c)/k50(0)` within 0.054 of `k(c)/k(0)` in 24 of 24 cells, fixed size and Beverton–Holt
-R = 5, 2, 1.5, 100 and 500 loci; over the tested range, observed ratios down to 0.25, a
-ratio linear in the cost fits better than a square root in all 8 groups, and
-[`sustainable_rate`](@ref)'s ratio is within tolerance in 0 of 24 cells).
-The error has a sign: the observed scale `M` is 1.09–1.22 times `λ²/s`.
+[`sustainable_rate`](@ref); [`half_survival_rate`](@ref) predicts it. In the pre-specified
+test (`validate/critical_rate.jl`, rerun on fresh seeds under these defaults; fixed size
+and Beverton–Holt R = 5, 2, 1.5, 100 and 500 loci) the kernel's half-survival rate is
+0.96–1.37 times it with 100 loci and 0.56–0.88 with 500.
+
+For the RELATIVE effect of a cost it gives the direction, the shape and the ordering of
+the demographies, but not the size within the test's tolerance: `k50(c)/k50(0)` is within
+0.06 of `k(c)/k(0)` in 13 of 24 cells (largest error 0.135; mostly under Beverton–Holt
+with R = 2 and 1.5, 9 of 12, against 4 of 12 at a fixed size and R = 5), and the kernel's
+ratio is above the prediction in all 24, so the theory overstates the effect of a cost:
+the scale `M` fitted to the kernel is 1.19–1.75 times `λ²/s` (1.7 at a fixed size, 1.2
+at R = 1.5; within the pre-set 0.8–1.25 in 2 of 8 groups). Over the tested range,
+observed ratios down to 0.25, a ratio linear in the cost fits better than a square root
+in all 8 groups, and [`sustainable_rate`](@ref)'s ratio is within tolerance in 0 of 24
+cells. (With `ne = :falconer` the same test had passed 24 of 24 within 0.054 and 8 of 8,
+`validate/critical_rate_falconer.log`: that agreement depended on the overstated
+effective size.)
 """
 function drift_critical_rate(p::Params; cost::Real = -log(plasticity_cost(p)), ne::Symbol = :breeders,
                              solver::Symbol = :bisection)
@@ -256,11 +268,12 @@ moments run of `burnin + horizon` generations (about 10 s with the spectrum).
 
 `k50 = Inf` if half survive at twice `kc`, 0 if not at `kc/8`.
 
-Accuracy (`validate/critical_rate.jl`, pre-specified, fresh seeds; 32 cells, fixed size and
-Beverton–Holt R = 5, 2, 1.5, log costs up to 1): the kernel's half-survival rate over this
-prediction is 0.89–1.11 with 100 loci (16 of 16 within 0.75–1.33) and 0.68–1.09 with 500
-(10 of 16; it over-predicts under Beverton–Holt, R = 5 without a cost and R = 2 and 1.5 without or with a small cost,
-0.68–0.74).
+Accuracy (`validate/critical_rate.jl`, pre-specified, fresh seeds, run twice; 32 cells,
+fixed size and Beverton–Holt R = 5, 2, 1.5, log costs up to 1): the kernel's half-survival
+rate over this prediction is 0.90–1.10 with 100 loci (16 of 16 within 0.75–1.33) and
+0.69–1.08 with 500 (10 of 16; it over-predicts under Beverton–Holt, R = 5 without a cost
+and R = 2 and 1.5 without or with a small cost, 0.69–0.74). The first run, on other seeds,
+gave 0.89–1.11 and 0.68–1.09 with the same cells failing.
 """
 function half_survival_rate(p::Params; cost::Real = -log(plasticity_cost(p)), horizon::Integer = 2000,
                             burnin::Integer = 2000, loci::Symbol = :spectrum, VG::Real = burnin_start_vg(p),

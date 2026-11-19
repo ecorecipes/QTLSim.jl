@@ -6,6 +6,69 @@ All notable changes to QTLSim.jl are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed (breaking for numbers)
+
+- **The effective size is the number of breeders, and `drift_critical_rate` finds every steady
+  state** (2026-11-19; the two options of validate/effective_size.md, added below as opt-in, are now
+  the defaults).
+  - *What changed.* `effective_size(N, n)` returns `n` (`scheme = :breeders`); it returned the
+    Falconer-type form 4N/(V_k + 2), about the harmonic mean 2Nn/(N + n) of adults and breeders.
+    The `ne` keyword of `house_of_gauss_vg`, `house_of_gauss_G`, `house_of_cards_vg`,
+    `drift_critical_rate` and `half_survival_rate` defaults to `:breeders`.
+    `drift_critical_rate` (and the bracket of `half_survival_rate`) uses `solver = :bisection`:
+    where its iteration of the steady state fails it now finds the root by bisection. The earlier
+    behaviours are `scheme`/`ne = :falconer` and `solver = :iteration`, with the old values exactly.
+  - *Why.* For QTSim's life cycle (n of N adults survive, N offspring with two distinct parents
+    among the survivors) the inbreeding, variance and mutation–drift effective sizes are n, whatever
+    N (the eigenvalue size n + ½): derivation, 27 of 27 neutral kernel cells, Lean
+    `EffectiveSize.lean` (`mutation_drift_balance`, `inbreeding_step`, `leading_bounds`,
+    `falconerSize_gt_breeders`). The old form overstates N_e whenever fewer breed than the census
+    (1.1 to 2 times with three quarters to a tenth surviving). The iteration alone returned less
+    than the maximum over steady states, or 0, when the variance of a large population carries a load
+    near ln R. When the breeders vary between generations the size is their harmonic mean; the
+    functions are called with the expected number, which for binomial survival is less than one
+    individual higher (not corrected; `effective_size`'s docstring).
+  - *How much.* `drift_critical_rate`'s k_c is 0.72–0.89 times its earlier value at a fixed size
+    (median 0.77 on 600 published inputs) and 0.83, 0.90 and 0.94 times (medians) under
+    Beverton–Holt with R = 5, 2 and 1.5; its `M` falls too (1.75–1.79 → 1.21–1.25 at a fixed size
+    in the test's sets). The solver changes 12 of 3360 published-type values (none at a fixed size or
+    R = 5; all upward, five from 0) and 3 of 16 Xu–Shen-type ones. `house_of_gauss_vg(p)` and
+    `house_of_cards_vg(p)` with everyone breeding use N_e = N instead of N + ½ (a relative change
+    of the order of 1/(2N)); with `nsurv < PopSize` they are lower than before.
+  - *What does not change.* The kernel; the moments lowering (`run_moments`,
+    `multilocus_equilibrium`, `rare_alleles_vg`, `gaussian_vg_loci`, the spectrum) and `emulate`,
+    bit for bit (validate/ne_default_unchanged.log: 486 outputs on 24 published inputs; the
+    emulators' starting variance is kept as it was, `QTLSim.burnin_start_vg`); `half_survival_rate`'s
+    and `emulated_half_survival_rate`'s k50 to the resolution of their searches (1e-11 relative for
+    the latter), though the `kc` they return is the new one; `sustainable_rate`, `critical_rate`
+    (the paper's recipe) and vignette 09's reproduction of the paper's table, which has its own code.
+  - *The test of `drift_critical_rate`, rerun.* validate/critical_rate.jl on fresh seeds (addendum
+    written before the run; tolerances unchanged; grid re-centred): the cost ratio k50(c)/k50(0) is
+    within 0.06 of the prediction in **13 of 24** cells (run 1 with the old N_e: 24 of 24, largest
+    error 0.054; now 0.135, the kernel's ratio above the prediction in 24 of 24), the fitted scale
+    M_obs/M is 1.19–1.75 and within 0.8–1.25 in **2 of 8** groups (was 1.09–1.22, 8 of 8), the
+    linear form still fits better than the square root in 8 of 8, `sustainable_rate`'s ratio is
+    within tolerance in 0 of 24, and `half_survival_rate` is within 0.75–1.33 in 26 of 32 (as
+    before; 100 loci 0.90–1.10, 500 loci 0.69–1.08). Verdicts by the pre-set rules: relative effect
+    of a cost MIXED (was SUPPORTED), linear-margin form MIXED (was SUPPORTED),
+    `half_survival_rate` SUPPORTED. The kernel's k50 is 0.96–1.37 × k_c with 100 loci and 0.56–0.88
+    with 500 (was 0.77–1.03 and 0.44–0.75). So the steady-state theory gets the direction, the linear
+    shape and the ordering of demographies, and overstates the size of a cost's effect (its M is
+    19–75% low); the earlier agreement depended on the overstated N_e. Run 1 is kept as
+    validate/critical_rate_falconer.log (and `critical_rate.jl falconer` reruns it). On the paper's
+    710 populations k50 is 0.38–1.12 × k_c (was 0.29–1.06; validate/critical_rate_posthoc.log).
+  - *Also updated.* Tests (the recursion's fixed point and eigenvalue, the closed forms at N_e = n,
+    `:falconer` against recorded values, `drift_critical_rate` against an independent maximum over all
+    steady states); symbolic checks (`check_critical.jl` 62 checks, both effective sizes;
+    `check_effective_size.jl`); validate/xu_shen.log section 5 and xu_shen.md section 3 (eq. 6 over
+    k_c is now 1.03–1.17 for Xu–Shen-type inputs and 1.07–1.51 for published-type ones; the first
+    run is xu_shen_falconer.log); docs/src/plasticity_design.md; the prose of vignettes 02 and 14
+    (their computed outputs do not change; the `.md`/`.html` were edited by hand, not re-rendered).
+    Earlier validation scripts that used `drift_critical_rate` or the house of Gauss to choose inputs
+    or starting values now name the settings they were run with (`ne = :falconer`,
+    `solver = :iteration`, `QTLSim.burnin_start_vg`), so they still reproduce their logs; none was
+    rerun. Entries below quote numbers as they were when written.
+
 ### Added
 
 - **QTSimFast, a faster copy of QTSim with the same output bit for bit** (reference/QTSimFast; the
@@ -41,7 +104,7 @@ All notable changes to QTLSim.jl are recorded here. The format follows
   with 500 loci, not changed by more crossovers), which neither variance equation contains.
   Monotonicity and all null arms pass. Figures in validate/bistability_figs/.
 - **`effective_size(N, n; scheme)` and `drift_critical_rate(p; ne, solver)`: two options, both off by
-  default** (every default is bitwise unchanged; validate/effective_size.md, criteria committed first).
+  default** when added; **both are the defaults since 2026-11-19, see "Changed" above** (every default is bitwise unchanged; validate/effective_size.md, criteria committed first).
   (1) `effective_size(N, n)`, Falconer's 4N/(V_k + 2) with the breeders' V_k, is about the harmonic mean
   2Nn/(N + n) of adults and breeders. For QTSim's life cycle (n of N adults survive, N offspring with
   two distinct parents among the survivors) the inbreeding, variance, mutation–drift and eigenvalue
