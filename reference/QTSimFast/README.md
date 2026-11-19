@@ -163,7 +163,27 @@ Three rules, kept throughout `QTSim.c`:
   AddressSanitizer + UndefinedBehaviorSanitizer, with ThreadSanitizer, and without the
   inlined generator, threads and vector extensions.
 
-Result of the full run: see "Parity results" below.
+### Parity results
+
+`./test_parity.sh full`, 2026-11-19, macOS arm64 (Apple M3 Pro, Apple clang 21, GSL 2.8),
+on the code as committed:
+
+- 457 option files run by the original (66 MB of output; 77 runs end with
+  `Pop all died.`), 6406 comparisons of QTSimFast with it: **6406 identical, 0
+  different**.
+- Published inputs: 72 option files from the eight strata (48 populations die, 24
+  survive), 58 of them to 12,000 generations, four of those with 5000 loci.
+- By variant: one thread 498 (with the 5000-locus thread counts 2, 3, 4, 8 among them);
+  threads forced on small inputs, 2, 3, 4 and 8, 1518; repeats of 4 threads 730; output
+  on the main thread 365; `auto` 365; block sizes 1100; one individual at a time 369;
+  collection every 50 generations 365; the plain build 366; AddressSanitizer +
+  UndefinedBehaviorSanitizer 365 and ThreadSanitizer 365, both without a report.
+- The original built with AddressSanitizer + UndefinedBehaviorSanitizer ran the 365
+  synthetic option files without a report, so no undefined behaviour was observed in
+  it on these inputs. (Not exercised: `Sample 0`, see the limits.)
+
+An earlier version of the code passed the same matrix (6233 of 6233) before the cases
+with no loci, no individuals and no generations were added.
 
 ## Environment variables
 
