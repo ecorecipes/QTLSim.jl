@@ -1,0 +1,52 @@
+validate/effective_size.jl kernel — neutral kernel runs against three formulas for N_e (criteria: effective_size_criteria.md)
+threads: 4
+3940 runs (0 extinct); cells doubled by the 3% rule: none
+
+Formulas: current = effective_size(N, n̄), n̄ = N·W; derived = n_h (harmonic mean of the binomial breeders) for the balance and
+coalescence measurements and the eigenvalue size ≈ n_h + ½ for the decay. agree: |N̂_e − F| ≤ max(0.05 F, 2 SE); reject: > 5% and > 3 SE.
+
+(i) decay of variance, no mutation
+      N     W  reps |       N̂_e      SE   SE % |   current   ratio      |         n̄   ratio      |   derived   ratio     
+    200  1.00   300 |    195.86    2.91   1.49 |    200.50   0.977   ok |    200.00   0.979   ok |    200.50   0.977   ok
+    200  0.75   300 |    152.62    2.18   1.43 |    172.08   0.887  REJ |    150.00   1.017   ok |    150.25   1.016   ok
+    200  0.50   300 |     97.19    1.52   1.57 |    134.23   0.724  REJ |    100.00   0.972   ok |    100.00   0.972   ok
+    200  0.25   300 |     49.52    0.75   1.52 |     81.30   0.609  REJ |     50.00   0.990   ok |     49.74   0.996   ok
+    200  0.10   300 |     19.26    0.36   1.85 |     38.10   0.506  REJ |     20.00   0.963   ok |     19.56   0.985   ok
+   1000  1.00   300 |   1002.74   15.70   1.57 |   1000.50   1.002   ok |   1000.00   1.003   ok |   1000.50   1.002   ok
+   1000  0.75   300 |    725.56   10.18   1.40 |    857.80   0.846  REJ |    750.00   0.967   ok |    750.25   0.967   ok
+   1000  0.50   300 |    494.04    7.70   1.56 |    667.56   0.740  REJ |    500.00   0.988   ok |    500.00   0.988   ok
+   1000  0.25   300 |    250.41    3.87   1.55 |    401.28   0.624  REJ |    250.00   1.002   ok |    249.75   1.003   ok
+   1000  0.10   300 |    102.55    1.79   1.74 |    183.49   0.559  REJ |    100.00   1.025   ok |     99.59   1.030   ok
+
+(ii) mutation–drift balance, E[V_G]/(2V_m)
+      N     W  reps |       N̂_e      SE   SE % |   current   ratio      |         n̄   ratio      |   derived   ratio     
+    200  1.00    60 |    196.62    2.29   1.17 |    200.50   0.981   ok |    200.00   0.983   ok |    200.00   0.983   ok
+    200  0.75    60 |    151.75    1.80   1.18 |    172.08   0.882  REJ |    150.00   1.012   ok |    149.75   1.013   ok
+    200  0.50    60 |     98.54    1.10   1.12 |    134.23   0.734  REJ |    100.00   0.985   ok |     99.49   0.990   ok
+    200  0.25    60 |     48.42    0.68   1.40 |     81.30   0.596  REJ |     50.00   0.968   ok |     49.23   0.983   ok
+    200  0.10    60 |     19.19    0.29   1.50 |     38.10   0.504  REJ |     20.00   0.960   ok |     19.05   1.008   ok
+   1000  0.75    60 |    735.86    7.86   1.07 |    857.80   0.858  REJ |    750.00   0.981   ok |    749.75   0.981   ok
+   1000  0.50    60 |    492.44    5.76   1.17 |    667.56   0.738  REJ |    500.00   0.985   ok |    499.50   0.986   ok
+   1000  0.25    60 |    248.35    2.45   0.99 |    401.28   0.619  REJ |    250.00   0.993   ok |    249.25   0.996   ok
+   1000  0.10    60 |    100.65    1.33   1.32 |    183.49   0.549  REJ |    100.00   1.006   ok |     99.09   1.016   ok
+
+(iii) pair coalescence, (mean time − 1)/2
+      N     W  reps |       N̂_e      SE   SE % |   current   ratio      |         n̄   ratio      |   derived   ratio     
+    200  1.00    50 |    193.65    4.37   2.25 |    200.50   0.966   ok |    200.00   0.968   ok |    200.00   0.968   ok
+    200  0.75    50 |    149.92    2.86   1.91 |    172.08   0.871  REJ |    150.00   0.999   ok |    149.75   1.001   ok
+    200  0.50    50 |    101.28    2.15   2.12 |    134.23   0.755  REJ |    100.00   1.013   ok |     99.49   1.018   ok
+    200  0.25    50 |     51.59    0.97   1.88 |     81.30   0.635  REJ |     50.00   1.032   ok |     49.23   1.048   ok
+    200  0.10    50 |     18.88    0.36   1.91 |     38.10   0.496  REJ |     20.00   0.944  REJ |     19.05   0.991   ok
+   1000  1.00    40 |   1015.88   21.61   2.13 |   1000.50   1.015  ok† |   1000.00   1.016  ok† |   1000.00   1.016  ok†
+   1000  0.50    50 |    485.04    8.96   1.85 |    667.56   0.727  REJ |    500.00   0.970   ok |    499.50   0.971   ok
+   1000  0.25    50 |    250.37    5.53   2.21 |    401.28   0.624  REJ |    250.00   1.001   ok |    249.25   1.005   ok
+   1000  0.10    50 |    100.98    2.14   2.12 |    183.49   0.550  REJ |    100.00   1.010   ok |     99.09   1.019   ok
+  († a cell dropped by amendment 2: the runs that had finished, outside the verdict)
+
+Verdicts (27 cell × measurement combinations each; amendment 2)
+  current  effective_size(N, n̄)            agrees in  4 of 27, rejected in 23: REJECTED
+  n̄ = N·W                                  agrees in 26 of 27, rejected in  1: REJECTED
+  derived  n_h (n_h + ½ for the decay)     agrees in 27 of 27, rejected in  0: FITS
+
+The side observation of validate/xu_shen.md, in the kernel (N = 200): W = 1, 0.5, 0.25 ↔ n̄ = 200, 100, 50; effective_size = 201, 134, 81.
+wall time this session 14.5 min

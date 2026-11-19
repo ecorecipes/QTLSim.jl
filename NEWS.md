@@ -25,6 +25,49 @@ All notable changes to QTLSim.jl are recorded here. The format follows
   Timings are not reported yet: `make -C reference/QTSimFast bench` writes
   reference/QTSimFast/bench_results.md (original, QTSimFast at 1, 2, 4 and 8 threads, the Julia
   kernel) and is to be run on a quiet machine. See reference/QTSimFast/README.md.
+- **An individual-based test of the bistability predicted by Xu and Shen (2026, bioRxiv preprint)**
+  (validation only, nothing in src/; validate/bistability.md, criteria committed after one disclosed
+  pilot and before every other run). 36,000 kernel runs under Beverton–Holt from prescribed initial
+  states (N₀, V₀, Δ₀) at 0.6 and 0.85 of the critical rate, two genetic architectures × three (K, R),
+  against four deterministic predictions (their eqs. 1–5 at two mappings; a discrete recursion with
+  QTLSim's ingredients and either N_e). QTSim-type genetics: persistence depends on the initial
+  variance and lag, hardly on the initial size; both basins occur at one rate in 4 of 6 cell × rate
+  units (B1 FAIL by the pre-set 75%; the other two persist from the whole grid, as predicted); the
+  deterministic boundaries match 84–91% of majority outcomes (B3 PASS for all four), with the kernel
+  persisting from 0.56–0.77 of the predicted boundary variance (a smaller extinction basin, the
+  opposite of the direction expected from stochasticity). A 50-locus high-mutation "Gaussian" arm
+  dies from every state at 0.85 k_c and, for K = 3000, at 0.6 k_c (B1 and B3 FAIL for all four
+  predictions): post hoc, its genic variance erodes under the move (to 0.22 in 500 generations; not
+  with 500 loci, not changed by more crossovers), which neither variance equation contains.
+  Monotonicity and all null arms pass. Figures in validate/bistability_figs/.
+- **`effective_size(N, n; scheme)` and `drift_critical_rate(p; ne, solver)`: two options, both off by
+  default** (every default is bitwise unchanged; validate/effective_size.md, criteria committed first).
+  (1) `effective_size(N, n)`, Falconer's 4N/(V_k + 2) with the breeders' V_k, is about the harmonic mean
+  2Nn/(N + n) of adults and breeders. For QTSim's life cycle (n of N adults survive, N offspring with
+  two distinct parents among the survivors) the inbreeding, variance, mutation–drift and eigenvalue
+  sizes are all n (derivation in the criteria file and validate/symbolic/check_effective_size.jl): the
+  formula puts a V_k whose mean is 2N/n into the expression for a mean of 2. Neutral kernel runs
+  (N = 200 and 1000, a tenth to all surviving; decay of variance, mutation–drift balance, pair
+  coalescence times from recorded pedigrees) reject the formula in 23 of 27 cells (it is 1.1 to 2 times
+  the measured size when fewer than all survive) and fit the breeders' harmonic mean in 27 of 27.
+  `scheme = :breeders` returns n; `house_of_gauss_vg`, `house_of_gauss_G`, `house_of_cards_vg`,
+  `drift_critical_rate` and `half_survival_rate` take `ne = :breeders`. The moments lowering and the
+  emulators never used the function (their drift is that of the n parents), so only closed forms called
+  with `nsurv < PopSize` and `drift_critical_rate` are affected: its k_c falls to 0.72–0.98 of the
+  default on published inputs (median 0.77 at a fixed size, 0.83, 0.90, 0.94 under Beverton–Holt with
+  R = 5, 2, 1.5). With the breeders, validate/critical_rate.jl's agreement on the effect of a cost is
+  worse (cost ratios within tolerance in 12 of 24 cells instead of 24, M_obs/M 1.18–1.77 instead of
+  1.09–1.22): the earlier agreement owed something to the overstated N_e. Which default to use is left
+  open.
+  (2) `drift_critical_rate` iterates V = f(V) from the variance at N = K; where that variance carries a
+  load the growth rate cannot pay, or |f′| > 1, the iteration reports no population or does not
+  converge, and the rate is below the maximum over steady states or 0. `solver = :bisection` finds
+  the (unique) root there and is otherwise the same computation: 3 of 16 Xu–Shen-type inputs change
+  (0 → 0.297), no published input at a fixed size or with R = 5, 5 of 600 with R = 1.5 without a cost
+  (one from 0 to 0.077, for which the kernel holds a population of 530 adults that follows the optimum
+  at half that rate). Not the default, because published-type values under Beverton–Holt change.
+  Tests: topics `theory`, `critical`.
+
 - **The eco-evolutionary model of Xu and Shen (2026), re-implemented from its equations** (additive, a
   theory module beside the simulation; no default and no existing output changes; src/xu_shen.jl).
   Xu, K. and Shen, H. (2026), "Eco-evolutionary feedbacks generate bistability in population

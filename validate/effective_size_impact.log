@@ -1,0 +1,46 @@
+validate/effective_size.jl impact — what ne = :breeders (N_e = the breeders) changes, against the default ne = :falconer
+Only functions that call effective_size are affected: house_of_gauss_vg/_G and house_of_cards_vg when nsurv < PopSize is passed, and
+drift_critical_rate. The moments lowering (run_moments, multilocus_equilibrium, emulate, half_survival_rate's survival) uses the parents n directly.
+
+1. drift_critical_rate on published inputs (75 per stratum, the move's own rate not used): k_c(:breeders)/k_c(:falconer), min / median / max
+  loci     fixed                      R = 5                      R = 2                      R = 1.5                   
+  100     0.770 / 0.775 / 0.892 (150)   0.831 / 0.835 / 0.953 (150)   0.904 / 0.907 / 0.974 (150)   0.938 / 0.940 / 0.980 (150)   
+  500     0.770 / 0.771 / 0.849 (150)   0.831 / 0.832 / 0.908 (149)   0.903 / 0.904 / 0.947 (149)   0.937 / 0.938 / 0.966 (149)   
+  1000    0.763 / 0.770 / 0.823 (150)   0.822 / 0.831 / 0.882 (150)   0.887 / 0.904 / 0.927 (150)   0.921 / 0.938 / 0.958 (149)   
+  5000    0.723 / 0.770 / 0.809 (150)   0.800 / 0.831 / 0.872 (149)   0.895 / 0.903 / 0.936 (147)   0.929 / 0.938 / 0.964 (146)   
+  all: 0.723 / 0.899 / 0.980 over 2388 (input, demography) pairs with k_c > 0
+
+2. Pre-move V_G against the published table ("Genotype Var at 10000"), the same 600 inputs; table/prediction, median [quartiles] per stratum.
+   house of Gauss with N_e from the expected breeders N·W̄ (self-consistent), both schemes, and with N_e = N (the default nsurv = PopSize);
+   multilocus_equilibrium(p; drift = true) (rare alleles with LD; the comparison of validate/moments_regimes.jl) does not use effective_size.
+  stratum           n     n̄/N | hog, :falconer         hog, :breeders         hog, N_e = N           multilocus_equilibrium
+  QT0100-3        75   0.995 | 1.014 [0.907, 1.161]   1.016 [0.909, 1.164]   1.013 [0.904, 1.159]   1.016 [0.915, 1.147]   
+  QT0100-5        75   0.995 | 0.998 [0.836, 1.101]   1.002 [0.837, 1.104]   0.993 [0.834, 1.099]   0.948 [0.838, 1.092]   
+  QT0500-3        75   0.995 | 0.921 [0.819, 1.027]   0.923 [0.822, 1.031]   0.920 [0.817, 1.025]   0.963 [0.883, 1.060]   
+  QT0500-5        75   0.995 | 0.901 [0.796, 0.984]   0.903 [0.803, 0.987]   0.899 [0.787, 0.981]   0.956 [0.882, 1.083]   
+  QT1000-3        75   0.994 | 0.923 [0.804, 1.002]   0.926 [0.810, 1.006]   0.920 [0.795, 0.999]   0.977 [0.927, 1.050]   
+  QT1000-5        75   0.993 | 0.814 [0.736, 0.950]   0.822 [0.743, 0.952]   0.813 [0.722, 0.949]   1.011 [0.933, 1.150]   
+  QT5000-3        75   0.995 | 0.903 [0.773, 0.992]   0.905 [0.785, 0.998]   0.901 [0.772, 0.987]   0.955 [0.910, 1.059]   
+  QT5000-5        75   0.995 | 0.870 [0.734, 0.983]   0.872 [0.738, 0.985]   0.869 [0.730, 0.981]   1.009 [0.919, 1.113]   
+  all             600   0.995 | 0.912 [0.798, 1.039]   0.915 [0.803, 1.042]   0.910 [0.794, 1.036]   0.985 [0.903, 1.100]   
+  V_G(:breeders)/V_G(:falconer): 0.7891 / 0.9973 / 0.9993 (min / median / max)
+
+3. validate/critical_rate.jl's headline numbers, recomputed from its cache (critical_rate.csv, the kernel's k50 per cell) with each scheme
+  ne = :falconer  C1 (cost ratio within 0.06) 24/24, largest |error| 0.054, observed ≥ predicted in 21; C2 (M_obs/M_theory in 0.8–1.25) 8/8, M_obs/M_theory 1.09–1.22;
+                 k50/k_c 0.77–1.03 (100 loci), 0.44–0.75 (500 loci)
+  ne = :breeders  C1 (cost ratio within 0.06) 12/24, largest |error| 0.140, observed ≥ predicted in 24; C2 (M_obs/M_theory in 0.8–1.25) 1/8, M_obs/M_theory 1.18–1.77;
+                 k50/k_c 0.97–1.38 (100 loci), 0.57–0.87 (500 loci)
+  C3 (half_survival_rate within 0.75–1.33 of the kernel, 26/32) does not depend on the scheme: its survival is the moments lowering's, and ne only
+  moves the bracket of its bisection. Check on two cells (12 bisection steps resolve ln k to 5e-4):
+    L100 fixed c = 0.0: k50 0.020673 (:falconer; cached prediction 0.020673), 0.020676 (:breeders); ln ratio +1.1e-04; k_c 0.02909 → 0.02269
+    L100 R2 c = 0.2: k50 0.009908 (:falconer; cached prediction 0.009908), 0.009908 (:breeders); ln ratio +1.1e-05; k_c 0.01016 → 0.00877
+
+4. The emulator's half-survival rate on 32 published inputs (4 per stratum; emulated_half_survival_rate, loci = :spectrum with the beta solver).
+   The emulator does not call effective_size; drift_critical_rate only sets the starting bracket (here passed as `bracket` for :breeders).
+   32 of 32 with a finite k50 under both brackets; |ln(k50_b/k50_a)|: max 4.6e-09
+    100 loci: emulator k50/k_c  0.61 / 1.12 / 2.90 with :falconer,  0.79 / 1.44 / 3.33 with :breeders (min / median / max, 8 inputs)
+    500 loci: emulator k50/k_c  0.57 / 1.29 / 10.96 with :falconer,  0.73 / 1.68 / 14.23 with :breeders (min / median / max, 8 inputs)
+   1000 loci: emulator k50/k_c  0.48 / 0.68 / 8.87 with :falconer,  0.63 / 0.89 / 11.52 with :breeders (min / median / max, 8 inputs)
+   5000 loci: emulator k50/k_c  0.48 / 0.57 / 10.85 with :falconer,  0.63 / 0.74 / 14.10 with :breeders (min / median / max, 8 inputs)
+
+wall time 83.9 min

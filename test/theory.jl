@@ -9,6 +9,24 @@
     V = gaussian_vg_exact(p)                                    # the fixed point of the Gaussian recursion
     @test V^2 ≈ muteVar(p) * (selection_variance(p) + V) && V > gaussian_vg(p)
     @test effective_size(1000, 1000) ≈ 4000 / (2 * 999 / 1000 + 2) && effective_size(1000, 100) < 1000
+    # the scheme (validate/effective_size.md): the default is Falconer's formula with the survivors' V_k, about the harmonic
+    # mean of adults and survivors; :breeders is the survivors themselves, the effective size of QTSim's life cycle
+    @test effective_size(1000, 250; scheme = :falconer) === effective_size(1000, 250) === 4000 / (2000 * 249 / 250^2 + 2)
+    @test effective_size(1000, 250) ≈ 2 * 1000 * 250 / 1250 rtol = 0.01
+    @test effective_size(1000, 250; scheme = :breeders) == 250 && effective_size(1000, 250.5; scheme = :breeders) == 250.5
+    @test_throws ArgumentError effective_size(1000, 250; scheme = :census)
+    @test house_of_cards_vg(p; nsurv = 250) === house_of_cards_vg(p; nsurv = 250, ne = :falconer) > house_of_cards_vg(p; nsurv = 250, ne = :breeders)
+    @test house_of_gauss_vg(p; nsurv = 250) === house_of_gauss_vg(p; nsurv = 250, ne = :falconer) > house_of_gauss_vg(p; nsurv = 250, ne = :breeders)
+    let q = Params(p; InitFitnessSD = 1e5)                      # neutral: Lynch and Hill's 2 N_e V_m with N_e = the breeders
+        @test house_of_gauss_vg(q; nsurv = 250, ne = :breeders) ≈ 2 * 250 * muteVar(q) rtol = 1e-3
+        @test house_of_gauss_vg(q; nsurv = 250) ≈ 2 * effective_size(1000, 250) * muteVar(q) rtol = 1e-3
+        # the moments lowering's drift is that of the n parents: its neutral fixed point is 2 n V_m, not 2·effective_size·V_m
+        st = QTLSim.hap_init(0.0, 1000.0, 2, 1)
+        for _ in 1:20_000
+            st = QTLSim.hap_mutate(QTLSim.hap_reproduce(st, 250.0, [0.0], 2), muteVar(q), 2)
+        end
+        @test QTLSim.hap_vpop(st, 1000.0, 2) * 1000 / 999 ≈ 2 * 250 * muteVar(q) rtol = 1e-6
+    end
     @test house_of_cards_vg(p) < house_of_cards_vg(Params(p; NoQTL = 1000)) < 4 * 1000 * 1e-4 * selection_variance(p)
     @test steady_lag(0.01; VG = 0.5, Vs = 1.5) ≈ 0.04
     @test steady_lag(Params(p; MoveFitnessSD = 0.01); VG = 0.5) ≈ 0.01 * (0.5 + selection_variance(p)) / 0.5

@@ -33,4 +33,48 @@
     hs = half_survival_rate(p; loci = :rare_alleles, steps = 6, burnin = 500)
     @test 0 < hs.k50 < 2hs.kc && hs.kc ≈ r.k
     @test_throws ArgumentError half_survival_rate(Params(p; Plasticity = 0.5, PlasticityCostSD = 1.0); cost = 0.1)
+    # ne = :breeders (validate/effective_size.md): N_e = the breeders, a lower critical rate; the default is unchanged
+    @test drift_critical_rate(p; ne = :falconer) === r
+    rn = drift_critical_rate(p; ne = :breeders)
+    @test 0.7r.k < rn.k < 0.85r.k && rn.VG < r.VG                       # 0.78 for this input
+    @test QTLSim._house_of_gauss(p, 2rn.n) ≈ rn.VG
+    @test drift_critical_rate(bh; ne = :breeders).k < rb.k
+    @test_throws ArgumentError drift_critical_rate(p; ne = :census)
+end
+
+@testset "drift_critical_rate(…; solver = :bisection) finds the steady state where the iteration does not (validate/effective_size.md, 1b)" begin
+    # Xu–Shen-type inputs of validate/xu_shen.jl (diploid, 50 loci, μ = 0.1, V_E = ω²/50): the variance of a population of size K
+    # carries a load near or above ln R, so the iteration from that variance overshoots to "no population"
+    function xs(; r = 0.2, ω2 = 50.0, VM = 0.1, K = 1000.0)
+        VE = ω2 / 50; ω = sqrt(ω2 - VE)
+        R = exp(r - log(QTLSim.QTSIM_FITNESS_PEAK) + 0.5 * log(1 + VE / ω^2))
+        Params(PopSize = round(Int, K * log(R) / 2), Ploidy = 2, NoQTL = 50, RecombPoissonMean = 3.0, PhenotypeVar = 2VE, Heritability = 0.5,
+               MutationScalar = VM / VE, MutationRatePerGamete = 0.1, InitFitnessSD = ω, MoveType = :continuous,
+               Demography = :beverton_holt, GrowthRate = R, CrossoverModel = :all)
+    end
+    # before the fix: 0, 0.2957, 0.4114; the maximum over all steady states (validate/xu_shen.log, "rung 0"): 0.2967, 0.4342, 0.4211
+    for (q, k) in ((xs(ω2 = 20.0), 0.2967), (xs(VM = 0.2), 0.4342), (xs(K = 2000.0), 0.4211), (xs(), 0.3195), (xs(r = 0.5), 1.007))
+        @test drift_critical_rate(q; solver = :bisection).k ≈ k rtol = 2e-3
+    end
+    # the default is the iteration, unchanged: 0, 0.2957, 0.4114 on the first three, and equal to the bisection where it converges
+    @test drift_critical_rate(xs(ω2 = 20.0)).k == 0
+    @test drift_critical_rate(xs(VM = 0.2)).k ≈ 0.2957 rtol = 2e-3
+    @test drift_critical_rate(xs(K = 2000.0)).k ≈ 0.4114 rtol = 2e-3
+    @test drift_critical_rate(xs()) === drift_critical_rate(xs(); solver = :iteration)
+    @test drift_critical_rate(xs()).k ≈ drift_critical_rate(xs(); solver = :bisection).k rtol = 1e-12
+    @test_throws ArgumentError drift_critical_rate(xs(); solver = :newton)
+    q = xs(ω2 = 20.0)
+    VK = QTLSim._house_of_gauss(q, 2.0 * q.PopSize)
+    @test q.GrowthRate * QTLSim._feedback_size(q, VK, 0.0, 0.0).Wbar < 1          # size K with its own variance cannot replace itself
+    @test QTLSim._feedback_state(q, 0.0, 0.0).VG == 0                             # the iteration: "no population"
+    st = QTLSim._feedback_state(q, 0.0, 0.0; solver = :bisection)                 # but a smaller population with less variance can
+    @test 0 < st.VG < VK && 2 < st.n < q.PopSize
+    @test QTLSim._feedback_map(q, st.VG, 0.0, 0.0, :falconer) ≈ st.VG rtol = 1e-8  # a steady state: V = f(V)
+    @test st.n ≈ q.PopSize * (q.GrowthRate * st.Wbar - 1) / (q.GrowthRate - 1) && st.N ≈ st.n / st.Wbar
+    # f falls with V, so the root is unique
+    fs = [QTLSim._feedback_map(q, V, 0.0, 0.0, :falconer) for V in range(0, VK, length = 400)]
+    @test issorted(fs; rev = true) && count(i -> (fs[i] - (i - 1) * VK / 399) * (fs[i+1] - i * VK / 399) < 0, 1:399) == 1
+    # no population at all: still 0
+    @test drift_critical_rate(q; cost = 0.3, solver = :bisection).k == 0
+    @test QTLSim._feedback_state(q, 0.0, 0.3; solver = :bisection).VG == 0
 end

@@ -1,0 +1,49 @@
+QTLSim validate/symbolic/check_effective_size.jl (Symbolics 7.48.0)
+
+(a) mutation–drift balance
+  x = u(2/ε + 1), y = x + u is the fixed point of x′, y′                   ok
+  E[V_G] = 2x + 2(x − y) = 4u/ε                                            ok
+  with u = V_m/2, ε = 1/n: E[V_G] = 2 n V_m (N_e = n, whatever N)          ok
+  ½E(g_i − g_j)² = 2x + 2(x − y) (x, y as d = ½E(a − a′)²)                 ok
+
+(b) coalescence times
+  T_x = 1 + (1 − ε)T_x + (ε/2)T_y, T_y = 1 + T_x at T_x = 2/ε + 1 = 2n + 1 ok
+  probability that two copies in different adults coalesce in one generation = ε/2 = 1/(2n) ok
+
+(c) decay without mutation
+  λ = ((1 − ε) + √(1 + ε²))/2 solves λ² − (1 − ε)λ − ε/2 = 0 ((1 − ε)² + 2ε = 1 + ε²) ok
+  1 − λ = ε/2 − ε²/4 + O(ε⁴): residual of the polynomial at 1 − ε/2 + ε²/4 is O(ε⁴) ok
+  1/(2n + 1) = ε/(2 + ε) = ε/2 − ε²/4 + O(ε³): N_e(eigenvalue) = n + ½ + O(1/n) ok
+  n = 20: 1/(2(1 − λ)) = 20.5125 = n + ½ within 1/(4n)                     ok
+  n = 100: 1/(2(1 − λ)) = 100.5025 = n + ½ within 1/(4n)                   ok
+  n = 1000: 1/(2(1 − λ)) = 1000.5002 = n + ½ within 1/(4n)                 ok
+
+(d) variance effective size
+  (1 − n/N)/(2n) + 1/(2N) = 1/(2n)                                         ok
+
+(e) offspring-number formulas
+  over all N adults: mean 2, V_k = 2(1 − 1/n) + 4N/n − 4                   ok
+  4N/(V_k + 2) = 4Nn/(4N − 2) = n(1 + 1/(2N − 1))                          ok
+  over the n breeders: (n k̄ − 1)/(k̄ − 1 + V_k/k̄) = n exactly               ok
+  with distinct parents (Binomial(N, 2/n)): the same form gives n(2N − 1)/(2N − 2) = n(1 + 1/(2N − 2)) ok
+
+(f) effective_size as coded
+  effective_size(N, n) = 2Nn²/(N(n − 1) + n²)                              ok
+  = the harmonic mean 2Nn/(N + n) with N(n − 1) for Nn: 1/es − (N + n)/(2Nn) = −1/(2n²) ok
+  at n = N: 2N²/(2N − 1) = N(1 + 1/(2N − 1)), equal to (e)'s 4Nn/(4N − 2)  ok
+  effective_size(N, N/2)/(N/2) = 4N/(3N − 4) ≈ 4/3                         ok
+  code: effective_size(N, n) is that formula; scheme = :breeders returns n; :falconer is the default ok
+  N = 200: effective_size = 201, 134, 81 for n = 200, 100, 50 (xu_shen.md: 200, 134, 81) ok
+
+(g) haploid clones and fecundity selection
+  haploid: x = (1 − 1/n)x + V_m at x = nV_m (N_e = n genomes)              ok
+  fecundity (3 adults): P(two offspring genes share a parent) = Σ(Wᵢ/ΣW)² = ΣW²/(ΣW)² ok
+
+(h) the moments lowering's own drift (hap_reproduce uses the parents n directly)
+  N = 1000, n = 1000: neutral fixed point of hap_reproduce ⋅ hap_mutate, V_G/(2V_m) = 1000.00 = n (effective_size 1000.5) ok
+  N = 1000, n = 500: neutral fixed point of hap_reproduce ⋅ hap_mutate, V_G/(2V_m) = 500.00 = n (effective_size 667.6) ok
+  N = 1000, n = 100: neutral fixed point of hap_reproduce ⋅ hap_mutate, V_G/(2V_m) = 100.00 = n (effective_size 183.5) ok
+  N = 200, n = 50: neutral fixed point of hap_reproduce ⋅ hap_mutate, V_G/(2V_m) = 50.00 = n (effective_size 81.3) ok
+
+29 checks, 0 failed; 6 s
+PASS

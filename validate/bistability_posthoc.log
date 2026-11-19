@@ -1,0 +1,6 @@
+validate/bistability_posthoc.jl — cell G-K1000-R2, k = 0.6 k_c = 0.0648 per generation, 6 populations per line, 500 generations (post hoc, exploratory)
+  design (50 loci, μ = 0.05, Poisson(5) crossovers)    genic variance at the start 1.084; relative to it at generations 100, 200, 300, 400, 500: 0.94 0.71 0.45 0.32 0.22; alive at 500: 6/6, N then 170
+  Poisson(20) crossovers                               genic variance at the start 1.113; relative to it at generations 100, 200, 300, 400, 500: 0.90 0.70 0.43 0.32 0.21; alive at 500: 6/6, N then 286
+  500 loci, μ = 0.005, Poisson(20) (same V_m and α²)   genic variance at the start 1.732; relative to it at generations 100, 200, 300, 400, 500: 0.98 0.95 0.91 0.86 0.80; alive at 500: 6/6, N then 934
+  design, no move                                      genic variance at the start 1.084; relative to it at generations 100, 200, 300, 400, 500: 1.02 0.98 1.02 1.01 1.03; alive at 500: 6/6, N then 968
+  Drift alone among about 900 breeders would lose 1/(2·900) of the genic variance per generation (to 0.76 in 500 generations without mutation).
