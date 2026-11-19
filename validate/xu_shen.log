@@ -1,0 +1,453 @@
+QTLSim validate/xu_shen.jl; QTLSim at /Users/lshsf3/Projects/quantitative_genetics/wt-xu-shen/src/QTLSim.jl; threads 1
+
+====================================================================================================
+The targets file (validate/xu_shen_targets.md), as committed before the comparisons below were computed
+====================================================================================================
+# Xu and Shen (2026): comparison targets and parameter mapping, written before the comparisons
+
+This file is committed before `validate/xu_shen.jl` computes anything it is compared with;
+the script prints it at the top of `validate/xu_shen.log`.
+
+Source: Xu, K. and Shen, H. (2026), "Eco-evolutionary feedbacks generate bistability in
+population persistence under gradual environmental change", bioRxiv preprint,
+doi:10.64898/2026.08.05.743160, version 1 (posted 9 August 2026; not peer reviewed). The
+preprint publishes equations and figures and, as far as we know, no code or data. `src/xu_shen.jl`
+is a re-implementation from its equations 1–8 and S1–S21.
+
+**Disclosure.** While the module was being written, and before this file was committed, the following
+numbers had been computed with it and seen: the critical rate at ω² = 20, 50, 100 (0.1354,
+0.1302, 0.1232) and at V_M = 0.05, 0.15, 0.2 (0.0871, 0.1631, 0.1904), and the equilibria at
+v = 0, 0.08, 0.12 for the standard parameters ((V, N) = (2.10, 179), (2.07, 142), (1.97, 87)),
+and a handful of basin-boundary values at (v, Δ₀) = (0.08, 3), (0.08, 5), (0.12, 3), (0.12, 5).
+The read-offs below are the ones taken from the figures (rendered at 300 dpi) before those
+computations and are left as they were read, including where they later looked imprecise
+(A1 at V_M = 0.1). Everything else was computed after this file was committed.
+
+## A. Read-offs from the preprint's figures (targets)
+
+Precision is that of reading a rendered figure: about ±0.005 in a rate, ±0.05 in V, ±3 in N on
+Figures 1–3 unless a range is given; "≈" marks values read between ticks.
+
+**Figure 1** (standard parameters, V_M on the x axis, v on the y axis; boundary of the coloured
+area = v_c).
+- A1. boundary v_c: at V_M = 0.05 ≈ 0.08–0.09; at V_M = 0.10 ≈ 0.115–0.12; at V_M = 0.15 ≈ 0.16;
+  at V_M = 0.20 ≈ 0.19.
+- A2. V* is nearly independent of v (near-vertical contours) and runs from < 0.6 at the left
+  edge (V_M ≈ 0.01) to > 3.0 at V_M = 0.2 and low v; the contour V* = 1.8 is near V_M ≈ 0.075–0.08.
+- A3. N* at low v is in the top class (> 180) only for V_M below ≈ 0.085 at v → 0.01, and
+  160–180 across the rest of the bottom edge; N* falls with v to < 60 (darkest class 40–60)
+  just under the boundary at V_M ≥ 0.1.
+
+**Figure 2** (x axis log₁₀(1/ω²) from −3 to 0).
+- A4. panel (a), blue (standard r = 0.2, V_M = 0.1, K = 10³): v_c ≈ 0.087 at −3, peak ≈ 0.136
+  near −1.2 (between −1.4 and −1.0), ≈ 0.093 at 0.
+- A5. yellow (V_M = 0.5): ≈ 0.14 at −3, peak ≈ 0.19 near −1.5, ≈ 0.095 at 0.
+- A6. green (K = 10⁴): ≈ 0.157 at −3, peak ≈ 0.17 near −1.9, ≈ 0.097 at 0.
+- A7. red (r = 0.5): ≈ 0.19 at −3, peak ≈ 0.26 near −0.9, ≈ 0.24 at 0.
+- A8. panels (b), (c) (caption: r = 0.2, V_M = 0.1, K = 1000, n_e = 1; v axis clipped at 0.12):
+  the boundary is at v ≈ 0.045–0.05 at −3, reaches the top of the frame (0.12) between ≈ −1.2
+  and ≈ −0.8, and is ≈ 0.075–0.08 at 0; V* > 6 at the far left and < 0.5–1 right of ≈ −0.5;
+  N* is at most in the class "> 90" (bottom left), i.e. below about 100 everywhere.
+  *Noted before computing:* these do not look like the same parameters as the blue line of
+  panel (a) (0.087 at −3, peak 0.136 > 0.12 over a wider range) or as Figure 1b (N* up to
+  180 at ω² = 50); to be examined.
+
+**Figure 3** (standard parameters; V on x, N on y).
+- A9. viable equilibrium (red dot): v = 0.08: (V*, N*) ≈ (2.06, 142); v = 0.12: ≈ (1.96, 88).
+- A10. panels (a), (d) (Δ₀ = 0.5): every plotted start persists (V₀ from 0.2 to 3.0, N₀ from 10
+  to 150); the boundary is drawn along the axes.
+- A11. panel (b) (v = 0.08, Δ₀ = 3): every plotted start persists; boundary roughly horizontal
+  at N₀ ≈ 2–5 for V₀ from ≈ 0.1 to 3.
+- A12. panel (c) (v = 0.08, Δ₀ = 5): boundary through about (V₀, N₀) = (0.3, 180), (0.5, 75),
+  (1.0, 38), (1.5, 25), (2.0, 17), (3.0, 11) (N₀ ± 5, more at the steep left end).
+- A13. panel (e) (v = 0.12, Δ₀ = 3): boundary near-vertical at V₀ ≈ 0.02–0.05 above N₀ ≈ 50,
+  then about (0.5, 15), (1.0, 10), (2.0, 7), (3.0, 6) (N₀ ± 3).
+- A14. panel (f) (v = 0.12, Δ₀ = 5): boundary through about (1.7, 180), (2.0, 100), (2.5, 55),
+  (3.0, 35) (N₀ ± 8).
+- A15. qualitative: with Δ₀ = 0.5 trajectories overshoot in N (rise above the equilibrium, then
+  fall); in (c) and (f) some persisting trajectories first fall in N and V; in (e) some
+  trajectories that go extinct first rise in both N and V.
+
+**Figure 4.**
+- A16. panel (a) (critical N₀ with V₀ at mutation–selection–drift balance, floor of the axis at
+  1): black solid (Δ₀ = 1, v = 0.05): 1 up to ≈ −0.65, ≈ 3 at 0. Red solid (Δ₀ = 1, v = 0.1):
+  drawn from ≈ −2.6 to ≈ −0.1, leaves 1 at ≈ −1.35, ≈ 2 at −1.1, ≈ 5 at −0.6, ≈ 18 at −0.1.
+  Black dashed (Δ₀ = 3, v = 0.05): leaves 1 at ≈ −1.65, ≈ 13 at −1.0, ≈ 40 at −0.7, ≈ 10³ at
+  −0.15, 10⁴ at 0. Red dashed: leaves 1 at ≈ −2.1, ≈ 8 at −1.6, ≈ 30 at −1.1, ≈ 10² at −0.8,
+  ≈ 10³ at −0.45, off the top (10⁴) at ≈ −0.35. (Factor ≈ 1.5 on the log axis.) The fourth
+  legend entry reads "Δ₀ = 1, v = 0.1", the same as the second; from the order of the entries
+  and the text we take the red dashed curve to be Δ₀ = 3, v = 0.1.
+- A17. panel (b) (max v₁ against the abrupt shift δ): plateaus ≈ 0.1355 (ω² = 20) and ≈ 0.123
+  (ω² = 100). Curves leave the plateau at δ ≈ 2.6 (ω² = 20, v₀ = 0.04), ≈ 1.9 (20, 0.08), ≈ 4.8
+  (100, 0.04), ≈ 3.3 (100, 0.08), and reach 0 at δ ≈ 5.65, ≈ 4.95, ≈ 9.2, ≈ 7.7 (±0.15).
+- A18. panel (c): a surface of boundary V₀ over (Δ, N) with the curve of equilibria for v from
+  0 to v_c. The rate of the surface is not stated; the axes are only partly legible. Target is
+  qualitative: boundary V₀ ≈ 0 for small lags, rising steeply beyond a lag of a few units, more
+  steeply at small N; the curve of equilibria stays on the persisting side and meets the
+  surface as v → v_c.
+- A19. panel (d) (max duration T against v₁; solid v₀ = 0.02, dashed v₀ = 0.09): the curves
+  diverge at v₁ ≈ 0.095–0.10 (ω² = 1), ≈ 0.123 (ω² = 100), ≈ 0.135–0.14 (ω² = 10). Solid
+  curves: ω² = 100: ≈ 230 at v₁ = 0.15, ≈ 100 at 0.20, ≈ 60 at 0.25; ω² = 10: crosses the ω² = 100
+  curve near v₁ ≈ 0.148 (T ≈ 220), ≈ 60 at 0.20, ≈ 30 at 0.25; ω² = 1: ≈ 190 at 0.11, ≈ 60 at
+  0.15, ≈ 20 at 0.20. Dashed curves lie below the solid ones (ω² = 100: ≈ 180 at 0.15). (±20,
+  more near the divergence.)
+
+## B. Mapping to QTLSim's discrete-generation counterpart (`drift_critical_rate`)
+
+Xu and Shen's eq. 6 has priority; the feedback itself is Bürger and Lynch (1995).
+`drift_critical_rate` is a discrete-generation implementation matched to QTSim's life cycle.
+The comparison is descriptive: no pass/fail.
+
+QTLSim, per generation: N zygotes; viability W(z) = c₀ exp(−(z − θ)²/(2ω²)), c₀ = 1/(0.4√(2π))
+≈ 0.9974; n = N W̄ breeders with W̄ = c₀ ω/√(ω² + V_P) · exp(−λ²/(2(ω² + V_P))); under
+`Demography = :beverton_holt` Poisson(R n/(1 + (R − 1)n/K)) offspring, equilibrium breeders
+n = K(RW̄ − 1)/(R − 1) and adults n/W̄; response V_G λ/(V_G + V_s), V_s = ω² + V_E;
+N_e = `effective_size(N, n)`; V_G the house of Gauss: per gene c²/V_s + c(α²/(2V_s) + 1/(Ploidy·N_e)) = μα².
+
+| Xu–Shen | QTLSim | status |
+|---|---|---|
+| time t, rate v per unit time | one generation, k = `MoveFitnessSD` (continuous move) | discrete vs continuous: agree to first order in the per-generation changes |
+| ω² (trait fully heritable) | V_s = ω² + V_E | exact for selection on genotypes; the response V_Gλ/(V_G + V_s) equals VΔ/ω² only for V ≪ ω² |
+| V (genetic = phenotypic) | V_G | – |
+| V_M | m·V_E (`muteVar`), per individual per generation | exact |
+| n_e | Ploidy·L under free recombination (the Gaussian equilibrium √(2L V_m V_s) = ω√(n_e V_M)); 1 for a haploid clone | only for the Gaussian part of the variance equation, see below |
+| −V/N (haploid, census N) | −V/(Ploidy·N_e), N_e from the breeders | N ↔ Ploidy·N_e gene copies; N_e depends on the breeders n = N W̄, not on the census alone: not matchable exactly |
+| r | ln R + ln c₀ − ½ ln(1 + V_E/ω²) | the growth rate at low density of a perfectly adapted population without genetic variance; the remaining load ½ ln(1 + V_G/V_s) + λ²/(2(V_s + V_G)) equals (V + Δ²)/(2ω²) only for V ≪ ω² |
+| −N/K (logistic) | −ln(1 + (R − 1)n/K) (Beverton–Holt on breeders) | not matchable in general. Main choice (K1): K_XS = Ploidy·K/ln R, the same number of gene copies at no load. Alternative (K2): K_XS = Ploidy·K/(R − 1), the same slope at low density. They agree as R → 1 |
+
+Where the two cannot be matched:
+1. **The variance equation.** Summing the house of Gauss over Ploidy·L genes with V = Ploidy·L·c
+   and V_M = Ploidy·L·μα² gives V_M = V²/(Ploidy·L·V_s) + V/(Ploidy·N_e) + V·α²/(2V_s): eq. 5 at
+   equilibrium with n_e = Ploidy·L and N = Ploidy·N_e, plus a third loss term α²/(2V_s)·V (rare
+   alleles of large effect, the house-of-cards limit). It has the form of extra drift, not of a
+   different n_e, so no n_e reproduces it for all N. It vanishes as μ → ∞ at fixed V_M (α² → 0).
+2. **Drift from breeders.** At a fixed size (`Demography = :fixed`) N has no dynamics at all; the
+   feedback acts only through N_e(N, N W̄). Eq. 6 has no counterpart of that; fixed-size values
+   are listed separately without a mapping.
+3. **Weak selection.** Eq. 4 and the loads of eq. 1 are first order in V/ω² and Δ²/ω²; QTLSim keeps
+   V_G/(V_G + V_s), ω/√(ω² + V_P) and exp(−λ²/(2(ω² + V_P))).
+4. **Density regulation** (the last table row), and overlapping against discrete generations.
+5. **Linkage.** Eq. 5 neglects LD; `drift_critical_rate` (house of Gauss) does too. QTSim's
+   single crossover builds negative LD that neither has (`validate/spectrum_diagnosis.md`).
+
+Planned evaluation (descriptive):
+- (i) Xu–Shen-type inputs built in QTLSim's parameters: haploid clone (n_e = 1) and diploid with
+  L loci (n_e = 2L), V_s = ω², V_M, r, K as in the preprint's standard set and one-at-a-time
+  variations (ω² ∈ {20, 50, 100}, V_M ∈ {0.05, 0.1, 0.2}, K ∈ {500, 1000, 2000}, r ∈ {0.2, 0.5});
+  mutation rate high enough that α²/(2V_s) is small. Report v_c(eq. 6), k_c(`drift_critical_rate`)
+  and the ratio.
+- (ii) Published-type QTSim inputs (diploid, N = 1000, L = 100 and 500) under Beverton–Holt
+  R ∈ {1.5, 2, 5}: the same three numbers after mapping to (r, ω², V_M, K, n_e), plus the
+  fixed-size k_c without a mapping.
+- (iii) A ladder from `drift_critical_rate` to eq. 6, changing one ingredient at a time in a local
+  copy of the steady-state feedback (no change to `src/critical.jl`): (1) drop the α²/(2V_s)
+  term (their variance equation); (2) drift from the census of adults instead of N_e from the
+  breeders; (3) first-order (continuous-time) response and loads; (4) logistic density
+  regulation, which is eq. 6 at the mapped parameters. The ratios between successive rungs
+  attribute the difference.
+- (iv) The n_e that eq. 5 would need to reproduce a given equilibrium variance at v = 0 and
+  N = Ploidy·N_e: n_e = V²/(V_s(V_M − V/(Ploidy·N_e))), for V from `house_of_gauss_vg`, from
+  `multilocus_equilibrium(p; drift = true)` (rare alleles and LD under QTSim's single crossover)
+  and its `loci = :multilocus` form, and from the published table's pre-move V_G of a sample of
+  inputs (one QTSim realisation each; no new kernel runs). A rough estimate: where V is close to
+  the neutral 2N_e V_M the denominator is a small difference and n_e is ill-conditioned.
+
+
+====================================================================================================
+1. Figure 1: v_c, V* and N* against the mutational input V_M (standard parameters)   [20 s]
+====================================================================================================
+A1  boundary v_c(V_M)                 read-off          ours
+      V_M = 0.05                     0.08–0.09         0.0871
+      V_M = 0.10                     0.115–0.12        0.1302
+      V_M = 0.15                     ≈ 0.16            0.1631
+      V_M = 0.20                     ≈ 0.19            0.1904
+A2  V*: read-off < 0.6 at V_M ≈ 0.01, > 3.0 at V_M = 0.2 and low v; V* = 1.8 near V_M ≈ 0.075–0.08; nearly independent of v
+      ours: V*(V_M = 0.01, v = 0.01) = 0.586; V*(0.2, 0.01) = 3.018; V_M with V* = 1.8 at v = 0.05: 0.0759
+      ours: V* at V_M = 0.1 for v = 0.01, 0.06, 0.12: 2.100, 2.084, 1.968 (change with v: 6.3%)
+A3  N*: read-off > 180 at v → 0.01 only for V_M ≲ 0.085, 160–180 on the rest of the bottom edge; < 60 just under the boundary at V_M ≥ 0.1
+      ours at v = 0.01: N* = 186.9, 184.3, 178.4, 169.5 at V_M = 0.03, 0.05, 0.1, 0.2; N* = 180 at V_M = 0.0855 (falling); max 188.1 at V_M = 0.016
+      ours at v = 0.99 v_c: N* = 62.9, 57.3, 53.4 at V_M = 0.1, 0.15, 0.2 (at v_c itself: 51.5, 46.3, 42.8)
+
+====================================================================================================
+2. Figure 2: v_c, V* and N* against the strength of selection log₁₀(1/ω²)   [31 s]
+====================================================================================================
+A4–A7  panel (a), v_c:
+  blue: r = 0.2, V_M = 0.1, K = 10³    read-off: 0.087 at −3; peak 0.136 near −1.2; 0.093 at 0
+                                       ours:     0.0862 at −3; peak 0.1359 at -1.15; 0.0926 at 0
+  yellow: V_M = 0.5                    read-off: 0.14 at −3; peak 0.19 near −1.5; 0.095 at 0
+                                       ours:     0.2549 at −3; peak 0.3039 at -1.84; 0.0969 at 0
+  green: K = 10⁴                       read-off: 0.157 at −3; peak 0.17 near −1.9; 0.097 at 0
+                                       ours:     0.1557 at −3; peak 0.1687 at -1.77; 0.0967 at 0
+  red: r = 0.5                         read-off: 0.19 at −3; peak 0.26 near −0.9; 0.24 at 0
+                                       ours:     0.1912 at −3; peak 0.2587 at -0.85; 0.2401 at 0
+  Post hoc (after seeing that the yellow curve does not match V_M = 0.5): the same curve for other values of V_M, all else standard:
+    V_M = 0.15  0.1150 at −3; peak 0.1665 at -1.32; 0.0951 at 0; at −1.7 (ω² = 50): 0.1631
+    V_M = 0.2   0.1401 at −3; peak 0.1922 at -1.45; 0.0959 at 0; at −1.7 (ω² = 50): 0.1904
+    V_M = 0.25  0.1628 at −3; peak 0.2149 at -1.54; 0.0963 at 0; at −1.7 (ω² = 50): 0.2141
+    V_M = 0.3   0.1836 at −3; peak 0.2354 at -1.62; 0.0965 at 0; at −1.7 (ω² = 50): 0.2352
+    (read-off of the yellow curve: 0.14 at −3; peak 0.19 near −1.5; 0.095 at 0)
+
+A8  panels (b), (c). Read-off: boundary 0.045–0.05 at −3, above 0.12 between ≈ −1.2 and ≈ −0.8, 0.075–0.08 at 0; N* below about 100 everywhere;
+    V* > 6 at the far left, < 0.5–1 right of ≈ −0.5.
+  caption parameters:    boundary 0.0862 at −3, 0.0926 at 0; above 0.12 from -2.11 to -0.40 (peak 0.1359 at -1.15); max N* = 196.1; V* at v = 0.02: 7.74 at −3, 1.08 at −1.1, 0.55 at −0.5
+    With the caption's parameters the boundary is the blue line of panel (a) and N* reaches 196.1, as in Figure 1b; neither matches the read-off of panels (b), (c).
+    Post hoc (after seeing that): one-parameter changes from the caption's set, looking for the read-off of (b), (c):
+    K = 500:             boundary 0.0586 at −3, 0.0892 at 0; above 0.12 from -1.22 to -0.71 (peak 0.1217 at -0.96); max N* = 98.4; V* at v = 0.02: 6.06 at −3, 1.04 at −1.1, 0.54 at −0.5
+    K = 300:             boundary 0.0404 at −3, 0.0857 at 0; above 0.12 from – to – (peak 0.1099 at -0.81); max N* = 59.3; V* at v = 0.02: 4.50 at −3, 1.00 at −1.1, 0.52 at −0.5
+    r = 0.1:             boundary 0.0409 at −3, 0.0336 at 0; above 0.12 from – to – (peak 0.0746 at -1.37); max N* = 96.9; V* at v = 0.02: 5.93 at −3, 1.02 at −1.1, 0.49 at −0.5
+    V_M = 0.05:          boundary 0.0514 at −3, 0.0812 at 0; above 0.12 from – to – (peak 0.0961 at -0.84); max N* = 197.4; V* at v = 0.02: 4.91 at −3, 0.76 at −1.1, 0.39 at −0.5
+    r = 0.1, K = 1000:   boundary 0.0409 at −3, 0.0336 at 0; above 0.12 from – to – (peak 0.0746 at -1.37); max N* = 96.9; V* at v = 0.02: 5.93 at −3, 1.02 at −1.1, 0.49 at −0.5
+    r = 0.15:            boundary 0.0644 at −3, 0.0613 at 0; above 0.12 from – to – (peak 0.1076 at -1.24); max N* = 146.4; V* at v = 0.02: 7.09 at −3, 1.06 at −1.1, 0.54 at −0.5
+    r = 0.1, V_M = 0.2:  boundary 0.0705 at −3, 0.0341 at 0; above 0.12 from – to – (peak 0.1055 at -1.67); max N* = 95.1; V* at v = 0.02: 9.75 at −3, 1.44 at −1.1, 0.58 at −0.5
+    Post hoc scan: r ∈ {0.1, 0.15, …, 0.4}, K ∈ {100/r, 500, 1000}, V_M ∈ {0.05, 0.1, 0.15, 0.2}; distance to the read-off = the largest of
+    |boundary(−3) − 0.0475|/0.0475, |boundary(0) − 0.0775|/0.0775, |up-crossing of 0.12 + 1.2|/0.2, |down-crossing + 0.8|/0.2, |max N* − 97|/97. The five closest:
+      r = 0.20, K = 500    V_M = 0.10: boundary 0.0586 at −3, 0.0892 at 0; above 0.12 from -1.22 to -0.71; max N* 98 (distance 0.44)
+      r = 0.15, K = 666.67 V_M = 0.15: boundary 0.0700 at −3, 0.0616 at 0; above 0.12 from -1.59 to -1.04; max N* 97 (distance 1.94)
+      r = 0.25, K = 400    V_M = 0.10: boundary 0.0657 at −3, 0.1165 at 0; above 0.12 from -1.84 to -0.05; max N* 99 (distance 3.73)
+      r = 0.15, K = 500    V_M = 0.20: boundary 0.0737 at −3, 0.0617 at 0; above 0.12 from -2.01 to -0.80; max N* 73 (distance 4.05)
+      r = 0.25, K = 500    V_M = 0.10: boundary 0.0756 at −3, 0.1186 at 0; above 0.12 from -2.06 to -0.02; max N* 123 (distance 4.29)
+
+====================================================================================================
+3. Figure 3: basins of the viable equilibrium and of extinction in (V₀, N₀) (standard parameters)   [36 s]
+====================================================================================================
+Extinction rule: N < Next, Next = 1e-3 by default (1e-4 where the search goes down to N₀ = 0.01); sensitivity below.
+A9  viable equilibrium (red dot)      read-off (V*, N*)     ours (V*, N*, Δ*)           saddle (V, N, Δ)
+      v = 0.08                        (2.06, 142)           (2.067, 141.9, 1.935)      (0.945, 11.51, 4.231)
+      v = 0.12                        (1.96, 88)            (1.968, 87.4, 3.048)      (1.515, 28.01, 3.960)
+
+A10–A14  basin boundary: critical N₀ at given V₀ (bisection), and critical V₀ at given N₀
+  (a) v = 0.08, Δ₀ = 0.5   read-off: all plotted starts persist; boundary along the axes
+      ours: 63 of 63 plotted starts persist; critical N₀ at V₀ = 0.2, 0.3, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0: 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+      ours: critical V₀ at N₀ = 180, 100, 50, 20, 10: ≈0, ≈0, ≈0, ≈0, ≈0
+      A15: persisting starts below N* that overshoot it by > 2%: 55; persisting starts whose N and V both first fall > 10%: 0; extinct starts whose N and V both first rise > 2%: 0
+  (b) v = 0.08, Δ₀ = 3.0   read-off: all plotted starts persist; boundary roughly horizontal at N₀ ≈ 2–5
+      ours: 63 of 63 plotted starts persist; critical N₀ at V₀ = 0.2, 0.3, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0: 2.7, 2.6, 2.5, 2.2, 2.0, 1.9, 1.8, 1.7
+      ours: critical V₀ at N₀ = 180, 100, 50, 20, 10: ≈0, ≈0, ≈0, ≈0, ≈0
+      A15: persisting starts below N* that overshoot it by > 2%: 0; persisting starts whose N and V both first fall > 10%: 4; extinct starts whose N and V both first rise > 2%: 0
+  (c) v = 0.08, Δ₀ = 5.0   read-off: (0.3, 180), (0.5, 75), (1.0, 38), (1.5, 25), (2.0, 17), (3.0, 11)
+      ours: 40 of 63 plotted starts persist; critical N₀ at V₀ = 0.2, 0.3, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0: 268.5, 157.0, 82.6, 35.8, 22.5, 16.5, 13.1, 10.9
+      ours: critical V₀ at N₀ = 180, 100, 50, 20, 10: 0.270, 0.429, 0.755, 1.671, 3.274
+      A15: persisting starts below N* that overshoot it by > 2%: 0; persisting starts whose N and V both first fall > 10%: 23; extinct starts whose N and V both first rise > 2%: 0
+  (d) v = 0.12, Δ₀ = 0.5   read-off: all plotted starts persist; boundary along the axes
+      ours: 63 of 63 plotted starts persist; critical N₀ at V₀ = 0.2, 0.3, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0: 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4
+      ours: critical V₀ at N₀ = 180, 100, 50, 20, 10: ≈0, ≈0, ≈0, ≈0, ≈0
+      A15: persisting starts below N* that overshoot it by > 2%: 42; persisting starts whose N and V both first fall > 10%: 6; extinct starts whose N and V both first rise > 2%: 0
+  (e) v = 0.12, Δ₀ = 3.0   read-off: near-vertical at V₀ ≈ 0.02–0.05 above N₀ ≈ 50; (0.5, 15), (1.0, 10), (2.0, 7), (3.0, 6)
+      ours: 59 of 63 plotted starts persist; critical N₀ at V₀ = 0.2, 0.3, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0: 26.6, 22.0, 16.5, 10.7, 8.3, 6.9, 6.0, 5.4
+      ours: critical V₀ at N₀ = 180, 100, 50, 20, 10: ≈0, ≈0, ≈0, 0.358, 1.119
+      A15: persisting starts below N* that overshoot it by > 2%: 7; persisting starts whose N and V both first fall > 10%: 6; extinct starts whose N and V both first rise > 2%: 4
+  (f) v = 0.12, Δ₀ = 5.0   read-off: (1.7, 180), (2.0, 100), (2.5, 55), (3.0, 35)
+      ours: 13 of 63 plotted starts persist; critical N₀ at V₀ = 0.2, 0.3, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0: none, none, none, none, 377.5, 96.9, 53.8, 36.9
+      ours: critical V₀ at N₀ = 180, 100, 50, 20, 10: 1.696, 1.980, 2.583, 4.363, 7.712
+      A15: persisting starts below N* that overshoot it by > 2%: 0; persisting starts whose N and V both first fall > 10%: 13; extinct starts whose N and V both first rise > 2%: 0
+
+Is persistence monotone in V₀ and in N₀? (30 × 30 grid, V₀ ∈ [0.05, 3], N₀ ∈ [1, 180]; the bisections assume it)
+  (a) persisting 900 of 900; violations: 0 in V₀, 0 in N₀
+  (b) persisting 762 of 900; violations: 0 in V₀, 0 in N₀
+  (c) persisting 318 of 900; violations: 0 in V₀, 0 in N₀
+  (d) persisting 900 of 900; violations: 0 in V₀, 0 in N₀
+  (e) persisting 506 of 900; violations: 0 in V₀, 0 in N₀
+  (f) persisting  82 of 900; violations: 0 in V₀, 0 in N₀
+
+Sensitivity to the extinction threshold Next: critical N₀ at V₀ = 0.5, 1, 2, 3 (searched down to max(Next, 0.01))
+  (b) Next = 1          2.4739    2.2217    1.8987    1.6921
+  (b) Next = 0.01       2.4739    2.2217    1.8987    1.6921
+  (b) Next = 0.0001     2.4739    2.2217    1.8987    1.6921
+  (b) Next = 1e-08      2.4739    2.2217    1.8987    1.6921
+  (c) Next = 1         82.5853   35.8210   16.4744   10.8860
+  (c) Next = 0.01      82.5853   35.8210   16.4744   10.8860
+  (c) Next = 0.0001    82.5853   35.8210   16.4744   10.8860
+  (c) Next = 1e-08     82.5853   35.8210   16.4744   10.8860
+  (e) Next = 1         16.5390   10.7451    6.9267    5.4246
+  (e) Next = 0.01      16.5390   10.7451    6.9267    5.4246
+  (e) Next = 0.0001    16.5390   10.7451    6.9267    5.4246
+  (e) Next = 1e-08     16.5390   10.7451    6.9267    5.4246
+  (f) Next = 1            none      none   96.8951   36.9069
+  (f) Next = 0.01         none      none   96.8951   36.9069
+  (f) Next = 0.0001       none      none   96.8951   36.9069
+  (f) Next = 1e-08        none      none   96.8951   36.9069
+  Panels (a), (d) (Δ₀ = 0.5): critical N₀ at V₀ = 1 with Next = 1e-8, searched down to 1e-6:
+  (a) 0.0142
+  (d) 0.384
+  Integration tolerance: critical N₀ in panels (c), (f) with rtol = 1e-5, 1e-7 (default), 1e-9:
+  (c), V₀ = 1.0: 35.819472, 35.820968, 35.821042
+  (f), V₀ = 2.5: 53.771755, 53.772456, 53.772495
+
+====================================================================================================
+4. Figure 4: the three scenarios   [61 s]
+====================================================================================================
+A16  panel (a): critical N₀ with V₀ at balance for that N₀ (floor 1 as on the preprint's axis; ours searched from 1 to 1e6)
+  black solid (Δ₀ = 1, v = 0.05)  read-off: 1 up to ≈ −0.65; ≈ 3 at 0
+                                  ours:     first above 1.05 at -0.60;        3.06 at 0
+  red solid (Δ₀ = 1, v = 0.1)     read-off: drawn from ≈ −2.6 to ≈ −0.1; leaves 1 at ≈ −1.35; ≈ 2 at −1.1; ≈ 5 at −0.6; ≈ 18 at −0.1
+                                  ours:     defined (v < v_c) from -2.65 to -0.10; first above 1.05 at -1.30;       1.966 at −1.1;         4.8 at −0.6;   (v ≥ v_c) at −0.1
+  black dashed (Δ₀ = 3, v = 0.05) read-off: leaves 1 at ≈ −1.65; ≈ 13 at −1.0; ≈ 40 at −0.7; ≈ 1e3 at −0.15; 1e4 at 0
+                                  ours:     first above 1.05 at -1.60;       13.93 at −1.0;       39.09 at −0.7;        1194 at −0.15;    1.06e+04 at 0
+  red dashed (taken as Δ₀ = 3, v = 0.1) read-off: leaves 1 at ≈ −2.1; ≈ 8 at −1.6; ≈ 30 at −1.1; ≈ 1e2 at −0.8; ≈ 1e3 at −0.45; off the top (1e4) at ≈ −0.35
+                                  ours:     first above 1.05 at -2.00;       7.529 at −1.6;       31.25 at −1.1;       105.7 at −0.8;        1179 at −0.45; reaches 1e4 at -0.35; no persistence from any N₀ ≤ 1e6 from -0.25
+  The legend's fourth entry read as printed (Δ₀ = 1, v = 0.1) would repeat the red solid curve; with Δ₀ = 3 it is the curve above.
+  Text, line 160 and caption: the dashed curves go to infinity (persistence impossible however large N₀, with V₀ at balance) although v < v_c.
+  Ours, Δ₀ = 3: does a population persist from N₀ = 1e4, 1e6, 1e9, 1e12 (V₀ → V_c^M as N₀ → ∞)?
+    v = 0.05, x = -0.50 (v_c = 0.1246): true, true, true, true; critical V₀ at N₀ = 1e12: 0.1185 against V_c^M = 0.5623
+    v = 0.05, x =  0.00 (v_c = 0.0926): false, true, true, true; critical V₀ at N₀ = 1e12: 0.2902 against V_c^M = 0.3162
+    v = 0.10, x = -0.50 (v_c = 0.1246): true, true, true, true; critical V₀ at N₀ = 1e12: 0.3815 against V_c^M = 0.5623
+    v = 0.10, x = -0.30 (v_c = 0.1148): false, true, true, true; critical V₀ at N₀ = 1e12: 0.4461 against V_c^M = 0.4467
+    v = 0.10, x = -0.20 (v_c = 0.1083): false, false, false, false; critical V₀ at N₀ = 1e12: 0.4805 against V_c^M = 0.3981
+    v = 0.10, x = -0.15 (v_c = 0.1047): false, false, false, false; critical V₀ at N₀ = 1e12: 0.5039 against V_c^M = 0.3758
+  Sensitivity of panel (a) to the extinction rule: Next = 1 (fewer than one individual) against the default 1e-3, at x = −2, −1.5, −1, −0.5, 0:
+    Δ₀ = 1, v = 0.05                   Next = 1:              1           1           1       1.437       3.069
+                                       Next = 1e-3:           1           1           1       1.437        3.06
+    Δ₀ = 1, v = 0.1                    Next = 1:              1           1       2.447       5.609   (v ≥ v_c)
+                                       Next = 1e-3:           1           1       2.447       5.609   (v ≥ v_c)
+    Δ₀ = 3, v = 0.05                   Next = 1:              1       2.473       13.93       99.61   1.071e+04
+                                       Next = 1e-3:           1       2.473       13.93       99.61    1.06e+04
+    Δ₀ = 3, v = 0.1 (legend: Δ₀ = 1)   Next = 1:          1.195       10.02       44.54       729.9   (v ≥ v_c)
+                                       Next = 1e-3:       1.195       10.02       44.54       729.9   (v ≥ v_c)
+  Below the floor: the critical N₀ of the equations themselves (Next = 1e-9, searched down to 1e-6), at x = −3, −2, −1:
+    Δ₀ = 1, v = 0.05                         1e-06   1.193e-05      0.2963
+    Δ₀ = 1, v = 0.1                      (v ≥ v_c)     0.03326       2.447
+    Δ₀ = 3, v = 0.05                         1e-06     0.01496       13.93
+    Δ₀ = 3, v = 0.1 (legend: Δ₀ = 1)     (v ≥ v_c)       1.195       44.54
+
+A17  panel (b): the largest new rate v₁ after an abrupt shift δ, from the equilibrium at v₀
+  plateau v_c: read-off ≈ 0.1355 (ω² = 20), ≈ 0.123 (ω² = 100); ours 0.1354, 0.1232
+  ω² =  20, v₀ = 0.04   read-off: leaves the plateau at δ ≈ 2.6, reaches 0 at ≈ 5.65;   ours: 2.39 (1% below the plateau at 2.67, 3% at 2.88), 5.65;   ours at δ = 2, 4, 6, 8: 0.1354, 0.0948, 0.0000, 0.0000
+  ω² =  20, v₀ = 0.08   read-off: leaves the plateau at δ ≈ 1.9, reaches 0 at ≈ 4.95;   ours: 1.72 (1% below the plateau at 1.99, 3% at 2.20), 4.96;   ours at δ = 2, 4, 6, 8: 0.1340, 0.0561, 0.0000, 0.0000
+  ω² = 100, v₀ = 0.04   read-off: leaves the plateau at δ ≈ 4.8, reaches 0 at ≈ 9.2;   ours: 4.41 (1% below the plateau at 4.83, 3% at 5.14), 9.29;   ours at δ = 2, 4, 6, 8: 0.1232, 0.1232, 0.1063, 0.0446
+  ω² = 100, v₀ = 0.08   read-off: leaves the plateau at δ ≈ 3.3, reaches 0 at ≈ 7.7;   ours: 2.87 (1% below the plateau at 3.29, 3% at 3.60), 7.72;   ours at δ = 2, 4, 6, 8: 0.1232, 0.1145, 0.0607, 0.0000
+  Text, line 174: with δ = 0 a population at the equilibrium of any v₀ persists at any v₁ < v_c. Ours, standard parameters, v₀ and v₁ on a grid of 14 × 14
+  values in [0, 0.999 v_c]: 196 of 196 persist.
+
+A18  panel (c): boundary V₀ over (Δ₀, N₀). The preprint does not state the rate of the surface; ours is drawn for v = 0.08 (and v = 0.12 in the log).
+  v = 0.08: boundary V₀ at Δ₀ = 1, 2, 3, 4, 5, 6:  N₀ = 10: ≈0, ≈0, ≈0, 0.62, >3, >3;  N₀ = 50: ≈0, ≈0, ≈0, ≈0, 0.73, 2.20;  N₀ = 200: ≈0, ≈0, ≈0, ≈0, 0.24, 1.25
+  v = 0.12: boundary V₀ at Δ₀ = 1, 2, 3, 4, 5, 6:  N₀ = 10: ≈0, ≈0, 1.08, >3, >3, >3;  N₀ = 50: ≈0, ≈0, ≈0, 1.07, 2.53, >3;  N₀ = 200: ≈0, ≈0, ≈0, 0.63, 1.64, NaN
+  Qualitative target: ≈ 0 at small lags, rising steeply beyond a lag of a few units, more steeply at small N; the equilibria lie on the persisting side.
+  ours: of the equilibria for 79 rates v′ in [0, v_c), 79 lie above the v = 0.08 boundary surface (V*(v′) > boundary V₀ at (Δ*(v′), N*(v′))).
+  ours: at v → v_c the equilibrium (Δ, V, N) = (3.612, 1.803, 51.5) is the point where saddle and node merge, on the boundary of its own rate.
+
+A19  panel (d): the longest duration T at rate v₁ after which the population still persists back at v₀
+  divergence (v_c): read-off ≈ 0.095–0.10 (ω² = 1), ≈ 0.123 (ω² = 100), ≈ 0.135–0.14 (ω² = 10); ours 0.0926, 0.1232, 0.1354
+  solid (v₀ = 0.02)        read-off                                     ours
+    ω² = 100: T at v₁ = 0.15, 0.20, 0.25:  ≈ 230, ≈ 100, ≈ 60            176, 84, 57
+    ω² = 10:  T at v₁ = 0.148, 0.20, 0.25: ≈ 220, ≈ 60, ≈ 30             141, 48, 31
+    ω² = 1:   T at v₁ = 0.11, 0.15, 0.20:  ≈ 190, ≈ 60, ≈ 20             107, 40, 22
+    the ω² = 10 and ω² = 100 solid curves cross at v₁ = 0.1412 (read-off ≈ 0.148)
+  dashed (v₀ = 0.09): ω² = 100 at v₁ = 0.15: read-off ≈ 180; ours 124. Dashed below solid at every v₁ > v_c: ω² = 100: true; ω² = 10: true; ω² = 1: true
+
+  Re-reading after the comparison (NOT blind; the read-offs of A19 above were taken from a crop without the x-axis ticks and misplaced the v₁ axis).
+  With the ticks in view (0.10, 0.15, 0.20, 0.25 at 220 px per 0.05; T = 0, 200, …, 800 at 0.685 px per unit):
+    ω² = 100 solid: T ≈ 170, 89, 55 at v₁ = 0.15, 0.20, 0.25 (ours 176, 84, 57); dashed ≈ 125 at 0.15 (ours 124)
+    ω² = 10 solid: crosses the ω² = 100 curve at v₁ ≈ 0.143, T ≈ 220 (ours 0.1412, T = 227); ≈ 50, 30 at 0.20, 0.25 (ours 48, 31)
+    ω² = 1 solid: T ≈ 185, 105, 40, 22 at v₁ = 0.10, 0.11, 0.15, 0.20 (ours 191, 107, 40, 22)
+  Likewise for panel (b), read again with the ticks in view (not blind): max v₁ ≈ 0.095 (ω² = 20, v₀ = 0.04) and ≈ 0.0565 (20, 0.08) at δ = 4; ≈ 0.107 (100, 0.04) and
+  ≈ 0.0605 (100, 0.08) at δ = 6; ≈ 0.0446 (100, 0.04) at δ = 8: compare "ours at δ = 2, 4, 6, 8" above.
+  And Figure 1a's boundary at V_M = 0.10, read again along the concave edge (not blind): ≈ 0.13 (the first read-off, 0.115–0.12, was too low).
+
+====================================================================================================
+5. Eq. 6 against QTLSim's discrete-generation counterpart, drift_critical_rate (descriptive; mapping in the targets file, part B)   [106 s]
+====================================================================================================
+Xu and Shen's eq. 6 has priority; the feedback is Bürger and Lynch (1995). drift_critical_rate is a later discrete-generation implementation
+matched to QTSim's life cycle. Nothing below is a verdict on either.
+
+(i) Xu–Shen-type inputs written in QTLSim's parameters (V_E = ω²/50, mutation rate 0.1 per locus so that α²/(2V_s) is small; PopSize rounded,
+    and the Xu–Shen parameters recomputed from the rounded Params). n_e = 1: a haploid clone of 100 loci; n_e = 100: a diploid with 50 loci.
+    n_e = 1: standard      Params: Ploidy 1, NoQTL 100, PopSize 213, R = 1.2371, ω = 7.0000, V_E = 1.000, m = 0.100, α² = 0.01 → XuShen(r = 0.2000, ω² = 50.000, V_M = 0.1000, K = 1001.2, n_e = 1)
+    n_e = 100: standard    Params: Ploidy 2, NoQTL 50, PopSize 106, R = 1.2371, ω = 7.0000, V_E = 1.000, m = 0.100, α² = 0.01 → XuShen(r = 0.2000, ω² = 50.000, V_M = 0.1000, K = 996.5, n_e = 100)
+  rung 0 = drift_critical_rate's steady states (house of Gauss, N_e from breeders, discrete, Beverton–Holt), maximised over all of them ("rung 0" column;
+  equal to k_c unless marked *); 1: variance equation → eq. 5 (no α²/(2V_s) term);
+  2: drift from the census of adults; 3: first-order response and loads; 4: logistic regulation (K1) = eq. 6 at the mapped parameters.
+  Each ratio is rung i / rung i−1; their product is v_c(eq. 6)/rung 0. The attribution depends on the order of the rungs. "ratio" = v_c(eq. 6)/rung 0.
+  case                                                k_c     rung 0  v_c(eq.6)   ratio |     1/0     2/1     3/2     4/3 | rung4 chk  v_c (K2) K2/rung0
+  n_e = 1: standard                                0.1282     0.1282     0.1303   1.016 |   1.001   1.014   1.017   0.985 |    0.1303    0.1274   0.994
+  n_e = 1: ω2 = 20                                  0.132      0.132     0.1354   1.026 |   1.002   1.011   1.026   0.987 |    0.1354    0.1331   1.009
+  n_e = 1: ω2 = 100                                0.1219     0.1219     0.1233   1.011 |   1.001   1.016   1.012   0.983 |    0.1233      0.12   0.984
+  n_e = 1: VM = 0.05                               0.0862     0.0862    0.08715   1.011 |   1.001   1.016   1.012   0.983 |   0.08715   0.08485   0.984
+  n_e = 1: VM = 0.2                                0.1861     0.1861     0.1905   1.023 |   1.001   1.012   1.024   0.987 |    0.1905     0.187   1.005
+  n_e = 1: K = 500                                 0.1087     0.1087     0.1101   1.012 |   1.001   1.017   1.015   0.980 |    0.1101    0.1065   0.980
+  n_e = 1: K = 2000                                0.1432     0.1432     0.1459   1.019 |   1.001   1.011   1.018   0.989 |    0.1459    0.1437   1.003
+  n_e = 1: r = 0.5                                 0.2413     0.2413     0.2468   1.023 |   1.001   1.026   1.019   0.977 |    0.2468    0.2386   0.989
+  n_e = 100: standard                              0.3195     0.3195     0.3295   1.031 |   1.003   1.028   1.035   0.967 |    0.3295    0.3124   0.978
+  n_e = 100: ω2 = 20                                    0     0.2967*    0.3043   1.026 |   1.003   1.018   1.029   0.976 |    0.3043    0.2946   0.993
+  n_e = 100: ω2 = 100                              0.3008     0.3008     0.3085   1.025 |   1.003   1.032   1.029   0.963 |    0.3085     0.288   0.957
+  n_e = 100: VM = 0.05                             0.2127     0.2127     0.2182   1.025 |   1.003   1.032   1.029   0.963 |    0.2182    0.2037   0.957
+  n_e = 100: VM = 0.2                              0.2957     0.4342*    0.4466   1.029 |   1.003   1.020   1.032   0.974 |    0.4466    0.4303   0.991
+  n_e = 100: K = 500                               0.2195     0.2195     0.2233   1.017 |   1.003   1.024   1.030   0.962 |    0.2233     0.208   0.948
+  n_e = 100: K = 2000                              0.4114     0.4211*     0.436   1.036 |   1.003   1.024   1.035   0.974 |     0.436    0.4203   0.998
+  n_e = 100: r = 0.5                                1.007      1.007      1.103   1.096 |   1.006   1.069   1.086   0.938 |     1.103    0.9845   0.978
+  * drift_critical_rate differs from the maximum over all steady states. In these inputs the variance of a large population carries a load close to or above
+    the growth rate (V_c^M/(2ω²) against r: n_e = 100 standard 0.224 against 0.2), so viable steady states exist only at sizes where drift has reduced the
+    variance; drift_critical_rate's inner iteration starts from the variance at N = K and follows one branch. Published-type inputs (V ≪ ω²) are far from this.
+
+(ii), (iii) Published-type QTSim inputs (diploid, N = 1000) under Beverton–Holt, with the ladder; and the fixed-size k_c, which has no mapping
+    (no dynamics of N: the feedback acts through N_e(N, N W̄) alone).
+    test/critical.jl's input, L = 100    L = 100, ω = 4.000, V_s = 16.018, V_E = 0.018, V_M = m V_E = 9e-05, μ = 0.0001, α² = 0.0045, α²/(2V_s) = 0.00014 vs 1/(2N) = 0.0005; house-of-Gauss V_G = 0.1321
+    the same with L = 500                L = 500, ω = 4.000, V_s = 16.018, V_E = 0.018, V_M = m V_E = 9e-05, μ = 0.0001, α² = 0.0009, α²/(2V_s) = 2.81e-05 vs 1/(2N) = 0.0005; house-of-Gauss V_G = 0.1672
+    QT0100-Possion3.0/Input-00001.txt    L = 100, ω = 7.591, V_s = 57.624, V_E = 0.004748, V_M = m V_E = 6.318e-06, μ = 0.0001, α² = 0.0003159, α²/(2V_s) = 2.74e-06 vs 1/(2N) = 0.0005; house-of-Gauss V_G = 0.01255
+    QT0500-Possion3.0/Input-00002.txt    L = 500, ω = 6.405, V_s = 41.052, V_E = 0.02471, V_M = m V_E = 0.0002513, μ = 0.0001, α² = 0.002513, α²/(2V_s) = 3.06e-05 vs 1/(2N) = 0.0005; house-of-Gauss V_G = 0.464
+    QT1000-Possion5.0/Input-00003.txt    L = 1000, ω = 9.894, V_s = 97.898, V_E = 0.01007, V_M = m V_E = 2.743e-05, μ = 0.0001, α² = 0.0001371, α²/(2V_s) = 7e-07 vs 1/(2N) = 0.0005; house-of-Gauss V_G = 0.05477
+    QT5000-Possion3.0/Input-00004.txt    L = 5000, ω = 9.956, V_s = 99.139, V_E = 0.007547, V_M = m V_E = 0.0001439, μ = 0.0001, α² = 0.0001439, α²/(2V_s) = 7.26e-07 vs 1/(2N) = 0.0005; house-of-Gauss V_G = 0.2874
+  rung 0 = drift_critical_rate's steady states (house of Gauss, N_e from breeders, discrete, Beverton–Holt), maximised over all of them ("rung 0" column;
+  equal to k_c unless marked *); 1: variance equation → eq. 5 (no α²/(2V_s) term);
+  2: drift from the census of adults; 3: first-order response and loads; 4: logistic regulation (K1) = eq. 6 at the mapped parameters.
+  Each ratio is rung i / rung i−1; their product is v_c(eq. 6)/rung 0. The attribution depends on the order of the rungs. "ratio" = v_c(eq. 6)/rung 0.
+  case                                                k_c     rung 0  v_c(eq.6)   ratio |     1/0     2/1     3/2     4/3 | rung4 chk  v_c (K2) K2/rung0
+  test/critical.jl's input, L = 100, R = 1.5      0.01245    0.01245    0.01455   1.169 |   1.159   1.074   1.003   0.936 |   0.01455     0.012   0.964
+  test/critical.jl's input, L = 100, R = 2        0.01623    0.01623    0.01921   1.184 |   1.161   1.135   1.004   0.896 |   0.01921   0.01364   0.841
+  test/critical.jl's input, L = 100, R = 5         0.0233     0.0233    0.02951   1.267 |   1.160   1.380   1.004   0.788 |   0.02951   0.01234   0.530
+  the same with L = 500, R = 1.5                  0.01442    0.01442    0.01505   1.044 |   1.035   1.076   1.004   0.934 |   0.01505   0.01228   0.852
+  the same with L = 500, R = 2                    0.01882    0.01882    0.01989   1.057 |   1.035   1.139   1.004   0.893 |   0.01989   0.01389   0.738
+  the same with L = 500, R = 5                    0.02701    0.02701    0.03056   1.131 |   1.035   1.391   1.004   0.782 |   0.03056   0.01242   0.460
+  QT0100-Possion3.0/Input-00001.txt, R = 1.5    0.0005655  0.0005655  0.0005706   1.009 |   1.004   1.075   1.000   0.935 | 0.0005706 0.0004629   0.819
+  QT0100-Possion3.0/Input-00001.txt, R = 2      0.0007341  0.0007341  0.0007492   1.021 |   1.004   1.139   1.000   0.893 | 0.0007492 0.0005196   0.708
+  QT0100-Possion3.0/Input-00001.txt, R = 5       0.001049   0.001049   0.001145   1.092 |   1.004   1.393   1.000   0.781 |  0.001145 0.0004613   0.440
+  QT0500-Possion3.0/Input-00002.txt, R = 1.5      0.02504    0.02504    0.02623   1.048 |   1.038   1.076   1.004   0.934 |   0.02623    0.0214   0.855
+  QT0500-Possion3.0/Input-00002.txt, R = 2        0.03269    0.03269    0.03466   1.060 |   1.038   1.139   1.004   0.893 |   0.03466   0.02422   0.741
+  QT0500-Possion3.0/Input-00002.txt, R = 5        0.04693    0.04693    0.05326   1.135 |   1.038   1.391   1.004   0.782 |   0.05326   0.02167   0.462
+  QT1000-Possion5.0/Input-00003.txt, R = 1.5     0.001888   0.001888   0.001901   1.006 |   1.001   1.076   1.000   0.935 |  0.001901  0.001542   0.816
+  QT1000-Possion5.0/Input-00003.txt, R = 2       0.002452   0.002452   0.002496   1.018 |   1.001   1.139   1.000   0.893 |  0.002496  0.001731   0.706
+  QT1000-Possion5.0/Input-00003.txt, R = 5       0.003503   0.003503   0.003817   1.090 |   1.001   1.394   1.000   0.781 |  0.003817  0.001536   0.439
+  QT5000-Possion3.0/Input-00004.txt, R = 1.5     0.009812   0.009811   0.009883   1.007 |   1.001   1.076   1.001   0.935 |  0.009882  0.008021   0.817
+  QT5000-Possion3.0/Input-00004.txt, R = 2        0.01276    0.01275    0.01299   1.019 |   1.001   1.139   1.001   0.893 |   0.01299  0.009014   0.707
+  QT5000-Possion3.0/Input-00004.txt, R = 5        0.01824    0.01824    0.01989   1.091 |   1.001   1.394   1.001   0.781 |   0.01989  0.008009   0.439
+
+    Fixed size (Demography = :fixed): k_c from drift_critical_rate; for scale, eq. 6 at the K1 mapping of the R = 2 case and with K = ∞ (no drift, the classical rate)
+    test/critical.jl's input, L = 100    k_c(fixed) = 0.02909;  k_c(BH, R = 2) = 0.01623;  v_c(eq. 6, R = 2 mapping) = 0.01921;  v_c(K = ∞) = 0.1557
+    the same with L = 500                k_c(fixed) = 0.03362;  k_c(BH, R = 2) = 0.01882;  v_c(eq. 6, R = 2 mapping) = 0.01989;  v_c(K = ∞) = 0.3427
+    QT0100-Possion3.0/Input-00001.txt    k_c(fixed) = 0.001302;  k_c(BH, R = 2) = 0.0007341;  v_c(eq. 6, R = 2 mapping) = 0.0007492;  v_c(K = ∞) = 0.0417
+    QT0500-Possion3.0/Input-00002.txt    k_c(fixed) = 0.05841;  k_c(BH, R = 2) = 0.03269;  v_c(eq. 6, R = 2 mapping) = 0.03466;  v_c(K = ∞) = 0.5721
+    QT1000-Possion5.0/Input-00003.txt    k_c(fixed) = 0.004349;  k_c(BH, R = 2) = 0.002452;  v_c(eq. 6, R = 2 mapping) = 0.002496;  v_c(K = ∞) = 0.2729
+    QT5000-Possion3.0/Input-00004.txt    k_c(fixed) = 0.02265;  k_c(BH, R = 2) = 0.01276;  v_c(eq. 6, R = 2 mapping) = 0.01299;  v_c(K = ∞) = 1.347
+
+    Post hoc side line (not in the targets file): effective_size(N, n) is close to the harmonic mean 2Nn/(N + n) of adults and breeders. With the breeders
+    themselves as N_e (drift = n; rung 0′), all else as drift_critical_rate:
+    n_e = 1: standard                            k_c = 0.1282; with N_e = n: 0.1259 (ratio 0.983)
+    n_e = 100: standard                          k_c = 0.3195; with N_e = n: 0.3066 (ratio 0.960)
+    test/critical.jl's input, L = 100, R = 2     k_c = 0.01623; with N_e = n: 0.01476 (ratio 0.910)
+    the same with L = 500, R = 2                 k_c = 0.01882; with N_e = n: 0.01703 (ratio 0.905)
+    QT0100-Possion3.0/Input-00001.txt, R = 2     k_c = 0.0007341; with N_e = n: 0.0006635 (ratio 0.904)
+    QT0500-Possion3.0/Input-00002.txt, R = 2     k_c = 0.03269; with N_e = n: 0.02958 (ratio 0.905)
+
+(iv) The n_e that eq. 5 would need to hold a given equilibrium variance at v = 0: n_e = V²/(V_s(V_M − V/(2N_e))), fixed size N = 1000, published-type inputs.
+     A rough estimate. V from: the house of Gauss (linkage equilibrium); multilocus_equilibrium(p; drift = true) (rare alleles + LD under QTSim's single
+     crossover); its loci = :multilocus form (Gaussian + LD); for sampled published inputs also the table's pre-move V_G (one QTSim run each).
+     N_e = effective_size(1000, n), n the breeders at equilibrium (as QTLSim's functions use). 2L is the value for free recombination in the Gaussian limit.
+    test/critical.jl's input, L = 100    2L =   200 | V: HoG 0.1317, rare+LD 0.1276 (LD/genic -0.06), Gauss+LD 0.153; neutral V_M·2N_e = 0.1794 | n_e: HoG 45.3, rare+LD 39.1, Gauss+LD 110
+    the same with L = 500                2L =  1000 | V: HoG 0.1666, rare+LD 0.1536 (LD/genic -0.09), Gauss+LD 0.1599; neutral V_M·2N_e = 0.1794 | n_e: HoG 270, rare+LD 114, Gauss+LD 163
+    QT0100-Possion3.0/Input-00001.txt    2L =   200 | V: HoG 0.01253, rare+LD 0.01249 (LD/genic -0.00), Gauss+LD 0.01255; neutral V_M·2N_e = 0.01263 | n_e: HoG 56.8, rare+LD 38.6, Gauss+LD 75.4
+    QT0500-Possion3.0/Input-00002.txt    2L =  1000 | V: HoG 0.4623, rare+LD 0.4242 (LD/genic -0.09), Gauss+LD 0.4427; neutral V_M·2N_e = 0.5009 | n_e: HoG 269, rare+LD 114, Gauss+LD 164
+    QT1000-Possion5.0/Input-00003.txt    2L =  2000 | V: HoG 0.05469, rare+LD 0.05397 (LD/genic -0.01), Gauss+LD 0.05404; neutral V_M·2N_e = 0.0548 | n_e: HoG 570, rare+LD 71.8, Gauss+LD 78.9
+    QT5000-Possion3.0/Input-00004.txt    2L = 10000 | V: HoG 0.2868, rare+LD 0.2777 (LD/genic -0.03), Gauss+LD 0.278; neutral V_M·2N_e = 0.2874 | n_e: HoG 2.85e+03, rare+LD 159, Gauss+LD 166
+
+     Sampled published inputs (60 per stratum, seed 20261118), V from the table's "Genotype Var at 10000", n from its "P Survived at 10000":
+     stratum                  2L       used  undefined median n_e    quartiles   HoG median     n_e/2L
+     QT0100-Possion3.0       200         60          8       20.7    13–33             51.5      0.104
+     QT0100-Possion5.0       200         60         12       13.9   5.5–31             52.3     0.0694
+     QT0500-Possion3.0      1000         60         12       84.8    36–1.2e+02          277     0.0848
+     QT0500-Possion5.0      1000         60         10       61.4    22–85              277     0.0614
+     QT1000-Possion3.0      2000         60         16       59.6    36–1.2e+02          564     0.0298
+     QT1000-Possion5.0      2000         60          8       61.5    18–1.1e+02          562     0.0308
+     QT5000-Possion3.0     10000         60         15        151    43–2.1e+02     2.84e+03     0.0151
+     QT5000-Possion5.0     10000         60         10        102    49–1.4e+02     2.84e+03     0.0102
+     "undefined": the single run's V_G is at or above the neutral expectation 2N_e V_M, so no n_e > 0 satisfies eq. 5 (one realisation; V_G fluctuates).
+
+Done: 139 s of CPU time (process clock), 132 s wall, on 1 thread(s).
