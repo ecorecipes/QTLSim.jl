@@ -48,20 +48,35 @@ function gaussian_vg_exact(p::Params)
 end
 
 """
-    effective_size(N, nsurv)
+    effective_size(N, nsurv; scheme = :falconer)
 
 Falconer's effective size `N_e = 4N/(V_k + 2)` when `nsurv` of the `N` individuals
 survive and each of the next generation's `2N` gametes comes from a survivor chosen at
 random: the number a survivor contributes is binomial, with variance
 `V_k = 2N (nsurv − 1)/nsurv²`. With every individual surviving, `N_e ≈ N`.
+
+That is the default (`scheme = :falconer`), `2N n²/(N(n − 1) + n²)`, close to the harmonic
+mean `2Nn/(N + n)` of the adults and the survivors. It puts the variance of the survivors'
+gamete number, whose mean is `2N/n`, into the formula for a mean of 2, and is **not** the
+effective size of QTSim's life cycle unless everyone survives: for `n` survivors of `N`
+adults and `N` offspring with two distinct parents drawn from the survivors, the
+inbreeding (coalescence), variance and mutation–drift sizes are all `n` (the eigenvalue
+size `n + ½`), whatever `N`; in the kernel `n` is the harmonic mean of the survivors over
+generations (`validate/effective_size.md`: derivation, and neutral kernel runs in which
+the default is 1.3 to 2 times the measured size when a half to a tenth survive;
+`validate/symbolic/check_effective_size.jl`). `scheme = :breeders` returns `nsurv`. The
+default is kept so that existing numbers do not move; the moments lowering does not use
+this function (its drift is that of the `n` parents directly).
 """
-function effective_size(N::Real, nsurv::Real)
+function effective_size(N::Real, nsurv::Real; scheme::Symbol = :falconer)
+    scheme === :breeders && return nsurv
+    scheme === :falconer || throw(ArgumentError("scheme must be :falconer or :breeders, got :$scheme"))
     Vk = 2N * (nsurv - 1) / nsurv^2
     4N / (Vk + 2)
 end
 
 """
-    house_of_cards_vg(p; nsurv = p.PopSize)
+    house_of_cards_vg(p; nsurv = p.PopSize, ne = :falconer)
 
 Bürger's stochastic house-of-cards approximation to the equilibrium genetic variance,
 `4nμ V_s / (1 + V_s/(N_e α²))`, with `n` loci, mutation rate `μ` per locus per gamete,
@@ -70,12 +85,13 @@ Bürger's stochastic house-of-cards approximation to the equilibrium genetic var
 Supplementary Figure S1). Unlike [`gaussian_vg`](@ref), it grows with the number of loci, as
 [`gaussian_vg_loci`](@ref) does; it is the better prediction when mutations are rare and
 large (`α²` above a locus's share of the variance), where the Gaussian one fails.
+`ne` is [`effective_size`](@ref)'s `scheme`.
 """
-function house_of_cards_vg(p::Params; nsurv::Real = p.PopSize)
+function house_of_cards_vg(p::Params; nsurv::Real = p.PopSize, ne::Symbol = :falconer)
     n, μ = p.NoQTL, p.MutationRatePerGamete
     Vs = selection_variance(p)
     α2 = muteVar(p) / (2n * μ)
-    Ne = effective_size(p.PopSize, nsurv)
+    Ne = effective_size(p.PopSize, nsurv; scheme = ne)
     4n * μ * Vs / (1 + Vs / (Ne * α2))
 end
 

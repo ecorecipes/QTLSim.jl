@@ -1,0 +1,78 @@
+validate/effective_size.jl branch — part 1b: does drift_critical_rate find every steady state?
+old = the function at d8b2565 (copied in effective_size_parts.jl); new = drift_critical_rate(p; solver = :bisection) (ne = :falconer);
+the default, solver = :iteration, is compared with old bitwise in section 3.
+all states = an independent maximum over the steady states parametrised by their variance (as eq. 6 of Xu and Shen 2026 is).
+
+1. Reproduction on the 16 Xu–Shen-type inputs of validate/xu_shen.jl
+  case                     old k_c   new k_c all states | old iteration over 600 lags    |     V(K) R·W̄(V(K)) |f′(V*)|
+  n_e = 1: standard         0.1282    0.1282     0.1282 | conv  30 dead1 570 dead+   0 cyc   0 |    2.119    1.196     0.01
+  n_e = 1: ω2 = 20          0.1320    0.1320     0.1320 | conv  29 dead1 571 dead+   0 cyc   0 |    1.366    1.182     0.01
+  n_e = 1: ω2 = 100         0.1219    0.1219     0.1219 | conv  31 dead1 569 dead+   0 cyc   0 |    2.934    1.204     0.01
+  n_e = 1: VM = 0.05        0.0862    0.0862     0.0862 | conv  31 dead1 569 dead+   0 cyc   0 |    1.467    1.204     0.01
+  n_e = 1: VM = 0.2         0.1861    0.1861     0.1861 | conv  30 dead1 570 dead+   0 cyc   0 |    3.042    1.186     0.01
+  n_e = 1: K = 500          0.1087    0.1087     0.1087 | conv  30 dead1 570 dead+   0 cyc   0 |    2.010    1.198     0.01
+  n_e = 1: K = 2000         0.1432    0.1432     0.1432 | conv  30 dead1 570 dead+   0 cyc   0 |    2.176    1.196     0.00
+  n_e = 1: r = 0.5          0.2413    0.2413     0.2413 | conv  49 dead1 551 dead+   0 cyc   0 |    2.185    1.614     0.00
+  n_e = 100: standard       0.3195    0.3195     0.3195 | conv  20 dead1 580 dead+   0 cyc   0 |   13.355    1.085     0.48
+  n_e = 100: ω2 = 20        0.0000    0.2967     0.2967 | conv   0 dead1 600 dead+   0 cyc   0 |   10.022    0.997     1.08  *
+  n_e = 100: ω2 = 100       0.3008    0.3008     0.3008 | conv  25 dead1 575 dead+   0 cyc   0 |   15.764    1.135     0.28
+  n_e = 100: VM = 0.05      0.2127    0.2127     0.2127 | conv  25 dead1 575 dead+   0 cyc   0 |    7.882    1.135     0.28
+  n_e = 100: VM = 0.2       0.2957    0.4342     0.4342 | conv   0 dead1 591 dead+   0 cyc   9 |   21.635    1.020     0.87  *
+  n_e = 100: K = 500        0.2195    0.2195     0.2195 | conv  24 dead1 576 dead+   0 cyc   0 |    8.847    1.126     0.34
+  n_e = 100: K = 2000       0.4114    0.4211     0.4211 | conv  13 dead1 584 dead+   0 cyc   3 |   17.064    1.055     0.58  *
+  n_e = 100: r = 0.5        1.0066    1.0066     1.0066 | conv  42 dead1 558 dead+   0 cyc   0 |   17.809    1.416     0.10
+  * old ≠ new: n_e = 100: ω2 = 20; n_e = 100: VM = 0.2; n_e = 100: K = 2000
+  conv: the old iteration converged; dead1: "no population" at the variance of N = K (first step); dead+: the iteration jumped to
+  "no population" at a later step; cyc: no convergence in 100 steps. R·W̄(V(K)) ≤ 1 means a population of size K with its house-of-Gauss variance
+  cannot replace itself at lag 0. f(V) is the variance that the population sized by V holds; it falls with V, so V = f(V) has one root.
+  new against all states: largest relative difference 3.21e-14
+
+2. Uniqueness: is f non-increasing in V? On each of the 16 inputs and 40 lags, a grid of 2000 variances, both schemes of N_e
+  ne = :falconer  f non-increasing in 633 of 640 (input, lag) pairs; the exceptions rise by at most 3.1e-04 of the largest variance, all in haploid inputs with 1.01–1.02 breeders (the default formula's N_e rises as n falls toward 1), where f < V
+  ne = :breeders  f non-increasing in 640 of 640 (input, lag) pairs
+
+3. Published inputs (75 per stratum, 600) × fixed size and Beverton–Holt R = 5, 2, 1.5, without a cost and, on every fifth input, with log costs 0.25 and 1.
+   (a) the default (solver = :iteration) against old, field by field (isequal); (b) solver = :bisection against old: relative difference in k_c > 1e-12
+   (a) 3360 comparisons: 3360 identical in every field
+   (b) solver = :bisection differs from old by more than 1e-12 in 12 of 3360 (largest difference below that threshold: 3.4e-15):
+                  no cost                cost 0.25 or 1        
+       fixed        0 of  600               0 of  240
+       R = 5        0 of  600               0 of  240
+       R = 2        0 of  600               2 of  240
+       R = 1.5      5 of  600               5 of  240
+       QT0500-5 Input-06410 R = 1.5  cost 0.00: old 0.00161, bisection 0.00166, all states 0.00166; at the critical lag 64 breeders of 93 adults; R·W̄ at the variance of N = K: 1.031
+       QT1000-3 Input-05134 R = 2    cost 0.25: old 0.00043, bisection 0.00366, all states 0.00366; at the critical lag 50 breeders of 96 adults; R·W̄ at the variance of N = K: 1.002
+       QT1000-3 Input-05134 R = 1.5  cost 0.00: old 0.00000, bisection 0.00289, all states 0.00289; at the critical lag 53 breeders of 78 adults; R·W̄ at the variance of N = K: 0.965
+       QT1000-3 Input-13988 R = 1.5  cost 0.00: old 0.01105, bisection 0.01381, all states 0.01381; at the critical lag 72 breeders of 104 adults; R·W̄ at the variance of N = K: 1.024
+       QT1000-5 Input-08941 R = 1.5  cost 0.25: old 0.00000, bisection 0.00514, all states 0.00514; at the critical lag 55 breeders of 80 adults; R·W̄ at the variance of N = K: 0.969
+       QT5000-3 Input-10447 R = 1.5  cost 0.25: old 0.00000, bisection 0.02156, all states 0.02156; at the critical lag 115 breeders of 164 adults; R·W̄ at the variance of N = K: 0.968
+       QT5000-3 Input-12144 R = 1.5  cost 0.00: old 0.00000, bisection 0.07659, all states 0.07659; at the critical lag 96 breeders of 137 adults; R·W̄ at the variance of N = K: 0.940
+       QT5000-5 Input-07319 R = 2    cost 0.25: old 0.04867, bisection 0.05177, all states 0.05177; at the critical lag 131 breeders of 231 adults; R·W̄ at the variance of N = K: 1.068
+       QT5000-5 Input-07319 R = 1.5  cost 0.00: old 0.03949, bisection 0.05592, all states 0.05592; at the critical lag 173 breeders of 238 adults; R·W̄ at the variance of N = K: 1.028
+       QT5000-5 Input-07319 R = 1.5  cost 0.25: old 0.00000, bisection 0.00922, all states 0.00922; at the critical lag 42 breeders of 62 adults; R·W̄ at the variance of N = K: 0.801
+       QT5000-5 Input-10029 R = 1.5  cost 0.25: old 0.00000, bisection 0.01930, all states 0.01930; at the critical lag 90 breeders of 130 adults; R·W̄ at the variance of N = K: 0.915
+       QT5000-5 Input-14989 R = 1.5  cost 0.25: old 0.01990, bisection 0.02155, all states 0.02155; at the critical lag 143 breeders of 200 adults; R·W̄ at the variance of N = K: 1.026
+       in all 12 the bisection equals the independent maximum over all steady states (largest relative difference 3.5e-15) and is above old
+   test/critical.jl's input, 4 demographies × 4 costs, solver = :bisection against old: identical
+
+4. Is the steady state that the iteration misses reachable? Two inputs for which old k_c = 0 ("no population"):
+   (a) the deterministic recursion of the same ingredients (lag, house-of-Gauss variance per gene, breeders, Beverton–Holt; validate/bistability.jl's P-D),
+       started at N = K with the variance of N = K and no lag; (b) the kernel: 2000 generations at a fixed optimum, then 2000 of a continuous move; 12 runs per rate.
+   Xu–Shen-type, n_e = 100: ω2 = 20: K = 106, R = 1.237, 50 loci; old k_c 0.0000, bisection k_c 0.2967 (λ* 1.84, V* 3.8475, n* 18.8); steady state without a move: V 5.8631, n 33.1, N 38.1 (variance of N = K: 10.0220)
+     (a) k = 0.00 × bisection k_c: alive at 20,000: V 5.8631, breeders 33.1, adults 38.1, lag 0.000
+     (a) k = 0.50 × bisection k_c: alive at 20,000: V 5.6208, breeders 31.1, adults 36.0, lag 0.528
+     (a) k = 0.90 × bisection k_c: alive at 20,000: V 4.7912, breeders 24.9, adults 29.1, lag 1.114
+     (a) k = 1.10 × bisection k_c: extinct at generation 165
+     (b) k = 0.0000 (0.0 × bisection k_c): alive at the start of the move  0/12, 2000 generations later  0/12; time of death (4000 = alive): median 320, range 175–1455; while alive in generations 100–1999: V_G 4.4835, breeders 40.4, adults 45.8
+     (b) k = 0.1483 (0.5 × bisection k_c): alive at the start of the move  0/12, 2000 generations later  0/12; time of death (4000 = alive): median 266, range 93–968; while alive in generations 100–1999: V_G 4.3926, breeders 34.9, adults 39.3
+     (b) k = 0.4450 (1.5 × bisection k_c): alive at the start of the move  0/12, 2000 generations later  0/12; time of death (4000 = alive): median 636, range 131–1857; while alive in generations 100–1999: V_G 4.3820, breeders 37.8, adults 42.6
+   published QT5000-3 Input-12144, R = 1.5: K = 1000, R = 1.500, 5000 loci; old k_c 0.0000, bisection k_c 0.0766 (λ* 0.24, V* 0.0714, n* 95.8); steady state without a move: V 0.1135, n 192.8, N 263.7 (variance of N = K: 0.2102)
+     (a) k = 0.00 × bisection k_c: alive at 20,000: V 0.1135, breeders 192.8, adults 263.7, lag 0.000
+     (a) k = 0.50 × bisection k_c: alive at 20,000: V 0.1083, breeders 178.0, adults 245.2, lag 0.055
+     (a) k = 0.90 × bisection k_c: alive at 20,000: V 0.0908, breeders 134.7, adults 189.3, lag 0.118
+     (a) k = 1.10 × bisection k_c: extinct at generation 122
+     (b) k = 0.0000 (0.0 × bisection k_c): alive at the start of the move 12/12, 2000 generations later 12/12; time of death (4000 = alive): median 4000, range 4000–4000; while alive in generations 100–1999: V_G 0.0636, breeders 431.2, adults 529.5
+     (b) k = 0.0383 (0.5 × bisection k_c): alive at the start of the move 12/12, 2000 generations later 12/12; time of death (4000 = alive): median 4000, range 4000–4000; while alive in generations 100–1999: V_G 0.0626, breeders 437.5, adults 535.4
+     (b) k = 0.1149 (1.5 × bisection k_c): alive at the start of the move 12/12, 2000 generations later  0/12; time of death (4000 = alive): median 2026, range 2018–2032; while alive in generations 100–1999: V_G 0.0630, breeders 433.3, adults 531.2
+
+wall time 0.4 min

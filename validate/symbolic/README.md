@@ -92,6 +92,14 @@ job. `common.jl` holds the shared helpers.
   terms, the two scaling invariances; spot checks of `xu_shen_critical_rate`,
   `xu_shen_equilibria`, `xu_shen_jacobian`, `xu_shen_stability`. Where a printed equation
   differs from the derivation the log records a note, with whether a result is affected.
+- `check_effective_size.jl` — the effective size of QTSim's life cycle (N adults, n breeders, N
+  offspring with two distinct parents; validate/effective_size.md): the two-moment recursion of
+  gene copies in different adults and in one adult, its mutation–drift balance E[V_G] = 2nV_m,
+  coalescence times 2n + 1 and 2n + 2, the decay rate 1/(2n + 1), the variance size, the
+  offspring-number formulas over all adults and over the breeders (both n), and what
+  `effective_size` computes instead, 2Nn²/(N(n − 1) + n²); haploid clones and fecundity selection;
+  spot checks of `effective_size` (both schemes) and of the moments lowering's own drift
+  (`hap_reproduce`, whose neutral fixed point is 2nV_m).
 
 Square roots are handled by reducing a polynomial in `r = √D` modulo `r² = D`. Large
 rational identities are checked by substituting a closed form into the equations it

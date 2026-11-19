@@ -210,7 +210,7 @@ function rare_units(p::Params)
 end
 
 """
-    house_of_gauss_G(p; nsurv = p.PopSize, drift = true)
+    house_of_gauss_G(p; nsurv = p.PopSize, drift = true, ne = :falconer)
 
 The multivariate "stochastic house of Gauss": the equilibrium G matrix of the rare-alleles
 closure for loci in linkage equilibrium with `s = A` = [`selection_variance_matrix`](@ref)`(p)`,
@@ -227,13 +227,13 @@ small mutations without drift the solution of `G A⁻¹ G = 2L·M`, the weak-mut
 [`gaussian_G_loci`](@ref) (`s = A` rather than `A + G`).
 [`rare_alleles_G`](@ref) is the same closure with LD and `s = A + G`.
 """
-function house_of_gauss_G(p::Params; nsurv::Real = p.PopSize, drift::Bool = true)
+function house_of_gauss_G(p::Params; nsurv::Real = p.PopSize, drift::Bool = true, ne::Symbol = :falconer)
     n = p.NoTraits
     nu, μu = rare_units(p)
     C = mutation_effect_covariance(p)
     A = selection_variance_matrix(p)
     Ainv = inv(A)
-    ng = drift ? p.Ploidy * effective_size(p.PopSize, nsurv) : Inf
+    ng = drift ? p.Ploidy * effective_size(p.PopSize, nsurv; scheme = ne) : Inf
     J = (rare_alleles_rate(C, Ainv) + (1 / ng) * I) ./ 2
     nu .* care_stabilising(J, Ainv, μu .* C)
 end
