@@ -121,3 +121,22 @@ showed 0.85–1 ms per generation at N = 1000 with these crossovers, which would
 plan at about 3 CPU-hours, the whole budget of stage 1. Replicates are therefore
 (i) 300, (ii) 60, (iii) 50; the doubling rule for cells with a standard error above 3% is
 unchanged and decides whether that is enough. Nothing else changes.
+
+## Amendment 2 (after 10 minutes of the grid run, stopped; no result looked at)
+
+The run started with the most expensive jobs, (iii) at N = 1000, W = 1 (16,000 generations
+with a pedigree), which took about 80 s each on the shared machine (32 finished): the
+plan would have cost about 4 CPU-hours. Stopped before any estimate was computed or any
+row read. Trimmed, by cost and information only:
+
+- (iii) coalescence at N = 1000 is run for W = 0.5, 0.25, 0.1 only (the cells where the
+  formulas differ most: current/n̄ = 1.33, 1.60, 1.82); N = 200 keeps all five W.
+- (ii) mutation–drift balance at N = 1000 is run for W = 0.75, 0.5, 0.25, 0.1 (not W = 1,
+  where the formulas agree).
+- (i) unchanged.
+
+The verdict rule is unchanged but counts 27 cell × measurement combinations instead of
+30. The 32 finished runs of the dropped cell (iii) N = 1000, W = 1 stay in the cache and
+are reported as a partial cell outside the verdict.
+(While checking the cache's header one row of that dropped cell was displayed: replicate 4,
+mean pair time 1779 generations. No other value was seen.)
