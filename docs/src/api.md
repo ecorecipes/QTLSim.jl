@@ -259,6 +259,34 @@ QTLSim.express_plasticity!
 QTLSim.select_norm!
 ```
 
+The continuous-time eco-evolutionary model of Xu and Shen (2026, bioRxiv preprint,
+doi:10.64898/2026.08.05.743160; not peer reviewed), re-implemented from its equations (the
+lag, the genetic variance and the population size as three coupled equations; a critical
+rate, their eq. 6, below which a viable equilibrium and extinction are both locally
+stable). A theory module beside the simulation: nothing else uses it. Their eq. 6 precedes
+[`drift_critical_rate`](@ref), which is a discrete-generation counterpart matched to
+QTSim's life cycle; `validate/xu_shen.md` compares the two and reproduces the preprint's
+figures:
+
+```@docs
+XuShen
+xu_shen_field
+xu_shen_vmax
+xu_shen_balance_variance
+xu_shen_critical_rate
+xu_shen_equilibria
+xu_shen_equilibrium
+xu_shen_jacobian
+xu_shen_stability
+xu_shen_trajectory
+QTLSim.XU_SHEN_NEXT
+xu_shen_persists
+xu_shen_boundary
+xu_shen_critical_size
+xu_shen_max_rate
+xu_shen_max_duration
+```
+
 Several traits with pleiotropy (Lande 1979, 1980; Schluter 1996):
 
 ```@docs
