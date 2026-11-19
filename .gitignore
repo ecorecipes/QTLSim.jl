@@ -28,3 +28,4 @@ validate/symbolic/Manifest-v*.toml
 /validate/two_stage_dev_raw/
 /validate/two_stage_raw/
 /validate/elasticity_raw/
+/validate/narrow_omega_raw/
