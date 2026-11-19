@@ -112,3 +112,12 @@ published-type inputs (fixed size and Beverton–Holt R = 5, 2, 1.5), for the pr
 against the published table, for `validate/critical_rate.jl`'s headline numbers recomputed
 from its caches, and for the emulator's half-survival rate on about 30 published inputs.
 If the current formula fits, nothing is changed and the earlier observation is explained.
+
+## Amendment 1 (before any run on the grid)
+
+A smoke test of the three run functions off the grid (N = 40, W = 0.5 and 1, one run each;
+and one timing run each of (ii) and (iii) at N = 1000, W = 0.1, results not looked at)
+showed 0.85–1 ms per generation at N = 1000 with these crossovers, which would put the
+plan at about 3 CPU-hours, the whole budget of stage 1. Replicates are therefore
+(i) 300, (ii) 60, (iii) 50; the doubling rule for cells with a standard error above 3% is
+unchanged and decides whether that is enough. Nothing else changes.
