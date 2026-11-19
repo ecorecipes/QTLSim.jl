@@ -65,7 +65,28 @@ parity-full: build/QTSimFast ../QTSim/build/QTSim variants
 bench: build/QTSimFast ../QTSim/build/QTSim
 	./bench.sh
 
+# The two programs' own routines on the instance of formal/ModelCheck.lean (see PROOFS.md).
+SHARED := GenLib.c PassOptionFile.c RandLib.c
+build/model_check_orig: formal/model_check.c $(wildcard ../QTSim/src/*.c) $(wildcard ../QTSim/src/*.h)
+	mkdir -p build
+	$(CC) $(CFLAGS) -w -ffp-contract=off -DMODEL_ORIG -I../QTSim/src $(GSL_CFLAGS) -o $@ formal/model_check.c $(addprefix ../QTSim/src/,$(SHARED)) $(GSL_LIBS) -lm
+
+build/model_check_fast: formal/model_check.c $(SRC) $(HDR)
+	mkdir -p build
+	$(CC) $(CFLAGS) -w -ffp-contract=off -pthread -DMODEL_FAST -DQTSIM_GSL_RNG -Isrc $(GSL_CFLAGS) -o $@ formal/model_check.c $(addprefix src/,$(SHARED)) src/FastRNG.c src/FastThreads.c $(GSL_LIBS) -lm
+
+model-check: build/model_check_orig build/model_check_fast
+	build/model_check_orig > build/model_check_orig.txt
+	build/model_check_fast > build/model_check_fast.txt
+	cmp build/model_check_orig.txt formal/model_check_expected.txt
+	cmp build/model_check_fast.txt formal/model_check_expected.txt
+	@echo "model check: the original's routines, QTSimFast's routines and the Lean model agree"
+
+# The hand-over package (dist/ beside the repository; see make_package.sh).
+package:
+	./make_package.sh
+
 clean:
 	rm -rf build
 
-.PHONY: all check demo parity parity-full bench variants clean
+.PHONY: all check demo model-check package parity parity-full bench variants clean

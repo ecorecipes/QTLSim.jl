@@ -113,18 +113,15 @@ longer than the branch costs).
 
 ### Speed
 
-**To be measured on a quiet machine**: `make bench` writes
-[`bench_results.md`](bench_results.md) (original C, QTSimFast at 1, 2, 4 and 8 threads,
-the Julia kernel on one thread; medians of three seeds on one published input per
-stratum, wall and CPU seconds). With `BENCH_ABLATION=1` it adds a table with one
-optimisation switched off at a time.
-
-| Optimisation switched off | 100 loci | 1000 loci | 5000 loci | Parity held |
-|---|---|---|---|---|
-| Genotypes one individual at a time (`QTSIM_LANES=1`) | to be measured | to be measured | to be measured | yes |
-| One block per chromosome (`QTSIM_BLOCK` = number of loci) | to be measured | to be measured | to be measured | yes |
-| GSL's generator through function pointers, no vector extensions (`build/QTSimFast-plain`) | to be measured | to be measured | to be measured | yes |
-| Blocks collected every 8 generations (`QTSIM_GC=8`) | to be measured | to be measured | to be measured | yes |
+[`bench_results.md`](bench_results.md) (quiet machine, Apple M3 Pro, 19 November 2026;
+medians of three seeds on one published input per stratum, 12,000 generations): on one
+thread QTSimFast is 2.4x (100 loci), 4.9x (500), 7.2x (1000) and 12x (5000) as fast as the
+original in wall time; with four threads 2.9x, 5.7x, 8 to 11x and 25x. The Julia kernel
+on one thread is 1.9x, 4.2x, 7x and 17x as fast as the original, so at 5000 loci it stays
+ahead of QTSimFast on one thread (it does not have to be bit-exact). `make bench` repeats
+the measurement; with `BENCH_ABLATION=1` it adds a table with one optimisation switched
+off at a time ([`REPORT.md`](REPORT.md), section 3, has one such table, taken on a shared
+machine and labelled indicative).
 
 ## How parity is kept
 
@@ -185,6 +182,26 @@ on the code as committed:
 An earlier version of the code passed the same matrix (6233 of 6233) before the cases
 with no loci, no individuals and no generations were added.
 
+## Report, proofs, package
+
+- [`REPORT.md`](REPORT.md): the technical report (each optimisation, why the output
+  cannot change, timings, what parity rules out, threads, self-checks, verification,
+  limits).
+- [`PROOFS.md`](PROOFS.md) and `formal/`: Lean 4 proofs, for a model of the two programs
+  in which floating-point addition is an arbitrary operation and the generator an
+  arbitrary state machine, that the algorithmic changes give the original's results
+  (`formal/QTSimFast.lean`, also in `lean/CategoricalQuantGen/` of the parent project);
+  checks that the theorems say what is claimed (`formal/QTSimFastShadows.lean`); the
+  rendered documents (`formal/*.pdf`, `*.html`, by `formal/render.sh`); and an executable
+  cross-check of the model against both programs' own routines (`make model-check`).
+- `./demo_parity.sh` (`make demo`): six example inputs from `examples/`, two seeds, 1 to
+  8 threads, with checksums, sizes and times, and a negative control; a transcript is
+  [`PARITY_DEMO.txt`](PARITY_DEMO.txt). [`PARITY_FULL.txt`](PARITY_FULL.txt) is the full
+  matrix's result.
+- `./make_package.sh` (`make package`) assembles a self-contained hand-over package
+  (original and fast sources, a Makefile that builds both without Julia, the scripts,
+  the reports and the proofs) from this directory, `package/` and `../QTSim`.
+
 ## Environment variables
 
 None changes the output. Invalid values are ignored with a note on standard error.
@@ -221,7 +238,8 @@ they sleep, so CPU time rises more than wall time falls.
 
 ## Limits and notes
 
-- The original stays the reference. QTSimFast is tested against it; nothing is proved.
+- The original stays the reference. QTSimFast is tested against it. The proofs in
+  `formal/` are about a model of the algorithms, not about the C source.
 - `PopSize` or `NoQTL` below 0 are refused with a message on standard error (the
   original fails on them in its own ways). `Sample 0` divides by zero in both programs
   (`Itter % Opt->Sample`), which C leaves undefined; it is not tested.
