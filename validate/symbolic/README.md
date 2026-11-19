@@ -97,7 +97,8 @@ job. `common.jl` holds the shared helpers.
   gene copies in different adults and in one adult, its mutation–drift balance E[V_G] = 2nV_m,
   coalescence times 2n + 1 and 2n + 2, the decay rate 1/(2n + 1), the variance size, the
   offspring-number formulas over all adults and over the breeders (both n), and what
-  `effective_size` computes instead, 2Nn²/(N(n − 1) + n²); haploid clones and fecundity selection;
+  `effective_size(…; scheme = :falconer)` computes instead, 2Nn²/(N(n − 1) + n²) (the default
+  scheme returns n); haploid clones and fecundity selection;
   spot checks of `effective_size` (both schemes) and of the moments lowering's own drift
   (`hap_reproduce`, whose neutral fixed point is 2nV_m).
 

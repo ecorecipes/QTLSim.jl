@@ -9,12 +9,13 @@
 #     point in λ, ∂ ln k/∂c = −s/λ²; so k_c(c)/k_c(0) = 1 − c/M + O(c²), M = λ*²/s; for the
 #     power law H = −εu (V_G ∝ n^ε, V_G ≪ V_s) exactly: λ* = √(s/ε), k_c(c) = k_c(0)e^{−εc};
 # (b) the elasticities: of the house-of-Gauss V_G in the number of genes ng = Ploidy·N_e,
-#     1/(ng(2c/V_s + b)); of effective_size(N, n) in n, 2N(n − 2)/(n²(V_k + 2)); of the
+#     1/(ng(2c/V_s + b)); of effective_size(N, n) in n: 1 for the default N_e = n (the
+#     breeders), 2N(n − 2)/(n²(V_k + 2)) for the earlier form 4N/(V_k + 2) (scheme = :falconer); of the
 #     Beverton–Holt breeders K(RW − 1)/(R − 1) in W, RW/(RW − 1); so M = 1/(κν) with
 #     κ = V_s/(V_G + V_s)·ε_V·ε_N and ν = 1 (fixed size) or RW/(RW − 1);
 # (c) numerically: drift_critical_rate's k against a brute-force maximum, its M against the
 #     finite-difference slope in the cost, the envelope (total = partial derivative in c) and
-#     M = 1/(κν) at the critical lag.
+#     M = 1/(κν) at the critical lag, with either effective size.
 
 include("common.jl")
 
@@ -62,24 +63,27 @@ function main()
     Vk = 2N * (n - 1) / n^2
     Ne = 4N / (Vk + 2)
     εN = Symbolics.expand_derivatives(Differential(n)(log(Ne))) * n
-    check("ε_N = d ln N_e/d ln n = 2N(n − 2)/(n²(V_k + 2))", iszero_sym(εN - 2N * (n - 2) / (n^2 * (Vk + 2))))
+    check("N_e = n (the default, the breeders): ε_N = d ln N_e/d ln n = 1, and N does not enter",
+          iszero_sym(Symbolics.expand_derivatives(Differential(n)(log(n))) * n - 1))
+    check("N_e = 4N/(V_k + 2) (scheme = :falconer): ε_N = 2N(n − 2)/(n²(V_k + 2))", iszero_sym(εN - 2N * (n - 2) / (n^2 * (Vk + 2))))
+    check("… which is below 1: 1 − ε_N = (2n² + 2N)/(n²(V_k + 2)) > 0, so that form falls more slowly with the breeders",
+          iszero_sym(1 - 2N * (n - 2) / (n^2 * (Vk + 2)) - (2n^2 + 2N) / (n^2 * (Vk + 2))))
     nbh = K * (R * W - 1) / (R - 1)
     ν = Symbolics.expand_derivatives(Differential(W)(log(nbh))) * W
     check("Beverton–Holt: d ln n/d ln W̄ = RW̄/(RW̄ − 1)", iszero_sym(ν - R * W / (R * W - 1)))
 
     # ===================================================================================
     say("\n(c) numerical checks against drift_critical_rate")
-    for trial in 1:6
-        p = randparams()
-        r = drift_critical_rate(p)
+    for p in [randparams() for trial in 1:6], ne in (:breeders, :falconer)
+        r = drift_critical_rate(p; ne)
         r.k > 0 || continue
         Vs = selection_variance(p)
-        rate(λ, cc) = (st = QTLSim._feedback_state(p, λ, cc); st.VG * λ / (st.VG + Vs))
+        rate(λ, cc) = (st = QTLSim._feedback_state(p, λ, cc; ne); st.VG * λ / (st.VG + Vs))
         brute = maximum(rate(l, 0.0) for l in range(0, 4r.λ, length = 20_001))
-        tag = @sprintf("%s L=%d N=%d", p.Demography, p.NoQTL, p.PopSize)
+        tag = @sprintf("%s L=%d N=%d %s", p.Demography, p.NoQTL, p.PopSize, ne)
         check("$tag: k_c is the maximum over λ (brute force, 2e-4)", isapprox(r.k, brute; rtol = 2e-4) && r.k >= brute * (1 - 1e-9))
         h = 1e-3
-        total = (log(drift_critical_rate(p; cost = h).k) - log(r.k)) / h
+        total = (log(drift_critical_rate(p; cost = h, ne).k) - log(r.k)) / h
         partial = (log(rate(r.λ, h)) - log(rate(r.λ, 0.0))) / h
         check(@sprintf("%s: envelope, d ln k_c/dc %.4f = ∂ ln k/∂c at λ* %.4f (1%%)", tag, total, partial),
               isapprox(total, partial; rtol = 0.01))
@@ -87,23 +91,27 @@ function main()
               isapprox(total, -1 / r.M; rtol = 0.05))
         # M = 1/(κν) from the elasticities at the critical point
         α2 = QTLSim.mutation_effect_variance(p)
-        ngv = p.Ploidy * effective_size(r.N, r.n)
+        ngv = p.Ploidy * effective_size(r.N, r.n; scheme = ne)
         bb = α2 / (2Vs) + 1 / ngv
         cgene = r.VG / (2p.NoQTL)
         εV = 1 / (ngv * (2cgene / Vs + bb))
         Vk0 = 2r.N * (r.n - 1) / r.n^2
-        εN0 = 2r.N * (r.n - 2) / (r.n^2 * (Vk0 + 2))
+        εN0 = ne === :breeders ? 1.0 : 2r.N * (r.n - 2) / (r.n^2 * (Vk0 + 2))
         R = p.GrowthRate
         ν0 = p.Demography === :fixed ? 1.0 : R * r.Wbar / (R * r.Wbar - 1)
-        # under Beverton–Holt N = n/W̄ also moves with W̄: d ln N_e/d ln W̄ = ε_N ν + (∂ ln N_e/∂ ln N)(ν − 1)
-        εNN = p.Demography === :fixed ? 0.0 : 2 / (Vk0 + 2)          # ∂ ln N_e/∂ ln N
+        # with the earlier form, under Beverton–Holt N = n/W̄ also moves with W̄: d ln N_e/d ln W̄ = ε_N ν + (∂ ln N_e/∂ ln N)(ν − 1);
+        # with N_e = n the adults do not enter
+        εNN = (p.Demography === :fixed || ne === :breeders) ? 0.0 : 2 / (Vk0 + 2)          # ∂ ln N_e/∂ ln N
         κν = Vs / (r.VG + Vs) * εV * (εN0 * ν0 + εNN * (ν0 - 1))
         check(@sprintf("%s: M = λ*²/s %.4f ≈ 1/(κν) %.4f (5%%)", tag, r.M, 1 / κν), isapprox(r.M, 1 / κν; rtol = 0.05))
     end
     p = Params(PopSize = 1000, Ploidy = 2, NoQTL = 100, RecombPoissonMean = 3.0, PhenotypeVar = 0.03, Heritability = 0.4, MutationScalar = 0.005,
                MutationRatePerGamete = 1e-4, InitFitnessSD = 4.0, MoveType = :continuous)
-    check("_house_of_gauss(p, 2N) = house_of_gauss_vg(p) (nsurv = N)",
-          isapprox(QTLSim._house_of_gauss(p, 2effective_size(1000, 1000)), house_of_gauss_vg(p); rtol = 1e-14))
+    check("_house_of_gauss(p, 2N) = house_of_gauss_vg(p) (nsurv = N: N_e = N)",
+          isapprox(QTLSim._house_of_gauss(p, 2 * 1000), house_of_gauss_vg(p); rtol = 1e-14))
+    check("the defaults are ne = :breeders and solver = :bisection",
+          drift_critical_rate(p) === drift_critical_rate(p; ne = :breeders, solver = :bisection) &&
+          drift_critical_rate(p).k < drift_critical_rate(p; ne = :falconer).k)
     check("a cost lowers the critical rate; plasticity without a cost divides it by 1 − b/B",
           drift_critical_rate(p; cost = 0.3).k < drift_critical_rate(p).k &&
           isapprox(drift_critical_rate(Params(p; Plasticity = 0.5)).k, 2drift_critical_rate(p).k; rtol = 1e-12))

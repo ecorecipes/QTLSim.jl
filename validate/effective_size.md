@@ -7,6 +7,21 @@ rule, committed before any kernel run; two amendments, both before any result),
 `validate/symbolic/check_effective_size.jl` (29 checks), cache `effective_size_runs.csv`.
 Nothing in the kernel changed, and no default: both findings are implemented as options.
 
+**Decision, 2026-11-19 (after this study; the text below is left as written).** Both
+recommendations were adopted: `effective_size(N, n)` now returns the breeders `n` by
+default (`scheme = :breeders`; `ne = :breeders` in `house_of_gauss_vg`, `house_of_gauss_G`,
+`house_of_cards_vg`, `drift_critical_rate`, `half_survival_rate`), and
+`drift_critical_rate` uses `solver = :bisection` by default. The earlier behaviours are
+the options `:falconer` and `:iteration`. Where the text below says "the default" or "the
+current formula" it means the Falconer-type form and the iteration, the defaults when it
+was written; this study's scripts now name them explicitly, so they still reproduce its
+logs. `validate/critical_rate.jl` was rerun on fresh seeds under the new defaults (its
+addendum and `critical_rate.log`; run 1 is `critical_rate_falconer.log`), and the Lean
+statements are in `CategoricalQuantGen/EffectiveSize.lean`. On the harmonic mean: the
+functions are called at a deterministic steady state with the expected breeders n̄, so
+`:breeders` uses n̄; for binomial survival n_h ≈ n̄ − (1 − n̄/N), less than one individual
+lower, and the correction is not applied (see `effective_size`'s docstring).
+
 ## 1a. `effective_size(N, n)` is not the effective size of QTSim's life cycle
 
 **What it computes.** `4N/(V_k + 2)` with `V_k = 2N(n − 1)/n²`, i.e. `2Nn²/(N(n − 1) + n²)`,

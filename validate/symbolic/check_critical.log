@@ -1,4 +1,4 @@
-QTLSim validate/symbolic/check_critical.jl (Symbolics 7.49.0)
+QTLSim validate/symbolic/check_critical.jl (Symbolics 7.48.0)
 
 (a) the envelope theorem and the linear-margin form
   ∂ ln k/∂λ = 0 ⇔ H′(u) = −s/λ²                                            ok
@@ -10,36 +10,63 @@ QTLSim validate/symbolic/check_critical.jl (Symbolics 7.49.0)
 (b) the elasticities
   implicit derivative: dc/db = −c/(2c/V_s + b)                             ok
   ε_V = d ln V_G/d ln ng = 1/(ng (2c/V_s + b))                             ok
-  ε_N = d ln N_e/d ln n = 2N(n − 2)/(n²(V_k + 2))                          ok
+  N_e = n (the default, the breeders): ε_N = d ln N_e/d ln n = 1, and N does not enter ok
+  N_e = 4N/(V_k + 2) (scheme = :falconer): ε_N = 2N(n − 2)/(n²(V_k + 2))   ok
+  … which is below 1: 1 − ε_N = (2n² + 2N)/(n²(V_k + 2)) > 0, so that form falls more slowly with the breeders ok
   Beverton–Holt: d ln n/d ln W̄ = RW̄/(RW̄ − 1)                               ok
 
 (c) numerical checks against drift_critical_rate
-  fixed L=50 N=2000: k_c is the maximum over λ (brute force, 2e-4)         ok
-  fixed L=50 N=2000: envelope, d ln k_c/dc -0.2739 = ∂ ln k/∂c at λ* -0.2740 (1%) ok
-  fixed L=50 N=2000: d ln k_c/dc -0.2739 ≈ −1/M -0.2739 (s varies with V_G: 5%) ok
-  fixed L=50 N=2000: M = λ*²/s 3.6510 ≈ 1/(κν) 3.6674 (5%)                 ok
-  beverton_holt L=500 N=500: k_c is the maximum over λ (brute force, 2e-4) ok
-  beverton_holt L=500 N=500: envelope, d ln k_c/dc -0.9703 = ∂ ln k/∂c at λ* -0.9705 (1%) ok
-  beverton_holt L=500 N=500: d ln k_c/dc -0.9703 ≈ −1/M -0.9699 (s varies with V_G: 5%) ok
-  beverton_holt L=500 N=500: M = λ*²/s 1.0310 ≈ 1/(κν) 1.0315 (5%)         ok
-  fixed L=1000 N=2000: k_c is the maximum over λ (brute force, 2e-4)       ok
-  fixed L=1000 N=2000: envelope, d ln k_c/dc -0.5014 = ∂ ln k/∂c at λ* -0.5015 (1%) ok
-  fixed L=1000 N=2000: d ln k_c/dc -0.5014 ≈ −1/M -0.5013 (s varies with V_G: 5%) ok
-  fixed L=1000 N=2000: M = λ*²/s 1.9947 ≈ 1/(κν) 2.0311 (5%)               ok
-  fixed L=1000 N=1000: k_c is the maximum over λ (brute force, 2e-4)       ok
-  fixed L=1000 N=1000: envelope, d ln k_c/dc -0.5236 = ∂ ln k/∂c at λ* -0.5237 (1%) ok
-  fixed L=1000 N=1000: d ln k_c/dc -0.5236 ≈ −1/M -0.5236 (s varies with V_G: 5%) ok
-  fixed L=1000 N=1000: M = λ*²/s 1.9100 ≈ 1/(κν) 1.9439 (5%)               ok
-  fixed L=500 N=2000: k_c is the maximum over λ (brute force, 2e-4)        ok
-  fixed L=500 N=2000: envelope, d ln k_c/dc -0.5731 = ∂ ln k/∂c at λ* -0.5732 (1%) ok
-  fixed L=500 N=2000: d ln k_c/dc -0.5731 ≈ −1/M -0.5730 (s varies with V_G: 5%) ok
-  fixed L=500 N=2000: M = λ*²/s 1.7451 ≈ 1/(κν) 1.7527 (5%)                ok
-  fixed L=100 N=500: k_c is the maximum over λ (brute force, 2e-4)         ok
-  fixed L=100 N=500: envelope, d ln k_c/dc -0.3900 = ∂ ln k/∂c at λ* -0.3900 (1%) ok
-  fixed L=100 N=500: d ln k_c/dc -0.3900 ≈ −1/M -0.3899 (s varies with V_G: 5%) ok
-  fixed L=100 N=500: M = λ*²/s 2.5648 ≈ 1/(κν) 2.5793 (5%)                 ok
-  _house_of_gauss(p, 2N) = house_of_gauss_vg(p) (nsurv = N)                ok
+  fixed L=50 N=2000 breeders: k_c is the maximum over λ (brute force, 2e-4) ok
+  fixed L=50 N=2000 breeders: envelope, d ln k_c/dc -0.3519 = ∂ ln k/∂c at λ* -0.3519 (1%) ok
+  fixed L=50 N=2000 breeders: d ln k_c/dc -0.3519 ≈ −1/M -0.3518 (s varies with V_G: 5%) ok
+  fixed L=50 N=2000 breeders: M = λ*²/s 2.8425 ≈ 1/(κν) 2.8533 (5%)        ok
+  fixed L=50 N=2000 falconer: k_c is the maximum over λ (brute force, 2e-4) ok
+  fixed L=50 N=2000 falconer: envelope, d ln k_c/dc -0.2739 = ∂ ln k/∂c at λ* -0.2740 (1%) ok
+  fixed L=50 N=2000 falconer: d ln k_c/dc -0.2739 ≈ −1/M -0.2739 (s varies with V_G: 5%) ok
+  fixed L=50 N=2000 falconer: M = λ*²/s 3.6510 ≈ 1/(κν) 3.6674 (5%)        ok
+  beverton_holt L=500 N=500 breeders: k_c is the maximum over λ (brute force, 2e-4) ok
+  beverton_holt L=500 N=500 breeders: envelope, d ln k_c/dc -1.2157 = ∂ ln k/∂c at λ* -1.2159 (1%) ok
+  beverton_holt L=500 N=500 breeders: d ln k_c/dc -1.2157 ≈ −1/M -1.2154 (s varies with V_G: 5%) ok
+  beverton_holt L=500 N=500 breeders: M = λ*²/s 0.8228 ≈ 1/(κν) 0.8203 (5%) ok
+  beverton_holt L=500 N=500 falconer: k_c is the maximum over λ (brute force, 2e-4) ok
+  beverton_holt L=500 N=500 falconer: envelope, d ln k_c/dc -0.9703 = ∂ ln k/∂c at λ* -0.9705 (1%) ok
+  beverton_holt L=500 N=500 falconer: d ln k_c/dc -0.9703 ≈ −1/M -0.9699 (s varies with V_G: 5%) ok
+  beverton_holt L=500 N=500 falconer: M = λ*²/s 1.0310 ≈ 1/(κν) 1.0315 (5%) ok
+  fixed L=1000 N=2000 breeders: k_c is the maximum over λ (brute force, 2e-4) ok
+  fixed L=1000 N=2000 breeders: envelope, d ln k_c/dc -0.7026 = ∂ ln k/∂c at λ* -0.7026 (1%) ok
+  fixed L=1000 N=2000 breeders: d ln k_c/dc -0.7026 ≈ −1/M -0.7025 (s varies with V_G: 5%) ok
+  fixed L=1000 N=2000 breeders: M = λ*²/s 1.4235 ≈ 1/(κν) 1.4379 (5%)      ok
+  fixed L=1000 N=2000 falconer: k_c is the maximum over λ (brute force, 2e-4) ok
+  fixed L=1000 N=2000 falconer: envelope, d ln k_c/dc -0.5014 = ∂ ln k/∂c at λ* -0.5015 (1%) ok
+  fixed L=1000 N=2000 falconer: d ln k_c/dc -0.5014 ≈ −1/M -0.5013 (s varies with V_G: 5%) ok
+  fixed L=1000 N=2000 falconer: M = λ*²/s 1.9947 ≈ 1/(κν) 2.0311 (5%)      ok
+  fixed L=1000 N=1000 breeders: k_c is the maximum over λ (brute force, 2e-4) ok
+  fixed L=1000 N=1000 breeders: envelope, d ln k_c/dc -0.7367 = ∂ ln k/∂c at λ* -0.7368 (1%) ok
+  fixed L=1000 N=1000 breeders: d ln k_c/dc -0.7367 ≈ −1/M -0.7366 (s varies with V_G: 5%) ok
+  fixed L=1000 N=1000 breeders: M = λ*²/s 1.3575 ≈ 1/(κν) 1.3698 (5%)      ok
+  fixed L=1000 N=1000 falconer: k_c is the maximum over λ (brute force, 2e-4) ok
+  fixed L=1000 N=1000 falconer: envelope, d ln k_c/dc -0.5236 = ∂ ln k/∂c at λ* -0.5237 (1%) ok
+  fixed L=1000 N=1000 falconer: d ln k_c/dc -0.5236 ≈ −1/M -0.5236 (s varies with V_G: 5%) ok
+  fixed L=1000 N=1000 falconer: M = λ*²/s 1.9100 ≈ 1/(κν) 1.9439 (5%)      ok
+  fixed L=500 N=2000 breeders: k_c is the maximum over λ (brute force, 2e-4) ok
+  fixed L=500 N=2000 breeders: envelope, d ln k_c/dc -0.8249 = ∂ ln k/∂c at λ* -0.8249 (1%) ok
+  fixed L=500 N=2000 breeders: d ln k_c/dc -0.8249 ≈ −1/M -0.8249 (s varies with V_G: 5%) ok
+  fixed L=500 N=2000 breeders: M = λ*²/s 1.2123 ≈ 1/(κν) 1.2144 (5%)       ok
+  fixed L=500 N=2000 falconer: k_c is the maximum over λ (brute force, 2e-4) ok
+  fixed L=500 N=2000 falconer: envelope, d ln k_c/dc -0.5731 = ∂ ln k/∂c at λ* -0.5732 (1%) ok
+  fixed L=500 N=2000 falconer: d ln k_c/dc -0.5731 ≈ −1/M -0.5730 (s varies with V_G: 5%) ok
+  fixed L=500 N=2000 falconer: M = λ*²/s 1.7451 ≈ 1/(κν) 1.7527 (5%)       ok
+  fixed L=100 N=500 breeders: k_c is the maximum over λ (brute force, 2e-4) ok
+  fixed L=100 N=500 breeders: envelope, d ln k_c/dc -0.5305 = ∂ ln k/∂c at λ* -0.5306 (1%) ok
+  fixed L=100 N=500 breeders: d ln k_c/dc -0.5305 ≈ −1/M -0.5305 (s varies with V_G: 5%) ok
+  fixed L=100 N=500 breeders: M = λ*²/s 1.8852 ≈ 1/(κν) 1.8929 (5%)        ok
+  fixed L=100 N=500 falconer: k_c is the maximum over λ (brute force, 2e-4) ok
+  fixed L=100 N=500 falconer: envelope, d ln k_c/dc -0.3900 = ∂ ln k/∂c at λ* -0.3900 (1%) ok
+  fixed L=100 N=500 falconer: d ln k_c/dc -0.3900 ≈ −1/M -0.3899 (s varies with V_G: 5%) ok
+  fixed L=100 N=500 falconer: M = λ*²/s 2.5648 ≈ 1/(κν) 2.5793 (5%)        ok
+  _house_of_gauss(p, 2N) = house_of_gauss_vg(p) (nsurv = N: N_e = N)       ok
+  the defaults are ne = :breeders and solver = :bisection                  ok
   a cost lowers the critical rate; plasticity without a cost divides it by 1 − b/B ok
 
-35 checks, 0 failed; 0 s
+62 checks, 0 failed; 0 s
 PASS

@@ -8,18 +8,45 @@
     @test round(gaussian_vg(p), digits = 4) == 0.0139           # vignette 02's Gaussian prediction
     V = gaussian_vg_exact(p)                                    # the fixed point of the Gaussian recursion
     @test V^2 ≈ muteVar(p) * (selection_variance(p) + V) && V > gaussian_vg(p)
-    @test effective_size(1000, 1000) ≈ 4000 / (2 * 999 / 1000 + 2) && effective_size(1000, 100) < 1000
-    # the scheme (validate/effective_size.md): the default is Falconer's formula with the survivors' V_k, about the harmonic
-    # mean of adults and survivors; :breeders is the survivors themselves, the effective size of QTSim's life cycle
-    @test effective_size(1000, 250; scheme = :falconer) === effective_size(1000, 250) === 4000 / (2000 * 249 / 250^2 + 2)
-    @test effective_size(1000, 250) ≈ 2 * 1000 * 250 / 1250 rtol = 0.01
-    @test effective_size(1000, 250; scheme = :breeders) == 250 && effective_size(1000, 250.5; scheme = :breeders) == 250.5
+    # the effective size (validate/effective_size.md; Lean EffectiveSize.lean): by default the breeders themselves, whatever the
+    # census; :falconer is the earlier form, 4N/(V_k + 2) with the survivors' V_k, about the harmonic mean of adults and survivors
+    @test effective_size(1000, 1000) == 1000 && effective_size(1000, 100) == 100 && effective_size(50, 100) == 100
+    @test effective_size(1000, 250) === effective_size(1000, 250; scheme = :breeders) === 250
+    @test effective_size(1000, 250.5) == 250.5
+    @test effective_size(1000, 250; scheme = :falconer) === 4000 / (2000 * 249 / 250^2 + 2)      # the old default, exactly
+    @test effective_size(1000, 1000; scheme = :falconer) ≈ 2 * 1000^2 / (2 * 1000 - 1)             # N + ½, not N, when all survive
+    @test effective_size(1000, 250; scheme = :falconer) ≈ 2 * 1000 * 250 / 1250 rtol = 0.01        # ≈ the harmonic mean of N and n
+    @test effective_size(1000, 250; scheme = :falconer) > 1.5 * 250                                # 1.6 times the breeders
     @test_throws ArgumentError effective_size(1000, 250; scheme = :census)
-    @test house_of_cards_vg(p; nsurv = 250) === house_of_cards_vg(p; nsurv = 250, ne = :falconer) > house_of_cards_vg(p; nsurv = 250, ne = :breeders)
-    @test house_of_gauss_vg(p; nsurv = 250) === house_of_gauss_vg(p; nsurv = 250, ne = :falconer) > house_of_gauss_vg(p; nsurv = 250, ne = :breeders)
+    # the neutral two-stage recursion of the life cycle, x′ = (1 − 1/n)x + y/(2n) + u, y′ = x + u (x: two copies in different
+    # adults, y: the two copies of one adult): identity by descent rises by 1/(2n) per generation whatever N, the mutation–drift
+    # fixed point is x = (2n + 1)u, y = (2n + 2)u, and without mutation it decays by the eigenvalue 1 − 1/(2n + 1) + O(1/n³)
+    let n = 250.0, step = (x, y, u) -> ((1 - 1 / n) * x + y / (2n) + u, x + u)
+        x, y = (2n + 1) * 1.0, (2n + 2) * 1.0
+        @test all(isapprox.(step(x, y, 1.0), (x, y); rtol = 1e-14))                               # the fixed point
+        λ = ((1 - 1 / n) + sqrt((1 - 1 / n)^2 + 2 / n)) / 2                                        # root of λ² − (1 − 1/n)λ − 1/(2n)
+        @test abs((1 - λ) - 1 / (2n + 1)) < 1 / n^3 && 1 - 1 / (2n + 1) < λ < 1 - 1 / (2n + 2)
+        a, b = 1.0, 1.0
+        for _ in 1:2000; a, b = step(a, b, 0.0); end
+        a2, _ = step(a, b, 0.0)
+        @test a2 / a ≈ λ rtol = 1e-12
+    end
+    # old values exactly under ne = :falconer; fewer genes, less variance, with the breeders
+    Ne_old = 4000 / (2000 * 249 / 250^2 + 2)
+    let n = p.NoQTL, μ = p.MutationRatePerGamete, Vs = selection_variance(p), α2 = muteVar(p) / (2 * p.NoQTL * p.MutationRatePerGamete)
+        hoc(Ne) = 4n * μ * Vs / (1 + Vs / (Ne * α2))                                               # Bürger's stochastic house of cards
+        hog(Ne) = (b = α2 / (2Vs) + 1 / (2Ne); 2n * 2μ * α2 / (b + sqrt(b^2 + 4μ * α2 / Vs)))      # Hermisson and Wagner's A4
+        @test house_of_cards_vg(p; nsurv = 250, ne = :falconer) ≈ hoc(Ne_old) rtol = 1e-14
+        @test house_of_cards_vg(p; nsurv = 250) === house_of_cards_vg(p; nsurv = 250, ne = :breeders) ≈ hoc(250)
+        @test house_of_gauss_vg(p; nsurv = 250, ne = :falconer) ≈ hog(Ne_old) rtol = 1e-14
+        @test house_of_gauss_vg(p; nsurv = 250) === house_of_gauss_vg(p; nsurv = 250, ne = :breeders) ≈ hog(250)
+        @test house_of_gauss_vg(p; nsurv = 250) < house_of_gauss_vg(p; nsurv = 250, ne = :falconer)
+        @test house_of_gauss_vg(p) ≈ hog(1000) rtol = 1e-14                                        # all breed: N, not N + ½
+        @test QTLSim.burnin_start_vg(p) === house_of_gauss_vg(p; ne = :falconer) ≈ hog(2 * 1000^2 / 1999)   # the emulators' start, kept
+    end
     let q = Params(p; InitFitnessSD = 1e5)                      # neutral: Lynch and Hill's 2 N_e V_m with N_e = the breeders
-        @test house_of_gauss_vg(q; nsurv = 250, ne = :breeders) ≈ 2 * 250 * muteVar(q) rtol = 1e-3
-        @test house_of_gauss_vg(q; nsurv = 250) ≈ 2 * effective_size(1000, 250) * muteVar(q) rtol = 1e-3
+        @test house_of_gauss_vg(q; nsurv = 250) ≈ 2 * 250 * muteVar(q) rtol = 1e-3
+        @test house_of_gauss_vg(q; nsurv = 250, ne = :falconer) ≈ 2 * Ne_old * muteVar(q) rtol = 1e-3
         # the moments lowering's drift is that of the n parents: its neutral fixed point is 2 n V_m, not 2·effective_size·V_m
         st = QTLSim.hap_init(0.0, 1000.0, 2, 1)
         for _ in 1:20_000

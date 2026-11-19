@@ -21,6 +21,9 @@
 # emulator_variance_meanonly.csv, emulator_variance_kernel.csv (E6 kernel runs),
 # emulator_variance_e6.csv (emulator on the E6 inputs), emulator_variance_spectrum.csv.
 
+# 2026-11-19: `ne = :falconer`, `solver = :iteration` and `QTLSim.burnin_start_vg` below keep the effective size, the solver and
+# the starting variance this script was run with (the package's defaults are now `:breeders` and `:bisection`; NEWS.md), so that
+# it still reproduces its log.
 using QTLSim, Statistics, Random, Printf, LinearAlgebra
 using Distributions: Binomial, logpdf
 import Catlab
@@ -343,7 +346,7 @@ function main()
         length(k) >= 10 || continue
         p = ps[i]
         q = Params(p; Sample = 1, NoGenerations = BURNIN + HORIZON, MoveFitnessSDGen = BURNIN)
-        mr = QTLSim.moments_replicates(q; replicates = 400, rng = Xoshiro(j), from = BURNIN, VG = house_of_gauss_vg(p),
+        mr = QTLSim.moments_replicates(q; replicates = 400, rng = Xoshiro(j), from = BURNIN, VG = QTLSim.burnin_start_vg(p),
                                        loci = :rare_alleles, vg = QTLSim.vg_fluctuation(q))
         live = [x for x in mr.replicates if !isempty(x.pheno_mean)]
         ze = var([x.pheno_mean[1] for x in live]) + QTLSim.envVar(p) / p.PopSize      # the mean of N phenotypes

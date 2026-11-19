@@ -12,6 +12,9 @@
 #
 # Writes validate/bistability.log and validate/bistability_figs/*.png.
 
+# 2026-11-19: `ne = :falconer`, `solver = :iteration` and `QTLSim.burnin_start_vg` below keep the effective size, the solver and
+# the starting variance this script was run with (the package's defaults are now `:breeders` and `:bisection`; NEWS.md), so that
+# it still reproduces its log.
 using QTLSim, Statistics, Random, Printf, LinearAlgebra
 
 const HERE = @__DIR__
@@ -55,7 +58,7 @@ function cellinfo(a, K, R)
     p = arm(a, K, R)
     d = drift_critical_rate(p; ne = :breeders, solver = :bisection)
     st = QTLSim._feedback_state(p, 0.0, 0.0; ne = :breeders, solver = :bisection)
-    (; p, kc = d.k, λc = d.λ, Veq = st.VG, Neq = st.N, kcf = drift_critical_rate(p).k)
+    (; p, kc = d.k, λc = d.λ, Veq = st.VG, Neq = st.N, kcf = drift_critical_rate(p; ne = :falconer, solver = :iteration).k)
 end
 cellname(a, K, R) = @sprintf("%s-K%d-R%g", a, K, R)
 

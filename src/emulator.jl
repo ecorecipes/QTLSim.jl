@@ -6,7 +6,7 @@
 
 """
     emulate(p::Params; loci = :rare_alleles, burnin = 2000, horizon = 2000, tail = 240_000,
-            VG = house_of_gauss_vg(p))
+            VG = QTLSim.burnin_start_vg(p))
 
 Emulate a run of the published sweep's protocol (`MoveType = :continuous`, the optimum
 moving `MoveFitnessSD` per generation) without simulating it. The moments lowering
@@ -101,7 +101,7 @@ the two is required, and the result is a function of it. Validation:
 `validate/emulator_variance_criteria.md`, `validate/emulator_variance.log`.
 """
 function emulate(p::Params; loci::Symbol = :rare_alleles, burnin::Integer = 2000, horizon::Integer = 2000,
-                 tail::Integer = 240_000, VG::Real = house_of_gauss_vg(p), replicates::Integer = 0, vgnoise::Bool = true,
+                 tail::Integer = 240_000, VG::Real = burnin_start_vg(p), replicates::Integer = 0, vgnoise::Bool = true,
                  rng::Union{Nothing,AbstractRNG} = nothing, seed::Union{Nothing,Integer} = nothing, spectrum = (;),
                  blocks::Union{Nothing,Integer} = nothing, partition::Symbol = :map, within::Union{Nothing,Symbol} = nothing,
                  band::Real = TWO_STAGE_BAND, screen = TWO_STAGE_SCREEN)
@@ -246,7 +246,7 @@ function emulated_half_survival_rate(p::Params; loci::Symbol = :rare_alleles, bu
     loci === :two_stage && return two_stage_half_survival_rate(p; band, screen, blocks = something(blocks, 160), replicates, seed,
                                                                burnin, horizon, partition, within = something(within, :gaussian))
     kc = NaN
-    VG = house_of_gauss_vg(p)
+    VG = burnin_start_vg(p)
     evals = 0
     nfall = 0
     beta = loci === :spectrum && get(spectrum, :solver, :grid) === :beta

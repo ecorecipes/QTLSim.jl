@@ -1,4 +1,4 @@
-QTLSim validate/symbolic/check_init.jl (Symbolics 7.49.0)
+QTLSim validate/symbolic/check_init.jl (Symbolics 7.48.0)
 
 (a) the sampled density is stationary for the code's drift and selection
   probability flux Mφ − (Dφ)′ of φ = e^{−γx(1−x)}I(x)/(x(1−x)) is the constant 1/(4n) ok
@@ -38,10 +38,10 @@ QTLSim validate/symbolic/check_init.jl (Symbolics 7.49.0)
   the acceptance ratio φ/φ_neutral is at most 1 (brute force, 56 points)   ok
   … and on a 141 × 301 grid of the code's own ratio before clamping would be ≤ 1 (max is 1 at γ → 0) ok
   sojourn_ratio → 1 as γ → 0, and its x → 1 limit is continuous            ok
-    Gaussian (μ = 0.01, L = 100)                 V 6.41872  rhs/V − 1 -9.7e-15  spectrum_vg/V 1.0005  house_of_gauss/V 0.760  sites 27138.3
+    Gaussian (μ = 0.01, L = 100)                 V 6.41872  rhs/V − 1 -9.7e-15  spectrum_vg/V 1.0005  house_of_gauss/V 0.751  sites 27138.3
     house of cards (μ = 2.5e-5, L = 100)         V 0.478776  rhs/V − 1 +7.1e-14  spectrum_vg/V 1.1584  house_of_gauss/V 0.999  sites 50.9
-    paper-like (4Nμ = 0.4, L = 1000, ω = 5.13)   V 0.140199  rhs/V − 1 +5.8e-15  spectrum_vg/V 1.0000  house_of_gauss/V 1.000  sites 3244.8
-    small (N = 200, L = 20)                      V 1.23891  rhs/V − 1 -4.4e-15  spectrum_vg/V 1.0032  house_of_gauss/V 0.932  sites 93.9
+    paper-like (4Nμ = 0.4, L = 1000, ω = 5.13)   V 0.140199  rhs/V − 1 +5.8e-15  spectrum_vg/V 1.0000  house_of_gauss/V 0.996  sites 3244.8
+    small (N = 200, L = 20)                      V 1.23891  rhs/V − 1 -4.4e-15  spectrum_vg/V 1.0032  house_of_gauss/V 0.927  sites 93.9
   stationary_spectrum(p).VG solves V = 4nLμE[a²J(γ)] (brute-force quadrature, rel. 1e-6), 4 cells ok
   its n = N·c₀√(ω²/S) and S = ω² + V + V_E are those of the code's selection ok
   spectrum_vg(p) (the same model on a frequency grid, implicit Euler) within 1% of it: Gaussian, paper-like, small ok
@@ -60,5 +60,5 @@ QTLSim validate/symbolic/check_init.jl (Symbolics 7.49.0)
   sampler: the mean genotype is N(0, S/(n(2−b))) (mean within 4 SE of 0, variance within 10%) ok
   sampler: target = 2V doubles the genic variance (within 4 SE), mean = 0.3 sets the mean genotype ok
 
-40 checks, 0 failed; 24 s
+40 checks, 0 failed; 25 s
 PASS

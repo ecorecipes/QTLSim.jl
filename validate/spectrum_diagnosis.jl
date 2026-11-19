@@ -20,6 +20,9 @@
 # Serialization file per run, so a run is resumable); the per-input summaries that the
 # analysis prints are in the log.
 
+# 2026-11-19: `ne = :falconer`, `solver = :iteration` and `QTLSim.burnin_start_vg` below keep the effective size, the solver and
+# the starting variance this script was run with (the package's defaults are now `:breeders` and `:bisection`; NEWS.md), so that
+# it still reproduces its log.
 using QTLSim, Statistics, Random, Printf, Serialization
 import Catlab
 
@@ -226,7 +229,7 @@ end
 # the emulator's trajectory (as `emulate` runs it), and the Gaussian lag recursion for the
 # substitutions
 
-function spectrum_traj(p; spectrum = (;), VG = house_of_gauss_vg(p), burnin = BURNIN)
+function spectrum_traj(p; spectrum = (;), VG = QTLSim.burnin_start_vg(p), burnin = BURNIN)
     q = Params(p; Sample = 1, NoGenerations = burnin + HORIZON, MoveFitnessSDGen = burnin)
     m = run_moments(q; VG, erosion = true, loci = :spectrum, spectrum)
     t = m.gen .- burnin
@@ -538,7 +541,7 @@ function proto_P2000(p; kw = (;))
 end
 
 function proto_k50(p; kw = (;), lo = nothing, hi = nothing)
-    kc = drift_critical_rate(p).k
+    kc = drift_critical_rate(p; ne = :falconer, solver = :iteration).k
     lo = something(lo, kc / 64); hi = something(hi, 8kc)
     P(k) = proto_P2000(Params(p; MoveFitnessSD = k); kw)
     P(hi) >= 0.5 && return Inf
@@ -642,7 +645,7 @@ function fresh_inputs()
             el = [i for i in eachindex(ids) if strat[i] == s && !(ids[i] in used)]
             got = 0
             for i in el[randperm(rng, length(el))]
-                kc = drift_critical_rate(ps[i]).k
+                kc = drift_critical_rate(ps[i]; ne = :falconer, solver = :iteration).k
                 (kc > 0 && 0.3 <= ps[i].MoveFitnessSD / kc <= 3.0) || continue
                 push!(pick, i); got += 1
                 got == NFRESH && break

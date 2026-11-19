@@ -30,6 +30,9 @@
 # SET: D (linked_decay's development inputs and seeds), F (its confirmation inputs and seeds),
 # G (new confirmation set, `g_rows`, fresh seeds). Raw records: validate/linked_source_raw/ (git-ignored).
 
+# 2026-11-19: `ne = :falconer`, `solver = :iteration` and `QTLSim.burnin_start_vg` below keep the effective size, the solver and
+# the starting variance this script was run with (the package's defaults are now `:breeders` and `:bisection`; NEWS.md), so that
+# it still reproduces its log.
 using LinearAlgebra
 include(joinpath(@__DIR__, "linked_decay.jl"))
 include(joinpath(@__DIR__, "linked_source_theory.jl"))
@@ -55,7 +58,7 @@ function g_candidates()
     out = NamedTuple[]
     for r in rows
         p = readp(r.id)
-        vg = house_of_gauss_vg(p); kc = drift_critical_rate(p).k
+        vg = house_of_gauss_vg(p; ne = :falconer); kc = drift_critical_rate(p; ne = :falconer, solver = :iteration).k
         idx = p.MoveFitnessSD^2 / vg; ratio = p.MoveFitnessSD / kc
         push!(out, (r..., idx = idx, ratio = ratio, pass = idx >= 0.01 && ratio <= 1.4))
     end

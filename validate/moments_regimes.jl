@@ -90,6 +90,9 @@
 # extinction against 41 predicted; the Gaussian predicts 210), P1–P3 (paper: median
 # table/rare 0.991, gauss 0.966). The model was not changed after the run.
 
+# 2026-11-19: `ne = :falconer`, `solver = :iteration` and `QTLSim.burnin_start_vg` below keep the effective size, the solver and
+# the starting variance this script was run with (the package's defaults are now `:breeders` and `:bisection`; NEWS.md), so that
+# it still reproduces its log.
 using QTLSim, Statistics, Printf, Random
 import Catlab, XLSX
 
@@ -154,7 +157,7 @@ for (i, (N, th, L, Vs)) in enumerate(cells)
     gauss, rare = gaussian_vg_loci(p; drift = true), rare_alleles_vg(p; drift = true)
     mo = run_moments(Params(p; NoGenerations = MGEN, Sample = 1000); loci = :rare_alleles, erosion = true).geno_var[end]
     push!(rows, (; N, th, L, Vs, μ = p.MutationRatePerGamete, α2, x = α2 / (2Vs), vk = mean(vk), sk = se(vk), gauss, rare, mo,
-                 shc = house_of_cards_vg(p; nsurv = ns), hog = house_of_gauss_vg(p; nsurv = ns), t))
+                 shc = house_of_cards_vg(p; nsurv = ns, ne = :falconer), hog = house_of_gauss_vg(p; nsurv = ns, ne = :falconer), t))
     @printf("cell %2d/%d  N = %4d  4Nμ = %-5g L = %4d  V_s = %4.1f  %6.1f s  (%.0f s so far)\n", i, length(cells), N, th, L, Vs, t, time() - t0)
 end
 say(@sprintf("%d cells in %.0f s", length(cells), time() - t0))
@@ -279,7 +282,7 @@ if isdir(SIMDIR) && isfile(MASTER)
             pred(loci) = (o = run_moments(Params(q; Sample = 9_999); loci, erosion = true); o.geno_var[findfirst(==(9_999), o.gen)])
             α2 = QTLSim.mutation_effect_variance(q)
             push!(prow, (; dir, file = f, L, u, q, obs = tab.gv[r], rare = pred(:rare_alleles), gauss = pred(:multilocus),
-                         rare_eq = rare_alleles_vg(q; drift = true), shc = house_of_cards_vg(q), hog = house_of_gauss_vg(q),
+                         rare_eq = rare_alleles_vg(q; drift = true), shc = house_of_cards_vg(q; ne = :falconer), hog = house_of_gauss_vg(q; ne = :falconer),
                          th = 4 * q.PopSize * q.MutationRatePerGamete, x = α2 / (2selection_variance(q)),
                          se = q.PopSize * α2 / selection_variance(q)))
         end

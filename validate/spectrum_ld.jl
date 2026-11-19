@@ -21,6 +21,9 @@
 ENV["RAWDIR"] = get(ENV, "RAWDIR", normpath(joinpath(@__DIR__, "..", "..", "wt-spectrum-diagnosis", "validate",
                                                      "spectrum_diagnosis_raw")))
 include(joinpath(@__DIR__, "spectrum_diagnosis.jl"))      # e6p_module, readp, load_runs, genic_stats, spectrum_traj, ld_ratio, …
+# 2026-11-19: `ne = :falconer`, `solver = :iteration` and `QTLSim.burnin_start_vg` below keep the effective size, the solver and
+# the starting variance this script was run with (the package's defaults are now `:breeders` and `:bisection`; NEWS.md), so that
+# it still reproduces its log.
 using Distributions: Binomial, logpdf
 
 const M6 = e6p_module()                                   # validate/emulator_spectrum.jl's functions
@@ -76,7 +79,7 @@ function h_inputs(ids, ps, strat, ex)
         el = [i for i in eachindex(ids) if strat[i] == s && !(ids[i] in ex)]
         got = 0
         for i in el[randperm(rng, length(el))]
-            kc = drift_critical_rate(ps[i]).k
+            kc = drift_critical_rate(ps[i]; ne = :falconer, solver = :iteration).k
             (kc > 0 && 0.3 <= ps[i].MoveFitnessSD / kc <= 3.0) || continue
             push!(pool, i); got += 1
             got == NPOOL2 && break

@@ -48,35 +48,54 @@ function gaussian_vg_exact(p::Params)
 end
 
 """
-    effective_size(N, nsurv; scheme = :falconer)
+    effective_size(N, nsurv; scheme = :breeders)
 
-Falconer's effective size `N_e = 4N/(V_k + 2)` when `nsurv` of the `N` individuals
-survive and each of the next generation's `2N` gametes comes from a survivor chosen at
-random: the number a survivor contributes is binomial, with variance
-`V_k = 2N (nsurv − 1)/nsurv²`. With every individual surviving, `N_e ≈ N`.
+The effective size of a population in which `nsurv` of the `N` adults survive to breed and
+each of the `N` offspring has two distinct parents drawn at random from the survivors
+(QTSim's `NewPop`; the kernel's `select!` and `reproduce!`).
 
-That is the default (`scheme = :falconer`), `2N n²/(N(n − 1) + n²)`, close to the harmonic
-mean `2Nn/(N + n)` of the adults and the survivors. It puts the variance of the survivors'
-gamete number, whose mean is `2N/n`, into the formula for a mean of 2, and is **not** the
-effective size of QTSim's life cycle unless everyone survives: for `n` survivors of `N`
-adults and `N` offspring with two distinct parents drawn from the survivors, the
-inbreeding (coalescence), variance and mutation–drift sizes are all `n` (the eigenvalue
-size `n + ½`), whatever `N`; in the kernel `n` is the harmonic mean of the survivors over
-generations (`validate/effective_size.md`: derivation, and neutral kernel runs in which
-the default is 1.3 to 2 times the measured size when a half to a tenth survive;
-`validate/symbolic/check_effective_size.jl`). `scheme = :breeders` returns `nsurv`. The
-default is kept so that existing numbers do not move; the moments lowering does not use
-this function (its drift is that of the `n` parents directly).
+By default (`scheme = :breeders`) it is `nsurv`, the number of breeding individuals,
+whatever `N`. With `x` a moment of two gene copies in different adults and `y` of the two
+copies of one adult, one neutral generation is `x′ = (1 − 1/n)x + y/(2n) + u`, `y′ = x + u`
+(two copies in different offspring share a parent with probability `1/n` and then a copy
+with probability ½; the two copies of one offspring come from different parents), so the
+probability of identity rises by `1/(2n)` per generation (inbreeding size `n`), the
+mutation–drift balance is `E[V_G] = 2nV_m` exactly, `Var(Δp)` is that of `n` and the
+variance decays by `1 − 1/(2n + 1)` per generation without mutation (eigenvalue size
+`n + ½`); Lean `CategoricalQuantGen/EffectiveSize.lean`, symbolic checks
+`validate/symbolic/check_effective_size.jl`. Neutral kernel runs agree (decay of variance,
+mutation–drift balance and pair coalescence times with a tenth to all of 200 and 1000
+adults surviving: 27 of 27 cells within 5% or two standard errors;
+`validate/effective_size.md`).
+
+When the number of breeders varies between generations the size is their harmonic mean
+`n_h`, and that is what the kernel runs fit. A caller who knows it should pass it as
+`nsurv`. The callers in this package know only the expected number `n̄` at a deterministic
+steady state and pass that; for binomial survival of `N` adults
+`n_h ≈ n̄ − (1 − n̄/N)`, less than one individual below `n̄` (0–5% in the kernel runs, 5%
+with 20 breeders, where `n̄` itself failed one of 27 cells by the pre-set rule), and the
+correction is not applied, because the spread of the breeders depends on the demography
+(under Beverton–Holt the adults vary too).
+
+`scheme = :falconer` is the form this function had before, `4N/(V_k + 2)` with
+`V_k = 2N(nsurv − 1)/nsurv²` the variance of the number of gametes a survivor contributes:
+`2N n²/(N(n − 1) + n²)`, close to the harmonic mean `2Nn/(N + n)` of the adults and the
+survivors. It puts a variance whose mean is `2N/n` into the formula that holds for a mean
+of 2, so it overstates the effective size when fewer breed than the census (1.1 to 2 times
+the size measured in the kernel with three quarters to a tenth surviving) and agrees with
+`nsurv` only at `nsurv = N` (where it is `2N²/(2N − 1) ≈ N + ½`). It is kept as an option
+to reproduce earlier numbers, and is not the default for that reason. The moments lowering
+does not use this function (its drift is that of the `n` parents directly).
 """
-function effective_size(N::Real, nsurv::Real; scheme::Symbol = :falconer)
+function effective_size(N::Real, nsurv::Real; scheme::Symbol = :breeders)
     scheme === :breeders && return nsurv
-    scheme === :falconer || throw(ArgumentError("scheme must be :falconer or :breeders, got :$scheme"))
+    scheme === :falconer || throw(ArgumentError("scheme must be :breeders or :falconer, got :$scheme"))
     Vk = 2N * (nsurv - 1) / nsurv^2
     4N / (Vk + 2)
 end
 
 """
-    house_of_cards_vg(p; nsurv = p.PopSize, ne = :falconer)
+    house_of_cards_vg(p; nsurv = p.PopSize, ne = :breeders)
 
 Bürger's stochastic house-of-cards approximation to the equilibrium genetic variance,
 `4nμ V_s / (1 + V_s/(N_e α²))`, with `n` loci, mutation rate `μ` per locus per gamete,
@@ -85,9 +104,10 @@ Bürger's stochastic house-of-cards approximation to the equilibrium genetic var
 Supplementary Figure S1). Unlike [`gaussian_vg`](@ref), it grows with the number of loci, as
 [`gaussian_vg_loci`](@ref) does; it is the better prediction when mutations are rare and
 large (`α²` above a locus's share of the variance), where the Gaussian one fails.
-`ne` is [`effective_size`](@ref)'s `scheme`.
+`ne` is [`effective_size`](@ref)'s `scheme` (by default the survivors themselves; `:falconer` is the
+earlier form, which overstates `N_e` when `nsurv < PopSize`).
 """
-function house_of_cards_vg(p::Params; nsurv::Real = p.PopSize, ne::Symbol = :falconer)
+function house_of_cards_vg(p::Params; nsurv::Real = p.PopSize, ne::Symbol = :breeders)
     n, μ = p.NoQTL, p.MutationRatePerGamete
     Vs = selection_variance(p)
     α2 = muteVar(p) / (2n * μ)

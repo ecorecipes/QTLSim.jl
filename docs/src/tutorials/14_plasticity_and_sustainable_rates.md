@@ -415,13 +415,16 @@ QTSim’s life cycle. To first order a constant log cost `c` lowers either
 kind of critical rate by a fraction `c/M`, `M` being twice the lag load
 at the critical lag; for `sustainable_rate` the square root expands to
 `1 − c/(2 ln(W̄₀/W_min))`, the same linear form. The difference is the
-scale: drift makes the critical lag, and so `M`, 2.5–7 times smaller in
+scale: drift makes the critical lag, and so `M`, 2.7–10 times smaller in
 the cells tested, so the same cost removes several times more of the
 rate. In a later pre-specified test (`validate/critical_rate.jl`, fresh
 seeds, observed cost ratios down to 0.25) a ratio linear in the cost
 fitted the kernel’s `k50(c)/k50(0)` better than a square root in 8 of 8
-groups, `drift_critical_rate`’s ratio was within 0.054 in 24 of 24
-cells, and `sustainable_rate`’s was within tolerance in 0 of 24.
+groups and `sustainable_rate`’s ratio was within tolerance in 0 of 24
+cells. `drift_critical_rate`’s ratio was within 0.06 in 13 of 24 cells
+and below the kernel’s in all 24 (by up to 0.135): it gives the
+direction and the shape of the cost’s effect and overstates its size,
+with a scale `M` 19–75% below the one fitted to the kernel.
 
 ## The cost trade-off
 

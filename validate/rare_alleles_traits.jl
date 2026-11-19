@@ -66,6 +66,9 @@
 # verdicts, the same failures (D1 G11, G22, D-B) and nothing else.
 # Decision: haploids supported; several traits NOT supported by the rule (D1).
 
+# 2026-11-19: `ne = :falconer`, `solver = :iteration` and `QTLSim.burnin_start_vg` below keep the effective size, the solver and
+# the starting variance this script was run with (the package's defaults are now `:breeders` and `:bisection`; NEWS.md), so that
+# it still reproduces its log.
 using QTLSim, Random, Statistics, Printf, LinearAlgebra
 import Catlab
 using Catlab: ⋅, ⊗
@@ -199,7 +202,7 @@ function main()
         f && fail!("H-A L=$L μ=$μ"); fB && fail!("H-B L=$L μ=$μ"); fC && fail!("H-C L=$L μ=$μ")
         say(@sprintf("  H L=%3d μ=%-6g kernel %.4g ± %.2g  RA %.4g (%+.1f%%) %s  ML %.4g (%+.1f%%)  HoG %.4g   H-B %s%s",
                      L, μ, K, se, RA, 100(RA - K) / K, f ? "FAIL" : "ok", ML, 100(ML - K) / K,
-                     house_of_gauss_vg(p), fB ? "FAIL" : "ok", θ4 <= 0.4 ? "  H-C " * (fC ? "FAIL" : "ok") : ""))
+                     house_of_gauss_vg(p; ne = :falconer), fB ? "FAIL" : "ok", θ4 <= 0.4 ? "  H-C " * (fC ? "FAIL" : "ok") : ""))
         push!(summary, ("H L=$L μ=$μ", θ4, eRA, eML))
     end
 

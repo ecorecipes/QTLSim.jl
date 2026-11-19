@@ -1,0 +1,37 @@
+POST HOC (not pre-specified): existing data, no new runs
+
+1. plasticity_erosion.log's cells (arm 0 and arm A, k50 in effective units)
+  L100 fixed: k50 0.02234; drift_critical_rate 0.02909 (k50/k_c 0.768, M 1.751); half_survival_rate 0.02067 (k50/pred 1.081)
+    c = 0.500: ratio 0.751; drift_critical_rate 0.734 (diff +0.017); linear 1 − c/M 0.715; M implied by the data 2.008; half_survival_rate ratio 0.728, k50/pred 1.115
+    c = 1.125: ratio 0.520; drift_critical_rate 0.468 (diff +0.051); linear 1 − c/M 0.358; M implied by the data 2.342; half_survival_rate ratio 0.526, k50/pred 1.068
+  L100 R2: k50 0.01462; drift_critical_rate 0.01623 (k50/k_c 0.901, M 0.515); half_survival_rate 0.01563 (k50/pred 0.936)
+    c = 0.125: ratio 0.784; drift_critical_rate 0.763 (diff +0.022); linear 1 − c/M 0.757; M implied by the data 0.580; half_survival_rate ratio 0.765, k50/pred 0.960
+    c = 0.500: ratio 0.188; drift_critical_rate 0.161 (diff +0.027); linear 1 − c/M 0.029; M implied by the data 0.616; half_survival_rate ratio 0.190, k50/pred 0.926
+  L500 fixed: k50 0.05172; drift_critical_rate 0.11629 (k50/k_c 0.445, M 1.790); half_survival_rate 0.06705 (k50/pred 0.771)
+    c = 0.500: ratio 0.738; drift_critical_rate 0.739 (diff -0.001); linear 1 − c/M 0.721; M implied by the data 1.912; half_survival_rate ratio 0.617, k50/pred 0.923
+    c = 1.125: ratio 0.499; drift_critical_rate 0.475 (diff +0.024); linear 1 − c/M 0.371; M implied by the data 2.245; half_survival_rate ratio 0.348, k50/pred 1.106
+  L500 R2: k50 0.03784; drift_critical_rate 0.06363 (k50/k_c 0.595, M 0.519); half_survival_rate 0.05455 (k50/pred 0.694)
+    c = 0.125: ratio 0.792; drift_critical_rate 0.764 (diff +0.028); linear 1 − c/M 0.759; M implied by the data 0.601; half_survival_rate ratio 0.738, k50/pred 0.745
+    c = 0.500: ratio 0.184; drift_critical_rate 0.162 (diff +0.022); linear 1 − c/M 0.037; M implied by the data 0.613; half_survival_rate ratio 0.152, k50/pred 0.839
+
+2. vignettes 09 and 11: the paper's 710 populations, alive 2000 generations after the move; x50 is the rate at which half survive in units of the prediction (1 = exact)
+  fixed    710 populations, 8.9% alive: x50 0.504 (drift_critical_rate), 0.130 (sustainable_rate)
+      L =  100: x50 0.685, 0.191
+      L =  500: x50 0.503, 0.133
+      L = 1000: x50 0.602, 0.143
+      L = 5000: x50 0.288, 0.067
+  R = 5.0  703 populations, 6.8% alive: x50 0.559 (drift_critical_rate), 0.225 (sustainable_rate)
+      L =  100: x50 0.709, 0.311
+      L =  500: x50 0.628, 0.255
+      L = 1000: x50 0.533, 0.198
+      L = 5000: x50 0.334, 0.121
+  R = 2.0  697 populations, 4.7% alive: x50 0.597 (drift_critical_rate), 0.249 (sustainable_rate)
+      L =  100: x50 0.852, 0.391
+      L =  500: x50 0.716, 0.310
+      L = 1000: x50 0.518, 0.216
+      L = 5000: x50 0.402, 0.153
+  R = 1.5  694 populations, 3.7% alive: x50 0.706 (drift_critical_rate), 0.294 (sustainable_rate)
+      L =  100: x50 1.063, 0.555
+      L =  500: x50 0.845, 0.359
+      L = 1000: x50 0.710, 0.291
+      L = 5000: x50 0.361, 0.137

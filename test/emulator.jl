@@ -69,7 +69,7 @@ end
     @test 0 <= r.P240k <= r.P2000 <= 1 && 0 <= r.hazard <= 1 && !r.extinct
     @test r.VG_move > 0 && 0 < r.Wbar_move <= 1 && r.lag_end > 0
     q = Params(p; MoveFitnessSD = k, Sample = 1, NoGenerations = 1800, MoveFitnessSDGen = 300)
-    m = run_moments(q; VG = house_of_gauss_vg(p), erosion = true, loci = :rare_alleles)
+    m = run_moments(q; VG = QTLSim.burnin_start_vg(p), erosion = true, loci = :rare_alleles)
     d = extinction_distribution(q, m; from = 300)
     @test r.P2000 == d.psurvive
     @test r.VG_move == m.geno_var[301]
@@ -79,7 +79,7 @@ end
     @test f1.P2000 < 0.5 && f2.P2000 < 0.5
     @test 1 <= f2.T < f1.T <= 1500
     d2 = extinction_distribution(Params(q; MoveFitnessSD = 2h.k50), run_moments(Params(q; MoveFitnessSD = 2h.k50);
-                                 VG = house_of_gauss_vg(p), erosion = true, loci = :rare_alleles); from = 300)
+                                 VG = QTLSim.burnin_start_vg(p), erosion = true, loci = :rare_alleles); from = 300)
     @test f1.T == d2.median - 299
     @test at(0.0).P2000 > 0.99
     @test_throws ArgumentError emulate(Params(p; MoveType = :phenotype))
@@ -104,7 +104,7 @@ end
     es = emulate(ks; loci = :spectrum, kw...)
     @test isequal(es, emulate(ks; loci = :spectrum, spectrum = (ld = :none,), kw...))
     el = emulate(ks; loci = :spectrum, spectrum = (ld = :dynamic,), kw...)
-    ml = run_moments(qs; VG = house_of_gauss_vg(p), erosion = true, loci = :spectrum, spectrum = (ld = :dynamic,))
+    ml = run_moments(qs; VG = QTLSim.burnin_start_vg(p), erosion = true, loci = :spectrum, spectrum = (ld = :dynamic,))
     @test el.P2000 == extinction_distribution(qs, ml; from = 300).psurvive
     @test el.VG_move == ml.geno_var[301] && el.VG_move < es.VG_move          # negative LD lowers V_G at the move
     @test emulated_half_survival_rate(p; loci = :spectrum, spectrum = (ld = :dynamic,), kw.burnin, kw.horizon,
@@ -113,7 +113,7 @@ end
     # only with the option, the pipeline by hand, deterministic; the half-survival rate counts fallbacks
     @test isequal(es, emulate(ks; loci = :spectrum, spectrum = (solver = :grid,), kw...)) && !haskey(es, :fallback)
     eb = emulate(ks; loci = :spectrum, spectrum = (solver = :beta,), kw...)
-    mb = run_moments(qs; VG = house_of_gauss_vg(p), erosion = true, loci = :spectrum, spectrum = (solver = :beta,))
+    mb = run_moments(qs; VG = QTLSim.burnin_start_vg(p), erosion = true, loci = :spectrum, spectrum = (solver = :beta,))
     @test eb.P2000 == extinction_distribution(qs, mb; from = 300).psurvive && eb.fallback == mb.spectrum_fallback
     @test isequal(eb, emulate(ks; loci = :spectrum, spectrum = (solver = :beta,), kw...))
     @test eb.VG_move ≈ es.VG_move rtol = 0.01
@@ -141,7 +141,7 @@ end
                MoveType = :continuous, MoveFitnessSD = 1e-3, MoveFitnessSDGen = 10000, NoGenerations = 250000)
     kw = (burnin = 300, horizon = 1500, tail = 20_000)
     q = Params(p; Sample = 1, NoGenerations = 1800, MoveFitnessSDGen = 300)
-    VG = house_of_gauss_vg(p)
+    VG = QTLSim.burnin_start_vg(p)
     # replicates = 0 is the deterministic emulator, bitwise
     @test emulate(p; kw..., replicates = 0) === emulate(p; kw...)
     m = run_moments(q; VG, erosion = true, loci = :rare_alleles)

@@ -79,6 +79,9 @@
 # fresh seeds (`SEED_OFFSET=7000000`, `moments_loci_seed7000000.log`, 2026-11-07) passed every
 # criterion too (40 of 40).
 
+# 2026-11-19: `ne = :falconer`, `solver = :iteration` and `QTLSim.burnin_start_vg` below keep the effective size, the solver and
+# the starting variance this script was run with (the package's defaults are now `:breeders` and `:bisection`; NEWS.md), so that
+# it still reproduces its log.
 using QTLSim, Statistics, Printf, Random
 import Catlab
 
@@ -146,7 +149,7 @@ for (i, (L, N, x, μ)) in enumerate(cells)
     mo = run_moments(Params(p; NoGenerations = SMOKE ? 2000 : 200_000, Sample = 1000); erosion = true, loci = :multilocus).geno_var[end]
     agg, aggd = gaussian_vg_exact(p), run_moments(Params(p; NoGenerations = SMOKE ? 2000 : 200_000, Sample = 1000); loci = :aggregate, erosion = true).geno_var[end]
     ns = mean(r.nsurv for r in rs)
-    hoc = house_of_cards_vg(p; nsurv = ns)
+    hoc = house_of_cards_vg(p; nsurv = ns, ne = :falconer)
     push!(rows, (; L, N, x, μ, vk = mean(vk), sk = se(vk), newd, new0, mo, agg, aggd, hoc,
                  ldk = mean(r.ld for r in rs), ldse = se([r.ld for r in rs]), ldp = e.ld, t))
     @printf("cell %2d/%d  L = %3d  N = %4d  %-6s μ = %-6g  %6.1f s  (%.0f s so far)\n", i, length(cells), L, N, x, μ, t, time() - t0)

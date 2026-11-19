@@ -18,6 +18,9 @@
 # Caches (resumable `sweep` CSVs): validate/emulator_spectrum_runs.csv (emulations, ids
 # prefixed by model), emulator_spectrum_pool.csv (E6′ pool k50s) and emulator_spectrum_kernel.csv (E6′ kernel runs).
 
+# 2026-11-19: `ne = :falconer`, `solver = :iteration` and `QTLSim.burnin_start_vg` below keep the effective size, the solver and
+# the starting variance this script was run with (the package's defaults are now `:breeders` and `:bisection`; NEWS.md), so that
+# it still reproduces its log.
 using QTLSim, Statistics, Random, Printf, LinearAlgebra
 using Distributions: Binomial, logpdf
 import Catlab
@@ -233,7 +236,7 @@ function e6p_pool(ids, ps, strat, ex)
         el = [i for i in eachindex(ids) if strat[i] == s && !(ids[i] in ex)]
         got = 0
         for i in el[randperm(rng, length(el))]
-            kc = drift_critical_rate(ps[i]).k
+            kc = drift_critical_rate(ps[i]; ne = :falconer, solver = :iteration).k
             (kc > 0 && 0.3 <= ps[i].MoveFitnessSD / kc <= 3.0) || continue
             push!(pool, i); got += 1
             got == NPOOL && break

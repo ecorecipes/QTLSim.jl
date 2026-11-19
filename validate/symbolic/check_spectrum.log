@@ -1,4 +1,4 @@
-QTLSim validate/symbolic/check_spectrum.jl (Symbolics 7.49.0)
+QTLSim validate/symbolic/check_spectrum.jl (Symbolics 7.48.0)
 
 (a) the selection of one allele, E[Δp]
   Wright's formula on ln W̄ = −λ²/(2S) − ln S/2 is E[Δp] (c = 0), exactly   ok
@@ -42,7 +42,7 @@ QTLSim validate/symbolic/check_spectrum.jl (Symbolics 7.49.0)
   pair classes of distinct loci weigh 1 − 1/L                              ok
   … = Barton's sum over the pairs themselves (binned classes: 9.9e-06)     ok
   spectrum_mutate!: 2NLμ sites, mean frequency 1/(2N)                      ok
-  spectrum_vg ≈ house_of_gauss_vg (approximate; ratio 1.0176)              ok
+  spectrum_vg ≈ house_of_gauss_vg (approximate; ratio 1.0195)              ok
   spectrum_vg = Σ 2a²pq n (L=17 N=180 μ=2.0e-03)                           ok
   Gauss–Hermite effects: Σg = 1, Σga² = α², Σga⁴ = 3α⁴, symmetric          ok
   Σ_{a>0} g a² = α²/2 (the half that fixes under a lag)                    ok
@@ -53,7 +53,7 @@ QTLSim validate/symbolic/check_spectrum.jl (Symbolics 7.49.0)
   pair classes of distinct loci weigh 1 − 1/L                              ok
   … = Barton's sum over the pairs themselves (binned classes: 4.4e-06)     ok
   spectrum_mutate!: 2NLμ sites, mean frequency 1/(2N)                      ok
-  spectrum_vg ≈ house_of_gauss_vg (approximate; ratio 1.0415)              ok
+  spectrum_vg ≈ house_of_gauss_vg (approximate; ratio 1.0439)              ok
   neutral, N = 100: spectrum_vg·(N−1)/N = (2N − 1/(2N))V_m (ratio 0.999980) ok
   neutral, N = 250: spectrum_vg·(N−1)/N = (2N − 1/(2N))V_m (ratio 0.999981) ok
 
@@ -96,5 +96,5 @@ QTLSim validate/symbolic/check_spectrum.jl (Symbolics 7.49.0)
   handing the state to the grid keeps V_G exactly (relative 1e-12)         ok
   spectrum_mutate! (beta) adds 2N L μ g f_m(1/(2N)) to P_m                 ok
 
-79 checks, 0 failed; 12 s
+79 checks, 0 failed; 13 s
 PASS

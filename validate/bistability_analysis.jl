@@ -80,7 +80,7 @@ function analyse()
              xu_shen_critical_rate(xs_map(ci.p)).v, xu_shen_critical_rate(xs_map(ci.p; Kmap = :K2)).v, c.pool.VG, c.pool.sdVG, c.pool.N, c.pool.VG / ci.Veq,
              maximum(r.maxerrN for r in c.rows), maximum(r.maxerrV for r in c.rows), maximum(r.maxerrL for r in c.rows))
     end
-    say("  k_c(br): drift_critical_rate with N_e = breeders (the rates of the design are 0.6 and 0.85 of it); k_c(es): with effective_size (the default).")
+    say("  k_c(br): drift_critical_rate with N_e = breeders (the rates of the design are 0.6 and 0.85 of it); k_c(es): with the earlier effective size and solver (ne = :falconer, solver = :iteration; the default when this was run).")
 
     say("\n2. Survival by state: alive of $(REPS) at the cell's horizon T. Rows V₀/V_eq = ", join(reverse(VFRAC), ", "), " (top to bottom); columns N₀/K = ", join(NFRAC, ", "))
     for c in cells

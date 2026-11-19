@@ -1,4 +1,4 @@
-QTLSim validate/xu_shen.jl; QTLSim at /Users/lshsf3/Projects/quantitative_genetics/wt-xu-shen/src/QTLSim.jl; threads 1
+QTLSim validate/xu_shen.jl; QTLSim at /Users/lshsf3/Projects/quantitative_genetics/wt-ne-default/src/QTLSim.jl; threads 1
 
 ====================================================================================================
 The targets file (validate/xu_shen_targets.md), as committed before the comparisons below were computed
@@ -154,7 +154,7 @@ Planned evaluation (descriptive):
 
 
 ====================================================================================================
-1. Figure 1: v_c, V* and N* against the mutational input V_M (standard parameters)   [20 s]
+1. Figure 1: v_c, V* and N* against the mutational input V_M (standard parameters)   [15 s]
 ====================================================================================================
 A1  boundary v_c(V_M)                 read-off          ours
       V_M = 0.05                     0.08–0.09         0.0871
@@ -169,7 +169,7 @@ A3  N*: read-off > 180 at v → 0.01 only for V_M ≲ 0.085, 160–180 on the re
       ours at v = 0.99 v_c: N* = 62.9, 57.3, 53.4 at V_M = 0.1, 0.15, 0.2 (at v_c itself: 51.5, 46.3, 42.8)
 
 ====================================================================================================
-2. Figure 2: v_c, V* and N* against the strength of selection log₁₀(1/ω²)   [31 s]
+2. Figure 2: v_c, V* and N* against the strength of selection log₁₀(1/ω²)   [24 s]
 ====================================================================================================
 A4–A7  panel (a), v_c:
   blue: r = 0.2, V_M = 0.1, K = 10³    read-off: 0.087 at −3; peak 0.136 near −1.2; 0.093 at 0
@@ -208,7 +208,7 @@ A8  panels (b), (c). Read-off: boundary 0.045–0.05 at −3, above 0.12 between
       r = 0.25, K = 500    V_M = 0.10: boundary 0.0756 at −3, 0.1186 at 0; above 0.12 from -2.06 to -0.02; max N* 123 (distance 4.29)
 
 ====================================================================================================
-3. Figure 3: basins of the viable equilibrium and of extinction in (V₀, N₀) (standard parameters)   [36 s]
+3. Figure 3: basins of the viable equilibrium and of extinction in (V₀, N₀) (standard parameters)   [28 s]
 ====================================================================================================
 Extinction rule: N < Next, Next = 1e-3 by default (1e-4 where the search goes down to N₀ = 0.01); sensitivity below.
 A9  viable equilibrium (red dot)      read-off (V*, N*)     ours (V*, N*, Δ*)           saddle (V, N, Δ)
@@ -274,7 +274,7 @@ Sensitivity to the extinction threshold Next: critical N₀ at V₀ = 0.5, 1, 2,
   (f), V₀ = 2.5: 53.771755, 53.772456, 53.772495
 
 ====================================================================================================
-4. Figure 4: the three scenarios   [61 s]
+4. Figure 4: the three scenarios   [51 s]
 ====================================================================================================
 A16  panel (a): critical N₀ with V₀ at balance for that N₀ (floor 1 as on the preprint's axis; ours searched from 1 to 1e6)
   black solid (Δ₀ = 1, v = 0.05)  read-off: 1 up to ≈ −0.65; ≈ 3 at 0
@@ -344,7 +344,7 @@ A19  panel (d): the longest duration T at rate v₁ after which the population s
   And Figure 1a's boundary at V_M = 0.10, read again along the concave edge (not blind): ≈ 0.13 (the first read-off, 0.115–0.12, was too low).
 
 ====================================================================================================
-5. Eq. 6 against QTLSim's discrete-generation counterpart, drift_critical_rate (descriptive; mapping in the targets file, part B)   [106 s]
+5. Eq. 6 against QTLSim's discrete-generation counterpart, drift_critical_rate (descriptive; mapping in the targets file, part B)   [92 s]
 ====================================================================================================
 Xu and Shen's eq. 6 has priority; the feedback is Bürger and Lynch (1995). drift_critical_rate is a later discrete-generation implementation
 matched to QTSim's life cycle. Nothing below is a verdict on either.
@@ -353,101 +353,107 @@ matched to QTSim's life cycle. Nothing below is a verdict on either.
     and the Xu–Shen parameters recomputed from the rounded Params). n_e = 1: a haploid clone of 100 loci; n_e = 100: a diploid with 50 loci.
     n_e = 1: standard      Params: Ploidy 1, NoQTL 100, PopSize 213, R = 1.2371, ω = 7.0000, V_E = 1.000, m = 0.100, α² = 0.01 → XuShen(r = 0.2000, ω² = 50.000, V_M = 0.1000, K = 1001.2, n_e = 1)
     n_e = 100: standard    Params: Ploidy 2, NoQTL 50, PopSize 106, R = 1.2371, ω = 7.0000, V_E = 1.000, m = 0.100, α² = 0.01 → XuShen(r = 0.2000, ω² = 50.000, V_M = 0.1000, K = 996.5, n_e = 100)
-  rung 0 = drift_critical_rate's steady states (house of Gauss, N_e from breeders, discrete, Beverton–Holt), maximised over all of them ("rung 0" column;
-  equal to k_c unless marked *); 1: variance equation → eq. 5 (no α²/(2V_s) term);
+  rung 0 = drift_critical_rate's steady states (house of Gauss, N_e = the breeders, discrete, Beverton–Holt), maximised over all of them by an independent
+  parametrisation ("rung 0" column; equal to k_c, drift_critical_rate's default, unless marked *); k_c(old) = drift_critical_rate with the settings that were
+  its default until 2026-11-19 (ne = :falconer, solver = :iteration); 1: variance equation → eq. 5 (no α²/(2V_s) term);
   2: drift from the census of adults; 3: first-order response and loads; 4: logistic regulation (K1) = eq. 6 at the mapped parameters.
   Each ratio is rung i / rung i−1; their product is v_c(eq. 6)/rung 0. The attribution depends on the order of the rungs. "ratio" = v_c(eq. 6)/rung 0.
-  case                                                k_c     rung 0  v_c(eq.6)   ratio |     1/0     2/1     3/2     4/3 | rung4 chk  v_c (K2) K2/rung0
-  n_e = 1: standard                                0.1282     0.1282     0.1303   1.016 |   1.001   1.014   1.017   0.985 |    0.1303    0.1274   0.994
-  n_e = 1: ω2 = 20                                  0.132      0.132     0.1354   1.026 |   1.002   1.011   1.026   0.987 |    0.1354    0.1331   1.009
-  n_e = 1: ω2 = 100                                0.1219     0.1219     0.1233   1.011 |   1.001   1.016   1.012   0.983 |    0.1233      0.12   0.984
-  n_e = 1: VM = 0.05                               0.0862     0.0862    0.08715   1.011 |   1.001   1.016   1.012   0.983 |   0.08715   0.08485   0.984
-  n_e = 1: VM = 0.2                                0.1861     0.1861     0.1905   1.023 |   1.001   1.012   1.024   0.987 |    0.1905     0.187   1.005
-  n_e = 1: K = 500                                 0.1087     0.1087     0.1101   1.012 |   1.001   1.017   1.015   0.980 |    0.1101    0.1065   0.980
-  n_e = 1: K = 2000                                0.1432     0.1432     0.1459   1.019 |   1.001   1.011   1.018   0.989 |    0.1459    0.1437   1.003
-  n_e = 1: r = 0.5                                 0.2413     0.2413     0.2468   1.023 |   1.001   1.026   1.019   0.977 |    0.2468    0.2386   0.989
-  n_e = 100: standard                              0.3195     0.3195     0.3295   1.031 |   1.003   1.028   1.035   0.967 |    0.3295    0.3124   0.978
-  n_e = 100: ω2 = 20                                    0     0.2967*    0.3043   1.026 |   1.003   1.018   1.029   0.976 |    0.3043    0.2946   0.993
-  n_e = 100: ω2 = 100                              0.3008     0.3008     0.3085   1.025 |   1.003   1.032   1.029   0.963 |    0.3085     0.288   0.957
-  n_e = 100: VM = 0.05                             0.2127     0.2127     0.2182   1.025 |   1.003   1.032   1.029   0.963 |    0.2182    0.2037   0.957
-  n_e = 100: VM = 0.2                              0.2957     0.4342*    0.4466   1.029 |   1.003   1.020   1.032   0.974 |    0.4466    0.4303   0.991
-  n_e = 100: K = 500                               0.2195     0.2195     0.2233   1.017 |   1.003   1.024   1.030   0.962 |    0.2233     0.208   0.948
-  n_e = 100: K = 2000                              0.4114     0.4211*     0.436   1.036 |   1.003   1.024   1.035   0.974 |     0.436    0.4203   0.998
-  n_e = 100: r = 0.5                                1.007      1.007      1.103   1.096 |   1.006   1.069   1.086   0.938 |     1.103    0.9845   0.978
-  * drift_critical_rate differs from the maximum over all steady states. In these inputs the variance of a large population carries a load close to or above
-    the growth rate (V_c^M/(2ω²) against r: n_e = 100 standard 0.224 against 0.2), so viable steady states exist only at sizes where drift has reduced the
-    variance; drift_critical_rate's inner iteration starts from the variance at N = K and follows one branch. Published-type inputs (V ≪ ω²) are far from this.
+  case                                           k_c(old)        k_c     rung 0  v_c(eq.6)   ratio |     1/0     2/1     3/2     4/3 | rung4 chk  v_c (K2) K2/rung0
+  n_e = 1: standard                                0.1282     0.1259     0.1259     0.1303   1.034 |   1.001   1.032   1.017   0.985 |    0.1303    0.1274   1.012
+  n_e = 1: ω2 = 20                                  0.132     0.1301     0.1301     0.1354   1.041 |   1.002   1.027   1.026   0.987 |    0.1354    0.1331   1.024
+  n_e = 1: ω2 = 100                                0.1219     0.1195     0.1195     0.1233   1.031 |   1.001   1.037   1.012   0.983 |    0.1233      0.12   1.004
+  n_e = 1: VM = 0.05                               0.0862     0.0845     0.0845    0.08715   1.031 |   1.001   1.037   1.012   0.983 |   0.08715   0.08485   1.004
+  n_e = 1: VM = 0.2                                0.1861     0.1832     0.1832     0.1905   1.039 |   1.001   1.028   1.024   0.987 |    0.1905     0.187   1.021
+  n_e = 1: K = 500                                 0.1087      0.106      0.106     0.1101   1.038 |   1.001   1.043   1.015   0.980 |    0.1101    0.1065   1.005
+  n_e = 1: K = 2000                                0.1432     0.1415     0.1415     0.1459   1.031 |   1.001   1.024   1.018   0.989 |    0.1459    0.1437   1.016
+  n_e = 1: r = 0.5                                 0.2413     0.2356     0.2356     0.2468   1.048 |   1.001   1.051   1.019   0.977 |    0.2468    0.2386   1.013
+  n_e = 100: standard                              0.3195     0.3066     0.3066     0.3295   1.074 |   1.003   1.071   1.035   0.967 |    0.3295    0.3124   1.019
+  n_e = 100: ω2 = 20                                    0     0.2869     0.2869     0.3043   1.061 |   1.003   1.052   1.029   0.976 |    0.3043    0.2946   1.027
+  n_e = 100: ω2 = 100                              0.3008     0.2878     0.2878     0.3085   1.072 |   1.003   1.079   1.029   0.963 |    0.3085     0.288   1.001
+  n_e = 100: VM = 0.05                             0.2127     0.2035     0.2035     0.2182   1.072 |   1.003   1.079   1.029   0.963 |    0.2182    0.2037   1.001
+  n_e = 100: VM = 0.2                              0.2957     0.4191     0.4191     0.4466   1.066 |   1.003   1.057   1.032   0.974 |    0.4466    0.4303   1.027
+  n_e = 100: K = 500                               0.2195     0.2079     0.2079     0.2233   1.074 |   1.003   1.082   1.030   0.962 |    0.2233     0.208   1.000
+  n_e = 100: K = 2000                              0.4114     0.4085     0.4085      0.436   1.067 |   1.003   1.056   1.035   0.974 |     0.436    0.4203   1.029
+  n_e = 100: r = 0.5                                1.007     0.9453     0.9453      1.103   1.167 |   1.006   1.139   1.086   0.938 |     1.103    0.9845   1.041
+  * (if any) drift_critical_rate differs from the maximum over all steady states. In these inputs the variance of a large population carries a load close to
+    or above the growth rate (V_c^M/(2ω²) against r: n_e = 100 standard 0.224 against 0.2), so viable steady states exist only at sizes where drift has reduced
+    the variance. An iteration from the variance at N = K alone (solver = :iteration) misses them; with the iteration alone and N_e = the breeders:
+      n_e = 100: ω2 = 20             iteration alone 0, default (bisection where it fails) 0.2869
+      n_e = 100: VM = 0.2            iteration alone 0.2885, default (bisection where it fails) 0.4191
+      n_e = 100: K = 2000            iteration alone 0.4003, default (bisection where it fails) 0.4085
+    Published-type inputs (V ≪ ω²) are far from this.
 
 (ii), (iii) Published-type QTSim inputs (diploid, N = 1000) under Beverton–Holt, with the ladder; and the fixed-size k_c, which has no mapping
-    (no dynamics of N: the feedback acts through N_e(N, N W̄) alone).
-    test/critical.jl's input, L = 100    L = 100, ω = 4.000, V_s = 16.018, V_E = 0.018, V_M = m V_E = 9e-05, μ = 0.0001, α² = 0.0045, α²/(2V_s) = 0.00014 vs 1/(2N) = 0.0005; house-of-Gauss V_G = 0.1321
-    the same with L = 500                L = 500, ω = 4.000, V_s = 16.018, V_E = 0.018, V_M = m V_E = 9e-05, μ = 0.0001, α² = 0.0009, α²/(2V_s) = 2.81e-05 vs 1/(2N) = 0.0005; house-of-Gauss V_G = 0.1672
-    QT0100-Possion3.0/Input-00001.txt    L = 100, ω = 7.591, V_s = 57.624, V_E = 0.004748, V_M = m V_E = 6.318e-06, μ = 0.0001, α² = 0.0003159, α²/(2V_s) = 2.74e-06 vs 1/(2N) = 0.0005; house-of-Gauss V_G = 0.01255
-    QT0500-Possion3.0/Input-00002.txt    L = 500, ω = 6.405, V_s = 41.052, V_E = 0.02471, V_M = m V_E = 0.0002513, μ = 0.0001, α² = 0.002513, α²/(2V_s) = 3.06e-05 vs 1/(2N) = 0.0005; house-of-Gauss V_G = 0.464
-    QT1000-Possion5.0/Input-00003.txt    L = 1000, ω = 9.894, V_s = 97.898, V_E = 0.01007, V_M = m V_E = 2.743e-05, μ = 0.0001, α² = 0.0001371, α²/(2V_s) = 7e-07 vs 1/(2N) = 0.0005; house-of-Gauss V_G = 0.05477
-    QT5000-Possion3.0/Input-00004.txt    L = 5000, ω = 9.956, V_s = 99.139, V_E = 0.007547, V_M = m V_E = 0.0001439, μ = 0.0001, α² = 0.0001439, α²/(2V_s) = 7.26e-07 vs 1/(2N) = 0.0005; house-of-Gauss V_G = 0.2874
-  rung 0 = drift_critical_rate's steady states (house of Gauss, N_e from breeders, discrete, Beverton–Holt), maximised over all of them ("rung 0" column;
-  equal to k_c unless marked *); 1: variance equation → eq. 5 (no α²/(2V_s) term);
+    (no dynamics of N: the feedback acts through N_e = N W̄ alone).
+    test/critical.jl's input, L = 100    L = 100, ω = 4.000, V_s = 16.018, V_E = 0.018, V_M = m V_E = 9e-05, μ = 0.0001, α² = 0.0045, α²/(2V_s) = 0.00014 vs 1/(2N) = 0.0005; house-of-Gauss V_G = 0.132
+    the same with L = 500                L = 500, ω = 4.000, V_s = 16.018, V_E = 0.018, V_M = m V_E = 9e-05, μ = 0.0001, α² = 0.0009, α²/(2V_s) = 2.81e-05 vs 1/(2N) = 0.0005; house-of-Gauss V_G = 0.1671
+    QT0100-Possion3.0/Input-00001.txt    L = 100, ω = 7.591, V_s = 57.624, V_E = 0.004748, V_M = m V_E = 6.318e-06, μ = 0.0001, α² = 0.0003159, α²/(2V_s) = 2.74e-06 vs 1/(2N) = 0.0005; house-of-Gauss V_G = 0.01254
+    QT0500-Possion3.0/Input-00002.txt    L = 500, ω = 6.405, V_s = 41.052, V_E = 0.02471, V_M = m V_E = 0.0002513, μ = 0.0001, α² = 0.002513, α²/(2V_s) = 3.06e-05 vs 1/(2N) = 0.0005; house-of-Gauss V_G = 0.4638
+    QT1000-Possion5.0/Input-00003.txt    L = 1000, ω = 9.894, V_s = 97.898, V_E = 0.01007, V_M = m V_E = 2.743e-05, μ = 0.0001, α² = 0.0001371, α²/(2V_s) = 7e-07 vs 1/(2N) = 0.0005; house-of-Gauss V_G = 0.05475
+    QT5000-Possion3.0/Input-00004.txt    L = 5000, ω = 9.956, V_s = 99.139, V_E = 0.007547, V_M = m V_E = 0.0001439, μ = 0.0001, α² = 0.0001439, α²/(2V_s) = 7.26e-07 vs 1/(2N) = 0.0005; house-of-Gauss V_G = 0.2873
+  rung 0 = drift_critical_rate's steady states (house of Gauss, N_e = the breeders, discrete, Beverton–Holt), maximised over all of them by an independent
+  parametrisation ("rung 0" column; equal to k_c, drift_critical_rate's default, unless marked *); k_c(old) = drift_critical_rate with the settings that were
+  its default until 2026-11-19 (ne = :falconer, solver = :iteration); 1: variance equation → eq. 5 (no α²/(2V_s) term);
   2: drift from the census of adults; 3: first-order response and loads; 4: logistic regulation (K1) = eq. 6 at the mapped parameters.
   Each ratio is rung i / rung i−1; their product is v_c(eq. 6)/rung 0. The attribution depends on the order of the rungs. "ratio" = v_c(eq. 6)/rung 0.
-  case                                                k_c     rung 0  v_c(eq.6)   ratio |     1/0     2/1     3/2     4/3 | rung4 chk  v_c (K2) K2/rung0
-  test/critical.jl's input, L = 100, R = 1.5      0.01245    0.01245    0.01455   1.169 |   1.159   1.074   1.003   0.936 |   0.01455     0.012   0.964
-  test/critical.jl's input, L = 100, R = 2        0.01623    0.01623    0.01921   1.184 |   1.161   1.135   1.004   0.896 |   0.01921   0.01364   0.841
-  test/critical.jl's input, L = 100, R = 5         0.0233     0.0233    0.02951   1.267 |   1.160   1.380   1.004   0.788 |   0.02951   0.01234   0.530
-  the same with L = 500, R = 1.5                  0.01442    0.01442    0.01505   1.044 |   1.035   1.076   1.004   0.934 |   0.01505   0.01228   0.852
-  the same with L = 500, R = 2                    0.01882    0.01882    0.01989   1.057 |   1.035   1.139   1.004   0.893 |   0.01989   0.01389   0.738
-  the same with L = 500, R = 5                    0.02701    0.02701    0.03056   1.131 |   1.035   1.391   1.004   0.782 |   0.03056   0.01242   0.460
-  QT0100-Possion3.0/Input-00001.txt, R = 1.5    0.0005655  0.0005655  0.0005706   1.009 |   1.004   1.075   1.000   0.935 | 0.0005706 0.0004629   0.819
-  QT0100-Possion3.0/Input-00001.txt, R = 2      0.0007341  0.0007341  0.0007492   1.021 |   1.004   1.139   1.000   0.893 | 0.0007492 0.0005196   0.708
-  QT0100-Possion3.0/Input-00001.txt, R = 5       0.001049   0.001049   0.001145   1.092 |   1.004   1.393   1.000   0.781 |  0.001145 0.0004613   0.440
-  QT0500-Possion3.0/Input-00002.txt, R = 1.5      0.02504    0.02504    0.02623   1.048 |   1.038   1.076   1.004   0.934 |   0.02623    0.0214   0.855
-  QT0500-Possion3.0/Input-00002.txt, R = 2        0.03269    0.03269    0.03466   1.060 |   1.038   1.139   1.004   0.893 |   0.03466   0.02422   0.741
-  QT0500-Possion3.0/Input-00002.txt, R = 5        0.04693    0.04693    0.05326   1.135 |   1.038   1.391   1.004   0.782 |   0.05326   0.02167   0.462
-  QT1000-Possion5.0/Input-00003.txt, R = 1.5     0.001888   0.001888   0.001901   1.006 |   1.001   1.076   1.000   0.935 |  0.001901  0.001542   0.816
-  QT1000-Possion5.0/Input-00003.txt, R = 2       0.002452   0.002452   0.002496   1.018 |   1.001   1.139   1.000   0.893 |  0.002496  0.001731   0.706
-  QT1000-Possion5.0/Input-00003.txt, R = 5       0.003503   0.003503   0.003817   1.090 |   1.001   1.394   1.000   0.781 |  0.003817  0.001536   0.439
-  QT5000-Possion3.0/Input-00004.txt, R = 1.5     0.009812   0.009811   0.009883   1.007 |   1.001   1.076   1.001   0.935 |  0.009882  0.008021   0.817
-  QT5000-Possion3.0/Input-00004.txt, R = 2        0.01276    0.01275    0.01299   1.019 |   1.001   1.139   1.001   0.893 |   0.01299  0.009014   0.707
-  QT5000-Possion3.0/Input-00004.txt, R = 5        0.01824    0.01824    0.01989   1.091 |   1.001   1.394   1.001   0.781 |   0.01989  0.008009   0.439
+  case                                           k_c(old)        k_c     rung 0  v_c(eq.6)   ratio |     1/0     2/1     3/2     4/3 | rung4 chk  v_c (K2) K2/rung0
+  test/critical.jl's input, L = 100, R = 1.5      0.01245    0.01173    0.01173    0.01455   1.241 |   1.156   1.144   1.003   0.936 |   0.01455     0.012   1.023
+  test/critical.jl's input, L = 100, R = 2        0.01623    0.01476    0.01476    0.01921   1.301 |   1.155   1.253   1.004   0.896 |   0.01921   0.01364   0.924
+  test/critical.jl's input, L = 100, R = 5         0.0233    0.01958    0.01958    0.02951   1.507 |   1.152   1.654   1.004   0.788 |   0.02951   0.01234   0.630
+  the same with L = 500, R = 1.5                  0.01442    0.01353    0.01353    0.01505   1.113 |   1.034   1.147   1.004   0.934 |   0.01505   0.01228   0.907
+  the same with L = 500, R = 2                    0.01882    0.01703    0.01703    0.01989   1.168 |   1.034   1.260   1.004   0.893 |   0.01989   0.01389   0.816
+  the same with L = 500, R = 5                    0.02701    0.02249    0.02249    0.03056   1.359 |   1.033   1.674   1.004   0.782 |   0.03056   0.01242   0.552
+  QT0100-Possion3.0/Input-00001.txt, R = 1.5    0.0005655  0.0005305  0.0005305  0.0005706   1.075 |   1.004   1.146   1.000   0.935 | 0.0005706 0.0004629   0.872
+  QT0100-Possion3.0/Input-00001.txt, R = 2      0.0007341  0.0006636  0.0006635  0.0007492   1.129 |   1.004   1.260   1.000   0.893 | 0.0007492 0.0005196   0.783
+  QT0100-Possion3.0/Input-00001.txt, R = 5       0.001049  0.0008716  0.0008716   0.001145   1.314 |   1.003   1.677   1.000   0.781 |  0.001145 0.0004613   0.529
+  QT0500-Possion3.0/Input-00002.txt, R = 1.5      0.02504     0.0235     0.0235    0.02623   1.116 |   1.037   1.147   1.004   0.934 |   0.02623    0.0214   0.911
+  QT0500-Possion3.0/Input-00002.txt, R = 2        0.03269    0.02958    0.02958    0.03466   1.172 |   1.037   1.260   1.004   0.893 |   0.03466   0.02422   0.819
+  QT0500-Possion3.0/Input-00002.txt, R = 5        0.04693    0.03909    0.03909    0.05326   1.363 |   1.036   1.674   1.004   0.782 |   0.05326   0.02167   0.554
+  QT1000-Possion5.0/Input-00003.txt, R = 1.5     0.001888   0.001772   0.001772   0.001901   1.073 |   1.001   1.146   1.000   0.935 |  0.001901  0.001542   0.870
+  QT1000-Possion5.0/Input-00003.txt, R = 2       0.002452   0.002216   0.002216   0.002496   1.126 |   1.001   1.260   1.000   0.893 |  0.002496  0.001731   0.781
+  QT1000-Possion5.0/Input-00003.txt, R = 5       0.003503   0.002911   0.002911   0.003817   1.311 |   1.001   1.677   1.000   0.781 |  0.003817  0.001536   0.528
+  QT5000-Possion3.0/Input-00004.txt, R = 1.5     0.009812   0.009203   0.009203   0.009883   1.074 |   1.001   1.147   1.001   0.935 |  0.009882  0.008021   0.871
+  QT5000-Possion3.0/Input-00004.txt, R = 2        0.01276    0.01153    0.01153    0.01299   1.128 |   1.001   1.260   1.001   0.893 |   0.01299  0.009014   0.782
+  QT5000-Possion3.0/Input-00004.txt, R = 5        0.01824    0.01515    0.01515    0.01989   1.313 |   1.001   1.678   1.001   0.781 |   0.01989  0.008009   0.529
 
     Fixed size (Demography = :fixed): k_c from drift_critical_rate; for scale, eq. 6 at the K1 mapping of the R = 2 case and with K = ∞ (no drift, the classical rate)
-    test/critical.jl's input, L = 100    k_c(fixed) = 0.02909;  k_c(BH, R = 2) = 0.01623;  v_c(eq. 6, R = 2 mapping) = 0.01921;  v_c(K = ∞) = 0.1557
-    the same with L = 500                k_c(fixed) = 0.03362;  k_c(BH, R = 2) = 0.01882;  v_c(eq. 6, R = 2 mapping) = 0.01989;  v_c(K = ∞) = 0.3427
-    QT0100-Possion3.0/Input-00001.txt    k_c(fixed) = 0.001302;  k_c(BH, R = 2) = 0.0007341;  v_c(eq. 6, R = 2 mapping) = 0.0007492;  v_c(K = ∞) = 0.0417
-    QT0500-Possion3.0/Input-00002.txt    k_c(fixed) = 0.05841;  k_c(BH, R = 2) = 0.03269;  v_c(eq. 6, R = 2 mapping) = 0.03466;  v_c(K = ∞) = 0.5721
-    QT1000-Possion5.0/Input-00003.txt    k_c(fixed) = 0.004349;  k_c(BH, R = 2) = 0.002452;  v_c(eq. 6, R = 2 mapping) = 0.002496;  v_c(K = ∞) = 0.2729
-    QT5000-Possion3.0/Input-00004.txt    k_c(fixed) = 0.02265;  k_c(BH, R = 2) = 0.01276;  v_c(eq. 6, R = 2 mapping) = 0.01299;  v_c(K = ∞) = 1.347
+    test/critical.jl's input, L = 100    k_c(fixed) = 0.02269;  k_c(BH, R = 2) = 0.01476;  v_c(eq. 6, R = 2 mapping) = 0.01921;  v_c(K = ∞) = 0.1557
+    the same with L = 500                k_c(fixed) = 0.02595;  k_c(BH, R = 2) = 0.01703;  v_c(eq. 6, R = 2 mapping) = 0.01989;  v_c(K = ∞) = 0.3427
+    QT0100-Possion3.0/Input-00001.txt    k_c(fixed) = 0.001003;  k_c(BH, R = 2) = 0.0006636;  v_c(eq. 6, R = 2 mapping) = 0.0007492;  v_c(K = ∞) = 0.0417
+    QT0500-Possion3.0/Input-00002.txt    k_c(fixed) = 0.0451;  k_c(BH, R = 2) = 0.02958;  v_c(eq. 6, R = 2 mapping) = 0.03466;  v_c(K = ∞) = 0.5721
+    QT1000-Possion5.0/Input-00003.txt    k_c(fixed) = 0.003349;  k_c(BH, R = 2) = 0.002216;  v_c(eq. 6, R = 2 mapping) = 0.002496;  v_c(K = ∞) = 0.2729
+    QT5000-Possion3.0/Input-00004.txt    k_c(fixed) = 0.01744;  k_c(BH, R = 2) = 0.01153;  v_c(eq. 6, R = 2 mapping) = 0.01299;  v_c(K = ∞) = 1.347
 
-    Post hoc side line (not in the targets file): effective_size(N, n) is close to the harmonic mean 2Nn/(N + n) of adults and breeders. With the breeders
-    themselves as N_e (drift = n; rung 0′), all else as drift_critical_rate:
-    n_e = 1: standard                            k_c = 0.1282; with N_e = n: 0.1259 (ratio 0.983)
-    n_e = 100: standard                          k_c = 0.3195; with N_e = n: 0.3066 (ratio 0.960)
-    test/critical.jl's input, L = 100, R = 2     k_c = 0.01623; with N_e = n: 0.01476 (ratio 0.910)
-    the same with L = 500, R = 2                 k_c = 0.01882; with N_e = n: 0.01703 (ratio 0.905)
-    QT0100-Possion3.0/Input-00001.txt, R = 2     k_c = 0.0007341; with N_e = n: 0.0006635 (ratio 0.904)
-    QT0500-Possion3.0/Input-00002.txt, R = 2     k_c = 0.03269; with N_e = n: 0.02958 (ratio 0.905)
+    Side line (not in the targets file): the effective size. Rung 0 uses N_e = n, the breeders (validate/effective_size.md). The earlier form,
+    effective_size(N, n; scheme = :falconer), is close to the harmonic mean 2Nn/(N + n) of adults and breeders; with it, all else as rung 0:
+    n_e = 1: standard                            k_c = 0.1259; with the earlier form: 0.1282 (k_c over it: 0.983)
+    n_e = 100: standard                          k_c = 0.3066; with the earlier form: 0.3195 (k_c over it: 0.960)
+    test/critical.jl's input, L = 100, R = 2     k_c = 0.01476; with the earlier form: 0.01623 (k_c over it: 0.910)
+    the same with L = 500, R = 2                 k_c = 0.01703; with the earlier form: 0.01882 (k_c over it: 0.905)
+    QT0100-Possion3.0/Input-00001.txt, R = 2     k_c = 0.0006635; with the earlier form: 0.0007341 (k_c over it: 0.904)
+    QT0500-Possion3.0/Input-00002.txt, R = 2     k_c = 0.02958; with the earlier form: 0.03269 (k_c over it: 0.905)
 
 (iv) The n_e that eq. 5 would need to hold a given equilibrium variance at v = 0: n_e = V²/(V_s(V_M − V/(2N_e))), fixed size N = 1000, published-type inputs.
      A rough estimate. V from: the house of Gauss (linkage equilibrium); multilocus_equilibrium(p; drift = true) (rare alleles + LD under QTSim's single
      crossover); its loci = :multilocus form (Gaussian + LD); for sampled published inputs also the table's pre-move V_G (one QTSim run each).
-     N_e = effective_size(1000, n), n the breeders at equilibrium (as QTLSim's functions use). 2L is the value for free recombination in the Gaussian limit.
-    test/critical.jl's input, L = 100    2L =   200 | V: HoG 0.1317, rare+LD 0.1276 (LD/genic -0.06), Gauss+LD 0.153; neutral V_M·2N_e = 0.1794 | n_e: HoG 45.3, rare+LD 39.1, Gauss+LD 110
-    the same with L = 500                2L =  1000 | V: HoG 0.1666, rare+LD 0.1536 (LD/genic -0.09), Gauss+LD 0.1599; neutral V_M·2N_e = 0.1794 | n_e: HoG 270, rare+LD 114, Gauss+LD 163
-    QT0100-Possion3.0/Input-00001.txt    2L =   200 | V: HoG 0.01253, rare+LD 0.01249 (LD/genic -0.00), Gauss+LD 0.01255; neutral V_M·2N_e = 0.01263 | n_e: HoG 56.8, rare+LD 38.6, Gauss+LD 75.4
-    QT0500-Possion3.0/Input-00002.txt    2L =  1000 | V: HoG 0.4623, rare+LD 0.4242 (LD/genic -0.09), Gauss+LD 0.4427; neutral V_M·2N_e = 0.5009 | n_e: HoG 269, rare+LD 114, Gauss+LD 164
-    QT1000-Possion5.0/Input-00003.txt    2L =  2000 | V: HoG 0.05469, rare+LD 0.05397 (LD/genic -0.01), Gauss+LD 0.05404; neutral V_M·2N_e = 0.0548 | n_e: HoG 570, rare+LD 71.8, Gauss+LD 78.9
-    QT5000-Possion3.0/Input-00004.txt    2L = 10000 | V: HoG 0.2868, rare+LD 0.2777 (LD/genic -0.03), Gauss+LD 0.278; neutral V_M·2N_e = 0.2874 | n_e: HoG 2.85e+03, rare+LD 159, Gauss+LD 166
+     N_e = n, the breeders at equilibrium (effective_size(1000, n), as QTLSim's functions use). 2L is the value for free recombination in the Gaussian limit.
+    test/critical.jl's input, L = 100    2L =   200 | V: HoG 0.1314, rare+LD 0.1276 (LD/genic -0.06), Gauss+LD 0.153; neutral V_M·2N_e = 0.1787 | n_e: HoG 45.2, rare+LD 39.5, Gauss+LD 113
+    the same with L = 500                2L =  1000 | V: HoG 0.1659, rare+LD 0.1536 (LD/genic -0.09), Gauss+LD 0.1599; neutral V_M·2N_e = 0.1786 | n_e: HoG 269, rare+LD 117, Gauss+LD 169
+    QT0100-Possion3.0/Input-00001.txt    2L =   200 | V: HoG 0.01251, rare+LD 0.01249 (LD/genic -0.00), Gauss+LD 0.01255; neutral V_M·2N_e = 0.0126 | n_e: HoG 56.7, rare+LD 46.5, Gauss+LD 112
+    QT0500-Possion3.0/Input-00002.txt    2L =  1000 | V: HoG 0.4604, rare+LD 0.4242 (LD/genic -0.09), Gauss+LD 0.4427; neutral V_M·2N_e = 0.4986 | n_e: HoG 268, rare+LD 117, Gauss+LD 169
+    QT1000-Possion5.0/Input-00003.txt    2L =  2000 | V: HoG 0.05458, rare+LD 0.05397 (LD/genic -0.01), Gauss+LD 0.05404; neutral V_M·2N_e = 0.05469 | n_e: HoG 569, rare+LD 82.5, Gauss+LD 92
+    QT5000-Possion3.0/Input-00004.txt    2L = 10000 | V: HoG 0.2861, rare+LD 0.2777 (LD/genic -0.03), Gauss+LD 0.278; neutral V_M·2N_e = 0.2867 | n_e: HoG 2.84e+03, rare+LD 172, Gauss+LD 179
 
      Sampled published inputs (60 per stratum, seed 20261118), V from the table's "Genotype Var at 10000", n from its "P Survived at 10000":
      stratum                  2L       used  undefined median n_e    quartiles   HoG median     n_e/2L
-     QT0100-Possion3.0       200         60          8       20.7    13–33             51.5      0.104
-     QT0100-Possion5.0       200         60         12       13.9   5.5–31             52.3     0.0694
-     QT0500-Possion3.0      1000         60         12       84.8    36–1.2e+02          277     0.0848
-     QT0500-Possion5.0      1000         60         10       61.4    22–85              277     0.0614
-     QT1000-Possion3.0      2000         60         16       59.6    36–1.2e+02          564     0.0298
-     QT1000-Possion5.0      2000         60          8       61.5    18–1.1e+02          562     0.0308
-     QT5000-Possion3.0     10000         60         15        151    43–2.1e+02     2.84e+03     0.0151
-     QT5000-Possion5.0     10000         60         10        102    49–1.4e+02     2.84e+03     0.0102
+     QT0100-Possion3.0       200         60          9       20.6    13–32             51.4      0.103
+     QT0100-Possion5.0       200         60         12         14   5.6–32             52.2       0.07
+     QT0500-Possion3.0      1000         60         13       84.1    36–1.3e+02          277     0.0841
+     QT0500-Possion5.0      1000         60         10       62.3    22–87              277     0.0623
+     QT1000-Possion3.0      2000         60         16       61.4    37–1.2e+02          562     0.0307
+     QT1000-Possion5.0      2000         60          8         63    18–1.1e+02          561     0.0315
+     QT5000-Possion3.0     10000         60         16        150    47–2.1e+02     2.83e+03      0.015
+     QT5000-Possion5.0     10000         60         11        104    47–1.4e+02     2.83e+03     0.0104
      "undefined": the single run's V_G is at or above the neutral expectation 2N_e V_M, so no n_e > 0 satisfies eq. 5 (one realisation; V_G fluctuates).
 
-Done: 139 s of CPU time (process clock), 132 s wall, on 1 thread(s).
+Done: 120 s of CPU time (process clock), 114 s wall, on 1 thread(s).

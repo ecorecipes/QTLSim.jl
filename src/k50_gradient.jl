@@ -95,7 +95,7 @@ end
 
 """
     QTLSim.emulated_log_hazard(p::Params; loci = :spectrum, spectrum = QTLSim.TWO_STAGE_SCREEN,
-                               burnin = 2000, horizon = 2000, VG = house_of_gauss_vg(p))
+                               burnin = 2000, horizon = 2000, VG = QTLSim.burnin_start_vg(p))
 
 The deterministic emulator ([`emulate`](@ref) with `replicates = 0`, a moments closure `loci`)
 with its probability of being alive `horizon` generations into the move returned in logs, so
@@ -119,7 +119,7 @@ A trajectory that dies before the move has `logH = Inf` (`P2000 = 0`). Requires 
 `MoveType = :continuous`, one trait, `Demography = :fixed`.
 """
 function emulated_log_hazard(p::Params; loci::Symbol = :spectrum, spectrum = TWO_STAGE_SCREEN, burnin::Integer = 2000,
-                             horizon::Integer = 2000, VG::Real = house_of_gauss_vg(p))
+                             horizon::Integer = 2000, VG::Real = burnin_start_vg(p))
     p.MoveType === :continuous || throw(ArgumentError("emulated_log_hazard is for MoveType = :continuous; got :$(p.MoveType)"))
     p.NoTraits == 1 || throw(ArgumentError("emulated_log_hazard is for one trait; NoTraits = $(p.NoTraits)"))
     p.Demography === :fixed || throw(ArgumentError("emulated_log_hazard is for Demography = :fixed, got :$(p.Demography)"))
