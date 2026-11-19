@@ -538,8 +538,10 @@ end
 
 const PILOT_STEPS = -0.75:0.15:0.75
 const PILOT_R = 6
-const MAIN_STEPS = (-3.5:1.0:3.5) .* 0.08
-const MAIN_R = 30
+# main grid: changed after the pilot and before any main run (the pilot's transitions are sharper than one pilot
+# step; see the log): 21 rates at steps of 0.024 in log k over ±0.24, 10 runs per rate and arm (was 8 rates × 30)
+const MAIN_STEPS = (-10:10) .* 0.024
+const MAIN_R = 10
 function pilot_mode()
     ins = kinputs()
     say("== pilot mode: kernel at each input's own ω; rates = table model A's k50 · exp($(PILOT_STEPS)), $PILOT_R runs each ==")
@@ -645,7 +647,44 @@ function emfd_mode()
         s = kgrad(p; spectrum = cl == "gridld" ? (; ld = :dynamic) : (;), bracket = br)
         append_line(f, EMHEAD, join(Any["$(x.j)|$cl|$arm", x.j, cl, arm, p.InitFitnessSD, s.k50, s.e, s.status, s.evals, s.continued, round(s.sec; digits = 1)], ","))
     end
+    # 3. the screen's state in the last generation before the move, at the two arms (for the kernel's V_G at the move)
+    g = ncache("premove.csv")
+    have = done_keys(g)
+    jobs3 = [(x, arm) for x in ins for arm in (-1, 1) if !("$(x.j)|$arm" in have)]
+    Threads.@threads :greedy for (x, arm) in jobs3
+        p = Params(readp(x.id); InitFitnessSD = armω(x.omega, arm))
+        s = emul_premove(p)
+        append_line(g, "key,j,arm,VG,W", join(Any["$(x.j)|$arm", x.j, arm, s.VG, s.W], ","))
+    end
     say("  done; see mode local")
+end
+
+"The state at the move: kernel (means over the main runs per arm) against the screen and the table's own row."
+function premove_report(ins, R)
+    g = ncache("premove.csv")
+    isfile(g) || return
+    P = Dict(String(r.key) => (pf64(r.VG), pf64(r.W)) for r in read_csv(g))
+    D = n_data(); rowof = Dict(id => i for (i, id) in enumerate(D.id))
+    say("\n  the state in the last generation before the move, per input: kernel mean over the main runs of each arm (se), the screen at the same arm;")
+    say("  the kernel's pilot runs at the input's own ω against the table's 'Genotype Var at 10000' of the same row (one published run);")
+    say("  s = Δ log X / (2δ) between the arms")
+    rows = NamedTuple[]
+    for x in ins
+        v(arm, f) = [getfield(r, f) for r in R if r.j == x.j && r.arm == arm && r.stage == (arm == 0 ? "pilot" : "main") && isfinite(getfield(r, f))]
+        (isempty(v(-1, :VGm)) || !haskey(P, "$(x.j)|-1") || !haskey(P, "$(x.j)|1")) && continue
+        m(arm, f) = mean(v(arm, f)); se(arm, f) = std(v(arm, f)) / sqrt(length(v(arm, f)))
+        sk = (log(m(1, :VGm)) - log(m(-1, :VGm))) / (2NDELTA); ss = (log(P["$(x.j)|1"][1]) - log(P["$(x.j)|-1"][1])) / (2NDELTA)
+        sg = (log(m(1, :genm)) - log(m(-1, :genm))) / (2NDELTA)
+        push!(rows, (; x.j, x.L, x.omega, sk, ss, sg, rm = P["$(x.j)|-1"][1] / m(-1, :VGm), rp = P["$(x.j)|1"][1] / m(1, :VGm)))
+        sayf("    %2d L %4d ω %.3f | V_G kernel ω− %.5f (%.5f) ω+ %.5f (%.5f)  screen %.5f %.5f  screen/kernel %.3f %.3f | s_VG kernel % .3f screen % .3f | kernel genic %.5f %.5f (V_G/genic %.3f %.3f; s_genic % .3f) | W̄ kernel %.4f %.4f screen %.4f %.4f | at ω: kernel pilot V_G %.5f (sd %.5f, n %d), table row %.5f",
+             x.j, x.L, x.omega, m(-1, :VGm), se(-1, :VGm), m(1, :VGm), se(1, :VGm), P["$(x.j)|-1"][1], P["$(x.j)|1"][1], rows[end].rm, rows[end].rp, sk, ss,
+             m(-1, :genm), m(1, :genm), m(-1, :VGm) / m(-1, :genm), m(1, :VGm) / m(1, :genm), sg, m(-1, :Wpre), m(1, :Wpre), P["$(x.j)|-1"][2], P["$(x.j)|1"][2],
+             m(0, :VGm), std(v(0, :VGm)), length(v(0, :VGm)), D.gv[rowof[x.id]])
+    end
+    isempty(rows) && return
+    sayf("    medians over %d inputs: s_VG kernel % .3f, screen % .3f, screen − kernel % .3f (mean % .3f); screen/kernel V_G at ω− %.3f, at ω+ %.3f", length(rows),
+         median(r.sk for r in rows), median(r.ss for r in rows), median(r.ss - r.sk for r in rows), mean(r.ss - r.sk for r in rows), median(r.rm for r in rows),
+         median(r.rp for r in rows))
 end
 function emfd()
     E = read_csv(ncache("emfd.csv"))
@@ -705,6 +744,7 @@ function local_mode()
              sqrt(1 / sum(ww)), mean(filter(isfinite, [r.fd_screen for r in v])), mean(r.eA for r in v))
     end
     serialize(ncache("local.jls"), rows)
+    premove_report(ins, R)
 end
 
 

@@ -555,3 +555,219 @@ Predictions:
     12 QT1000-Possion5.0/Input-09914.txt  ω 1.552 V_P 0.0131 h² 0.483 m 0.00438 | file k 0.0120 T   1989 | table model A k50 0.0144
 
 [mode select: process CPU 9 s (clock(): user + system, all threads, with compilation), wall 4 s, 6 threads]
+
+== step 3a (mode `pilot`; 792 kernel runs, 1072 CPU-s) ==
+
+== pilot mode: kernel at each input's own ω; rates = table model A's k50 · exp(-0.75:0.15:0.75), 6 runs each ==
+  792 kernel runs to do (0 cached)
+     1 QT0100-Possion5.0/Input-07137.txt  L  100 ω 0.361  table k50 0.0530  pilot k50 0.0544 (ratio 1.03)  alive by rate: 100 100 100 100 100 67 0 0 0 0 0
+     2 QT0100-Possion5.0/Input-12231.txt  L  100 ω 0.934  table k50 0.0637  pilot k50 0.0687 (ratio 1.08)  alive by rate: 100 100 100 100 100 100 0 0 0 0 0
+     3 QT0100-Possion3.0/Input-03404.txt  L  100 ω 1.366  table k50 0.0418  pilot k50 0.0523 (ratio 1.25)  alive by rate: 100 100 100 100 100 100 100 0 0 0 0
+     4 QT0100-Possion5.0/Input-14789.txt  L  100 ω 2.143  table k50 0.0386  pilot k50 0.0406 (ratio 1.05)  alive by rate: 100 100 100 100 100 83 0 0 0 0 0
+     5 QT0500-Possion3.0/Input-08249.txt  L  500 ω 0.536  table k50 0.0375  pilot k50 0.0404 (ratio 1.08)  alive by rate: 100 100 100 100 100 100 0 0 0 0 0
+     6 QT0500-Possion3.0/Input-04007.txt  L  500 ω 0.690  table k50 0.0620  pilot k50 0.0797 (ratio 1.28)  alive by rate: 100 100 100 100 100 100 100 17 0 0 0
+     7 QT0500-Possion3.0/Input-09773.txt  L  500 ω 1.369  table k50 0.0207  pilot k50 0.0187 (ratio 0.90)  alive by rate: 100 100 100 100 83 0 0 0 0 0 0
+     8 QT0500-Possion5.0/Input-08615.txt  L  500 ω 1.822  table k50 0.0262  pilot k50 0.0243 (ratio 0.93)  alive by rate: 100 100 100 100 100 0 0 0 0 0 0
+     9 QT1000-Possion5.0/Input-11094.txt  L 1000 ω 0.349  table k50 0.0736  pilot k50 0.0794 (ratio 1.08)  alive by rate: 100 100 100 100 100 100 0 0 0 0 0
+    10 QT1000-Possion5.0/Input-14211.txt  L 1000 ω 0.649  table k50 0.0222  pilot k50 0.0113 (ratio 0.51)  alive by rate: 100 0 0 0 0 0 0 0 0 0 0
+    11 QT1000-Possion5.0/Input-13607.txt  L 1000 ω 1.468  table k50 0.0337  pilot k50 0.0382 (ratio 1.13)  alive by rate: 100 100 100 100 100 100 33 0 0 0 0
+    12 QT1000-Possion5.0/Input-09914.txt  L 1000 ω 1.552  table k50 0.0144  pilot k50 0.0118 (ratio 0.82)  alive by rate: 100 100 100 100 17 0 0 0 0 0 0
+
+[mode pilot: process CPU 1072 s (clock(): user + system, all threads, with compilation), wall 200 s, 6 threads]
+
+Reading, and an AMENDMENT of the main design (made after the pilot, whose purpose was to set the
+grid, and before any main run):
+ - Per input the kernel's survival is nearly a step in the rate: in 11 of 12 inputs the fraction
+   alive goes from 100% (6 of 6) to 0–33% within one pilot step of 0.15 in log k. A main grid with
+   steps of 0.08 would then locate k50 only to about ±0.04 per arm, i.e. e_ω to about ±0.15, however
+   many runs per rate. So the main grid is changed to 21 rates = pilot k50 × exp(−0.24:0.024:0.24)
+   with 10 runs per rate and arm (210 runs per arm instead of 240; same estimator, same seeds rule).
+   The pilot locates k50 within about ±0.08, and arm shifts of up to ±0.12 (e = −0.6) stay inside.
+ - Level of the table model A against the kernel (pilot k50 / model A's k50): 0.82–1.28 in 11
+   inputs, 0.51 for input 10 (h² 0.74, m 0.0015, L 1000; its own table row died at 542 at a rate
+   0.76 of the model's k50, so the model, linear in the logs of the other inputs, is off there, not
+   the kernel).
+
+== step 3b (modes `kernel`, `emfd`, `local`): the kernel's local elasticity against the emulators' ==
+5040 main kernel runs (9362 CPU-s by clock(); the machine slept for hours during the run, wall 15 h,
+and the CPU figure may include wake-up overhead), emulators 3448 CPU-s. Output of `local`:
+
+== local mode: the kernel's elasticity of k50 in ω over ω·e^{±0.2} against the emulators' over the same interval ==
+  kernel: Spearman–Kärber mean of log k50 per arm (fractions alive made monotone; 10 runs per rate and arm), e = Δ log k50 / (2δ),
+  paired bootstrap percentile 95% CI (1000 resamples of replicate indices within a rate, the same in both arms); logistic comparator
+  y ~ 1 + log k + arm ('elog', 'width' = −1/βk in log k). Emulators: fd = finite difference of their k50 over the same arms; loc = local
+  (k50_gradient) at ω. Table: model A's local e_ω in the input's bin (se).
+   1 QT0100-Possion5.0/Input-07137.txt  L  100 ω 0.361
+       kernel: rates 0.0428 0.0438 0.0449 0.0460 0.0471 0.0482 0.0494 0.0506 0.0518 0.0531 0.0544 0.0557 0.0571 0.0584 0.0599 0.0613 0.0628 0.0643 0.0659 0.0675 0.0691
+               alive ω− 100 100 100 100 100 100 100 100 100 100  90  70  80  50  40   0   0   0   0   0   0
+               alive ω+ 100 100  90  90  80  70  30  20  20  10   0   0   0   0   0   0   0   0   0   0   0
+               k50(ω−) 0.0582 (se of log 0.007)  k50(ω+) 0.0489 (0.008)  e_ω -0.432 [-0.486, -0.378]  elog -0.432  width 0.026
+       emulator: screen fd -0.313 (loc -0.311, ok)  grid+LD fd  NaN  no-LD fd  NaN  rare fd  0.309 | table A -0.400 (0.146)
+       levels: screen k50 / kernel k50 at ω− 0.80, at ω+ 0.84; table model A k50 / kernel (geometric mean of arms) 0.99
+   2 QT0100-Possion5.0/Input-12231.txt  L  100 ω 0.934
+       kernel: rates 0.0540 0.0553 0.0567 0.0580 0.0595 0.0609 0.0624 0.0639 0.0654 0.0670 0.0687 0.0703 0.0720 0.0738 0.0756 0.0774 0.0793 0.0812 0.0832 0.0852 0.0873
+               alive ω− 100 100 100 100 100 100 100 100 100  90  90  90  60  50  20   0   0   0   0   0   0
+               alive ω+ 100 100 100  50  30  10  10  10   0   0   0   0   0   0   0   0   0   0   0   0   0
+               k50(ω−) 0.0729 (se of log 0.007)  k50(ω+) 0.0589 (0.006)  e_ω -0.534 [-0.582, -0.486]  elog -0.535  width 0.021
+       emulator: screen fd -0.544 (loc -0.549, ok)  grid+LD fd  NaN  no-LD fd  NaN  rare fd  0.156 | table A -0.292 (0.243)
+       levels: screen k50 / kernel k50 at ω− 0.81, at ω+ 0.81; table model A k50 / kernel (geometric mean of arms) 0.97
+   3 QT0100-Possion3.0/Input-03404.txt  L  100 ω 1.366
+       kernel: rates 0.0411 0.0421 0.0432 0.0442 0.0453 0.0464 0.0475 0.0487 0.0499 0.0511 0.0523 0.0536 0.0549 0.0562 0.0576 0.0590 0.0604 0.0619 0.0634 0.0649 0.0665
+               alive ω− 100 100 100 100 100 100 100 100 100 100  90 100 100  70  60  60  30   0   0  10   0
+               alive ω+ 100 100  70  70  70  40  40  20  10   0   0   0   0   0   0   0   0   0   0   0   0
+               k50(ω−) 0.0586 (se of log 0.008)  k50(ω+) 0.0461 (0.009)  e_ω -0.600 [-0.660, -0.540]  elog -0.602  width 0.031
+       emulator: screen fd -0.621 (loc -0.625, ok)  grid+LD fd  NaN  no-LD fd  NaN  rare fd  0.107 | table A -0.927 (0.210)
+       levels: screen k50 / kernel k50 at ω− 0.89, at ω+ 0.89; table model A k50 / kernel (geometric mean of arms) 0.80
+   4 QT0100-Possion5.0/Input-14789.txt  L  100 ω 2.143
+       kernel: rates 0.0319 0.0327 0.0335 0.0343 0.0352 0.0360 0.0369 0.0378 0.0387 0.0396 0.0406 0.0416 0.0426 0.0436 0.0447 0.0458 0.0469 0.0480 0.0492 0.0504 0.0516
+               alive ω− 100 100 100 100 100 100 100 100 100 100 100  90 100 100 100  60  30  50   0  10   0
+               alive ω+ 100 100 100 100  80  80  50   0  10  10   0   0   0   0   0   0   0   0   0   0   0
+               k50(ω−) 0.0468 (se of log 0.007)  k50(ω+) 0.0367 (0.007)  e_ω -0.606 [-0.654, -0.558]  elog -0.607  width 0.023
+       emulator: screen fd -0.684 (loc -0.702, ok)  grid+LD fd  NaN  no-LD fd  NaN  rare fd -0.106 | table A -0.704 (0.384)
+       levels: screen k50 / kernel k50 at ω− 0.77, at ω+ 0.74; table model A k50 / kernel (geometric mean of arms) 0.93
+   5 QT0500-Possion3.0/Input-08249.txt  L  500 ω 0.536
+       kernel: rates 0.0318 0.0326 0.0333 0.0342 0.0350 0.0358 0.0367 0.0376 0.0385 0.0394 0.0404 0.0414 0.0424 0.0434 0.0445 0.0456 0.0467 0.0478 0.0490 0.0501 0.0514
+               alive ω− 100 100 100 100 100 100 100 100 100 100 100 100 100  50  10   0   0   0   0   0   0
+               alive ω+ 100 100 100 100  90  70  40  30  10   0   0   0   0   0   0   0   0   0   0   0   0
+               k50(ω−) 0.0435 (se of log 0.004)  k50(ω+) 0.0366 (0.007)  e_ω -0.432 [-0.468, -0.396]  elog -0.432  width 0.015
+       emulator: screen fd -0.457 (loc -0.458, ok)  grid+LD fd -0.457  no-LD fd -0.721  rare fd -0.123 | table A -0.181 (0.204)
+       levels: screen k50 / kernel k50 at ω− 1.20, at ω+ 1.19; table model A k50 / kernel (geometric mean of arms) 0.94
+   6 QT0500-Possion3.0/Input-04007.txt  L  500 ω 0.690
+       kernel: rates 0.0627 0.0642 0.0657 0.0673 0.0690 0.0706 0.0724 0.0741 0.0759 0.0778 0.0797 0.0816 0.0836 0.0856 0.0877 0.0898 0.0920 0.0942 0.0965 0.0989 0.1013
+               alive ω− 100 100 100 100 100 100 100 100 100 100 100 100 100  80  40   0   0   0   0   0   0
+               alive ω+ 100 100 100 100 100 100 100  60  10   0   0   0   0   0   0   0   0   0   0   0   0
+               k50(ω−) 0.0871 (se of log 0.005)  k50(ω+) 0.0745 (0.004)  e_ω -0.390 [-0.420, -0.354]  elog -0.391  width 0.008
+       emulator: screen fd -0.376 (loc -0.378, ok)  grid+LD fd -0.377  no-LD fd  NaN  rare fd -0.061 | table A -0.181 (0.204)
+       levels: screen k50 / kernel k50 at ω− 1.20, at ω+ 1.20; table model A k50 / kernel (geometric mean of arms) 0.77
+   7 QT0500-Possion3.0/Input-09773.txt  L  500 ω 1.369
+       kernel: rates 0.0147 0.0151 0.0154 0.0158 0.0162 0.0166 0.0170 0.0174 0.0178 0.0183 0.0187 0.0192 0.0196 0.0201 0.0206 0.0211 0.0216 0.0221 0.0227 0.0232 0.0238
+               alive ω− 100 100 100 100 100 100 100 100 100 100 100 100  90  40  40  10   0   0   0   0   0
+               alive ω+ 100 100 100 100 100 100  70  60   0   0   0   0   0   0   0   0   0   0   0   0   0
+               k50(ω−) 0.0202 (se of log 0.006)  k50(ω+) 0.0173 (0.005)  e_ω -0.390 [-0.426, -0.354]  elog -0.390  width 0.014
+       emulator: screen fd -0.614 (loc -0.479, ok)  grid+LD fd -0.547  no-LD fd -0.740  rare fd -0.434 | table A -0.829 (0.224)
+       levels: screen k50 / kernel k50 at ω− 1.07, at ω+ 0.98; table model A k50 / kernel (geometric mean of arms) 1.10
+   8 QT0500-Possion5.0/Input-08615.txt  L  500 ω 1.822
+       kernel: rates 0.0191 0.0196 0.0201 0.0205 0.0210 0.0216 0.0221 0.0226 0.0232 0.0237 0.0243 0.0249 0.0255 0.0261 0.0268 0.0274 0.0281 0.0288 0.0295 0.0302 0.0309
+               alive ω− 100 100 100 100 100 100 100 100 100 100 100 100  80  90   0  20   0   0   0   0   0
+               alive ω+ 100 100 100 100 100  70  60  40  10   0   0   0   0   0   0   0   0   0   0   0   0
+               k50(ω−) 0.0264 (se of log 0.005)  k50(ω+) 0.0222 (0.007)  e_ω -0.426 [-0.462, -0.384]  elog -0.426  width 0.016
+       emulator: screen fd -0.570 (loc -0.515, ok)  grid+LD fd  NaN  no-LD fd  NaN  rare fd -0.367 | table A -0.717 (0.406)
+       levels: screen k50 / kernel k50 at ω− 0.94, at ω+ 0.89; table model A k50 / kernel (geometric mean of arms) 1.08
+   9 QT1000-Possion5.0/Input-11094.txt  L 1000 ω 0.349
+       kernel: rates 0.0624 0.0640 0.0655 0.0671 0.0687 0.0704 0.0721 0.0739 0.0757 0.0775 0.0794 0.0813 0.0833 0.0853 0.0874 0.0895 0.0917 0.0939 0.0962 0.0985 0.1009
+               alive ω− 100 100 100 100 100 100 100 100 100  80  70  10   0   0   0   0   0   0   0   0   0
+               alive ω+ 100 100 100 100 100  90  30   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+               k50(ω−) 0.0796 (se of log 0.005)  k50(ω+) 0.0716 (0.004)  e_ω -0.264 [-0.294, -0.228]  elog -0.264  width 0.009
+       emulator: screen fd -0.175 (loc -0.343, ok)  grid+LD fd -0.176  no-LD fd -0.231  rare fd  0.034 | table A -0.359 (0.167)
+       levels: screen k50 / kernel k50 at ω− 1.29, at ω+ 1.34; table model A k50 / kernel (geometric mean of arms) 0.98
+  10 QT1000-Possion5.0/Input-14211.txt  L 1000 ω 0.649
+       kernel: rates 0.0089 0.0091 0.0093 0.0095 0.0098 0.0100 0.0102 0.0105 0.0108 0.0110 0.0113 0.0116 0.0118 0.0121 0.0124 0.0127 0.0130 0.0133 0.0137 0.0140 0.0143
+               alive ω− 100 100 100 100 100 100 100 100 100 100 100 100 100  60  30   0   0   0   0   0   0
+               alive ω+ 100 100 100 100 100 100  90  70  50   0   0   0   0   0   0   0   0   0   0   0   0
+               k50(ω−) 0.0122 (se of log 0.005)  k50(ω+) 0.0107 (0.006)  e_ω -0.348 [-0.384, -0.312]  elog -0.348  width 0.012
+       emulator: screen fd -0.681 (loc -0.513, ok)  grid+LD fd -0.582  no-LD fd  NaN  rare fd -0.317 | table A -0.109 (0.235)
+       levels: screen k50 / kernel k50 at ω− 1.14, at ω+ 1.00; table model A k50 / kernel (geometric mean of arms) 1.94
+  11 QT1000-Possion5.0/Input-13607.txt  L 1000 ω 1.468
+       kernel: rates 0.0300 0.0307 0.0315 0.0323 0.0330 0.0338 0.0347 0.0355 0.0364 0.0373 0.0382 0.0391 0.0400 0.0410 0.0420 0.0430 0.0441 0.0451 0.0462 0.0474 0.0485
+               alive ω− 100 100 100 100 100 100 100 100 100 100 100 100 100 100  60  30   0   0   0   0   0
+               alive ω+ 100 100 100 100 100 100  90  80  10   0   0   0   0   0   0   0   0   0   0   0   0
+               k50(ω−) 0.0424 (se of log 0.005)  k50(ω+) 0.0358 (0.004)  e_ω -0.426 [-0.462, -0.396]  elog -0.426  width 0.010
+       emulator: screen fd -0.613 (loc -0.545, ok)  grid+LD fd -0.606  no-LD fd -0.907  rare fd -0.262 | table A -0.475 (0.325)
+       levels: screen k50 / kernel k50 at ω− 1.22, at ω+ 1.13; table model A k50 / kernel (geometric mean of arms) 0.86
+  12 QT1000-Possion5.0/Input-09914.txt  L 1000 ω 1.552
+       kernel: rates 0.0093 0.0095 0.0097 0.0100 0.0102 0.0105 0.0107 0.0110 0.0112 0.0115 0.0118 0.0121 0.0124 0.0127 0.0130 0.0133 0.0136 0.0139 0.0143 0.0146 0.0150
+               alive ω− 100 100 100 100 100 100 100 100 100 100 100 100  60  30  20  10   0   0   0   0   0
+               alive ω+ 100 100 100 100 100 100 100  90  70  50  70   0   0   0   0   0   0   0   0   0   0
+               k50(ω−) 0.0126 (se of log 0.006)  k50(ω+) 0.0116 (0.007)  e_ω -0.204 [-0.246, -0.162]  elog -0.204  width 0.019
+       emulator: screen fd -0.376 (loc -0.382, ok)  grid+LD fd  NaN  no-LD fd  NaN  rare fd -0.488 | table A -0.475 (0.325)
+       levels: screen k50 / kernel k50 at ω− 0.99, at ω+ 0.93; table model A k50 / kernel (geometric mean of arms) 1.19
+
+  summary (inputs whose grid covers both arms):
+    n 12 of 12
+    kernel                 median -0.426  mean -0.421  [min -0.606, max -0.204]  n 12
+    kernel (logistic)      median -0.426  mean -0.421  [min -0.607, max -0.204]  n 12
+    screen fd              median -0.557  mean -0.502  [min -0.684, max -0.175]  n 12
+    screen local           median -0.496  mean -0.483  [min -0.702, max -0.311]  n 12
+    grid+LD fd             median -0.502  mean -0.458  [min -0.606, max -0.176]  n 6
+    no-LD fd               median -0.731  mean -0.650  [min -0.907, max -0.231]  n 4
+    :rare_alleles fd       median -0.115  mean -0.129  [min -0.488, max  0.309]  n 12
+    table model A (bin)    median -0.438  mean -0.471  [min -0.927, max -0.109]  n 12
+    kernel, inverse-variance weighted mean -0.400 (se 0.006); screen fd − kernel: mean -0.081, median -0.052; inputs with the screen's fd outside the kernel's CI: 8 of 12
+    L 100   n 4  kernel weighted mean -0.544 (se 0.013)  screen fd mean -0.540  table A mean -0.581
+    L 500   n 4  kernel weighted mean -0.407 (se 0.009)  screen fd mean -0.504  table A mean -0.477
+    L 1000  n 4  kernel weighted mean -0.323 (se 0.009)  screen fd mean -0.461  table A mean -0.355
+    ω < 1   n 6  kernel weighted mean -0.379 (se 0.008)  screen fd mean -0.424  table A mean -0.254
+    ω ≥ 1   n 6  kernel weighted mean -0.424 (se 0.009)  screen fd mean -0.580  table A mean -0.688
+
+  the state in the last generation before the move, per input: kernel mean over the main runs of each arm (se), the screen at the same arm;
+  the kernel's pilot runs at the input's own ω against the table's 'Genotype Var at 10000' of the same row (one published run);
+  s = Δ log X / (2δ) between the arms
+     1 L  100 ω 0.361 | V_G kernel ω− 0.00472 (0.00006) ω+ 0.00918 (0.00012)  screen 0.00526 0.00928  screen/kernel 1.114 1.011 | s_VG kernel  1.663 screen  1.423 | kernel genic 0.00694 0.01397 (V_G/genic 0.680 0.657; s_genic  1.748) | W̄ kernel 0.8931 0.9363 screen 0.8908 0.9363 | at ω: kernel pilot V_G 0.00633 (sd 0.00111, n 66), table row 0.00645
+     2 L  100 ω 0.934 | V_G kernel ω− 0.02656 (0.00035) ω+ 0.04748 (0.00059)  screen 0.02753 0.04907  screen/kernel 1.036 1.033 | s_VG kernel  1.452 screen  1.445 | kernel genic 0.04000 0.06908 (V_G/genic 0.664 0.687; s_genic  1.366) | W̄ kernel 0.9306 0.9581 screen 0.9301 0.9580 | at ω: kernel pilot V_G 0.03648 (sd 0.00622, n 66), table row 0.04001
+     3 L  100 ω 1.366 | V_G kernel ω− 0.04273 (0.00051) ω+ 0.07383 (0.00090)  screen 0.04386 0.07537  screen/kernel 1.026 1.021 | s_VG kernel  1.367 screen  1.354 | kernel genic 0.05181 0.08699 (V_G/genic 0.825 0.849; s_genic  1.296) | W̄ kernel 0.9745 0.9815 screen 0.9744 0.9814 | at ω: kernel pilot V_G 0.05953 (sd 0.01049, n 66), table row 0.07016
+     4 L  100 ω 2.143 | V_G kernel ω− 0.08326 (0.00103) ω+ 0.12721 (0.00156)  screen 0.08460 0.12886  screen/kernel 1.016 1.013 | s_VG kernel  1.060 screen  1.052 | kernel genic 0.11166 0.15689 (V_G/genic 0.746 0.811; s_genic  0.850) | W̄ kernel 0.9825 0.9873 screen 0.9826 0.9875 | at ω: kernel pilot V_G 0.10351 (sd 0.02158, n 66), table row 0.07602
+     5 L  500 ω 0.536 | V_G kernel ω− 0.03016 (0.00022) ω+ 0.04436 (0.00031)  screen 0.03033 0.04395  screen/kernel 1.006 0.991 | s_VG kernel  0.965 screen  0.927 | kernel genic 0.06148 0.07775 (V_G/genic 0.491 0.571; s_genic  0.587) | W̄ kernel 0.9087 0.9397 screen 0.9087 0.9409 | at ω: kernel pilot V_G 0.03652 (sd 0.00301, n 66), table row 0.03297
+     6 L  500 ω 0.690 | V_G kernel ω− 0.06657 (0.00051) ω+ 0.10211 (0.00076)  screen 0.06908 0.10227  screen/kernel 1.038 1.002 | s_VG kernel  1.069 screen  0.981 | kernel genic 0.15410 0.20337 (V_G/genic 0.432 0.502; s_genic  0.693) | W̄ kernel 0.8805 0.9188 screen 0.8782 0.9194 | at ω: kernel pilot V_G 0.08363 (sd 0.00805, n 66), table row 0.08981
+     7 L  500 ω 1.369 | V_G kernel ω− 0.05134 (0.00040) ω+ 0.06139 (0.00046)  screen 0.05074 0.06265  screen/kernel 0.988 1.020 | s_VG kernel  0.447 screen  0.527 | kernel genic 0.06666 0.07329 (V_G/genic 0.770 0.838; s_genic  0.237) | W̄ kernel 0.9683 0.9819 screen 0.9686 0.9821 | at ω: kernel pilot V_G 0.05720 (sd 0.00561, n 66), table row 0.06172
+     8 L  500 ω 1.822 | V_G kernel ω− 0.09079 (0.00067) ω+ 0.11206 (0.00095)  screen 0.08889 0.11161  screen/kernel 0.979 0.996 | s_VG kernel  0.526 screen  0.569 | kernel genic 0.13625 0.14759 (V_G/genic 0.666 0.759; s_genic  0.200) | W̄ kernel 0.9721 0.9835 screen 0.9728 0.9839 | at ω: kernel pilot V_G 0.10438 (sd 0.01351, n 66), table row 0.09971
+     9 L 1000 ω 0.349 | V_G kernel ω− 0.03803 (0.00026) ω+ 0.05764 (0.00037)  screen 0.04431 0.06045  screen/kernel 1.165 1.049 | s_VG kernel  1.040 screen  0.776 | kernel genic 0.16330 0.20615 (V_G/genic 0.233 0.280; s_genic  0.583) | W̄ kernel 0.7546 0.8296 screen 0.7382 0.8255 | at ω: kernel pilot V_G 0.04604 (sd 0.00382, n 66), table row 0.04801
+    10 L 1000 ω 0.649 | V_G kernel ω− 0.01770 (0.00012) ω+ 0.02218 (0.00017)  screen 0.01740 0.02197  screen/kernel 0.983 0.990 | s_VG kernel  0.564 screen  0.583 | kernel genic 0.02989 0.03201 (V_G/genic 0.592 0.693; s_genic  0.171) | W̄ kernel 0.9490 0.9712 screen 0.9496 0.9717 | at ω: kernel pilot V_G 0.02007 (sd 0.00219, n 66), table row 0.01786
+    11 L 1000 ω 1.468 | V_G kernel ω− 0.13191 (0.00091) ω+ 0.17005 (0.00124)  screen 0.12921 0.17004  screen/kernel 0.980 1.000 | s_VG kernel  0.635 screen  0.686 | kernel genic 0.26033 0.28013 (V_G/genic 0.507 0.607; s_genic  0.183) | W̄ kernel 0.9495 0.9691 screen 0.9505 0.9696 | at ω: kernel pilot V_G 0.15244 (sd 0.01338, n 66), table row 0.14420
+    12 L 1000 ω 1.552 | V_G kernel ω− 0.04093 (0.00032) ω+ 0.04694 (0.00042)  screen 0.04031 0.04690  screen/kernel 0.985 0.999 | s_VG kernel  0.342 screen  0.378 | kernel genic 0.05462 0.05663 (V_G/genic 0.749 0.829; s_genic  0.090) | W̄ kernel 0.9827 0.9897 screen 0.9831 0.9900 | at ω: kernel pilot V_G 0.04406 (sd 0.00543, n 66), table row 0.04832
+    medians over 12 inputs: s_VG kernel  1.002, screen  0.852, screen − kernel -0.007 (mean -0.036); screen/kernel V_G at ω− 1.011, at ω+ 1.006
+
+[mode local: process CPU 14 s (clock(): user + system, all threads, with compilation), wall 9 s, 6 threads]
+
+Reading of step 3b (after seeing it):
+ - K1 HOLDS. The kernel's own local e_ω over ω·e^{±0.2} is negative in 12 of 12 inputs, −0.20 to
+   −0.61, each with a CI half-width of about 0.04–0.06; inverse-variance mean −0.40 (se 0.006; the
+   spread between inputs, sd 0.12, is real). By locus number −0.54 (L 100), −0.41 (500), −0.32
+   (1000): the table's sub-range fits for 0.3 ≤ ω ≤ cut were −0.51, −0.42, −0.37. None is near the
+   tercile value −0.14…−0.19. So on the negative branch the TABLE's sub-range fits are right and its
+   tercile slope is not a local elasticity anywhere in the tercile. (The table's single-bin spline
+   slopes, se 0.15–0.4, are too noisy per input: model A's column.)
+ - K2 HOLDS in size, with a sharper pattern than predicted. Screen fd − kernel: mean −0.08, median
+   −0.05; by L: 0.00 (100), −0.10 (500), −0.14 (1000). It is not spread evenly: at L = 100 (inputs
+   1–4: +0.12, −0.01, −0.02, −0.08) and at L ≥ 500 with ω ≤ 0.69 except input 10 (5, 6, 9: −0.03,
+   +0.01, +0.09) the screen is right within about ±0.1; the excess is in the five inputs with
+   L ≥ 500 and ω of 0.65–1.8 (7, 8, 10, 11, 12: −0.22, −0.14, −0.33, −0.19, −0.17). 8 of 12 screen
+   values lie outside the kernel's (narrow) CI.
+ - K3 HOLDS in part: screen k50 / kernel k50 is 0.74–0.89 at L = 100 (the screen too LOW there, by
+   11–26%, the same in both arms), 1.19–1.34 at L ≥ 500 for ω ≤ 0.69 (inputs 5, 6, 9; the same in
+   both arms, hence no error in the elasticity), and in the five inputs with an excess sensitivity
+   the ratio falls from ω− to ω+ (1.07→0.98, 0.94→0.89, 1.14→1.00, 1.22→1.13, 0.99→0.93).
+ - K4 FAILS in part: on the grid the same closure gives the same finite difference within 0.001
+   in inputs 5, 6, 9, 11, but −0.547 against the beta's −0.614 (input 7) and −0.582 against −0.681
+   (input 10); and the screen's own local value differs from its finite difference over ±0.2 in
+   7 (−0.48 vs −0.61), 9 (−0.34 vs −0.18) and 10 (−0.51 vs −0.68). So about 0.07–0.10 of the excess
+   in inputs 7 and 10 is the beta solver (its fallback changes between the arms), and k50(ω) of the
+   screen is not smooth over ±20% there. With the grid values the excess in 7 and 10 is −0.16 and
+   −0.23. Default :spectrum (no LD) is MORE sensitive (−0.72, −0.74, −0.91 in 5, 7, 11; −0.23 in 9),
+   not within 0.1 of the screen: dynamic LD removes about half of an excess sensitivity that the
+   no-LD closure has.
+   :rare_alleles has the wrong sign or size in most inputs (+0.31 to −0.49).
+ - State at the move (last block): screen/kernel V_G 0.98–1.04 in 10 inputs (1.11 and 1.17 at
+   ω− of inputs 1 and 9, the two with ω ≈ 0.35), and the sensitivity of V_G at the move to ω agrees
+   (median difference −0.01; in the five excess inputs the screen's is +0.02 to +0.08 HIGHER,
+   which would make its e_ω less negative, not more). E-1 is rejected again, now input by input.
+   The equilibrium start is adequate: the kernel's pilot V_G at the move against the table's own row
+   (one published run from zero over 10,000 generations) is within 1.3 sd of the runs in all 12.
+   W̄ before the move: screen within 0.002 of the kernel except input 9 at ω− (0.738 vs 0.755).
+
+== step 4: trajectories (mode `traj`). Hypotheses before running ==
+Per input, 6 kernel runs per arm (same seeds) and the screen's and default :spectrum's trajectories
+at one rate, 0.85 × the smaller of the kernel's two k50s, at ω− and ω+.
+ L1 (E-3). The Gaussian links hold in the kernel at both arms, also where ω² ≲ V_P: realised
+    response / (V_G λ/S) within 0.97–1.02 and W̄ / Gaussian within 0.99–1.01. If they fail at ω−
+    more than at ω+, the response or mean-fitness formula carries the excess.
+ L2 (E-2). In the five inputs with an excess sensitivity (7, 8, 10, 11, 12) the screen's V_G under
+    the move, relative to the kernel's, is higher at ω− than at ω+ (screen/kernel falls from ω− to
+    ω+), i.e. the kernel's V_G under the move rises more steeply with ω than the screen's, by
+    roughly the elasticity gap (0.15–0.3 in Δ log V_G / Δ log ω at t = 250–1100), while before the
+    move the two sensitivities agree (step 3b). In inputs 1–6 and 9 the two sensitivities under the
+    move agree within 0.1. Mechanism suspected (not tested here): the kernel's genic variance
+    declines under a move by selection on allele–background associations (validate/genic_decline.md),
+    more strongly the narrower ω, and the screen has no such term.
+ L3 (E-4). If L1 holds and L2 does not, what is left is the extinction link.
+Budget note: 5.3 CPU-h used before this step; the block-lineage comparison is run only if this step
+leaves room.
