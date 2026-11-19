@@ -174,7 +174,10 @@ random, so the number a survivor contributes is binomial with variance
 $V_k = 2N (n_s - 1)/n_s^2$ when $n_s$ individuals survive, and
 $N_e = 4N/(V_k + 2)$ ([Falconer and Mackay
 1996](#ref-FalconerMackay1996)). This is how the paper’s results table
-computes it.
+computes it. The effective size of this life cycle is the number of
+survivors itself, $n_s$, which is what the package’s `effective_size`
+returns; the formula above is close to it when nearly all survive (995
+against 990 for 990 survivors of 1000) and overstates it when few do.
 
 ``` julia
 gaussian(p) = gaussian_vg_loci(p; drift = true)           # n loci, linkage disequilibrium, drift

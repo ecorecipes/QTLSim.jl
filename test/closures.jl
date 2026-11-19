@@ -16,7 +16,7 @@
     many = Params(p; MutationRatePerGamete = 1.0)
     @test house_of_gauss_vg(many; drift = false) ≈ sqrt(2L * Vm * Vs) rtol = 1e-3
     neutral = Params(p; InitFitnessSD = 1e5)
-    @test house_of_gauss_vg(neutral; nsurv = 1000) ≈ 2effective_size(1000, 1000) * Vm rtol = 1e-3
+    @test house_of_gauss_vg(neutral; nsurv = 1000) ≈ 2 * 1000 * Vm rtol = 1e-3
     @test house_of_gauss_vg(p) < house_of_cards_vg(p) && house_of_gauss_vg(p) < gaussian_vg_loci(p; drift = true)
     # the multilocus model with the rare-alleles closure: below the Gaussian, equal to it
     # when mutations are many and small, Turelli's house of cards when they are rare
@@ -125,7 +125,7 @@ end
     Gw = house_of_gauss_G(weak; drift = false)
     @test Gw * (selection_variance_matrix(weak) \ Gw) ≈ 2L .* mutational_covariance(weak) rtol = 1e-3
     neutral = Params(p2; InitFitnessSD = 1e5)
-    @test house_of_gauss_G(neutral; nsurv = 1000) ≈ 2effective_size(1000, 1000) .* M rtol = 1e-3
+    @test house_of_gauss_G(neutral; nsurv = 1000) ≈ 2 * 1000 .* M rtol = 1e-3
     @test rare_alleles_G(neutral; drift = true) ≈ gaussian_G_loci(neutral; drift = true) rtol = 1e-3
     G2 = rare_alleles_G(p2)
     @test all(QTLSim.eigvals(G2) .> 0) && G2[1, 1] < gaussian_G_loci(p2)[1, 1]
@@ -152,7 +152,7 @@ end
     @test rare_alleles_vg(phr) ≈ 2L * 1e-7 * Vsh rtol = 0.02
     phm = Params(ph; MutationRatePerGamete = 1.0)
     @test rare_alleles_vg(phm) ≈ gaussian_vg_loci(phm) rtol = 2e-3                     # √(V_m V_s): one clone
-    @test house_of_gauss_vg(Params(ph; InitFitnessSD = 1e5); nsurv = 1000) ≈ effective_size(1000, 1000) * Vm rtol = 1e-3
+    @test house_of_gauss_vg(Params(ph; InitFitnessSD = 1e5); nsurv = 1000) ≈ 1000 * Vm rtol = 1e-3
     qh = Params(ph; NoGenerations = 100_000, Sample = 1000)
     oh = run_moments(qh; loci = :rare_alleles)
     @test oh.geno_var[end] ≈ rare_alleles_vg(ph) rtol = 1e-6

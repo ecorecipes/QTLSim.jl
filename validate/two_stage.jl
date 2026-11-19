@@ -18,6 +18,9 @@ let src = read(joinpath(@__DIR__, "blocks.jl"), String)
     include_string(Main, replace(src, r"\nbmain\(\)\s*$" => "\n"), joinpath(@__DIR__, "blocks.jl"))
 end
 
+# 2026-11-19: `ne = :falconer`, `solver = :iteration` and `QTLSim.burnin_start_vg` below keep the effective size, the solver and
+# the starting variance this script was run with (the package's defaults are now `:breeders` and `:bisection`; NEWS.md), so that
+# it still reproduces its log.
 const TMODE = isempty(ARGS) ? "full" : ARGS[1]
 # the configuration under test (validate/two_stage_dev.log; fixed in validate/two_stage_criteria.md)
 const TBAND = QTLSim.TWO_STAGE_BAND
@@ -73,7 +76,7 @@ function tp_inputs(ids, ps, strat, ex)
         el = [i for i in eachindex(ids) if strat[i] == s && !(ids[i] in ex)]
         got = 0
         for i in el[randperm(rng, length(el))]
-            kc = drift_critical_rate(ps[i]).k
+            kc = drift_critical_rate(ps[i]; ne = :falconer, solver = :iteration).k
             (kc > 0 && 0.3 <= ps[i].MoveFitnessSD / kc <= 3.0) || continue
             push!(pool, i); got += 1
             got == TNPOOL && break

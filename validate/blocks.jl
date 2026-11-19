@@ -20,6 +20,9 @@ let src = read(joinpath(@__DIR__, "spectrum_ld.jl"), String)
     # spectrum_ld.jl's functions (exclusions, E6′'s statistics through M6, em_job), without its main()
     include_string(Main, replace(src, r"\nmain\(\)\s*$" => "\n"), joinpath(@__DIR__, "spectrum_ld.jl"))
 end
+# 2026-11-19: `ne = :falconer`, `solver = :iteration` and `QTLSim.burnin_start_vg` below keep the effective size, the solver and
+# the starting variance this script was run with (the package's defaults are now `:breeders` and `:bisection`; NEWS.md), so that
+# it still reproduces its log.
 using QTLSim: job_seed, block_map, block_stats
 import Distributions
 
@@ -91,7 +94,7 @@ function bh_inputs(ids, ps, strat, ex)
         el = [i for i in eachindex(ids) if strat[i] == s && !(ids[i] in ex)]
         got = 0
         for i in el[randperm(rng, length(el))]
-            kc = drift_critical_rate(ps[i]).k
+            kc = drift_critical_rate(ps[i]; ne = :falconer, solver = :iteration).k
             (kc > 0 && 0.3 <= ps[i].MoveFitnessSD / kc <= 3.0) || continue
             push!(pool, i); got += 1
             got == BNPOOL && break

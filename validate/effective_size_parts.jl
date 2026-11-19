@@ -21,7 +21,7 @@ function old_feedback_state(p::Params, λ::Real, c::Real)
             N = n / W
         end
         n < p.Ploidy && return (VG = 0.0, n, N, Wbar = W)
-        V = QTLSim._house_of_gauss(p, p.Ploidy * effective_size(N, n))
+        V = QTLSim._house_of_gauss(p, p.Ploidy * effective_size(N, n; scheme = :falconer))
         done = abs(V - VG) <= 1e-13 * V
         VG = V
         done && break
@@ -54,7 +54,7 @@ function old_iteration_fate(p::Params, λ::Real, c::Real)
     for it in 1:100
         sz = QTLSim._feedback_size(p, VG, λ, c)
         sz.n < p.Ploidy && return it == 1 ? :dead_first : :dead_later
-        V = QTLSim._house_of_gauss(p, p.Ploidy * effective_size(sz.N, sz.n))
+        V = QTLSim._house_of_gauss(p, p.Ploidy * effective_size(sz.N, sz.n; scheme = :falconer))
         abs(V - VG) <= 1e-13 * V && return :converged
         VG = V
     end
@@ -174,7 +174,7 @@ function branch_part()
     cases = xs_cases()
     differ = String[]
     for (name, p) in cases
-        o, nw, al = old_drift_critical_rate(p).k, drift_critical_rate(p; solver = :bisection), all_states_kc(p)
+        o, nw, al = old_drift_critical_rate(p).k, drift_critical_rate(p; solver = :bisection, ne = :falconer), all_states_kc(p)
         λs = range(0, 12 * sqrt(initFitSD(p)^2 + QTLSim.envVar(p) + QTLSim._house_of_gauss(p, p.Ploidy * float(p.PopSize))), length = 600)
         fates = [old_iteration_fate(p, λ, 0.0) for λ in λs]
         cnt(s) = count(==(s), fates)
@@ -192,7 +192,7 @@ function branch_part()
     say("  conv: the old iteration converged; dead1: \"no population\" at the variance of N = K (first step); dead+: the iteration jumped to")
     say("  \"no population\" at a later step; cyc: no convergence in 100 steps. R·W̄(V(K)) ≤ 1 means a population of size K with its house-of-Gauss variance")
     say("  cannot replace itself at lag 0. f(V) is the variance that the population sized by V holds; it falls with V, so V = f(V) has one root.")
-    worst = maximum(abs(drift_critical_rate(p; solver = :bisection).k - all_states_kc(p)) / max(all_states_kc(p), 1e-300) for (_, p) in cases)
+    worst = maximum(abs(drift_critical_rate(p; solver = :bisection, ne = :falconer).k - all_states_kc(p)) / max(all_states_kc(p), 1e-300) for (_, p) in cases)
     sayf("  new against all states: largest relative difference %.2e", worst)
 
     say("\n2. Uniqueness: is f non-increasing in V? On each of the 16 inputs and 40 lags, a grid of 2000 variances, both schemes of N_e")
@@ -223,7 +223,7 @@ function branch_part()
         v = NamedTuple[]
         for (dn, dem) in DEMOS, c in (i % 5 == 0 ? (0.0, 0.25, 1.0) : (0.0,))
             q = dem(x.p)
-            o, df, nw = old_drift_critical_rate(q; cost = c), drift_critical_rate(q; cost = c), drift_critical_rate(q; cost = c, solver = :bisection)
+            o, df, nw = old_drift_critical_rate(q; cost = c), drift_critical_rate(q; cost = c, ne = :falconer, solver = :iteration), drift_critical_rate(q; cost = c, solver = :bisection, ne = :falconer)
             same = all(isequal(getfield(o, f), getfield(df, f)) for f in keys(o))
             rel = abs(o.k - nw.k) / max(nw.k, 1e-300)
             al = rel > 1e-12 ? all_states_kc(q; cost = c) : NaN
@@ -251,7 +251,7 @@ function branch_part()
          maximum(abs(r.new - r.al) / r.al for r in dif; init = 0.0))
     tc = Params(PopSize = 1000, Ploidy = 2, NoQTL = 100, RecombPoissonMean = 3.0, PhenotypeVar = 0.03, Heritability = 0.4,
                 MutationScalar = 0.005, MutationRatePerGamete = 1e-4, InitFitnessSD = 4.0, MoveType = :continuous)
-    same = all(isequal(old_drift_critical_rate(dem(tc); cost = c), drift_critical_rate(dem(tc); cost = c, solver = :bisection)) for (_, dem) in DEMOS for c in (0.0, 0.1, 0.5, 1.0))
+    same = all(isequal(old_drift_critical_rate(dem(tc); cost = c), drift_critical_rate(dem(tc); cost = c, solver = :bisection, ne = :falconer)) for (_, dem) in DEMOS for c in (0.0, 0.1, 0.5, 1.0))
     say("   test/critical.jl's input, 4 demographies × 4 costs, solver = :bisection against old: ", same ? "identical" : "DIFFERENT")
 
     say("\n4. Is the steady state that the iteration misses reachable? Two inputs for which old k_c = 0 (\"no population\"):")
@@ -260,7 +260,7 @@ function branch_part()
     pin = first(x for x in published_inputs(75) if x.L == 5000 && x.u == 3 && x.id == 12144)
     for (name, p) in (("Xu–Shen-type, n_e = 100: ω2 = 20", Dict(cases)["n_e = 100: ω2 = 20"]),
                       ("published QT5000-3 Input-12144, R = 1.5", Params(pin.p; Demography = :beverton_holt, GrowthRate = 1.5, MoveType = :continuous)))
-        o, nw = old_drift_critical_rate(p).k, drift_critical_rate(p; solver = :bisection)
+        o, nw = old_drift_critical_rate(p).k, drift_critical_rate(p; solver = :bisection, ne = :falconer)
         st0 = QTLSim._feedback_state(p, 0.0, 0.0; solver = :bisection)
         VK = QTLSim._house_of_gauss(p, p.Ploidy * float(p.PopSize))
         sayf("   %s: K = %d, R = %.3f, %d loci; old k_c %.4f, bisection k_c %.4f (λ* %.2f, V* %.4f, n* %.1f); steady state without a move: V %.4f, n %.1f, N %.1f (variance of N = K: %.4f)", name,
@@ -325,7 +325,7 @@ function impact_part()
     Threads.@threads :greedy for x in pubs
         for (dn, dem) in DEMOS
             q = dem(x.p)
-            a, b = drift_critical_rate(q).k, drift_critical_rate(q; ne = :breeders).k
+            a, b = drift_critical_rate(q; ne = :falconer, solver = :iteration).k, drift_critical_rate(q; ne = :breeders, solver = :iteration).k
             a > 0 && lock(() -> push!(get!(ratios, (x.L, dn), Float64[]), b / a), lk)
         end
     end
@@ -350,7 +350,7 @@ function impact_part()
             else
                 f, b = hog_consistent(x.p; ne = :falconer), hog_consistent(x.p; ne = :breeders)
                 me = try multilocus_equilibrium(x.p; drift = true).VG catch; NaN end
-                rowsv[i] = (; x.L, x.u, gv = tab.gv[r], f = f.V, b = b.V, N = house_of_gauss_vg(x.p), me, nfrac = b.n / x.p.PopSize)
+                rowsv[i] = (; x.L, x.u, gv = tab.gv[r], f = f.V, b = b.V, N = house_of_gauss_vg(x.p; ne = :falconer), me, nfrac = b.n / x.p.PopSize)
             end
         end
         ok = filter(!isnothing, rowsv)
@@ -370,19 +370,19 @@ function impact_part()
     end
 
     say("\n3. validate/critical_rate.jl's headline numbers, recomputed from its cache (critical_rate.csv, the kernel's k50 per cell) with each scheme")
-    rows = sweep(j -> error("the cache is incomplete"), CR.jobs(CR.NREP); cache = joinpath(HERE, "critical_rate.csv"), id = j -> "$(j.set)-$(j.dem)-$(j.c)-$(j.rep)")
+    rows = sweep(j -> error("the cache is incomplete"), CR.jobs(CR.NREP); cache = joinpath(HERE, "critical_rate_falconer.csv"), id = j -> "$(j.set)-$(j.dem)-$(j.c)-$(j.rep)")
     br = CR.branches(rows)
-    hsr = CR.predictions(joinpath(HERE, "critical_rate_pred.csv"))
+    hsr = CR.predictions(joinpath(HERE, "critical_rate_falconer_pred.csv"))
     for ne in (:falconer, :breeders)
         c1 = [0, 0]; c2 = [0, 0]; maxerr = 0.0; nsign = 0; Mr = Float64[]; kk = Dict(:L100 => Float64[], :L500 => Float64[])
         for set in keys(CR.SETS), dem in CR.DEMS
             p0 = CR.demp(set, dem)
             cs = collect(CR.COSTS[dem])
             k = Dict(c => CR.k50([x for x in br if x.set === set && x.dem === dem && x.c == c]) for c in cs)
-            d0 = drift_critical_rate(p0; ne)
+            d0 = drift_critical_rate(p0; ne, solver = :iteration)
             ρo = Float64[]
             for c in cs
-                kc = drift_critical_rate(p0; cost = c, ne).k
+                kc = drift_critical_rate(p0; cost = c, ne, solver = :iteration).k
                 push!(kk[set], k[c] / kc)
                 c > 0 || continue
                 ρ, ρp = k[c] / k[0.0], kc / d0.k
@@ -401,7 +401,7 @@ function impact_part()
     say("  moves the bracket of its bisection. Check on two cells (12 bisection steps resolve ln k to 5e-4):")
     for (set, dem, c) in ((:L100, :fixed, 0.0), (:L100, :R2, 0.2))
         p0 = CR.demp(set, dem)
-        a = half_survival_rate(p0; cost = c); b = half_survival_rate(p0; cost = c, ne = :breeders)
+        a = half_survival_rate(p0; cost = c, ne = :falconer, solver = :iteration); b = half_survival_rate(p0; cost = c, ne = :breeders, solver = :iteration)
         sayf("    %s %s c = %.1f: k50 %.6f (:falconer; cached prediction %.6f), %.6f (:breeders); ln ratio %+.1e; k_c %.5f → %.5f", set, dem, c, a.k50,
              hsr[(set, dem, c)], b.k50, log(b.k50 / a.k50), a.kc, b.kc)
     end
@@ -413,7 +413,7 @@ function impact_part()
     Threads.@threads :greedy for i in eachindex(sub)
         p = sub[i].p
         a = emulated_half_survival_rate(p; loci = :spectrum, spectrum = (; solver = :beta), rtol = 1e-8)
-        kf, kb = drift_critical_rate(p).k, drift_critical_rate(p; ne = :breeders).k
+        kf, kb = drift_critical_rate(p; ne = :falconer, solver = :iteration).k, drift_critical_rate(p; ne = :breeders, solver = :iteration).k
         b = kb > 0 ? emulated_half_survival_rate(p; loci = :spectrum, spectrum = (; solver = :beta), rtol = 1e-8, bracket = (kb / 8, 2kb)) : (k50 = 0.0,)
         res[i] = (; sub[i].L, sub[i].u, a = a.k50, b = b.k50, kf, kb)
     end

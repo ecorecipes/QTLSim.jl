@@ -25,6 +25,9 @@
 #   julia --project=vignettes validate/linked_ld.jl stages SET R          # the per-stage accounting
 # Raw records: validate/linked_ld_raw/ (git-ignored).
 
+# 2026-11-19: `ne = :falconer`, `solver = :iteration` and `QTLSim.burnin_start_vg` below keep the effective size, the solver and
+# the starting variance this script was run with (the package's defaults are now `:breeders` and `:bisection`; NEWS.md), so that
+# it still reproduces its log.
 using LinearAlgebra
 include(joinpath(@__DIR__, "linked_source.jl"))
 
@@ -1150,7 +1153,7 @@ function h_rows(; verbose = false)
             id = s * "/" * f
             id in used && continue
             p = readp(id)
-            vg = house_of_gauss_vg(p); kc = drift_critical_rate(p).k
+            vg = house_of_gauss_vg(p; ne = :falconer); kc = drift_critical_rate(p; ne = :falconer, solver = :iteration).k
             idx = p.MoveFitnessSD^2 / vg; ratio = p.MoveFitnessSD / kc
             ntried += 1
             if idx >= 0.01 && ratio <= 1.4

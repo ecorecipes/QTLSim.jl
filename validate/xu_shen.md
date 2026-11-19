@@ -69,6 +69,11 @@ Everything else in eqs. 1–8 and S1–S16 was confirmed symbolically.
 
 ## 3. The mapping to `drift_critical_rate`, and its limits
 
+(Numbers of this section are from `xu_shen.log` as rerun on 2026-11-19 with the package's
+current defaults, N_e = the breeders and bisection where the iteration fails; the log of
+the first run, with the earlier effective size, is `xu_shen_falconer.log`. Sections 1, 2 and 4
+of the log are identical in the two runs.)
+
 Time unit = one generation, v = k; ω² ↔ V_s = ω² + V_E; V_M ↔ m·V_E; n_e ↔ Ploidy·L (1 for a
 haploid clone); N ↔ Ploidy·N_e gene copies; r ↔ ln R + ln c₀ − ½ ln(1 + V_E/ω²); K ↔
 Ploidy·K/ln R (K1, the same gene copies at no load) or Ploidy·K/(R − 1) (K2, the same
@@ -77,16 +82,16 @@ third loss term V·α²/(2V_s).
 
 | inputs | v_c(eq. 6)/k_c (K1) | with K2 |
 |---|---|---|
-| Xu–Shen-type, n_e = 1 (haploid clone), 8 parameter sets | 1.011–1.026 | 0.980–1.009 |
-| Xu–Shen-type, n_e = 100 (diploid, 50 loci), 8 sets | 1.017–1.096 | 0.948–0.998 |
-| published-type, Beverton–Holt R = 1.5 / 2 / 5 (6 inputs) | 1.006–1.169 / 1.018–1.184 / 1.090–1.267 | 0.82–0.96 / 0.71–0.84 / 0.44–0.53 |
+| Xu–Shen-type, n_e = 1 (haploid clone), 8 parameter sets | 1.031–1.048 | 1.004–1.024 |
+| Xu–Shen-type, n_e = 100 (diploid, 50 loci), 8 sets | 1.061–1.167 | 1.000–1.041 |
+| published-type, Beverton–Holt R = 1.5 / 2 / 5 (6 inputs) | 1.073–1.241 / 1.126–1.301 / 1.311–1.507 | 0.87–1.02 / 0.78–0.92 / 0.53–0.63 |
 
 Attribution (a ladder changing one ingredient at a time; the split depends on the order):
 
 - the variance equation (dropping α²/(2V_s)): ×1.001–1.004 where α²/(2V_s) ≪ 1/(2N), up to
   ×1.16 for the test input with 100 loci (α²/(2V_s) = 0.28/(2N));
-- drift from the census of adults instead of N_e from the breeders: ×1.07 (R = 1.5), ×1.14
-  (R = 2), ×1.39 (R = 5);
+- drift from the census of adults instead of N_e = the breeders: ×1.15 (R = 1.5), ×1.26
+  (R = 2), ×1.65–1.68 (R = 5);
 - first-order (continuous-time) response and loads: ×1.000–1.004 for published-type inputs
   (V ≪ ω²), up to ×1.09 at r = 0.5;
 - logistic instead of Beverton–Holt regulation (K1): ×0.94, 0.89, 0.78.
@@ -96,29 +101,32 @@ The last rung equals eq. 6 at the mapped parameters to 4 digits, which checks th
 Limits. (1) Weak selection (ω² ≫ V): harmless for published inputs. (2) Overlapping against
 discrete generations: only first-order agreement. (3) Density regulation cannot be matched
 for all loads; K1 and K2 differ by up to a factor 2.5 at R = 5. (4) **A fixed size has no
-counterpart**: N has no dynamics and the feedback acts through N_e(N, N W̄) alone; there
-k_c is 1.8 times the Beverton–Holt (R = 2) value for the same input. (5) Linkage: neither
+counterpart**: N has no dynamics and the feedback acts through N_e = N W̄ alone; there
+k_c is 1.5 times the Beverton–Holt (R = 2) value for the same input. (5) Linkage: neither
 eq. 5 nor the house of Gauss has the LD of QTSim's single crossover.
 
-Two observations about QTLSim's own functions made on the way (nothing changed):
+Two observations about QTLSim's own functions were made on the way in the first run. Both
+were then checked (`validate/effective_size.md`) and both are now the defaults:
 
-- `drift_critical_rate` follows one branch of steady states (its inner iteration starts from
-  the variance at N = K). Where the variance of a large population carries a load near or
-  above the growth rate it returns less than the maximum over all steady states, or 0
-  (3 of 16 Xu–Shen-type inputs with n_e = 100: 0 against 0.297, 0.296 against 0.434, 0.411
-  against 0.421). Published-type inputs are far from that regime (0 of 18 differ).
-- `effective_size(N, n)` is close to the harmonic mean 2Nn/(N + n). A plain neutral
-  simulation of the same sampling scheme (N zygotes, n breeders, two distinct parents; not
-  the kernel) gave N_e = n: 198, 100, 51 for n = 200, 100, 50 of N = 200, against 200, 134,
-  81 from the formula. With N_e = n, k_c is 0.90–0.91 times its value for published-type
-  inputs at R = 2. Not verified in the kernel; worth a separate check.
+- An iteration of the steady state from the variance at N = K follows one branch. Where the
+  variance of a large population carries a load near or above the growth rate it returns
+  less than the maximum over all steady states, or 0 (3 of 16 Xu–Shen-type inputs with
+  n_e = 100; with N_e = the breeders 0 against 0.287, 0.289 against 0.419, 0.400 against
+  0.409). `drift_critical_rate` now falls back on bisection there and equals the maximum
+  over all steady states in all 34 cases of the log. Published-type inputs are far from
+  that regime (0 of 18 differ).
+- The earlier `effective_size(N, n)` was close to the harmonic mean 2Nn/(N + n); the
+  effective size of the life cycle is n (198, 100, 51 for n = 200, 100, 50 of N = 200 in a
+  plain neutral simulation, against 200, 134, 81 from that formula; confirmed in the
+  kernel). With N_e = n, k_c is 0.90–0.91 times its earlier value for published-type inputs
+  at R = 2 and 0.96–0.98 times for the Xu–Shen-type standard inputs.
 
 **The n_e that eq. 5 would need** for the equilibrium variance at v = 0 (a rough estimate:
 close to the neutral 2N_eV_M the denominator is a small difference): from the house of
-Gauss 45–2850, i.e. 0.23–0.29 of 2L; from `multilocus_equilibrium` (rare alleles and LD
-under the single crossover) 39–159; from the published table's pre-move V_G (60 inputs per
-stratum, one QTSim run each, 13–27% undefined) medians 14–21 (100 loci), 61–85 (500), 60–62
-(1000), 102–151 (5000), i.e. 0.10 down to 0.01 of 2L. So n_e of order 20–150, far below the
+Gauss 45–2840, i.e. 0.23–0.28 of 2L; from `multilocus_equilibrium` (rare alleles and LD
+under the single crossover) 40–172; from the published table's pre-move V_G (60 inputs per
+stratum, one QTSim run each, 13–27% undefined) medians 14–21 (100 loci), 62–84 (500), 61–63
+(1000), 104–150 (5000), i.e. 0.10 down to 0.01 of 2L. So n_e of order 20–150, far below the
 number of loci and hardly growing with it; no single n_e represents the house-of-cards term.
 
 ## 4. Proposal (not executed): an individual-based test of bistability in the kernel

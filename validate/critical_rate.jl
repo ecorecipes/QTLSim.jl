@@ -99,13 +99,49 @@
 # - k50/drift_critical_rate: 0.77–1.03 with 100 loci, 0.44–0.75 with 500 (mostly rising with the cost
 #   in every group); k50/sustainable_rate 0.08–0.43.
 #
-# Run from the package root, at most 3 threads (estimate: about 960 jobs × 7–10 s, 2–3
-# CPU-hours, plus about 30 min for the 32 half_survival_rate predictions):
+# ── Addendum, 2026-11-19: run 2 under the package's new defaults ─────────────────────────
+# Written before run 2 (seeds from 9_500_000_000) and before any of its results.
+# - What changed in the package: effective_size(N, n) now returns the breeders n (it was the
+#   Falconer-type form 4N/(V_k + 2), about the harmonic mean of N and n, which neutral kernel
+#   runs reject: validate/effective_size.md), and drift_critical_rate finds the steady state
+#   by bisection where its iteration fails. So "N_e = effective_size(N, n)" in the theory
+#   paragraph above now means N_e = n, and every drift_critical_rate below is lower (0.72–0.98
+#   of its earlier value on published inputs). half_survival_rate's moments never used the
+#   function; only its search bracket moves.
+# - What does not change: the design (cells, costs, 30 burn-ins, 13 rates, 2000 generations),
+#   the measures, the criteria C1–C3 with their tolerances (0.06; 0.8–1.25; 0.75–1.33) and
+#   the verdict rules, word for word as pre-specified above.
+# - The grid of rates. It was centred on drift_critical_rate × F with F = 0.84 (100 loci) and
+#   0.52 (500 loci), the k50/k_c of the earlier post hoc look. With the lower k_c those
+#   factors would put the grid too low, so F is now 1.15 (100 loci) and 0.70 (500 loci): the
+#   geometric middle of run 1's k50 over the new k_c (0.97–1.38 and 0.57–0.87,
+#   validate/effective_size_impact.log). F only places the grid; a cell whose grid does not
+#   bracket k50 is reported as NaN and fails its criteria, as before.
+# - Fresh seeds: SEED0 = 9_500_000_000 (run 1 used 9_100_000_000). New kernel runs
+#   throughout; no burn-in of run 1 is reused. The predictions of half_survival_rate are
+#   recomputed under the new defaults (critical_rate_pred.csv).
+# - What is known in advance, and is therefore not a blind test: applying the new defaults
+#   to run 1's data (validate/effective_size_impact.log) gave C1 12 of 24 (max error 0.140,
+#   observed ≥ predicted in 24 of 24), C2 1 of 8 (M_obs/M_theory 1.18–1.77), C3 unchanged
+#   (26 of 32). By the pre-set rules that is MIXED for the relative effect of a cost (12 is
+#   not < 12) and not SUPPORTED for the linear-margin form's scale. Run 2 is expected to
+#   confirm this on independent runs; it is reported whichever way it goes.
+# - Run 1 is kept: critical_rate_falconer.log, critical_rate_falconer.csv,
+#   critical_rate_falconer_pred.csv and critical_rate_posthoc_falconer.log are run 1's files
+#   under their new names, and the argument `falconer` reruns this script with run 1's
+#   settings (ne = :falconer, solver = :iteration, F = 0.84 and 0.52, seeds 9_100_000_000).
+# - The post hoc part (`posthoc`) is rerun under the new defaults as well
+#   (critical_rate_posthoc.log); it has no criteria.
+# END OF ADDENDUM
+#
+# Run from the package root (estimate: about 960 jobs × 7–10 s, 2–3 CPU-hours, plus about
+# 30 min for the 32 half_survival_rate predictions):
 #   julia -t 3 --project=vignettes validate/critical_rate.jl posthoc   # existing data only
 #   julia -t 3 --project=vignettes validate/critical_rate.jl [SEED0]   # the experiment; resumes
+#   julia -t 3 --project=vignettes validate/critical_rate.jl falconer [posthoc | SEED0]   # run 1's settings
 # Writes validate/critical_rate.csv (sweep cache, one row per burn-in with its branches),
 # validate/critical_rate_pred.csv (the predictions), and prints the analysis
-# (critical_rate.log).
+# (critical_rate.log); with `falconer` the files are critical_rate_falconer*.
 
 using QTLSim, Statistics, Random, Printf, DelimitedFiles, XLSX
 import Catlab
@@ -113,9 +149,14 @@ import Catlab
 const BURN = 10_000
 const CAP = 2_000
 const NREP = 30
-const SEED0 = 9_100_000_000
+# `falconer` as the first argument: run 1's settings (see the addendum)
+const OLD = !isempty(ARGS) && ARGS[1] == "falconer"
+OLD && popfirst!(ARGS)
+const KC = OLD ? (ne = :falconer, solver = :iteration) : (;)          # keywords of drift_critical_rate and half_survival_rate
+const SEED0 = OLD ? 9_100_000_000 : 9_500_000_000
+const TAG = OLD ? "_falconer" : ""
 const GRID = (0.5, 0.62, 0.72, 0.8, 0.86, 0.92, 0.97, 1.03, 1.09, 1.17, 1.3, 1.55, 2.0)
-const F = Dict(:L100 => 0.84, :L500 => 0.52)
+const F = OLD ? Dict(:L100 => 0.84, :L500 => 0.52) : Dict(:L100 => 1.15, :L500 => 0.70)
 const SETS = (L100 = Params(Sample = 10, PopSize = 1000, Ploidy = 2, NoQTL = 100, RecombPoissonMean = 3.0,
                             PhenotypeVar = 0.03, Heritability = 0.4, MutationScalar = 0.005,
                             MutationRatePerGamete = 1e-4, InitFitnessSD = 4.0, MoveType = :continuous),
@@ -131,7 +172,7 @@ demp(set, dem) = dem === :fixed ? Params(SETS[set]; Demography = :fixed) :
                  Params(SETS[set]; Demography = :beverton_holt, GrowthRate = GROWTH[dem])
 withcost(p, c) = c == 0 ? p : Params(p; Plasticity = 1.0, OptimumSlope = 1e12, PlasticityCostSD = 1 / sqrt(2c))
 cells() = [(set, dem, c) for set in keys(SETS) for dem in DEMS for c in COSTS[dem]]
-center(set, dem, c) = drift_critical_rate(demp(set, dem); cost = c).k * F[set]
+center(set, dem, c) = drift_critical_rate(demp(set, dem); cost = c, KC...).k * F[set]
 rates(set, dem, c) = [center(set, dem, c) * g for g in GRID]
 
 function burnin(p::Params, seed)
@@ -246,7 +287,7 @@ function predictions(path)
     res = Vector{Float64}(undef, length(todo))
     Threads.@threads :greedy for i in eachindex(todo)
         set, dem, c = todo[i]
-        res[i] = half_survival_rate(demp(set, dem); cost = c).k50
+        res[i] = half_survival_rate(demp(set, dem); cost = c, KC...).k50
     end
     for (x, v) in zip(todo, res)
         cache[x] = v
@@ -270,7 +311,7 @@ function analyse(rows, predpath, seed0)
     nsqrt = 0
     for set in keys(SETS), dem in DEMS
         p0 = demp(set, dem)
-        dc0 = drift_critical_rate(p0)
+        dc0 = drift_critical_rate(p0; KC...)
         cs = collect(COSTS[dem])
         cellb = Dict(c => byrep([x for x in br if x.set === set && x.dem === dem && x.c == c]) for c in cs)
         any(isempty, values(cellb)) && continue
@@ -283,7 +324,7 @@ function analyse(rows, predpath, seed0)
         ρobs = Float64[]
         for c in cs
             pc = withcost(p0, c)
-            kc = drift_critical_rate(p0; cost = c).k
+            kc = drift_critical_rate(p0; cost = c, KC...).k
             sr = sustainable_rate(pc; VG = vg[0.0])
             kp = hsr[(set, dem, c)]
             kci = ci([b[c] for b in boot])
@@ -341,18 +382,19 @@ const EROSION = [(:L100, :fixed, 0.022342, [(0.5, 0.016779), (1.125, 0.011608)])
                  (:L500, :R2, 0.03784, [(0.125, 0.029976), (0.5, 0.0069727)])]
 
 function posthoc()
-    println("POST HOC (not pre-specified): existing data, no new runs")
+    println("POST HOC (not pre-specified): existing data, no new runs; ", OLD ? "run 1's settings (ne = :falconer, solver = :iteration)" :
+            "the package's defaults (N_e = the breeders, bisection where the iteration fails)")
     println("\n1. plasticity_erosion.log's cells (arm 0 and arm A, k50 in effective units)")
     for (set, dem, k0, costs) in EROSION
         p = demp(set, dem)
-        d0 = drift_critical_rate(p)
-        h0 = half_survival_rate(p).k50
+        d0 = drift_critical_rate(p; KC...)
+        h0 = half_survival_rate(p; KC...).k50
         @printf("  %s %s: k50 %.5f; drift_critical_rate %.5f (k50/k_c %.3f, M %.3f); half_survival_rate %.5f (k50/pred %.3f)\n",
                 set, dem, k0, d0.k, k0 / d0.k, d0.M, h0, k0 / h0)
         for (c, kc) in costs
             ρ = kc / k0
-            ρp = drift_critical_rate(p; cost = c).k / d0.k
-            hc = half_survival_rate(p; cost = c).k50
+            ρp = drift_critical_rate(p; cost = c, KC...).k / d0.k
+            hc = half_survival_rate(p; cost = c, KC...).k50
             @printf("    c = %.3f: ratio %.3f; drift_critical_rate %.3f (diff %+.3f); linear 1 − c/M %.3f; M implied by the data %.3f; half_survival_rate ratio %.3f, k50/pred %.3f\n",
                     c, ρ, ρp, ρ - ρp, 1 - c / d0.M, c / (1 - ρ), hc / h0, kc / hc)
         end
@@ -390,8 +432,8 @@ function posthoc_populations()
         x, xo, Ls = Float64[], Float64[], Int[]
         for i in rows
             p = P(i, dem)
-            push!(x, t.d[i] / drift_critical_rate(p).k)
-            push!(xo, t.d[i] / sustainable_rate(p; VG = house_of_gauss_vg(p)))
+            push!(x, t.d[i] / drift_critical_rate(p; KC...).k)
+            push!(xo, t.d[i] / sustainable_rate(p; VG = house_of_gauss_vg(p; ne = OLD ? :falconer : :breeders)))
             push!(Ls, t.L[i])
         end
         @printf("  %-8s %d populations, %.1f%% alive: x50 %.3f (drift_critical_rate), %.3f (sustainable_rate)\n", name,
@@ -406,15 +448,16 @@ end
 function main()
     !isempty(ARGS) && ARGS[1] == "posthoc" && return posthoc()
     seed0 = isempty(ARGS) ? SEED0 : parse(Int, ARGS[1])
-    tag = seed0 == SEED0 ? "" : "_seed$(seed0)"
+    tag = TAG * (seed0 == SEED0 ? "" : "_seed$(seed0)")
     path = joinpath(@__DIR__, "critical_rate$(tag).csv")
     println("Critical rate under drift and a cost of fitness: kernel, $(NREP) burn-ins per cell, seeds from $seed0, ",
-            "$(Threads.nthreads()) threads")
+            "$(Threads.nthreads()) threads; ", OLD ? "run 1's settings (ne = :falconer, solver = :iteration)" :
+            "the package's defaults (N_e = the breeders, bisection where the iteration fails)", "; grid centred on k_c × ", F[:L100], " (100 loci), ", F[:L500], " (500 loci)")
     t0 = time()
     rows = sweep(j -> job(j, seed0), jobs(NREP); cache = path, id = j -> "$(j.set)-$(j.dem)-$(j.c)-$(j.rep)",
                  cost = j -> (j.set === :L500 ? 2 : 1), progress = 40)
     @printf("%d burn-ins in %s (%.1f min this session)\n", length(rows), basename(path), (time() - t0) / 60)
-    ok = analyse(rows, joinpath(@__DIR__, "critical_rate_pred.csv"), seed0)
+    ok = analyse(rows, joinpath(@__DIR__, "critical_rate$(tag)_pred.csv"), seed0)
     println(ok ? "\nALL CRITERIA PASS" : "\nSOME CRITERIA FAIL")
     ok || exit(1)
 end

@@ -26,8 +26,8 @@
 #   W̄(λ) = c₀ e^{−c} ω/√s · exp(−λ²/(2s)),  s = ω² + V_G + V_E,  c₀ = 1/(0.4√(2π)), c the log cost;
 #   breeders n = N W̄ at a fixed size; under Beverton–Holt the equilibrium n = K(RW̄ − 1)/(R − 1)
 #   with N = n/W̄ adults (Lean `fitness_fixed_survivors`);
-#   N_e = effective_size(N, n), V_G = the house-of-Gauss variance with that N_e (Hermisson and
-#   Wagner 2004 eq. A4; house_of_gauss_vg);
+#   N_e = effective_size(N, n) = n, the breeders (validate/effective_size.md; Lean EffectiveSize.lean),
+#   V_G = the house-of-Gauss variance with that N_e (Hermisson and Wagner 2004 eq. A4; house_of_gauss_vg);
 #   the response V_G λ/(V_G + V_s) per generation, V_s = ω² + V_E (steady_lag).
 # k(λ) = V_G(λ)λ/(V_G(λ) + V_s) has a maximum, the critical rate k_c, at a lag λ*.
 #
@@ -98,14 +98,15 @@ function _feedback_root(p::Params, λ::Real, c::Real, ne::Symbol, dead)
 end
 
 # the steady state of the feedback at lag λ and log cost c: V_G, breeders, adults, W̄.
-# V = f(V) is iterated from the variance at N = K (`solver = :iteration`, the default, as it
-# always was). f is decreasing, so the iteration can overshoot: where a large population's
-# variance carries a load that the growth rate cannot pay (R W̄ ≤ 1 at the variance of N = K)
-# it reports "no population" although a smaller population with less variance is a steady
-# state, and where |f′| > 1 it does not converge. With `solver = :bisection` both cases fall
-# back on bisection (`_feedback_root`), which finds the root; where the iteration converges
-# the two are the same computation (validate/effective_size.md, part 1b).
-function _feedback_state(p::Params, λ::Real, c::Real; ne::Symbol = :falconer, solver::Symbol = :iteration)
+# V = f(V) is iterated from the variance at N = K. f is decreasing, so the iteration can
+# overshoot: where a large population's variance carries a load that the growth rate cannot
+# pay (R W̄ ≤ 1 at the variance of N = K) it reports "no population" although a smaller
+# population with less variance is a steady state, and where |f′| > 1 it does not converge.
+# With `solver = :bisection` (the default) both cases fall back on bisection
+# (`_feedback_root`), which finds the root; where the iteration converges the two are the
+# same computation. `solver = :iteration` is the iteration alone, failures included
+# (validate/effective_size.md, part 1b).
+function _feedback_state(p::Params, λ::Real, c::Real; ne::Symbol = :breeders, solver::Symbol = :bisection)
     solver in (:iteration, :bisection) || throw(ArgumentError("solver must be :iteration or :bisection, got :$solver"))
     robust = solver === :bisection
     ω, VE, K = initFitSD(p), envVar(p), p.PopSize
@@ -140,40 +141,42 @@ function _feedback_state(p::Params, λ::Real, c::Real; ne::Symbol = :falconer, s
 end
 
 """
-    drift_critical_rate(p; cost = -log(plasticity_cost(p)), ne = :falconer, solver = :iteration)
+    drift_critical_rate(p; cost = -log(plasticity_cost(p)), ne = :breeders, solver = :bisection)
 
 The critical rate of a continuously moving optimum when the genetic variance is set by
 mutation, stabilising selection and the drift of the breeders that the lag leaves: the
 largest steady response `k(λ) = V_G(λ) λ/(V_G(λ) + V_s)` over lags `λ`, where at lag `λ`
 mean fitness is `W̄ = c₀e^{−cost}ω/√s·exp(−λ²/(2s))` (`s = ω² + V_G + V_E`), the breeders are
 `n = N W̄` at a fixed size and the Beverton–Holt equilibrium `n = K(RW̄ − 1)/(R − 1)` (adults
-`n/W̄`) under `Demography = :beverton_holt`, `N_e` = [`effective_size`](@ref)`(N, n)`, and
-`V_G` is the house-of-Gauss variance with that `N_e` ([`house_of_gauss_vg`](@ref)). Above
-this rate no steady lag exists: the lag, the loss of breeders and the loss of variance feed
-each other until the population dies. `cost` is a log-fitness cost paid by every
-individual (by default the cost of plasticity of `p`, `b²/(2ω_b²)`). With plasticity the
-rate is divided by `|1 − b/B|` as in [`sustainable_rate`](@ref).
+`n/W̄`) under `Demography = :beverton_holt`, `N_e` = [`effective_size`](@ref)`(N, n) = n`,
+the breeders, and `V_G` is the house-of-Gauss variance with that `N_e`
+([`house_of_gauss_vg`](@ref)). Above this rate no steady lag exists: the lag, the loss of
+breeders and the loss of variance feed each other until the population dies. `cost` is a
+log-fitness cost paid by every individual (by default the cost of plasticity of `p`,
+`b²/(2ω_b²)`). With plasticity the rate is divided by `|1 − b/B|` as in
+[`sustainable_rate`](@ref).
 
-`ne` is [`effective_size`](@ref)'s `scheme`. The default `:falconer` overstates the
-effective size when few adults survive; `ne = :breeders` uses the breeders `n` themselves,
-which is what neutral kernel runs give (`validate/effective_size.md`), and lowers the
-critical rate (0.72–0.98 times the default on 600 published inputs: median 0.77 at a fixed
-size, 0.83, 0.90 and 0.94 under Beverton–Holt with R = 5, 2 and 1.5). The default is kept
-so that existing numbers do not move.
+`ne` is [`effective_size`](@ref)'s `scheme`. By default (`:breeders`) the effective size is
+the number of breeders, which is what the life cycle gives and what neutral kernel runs
+measure (`validate/effective_size.md`). `ne = :falconer` is the earlier form, about the
+harmonic mean of adults and breeders: it overstates the effective size when few adults
+survive, so it gives a higher critical rate (the default is 0.72–0.98 times it on 600
+published inputs: 0.72–0.89, median 0.77, at a fixed size; medians 0.83, 0.90 and 0.94
+under Beverton–Holt with R = 5, 2 and 1.5). It is kept to reproduce earlier numbers.
 
 At each lag there is one steady state: the variance `f(V)` that a population sized by the
-load of variance `V` can hold falls with `V`, so `V = f(V)` has one root. By default
-(`solver = :iteration`) it is found by iterating `f` from the variance at `N = K`, which
-fails where that variance carries a load the growth rate cannot pay (`R W̄ ≤ 1`: the lag
-then counts as "no population") or where `|f′| > 1` (no convergence): the rate returned is
-then below the maximum over steady states, or 0. `solver = :bisection` finds the root by
-bisection wherever the iteration fails and is otherwise the same computation. The two
-differ for populations whose variance at `N = K` carries a load near `ln R`: 3 of 16
-Xu–Shen-type inputs (0 against 0.297), none of 600 published inputs at a fixed size or
+load of variance `V` can hold falls with `V`, so `V = f(V)` has one root. It is found by
+iterating `f` from the variance at `N = K` and, where that fails, by bisection
+(`solver = :bisection`, the default). `solver = :iteration` is the iteration alone. It
+fails where the variance at `N = K` carries a load the growth rate cannot pay (`R W̄ ≤ 1`:
+the lag then counts as "no population") or where `|f′| > 1` (no convergence), that is
+when the variance of a large population carries a load near `ln R`; the rate it returns is
+then below the maximum over steady states, or 0, which is why it is not the default: 3 of
+16 Xu–Shen-type inputs (0 against 0.297), none of 600 published inputs at a fixed size or
 under Beverton–Holt with `R = 5`, and 5 of 1200 with `R = 2` or `1.5` without a cost
-(`validate/effective_size.md`, part 1b). The default is kept so that existing numbers do
-not move. The steady states it adds are small populations (tens to 170 breeders), held
-down by the load of their own variance.
+(`validate/effective_size.md`, part 1b). Where the iteration converges the two solvers are
+the same computation. The steady states that only the bisection finds are small
+populations (tens to 170 breeders), held down by the load of their own variance.
 
 Returns `(; k, λ, VG, n, N, Wbar, M)`: the critical rate, and at the critical lag `λ` the
 variance, breeders, adults and mean fitness, and `M = λ²/s`, the cost scale: by the
@@ -190,7 +193,7 @@ critical rate as the maximum over steady states with drift-reduced variance in c
 time with logistic growth, and Polechová and Barton (2015) and Polechová (2026) treat the
 spatial analogue. This function is a discrete-generation implementation matched to
 QTSim's life cycle (breeders `N W̄` or `K(RW̄ − 1)/(R − 1)`, house-of-Gauss `V_G`,
-[`effective_size`](@ref)), tested against the kernel; the envelope result for a constant
+`N_e` the breeders), tested against the kernel; the envelope result for a constant
 cost is derived here (`validate/symbolic/check_critical.jl`).
 
 This is a deterministic threshold, not the rate at which half of finite populations survive
@@ -205,8 +208,8 @@ ratio linear in the cost fits better than a square root in all 8 groups, and
 [`sustainable_rate`](@ref)'s ratio is within tolerance in 0 of 24 cells).
 The error has a sign: the observed scale `M` is 1.09–1.22 times `λ²/s`.
 """
-function drift_critical_rate(p::Params; cost::Real = -log(plasticity_cost(p)), ne::Symbol = :falconer,
-                             solver::Symbol = :iteration)
+function drift_critical_rate(p::Params; cost::Real = -log(plasticity_cost(p)), ne::Symbol = :breeders,
+                             solver::Symbol = :bisection)
     p.NoTraits == 1 || throw(ArgumentError("drift_critical_rate is for one trait; NoTraits = $(p.NoTraits)"))
     p.Demography in (:fixed, :beverton_holt) ||
         throw(ArgumentError("drift_critical_rate needs Demography = :fixed or :beverton_holt, got :$(p.Demography)"))
@@ -230,7 +233,8 @@ end
 
 """
     half_survival_rate(p; cost = -log(plasticity_cost(p)), horizon = 2000, burnin = 2000,
-                       loci = :spectrum, VG = house_of_gauss_vg(p), steps = 12, ne = :falconer)
+                       loci = :spectrum, VG = QTLSim.burnin_start_vg(p), steps = 12, ne = :breeders,
+                       solver = :bisection)
 
 The rate of a continuous move of the optimum at which a population of `p` survives
 `horizon` generations after the move begins with probability one half, predicted by the
@@ -243,8 +247,9 @@ genetic variance `VG`. `cost` is a log-fitness cost paid by every individual fro
 start; when `p` has no plasticity it is applied as the cost of a reaction norm of slope 1
 whose optimum slope is 10¹², whose plastic response is then negligible (1e-12 of the move;
 `validate/plasticity_erosion.jl`, H4). The rate is found by bisection on `log k`, `steps`
-times, between [`drift_critical_rate`](@ref)`/8` and twice it (`ne` is passed to it and
-only moves that bracket: the moments lowering's drift is that of the parents). Requires Catlab.
+times, between [`drift_critical_rate`](@ref)`/8` and twice it (`ne` and `solver` are passed
+to it and only move that bracket: the moments lowering's drift is that of the parents).
+Requires Catlab.
 
 Returns `(; k50, kc)`, `kc` being `drift_critical_rate(p; cost).k`. Each evaluation is one
 moments run of `burnin + horizon` generations (about 10 s with the spectrum).
@@ -258,8 +263,8 @@ prediction is 0.89–1.11 with 100 loci (16 of 16 within 0.75–1.33) and 0.68�
 0.68–0.74).
 """
 function half_survival_rate(p::Params; cost::Real = -log(plasticity_cost(p)), horizon::Integer = 2000,
-                            burnin::Integer = 2000, loci::Symbol = :spectrum, VG::Real = house_of_gauss_vg(p),
-                            steps::Integer = 12, ne::Symbol = :falconer)
+                            burnin::Integer = 2000, loci::Symbol = :spectrum, VG::Real = burnin_start_vg(p),
+                            steps::Integer = 12, ne::Symbol = :breeders, solver::Symbol = :bisection)
     p.MoveType === :continuous || throw(ArgumentError("half_survival_rate is for MoveType = :continuous"))
     cost >= 0 || throw(ArgumentError("the cost is a log-fitness cost ≥ 0, got $cost"))
     q = Params(p; Sample = 1, NoGenerations = burnin + horizon, MoveFitnessSDGen = burnin)
@@ -268,7 +273,7 @@ function half_survival_rate(p::Params; cost::Real = -log(plasticity_cost(p)), ho
     elseif cost != -log(plasticity_cost(p))
         throw(ArgumentError("p has plasticity; its cost is that of its PlasticityCostSD (leave `cost` out)"))
     end
-    kc = drift_critical_rate(p; cost, ne).k
+    kc = drift_critical_rate(p; cost, ne, solver).k
     kc > 0 || return (k50 = 0.0, kc)
     psurv(k) = (r = Params(q; MoveFitnessSD = k);
                 extinction_distribution(r, run_moments(r; VG, erosion = true, loci); from = burnin).psurvive)

@@ -1,0 +1,9 @@
+validate/ne_default_unchanged.jl, 2026-11-19: before = e35f5e3 (git archive), after = branch ne-default
+24 published inputs (3 per stratum); outputs compared as bit patterns:
+  run_moments (loci = :rare_alleles, :multilocus, :aggregate with erosion; the default; :spectrum for L ≤ 1000): geno_var, pheno_mean, mean_fitness
+  multilocus_equilibrium (default; drift; drift + :multilocus), rare_alleles_vg(drift), gaussian_vg_loci(drift)
+  emulate (default; replicates = 4; :spectrum with the beta solver, with and without ld = :dynamic for L ≤ 1000; the grid for L = 100)
+lines compared: 486; lines that differ: 0
+emulated_half_survival_rate (its bracket starts from drift_critical_rate, so not bitwise): largest relative difference of k50 over the 24 inputs: 1.25317e-11 (rtol of the search 1e-10 in log k)
+drift_critical_rate, new default over the earlier one (ne = :falconer, solver = :iteration), fixed size: 0.7693 0.7704 0.8942  (min, median, max)
+For reference, had the emulators' starting variance moved with the default (house of Gauss at N_e = N instead of N + ½), emulate's V_G at the move would have changed by up to 0.0001824 (relative) and P2000 by 0 on these inputs; the start is kept (QTLSim.burnin_start_vg).

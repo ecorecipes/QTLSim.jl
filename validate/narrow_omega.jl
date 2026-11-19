@@ -27,6 +27,9 @@ let src = read(joinpath(@__DIR__, "emulator.jl"), String)
     # emulator.jl's helpers (logistic, say, STRATA, SIMDIR, MASTER, load_master, …) without its main
     include_string(Main, replace(src, r"\nmain\(\)\s*$" => "\n"), joinpath(@__DIR__, "emulator.jl"))
 end
+# 2026-11-19: `ne = :falconer`, `solver = :iteration` and `QTLSim.burnin_start_vg` below keep the effective size, the solver and
+# the starting variance this script was run with (the package's defaults are now `:breeders` and `:bisection`; NEWS.md), so that
+# it still reproduces its log.
 using DelimitedFiles, Serialization
 BLAS.set_num_threads(1)
 
@@ -331,8 +334,8 @@ end
 "The emulator's state in the last generation before the move: V_G (as recorded), W̄, nsurv."
 function emul_premove(p; loci = :spectrum, spectrum = NSCREEN, burnin = 2000)
     q = Params(p; Sample = 1, NoGenerations = burnin + 2, MoveFitnessSDGen = burnin, MoveFitnessSD = 1e-9)
-    m = loci === :spectrum ? run_moments(q; VG = house_of_gauss_vg(p), erosion = true, loci, spectrum) :
-        run_moments(q; VG = house_of_gauss_vg(p), erosion = true, loci)
+    m = loci === :spectrum ? run_moments(q; VG = QTLSim.burnin_start_vg(p), erosion = true, loci, spectrum) :
+        run_moments(q; VG = QTLSim.burnin_start_vg(p), erosion = true, loci)
     length(m.gen) < burnin && return (; VG = NaN, W = 0.0, VP = NaN)
     (; VG = m.geno_var[burnin], W = m.mean_fitness[burnin], VP = m.pheno_var[burnin])
 end
@@ -762,7 +765,7 @@ function traj_rate(R, j)
 end
 function emul_traj(p; spectrum = NSCREEN)
     q = Params(p; Sample = 1, NoGenerations = 2000 + HOR, MoveFitnessSDGen = 2000)
-    m = run_moments(q; VG = house_of_gauss_vg(p), erosion = true, loci = :spectrum, spectrum)
+    m = run_moments(q; VG = QTLSim.burnin_start_vg(p), erosion = true, loci = :spectrum, spectrum)
     (; t = m.gen .- 2000, VG = m.geno_var, VP = m.pheno_var, lag = m.theta .- m.pheno_mean, Wbar = m.mean_fitness, extinct = m.extinct)
 end
 function traj_mode()

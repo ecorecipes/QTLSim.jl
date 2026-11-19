@@ -165,7 +165,7 @@ function kernel_part()
             length(rs) < 2 && continue
             ne, se = estimate(what, rs)
             nh = harmonic_breeders(N, W)
-            F = (current = effective_size(N, N * W), nbar = N * W, derived = what === :decay ? eigen_size(nh) : nh)
+            F = (current = effective_size(N, N * W; scheme = :falconer), nbar = N * W, derived = what === :decay ? eigen_size(nh) : nh)
             mark = Dict{Symbol,String}()
             for f in keys(F)
                 d = abs(ne - F[f])
@@ -179,12 +179,12 @@ function kernel_part()
     end
     say("  († a cell dropped by amendment 2: the runs that had finished, outside the verdict)")
     say("\nVerdicts (27 cell × measurement combinations each; amendment 2)")
-    for (f, name) in ((:current, "current  effective_size(N, n̄)"), (:nbar, "n̄ = N·W"), (:derived, "derived  n_h (n_h + ½ for the decay)"))
+    for (f, name) in ((:current, "current  effective_size(N, n̄; scheme = :falconer)"), (:nbar, "n̄ = N·W"), (:derived, "derived  n_h (n_h + ½ for the decay)"))
         a, r = verdict[f].agree[], verdict[f].reject[]
         sayf("  %-40s agrees in %2d of 27, rejected in %2d: %s", name, a, r, a == 27 ? "FITS" : r > 0 ? "REJECTED" : "INCONCLUSIVE")
     end
     say("\nThe side observation of validate/xu_shen.md, in the kernel (N = 200): W = 1, 0.5, 0.25 ↔ n̄ = 200, 100, 50; effective_size = ",
-        join((@sprintf("%.0f", effective_size(200, n)) for n in (200, 100, 50)), ", "), ".")
+        join((@sprintf("%.0f", effective_size(200, n; scheme = :falconer)) for n in (200, 100, 50)), ", "), ".")
     sayf("wall time this session %.1f min", (time() - cpu0) / 60)
     write(joinpath(HERE, "effective_size.log"), String(take!(out)))
 end

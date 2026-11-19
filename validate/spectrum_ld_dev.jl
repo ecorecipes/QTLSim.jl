@@ -13,6 +13,9 @@
 # ENV RAWDIR, default ../wt-spectrum-diagnosis/validate/spectrum_diagnosis_raw next to this
 # worktree, or regenerate them with `spectrum_diagnosis.jl kernel D+Dctl`.
 
+# 2026-11-19: `ne = :falconer`, `solver = :iteration` and `QTLSim.burnin_start_vg` below keep the effective size, the solver and
+# the starting variance this script was run with (the package's defaults are now `:breeders` and `:bisection`; NEWS.md), so that
+# it still reproduces its log.
 const DEVRAW = get(ENV, "RAWDIR", normpath(joinpath(@__DIR__, "..", "..", "wt-spectrum-diagnosis", "validate",
                                                      "spectrum_diagnosis_raw")))
 ENV["RAWDIR"] = DEVRAW
@@ -88,7 +91,7 @@ function ld_traj(p; spectrum = (;), burnin = BURNIN)
     q = Params(p; Sample = 1, NoGenerations = burnin + HORIZON, MoveFitnessSDGen = burnin)
     gen = Float64[]; ld = Float64[]
     rec = Dict{Symbol,Any}(:swap => nothing)
-    m = run_moments(q; VG = house_of_gauss_vg(p), erosion = true, loci = :spectrum, spectrum)
+    m = run_moments(q; VG = QTLSim.burnin_start_vg(p), erosion = true, loci = :spectrum, spectrum)
     (; t = m.gen .- burnin, VG = m.geno_var, extinct = m.extinct, T = m.extinct ? m.extinct_gen - burnin + 1 : missing,
      lag = m.theta .- m.pheno_mean)
 end

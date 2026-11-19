@@ -128,7 +128,7 @@ function rare_alleles_effect(p::Params, loci::Symbol)
 end
 
 """
-    house_of_gauss_vg(p; nsurv = p.PopSize, drift = true, ne = :falconer)
+    house_of_gauss_vg(p; nsurv = p.PopSize, drift = true, ne = :breeders)
 
 The equilibrium genetic variance of `L` loci in linkage equilibrium under mutation,
 stabilising selection and drift, interpolating the neutral, house-of-cards and Gaussian
@@ -140,8 +140,9 @@ house of Gauss", `V_G = Ploidy·L·c` with each gene's variance `c` the positive
 i.e. `c = 2μα²/(b + √(b² + 4μα²/V_s))`, `b = α²/(2V_s) + 1/(Ploidy·N_e)`, with `μ =
 MutationRatePerGamete`, `α²` = [`QTLSim.mutation_effect_variance`](@ref)`(p)`, `V_s` =
 [`selection_variance`](@ref)`(p)` and `N_e` from [`effective_size`](@ref) with `nsurv`
-survivors (`N_e = ∞` with `drift = false`; `ne` is [`effective_size`](@ref)'s `scheme`:
-with `nsurv < PopSize` the default `:falconer` overstates `N_e`, `:breeders` uses `nsurv`). A haploid genome, inherited whole by its clones
+survivors (`N_e = ∞` with `drift = false`; `ne` is [`effective_size`](@ref)'s `scheme`: by
+default `N_e = nsurv`, the breeders; `ne = :falconer` is the earlier form, which overstates
+`N_e` when `nsurv < PopSize` and is `N + ½` instead of `N` at `nsurv = PopSize`). A haploid genome, inherited whole by its clones
 (or a diploid's haplotype when no pair of loci recombines), is one unit with `Lμ` in place
 of `μ` and `V_G = Ploidy·c` (src/rare_alleles_traits.jl). Its limits are Lynch and Hill's neutral
 `2N_e V_m` (`V_s → ∞`), Bürger's stochastic house of cards [`house_of_cards_vg`](@ref)
@@ -151,7 +152,7 @@ form). It is the fixed point of the per-gene recursion behind the rare-alleles c
 (src/rare_alleles.jl); [`rare_alleles_vg`](@ref) is the same closure in the multilocus
 model, with linkage disequilibrium and `s = V_s + V_G`.
 """
-function house_of_gauss_vg(p::Params; nsurv::Real = p.PopSize, drift::Bool = true, ne::Symbol = :falconer)
+function house_of_gauss_vg(p::Params; nsurv::Real = p.PopSize, drift::Bool = true, ne::Symbol = :breeders)
     α2, Vs = mutation_effect_variance(p), selection_variance(p)
     nu, μ = rare_units(p)          # 2L genes at μ; a haploid clone (or a haplotype that never recombines) at Lμ
     ng = drift ? p.Ploidy * effective_size(p.PopSize, nsurv; scheme = ne) : Inf
@@ -159,6 +160,14 @@ function house_of_gauss_vg(p::Params; nsurv::Real = p.PopSize, drift::Bool = tru
     c = 2μ * α2 / (b + sqrt(b^2 + 4μ * α2 / Vs))
     nu * c
 end
+
+# The variance from which the emulators and `half_survival_rate` start their burn-in at a
+# fixed optimum when the caller gives none: the house of Gauss with everyone breeding, in the
+# form it had when `effective_size` defaulted to `:falconer` (N_e = 2N²/(2N − 1) ≈ N + ½
+# instead of N, a relative difference of 1/(2N) in N_e). The burn-in forgets its start, so
+# which of the two is used does not matter beyond rounding; this one is kept so that every
+# emulator result (and the caches of validate/emulator*.jl) stays the same bit for bit.
+burnin_start_vg(p::Params) = house_of_gauss_vg(p; ne = :falconer)
 
 """
     rare_alleles_vg(p; drift = false)

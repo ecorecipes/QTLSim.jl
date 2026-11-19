@@ -450,10 +450,12 @@ end
 The critical rate of the steady-state feedback with each ingredient switchable (a local copy of
 `QTLSim._feedback_state` and `drift_critical_rate`'s maximisation; src/critical.jl is not changed):
 `variance` `:hog` (house of Gauss) or `:gauss` (the α²/(2V_s) term dropped: eq. 5); `drift` `:breeders`
-(N_e = effective_size(N, n)), `:census` (the adults N) or `:n` (the breeders n themselves);
-`form` `:discrete` or `:continuous` (first-order response and loads); `density` `:bh` or `:logistic`.
-Unlike `drift_critical_rate`, which follows one branch (its inner iteration starts from the variance at
-N = K), this takes the maximum over every steady state, parametrised by its variance as eq. 6 is.
+(N_e = n, the breeders: `effective_size`'s default since 2026-11-19), `:falconer` (the earlier form,
+`effective_size(N, n; scheme = :falconer)`, about the harmonic mean of adults and breeders) or `:census`
+(the adults N); `form` `:discrete` or `:continuous` (first-order response and loads); `density` `:bh` or
+`:logistic`. It does not use `drift_critical_rate`'s solver (an iteration from the variance at N = K, with
+bisection where that fails): it takes the maximum over every steady state, parametrised by its variance as
+eq. 6 is.
 """
 function ladder_kc(p::Params; variance::Symbol, drift::Symbol, form::Symbol, density::Symbol, Kmap::Symbol = :K1)
     ω, VE, K, R = initFitSD(p), QTLSim.envVar(p), float(p.PopSize), p.GrowthRate
@@ -476,7 +478,7 @@ function ladder_kc(p::Params; variance::Symbol, drift::Symbol, form::Symbol, den
         N = density === :bh ? K * (R * W - 1) / (R - 1) / W : K * ρ / (Kmap === :K1 ? log(R) : R - 1)
         n = N * W
         n < p.Ploidy && return 0.0
-        p.Ploidy * (drift === :breeders ? effective_size(N, n) : drift === :census ? N : n)
+        p.Ploidy * (drift === :breeders ? n : drift === :falconer ? effective_size(N, n; scheme = :falconer) : drift === :census ? N : error("drift = $drift"))
     end
     # every steady state, by its variance: the lag at which the population holds exactly V
     # (vg(genes(V, λ)) falls with λ), and the response there
@@ -512,17 +514,19 @@ rungs(p; Kmap = :K1) = (ladder_kc(p; variance = :hog, drift = :breeders, form = 
                         ladder_kc(p; variance = :gauss, drift = :census, form = :continuous, density = :logistic, Kmap))
 
 function ladder_table(cases)
-    say("  rung 0 = drift_critical_rate's steady states (house of Gauss, N_e from breeders, discrete, Beverton–Holt), maximised over all of them (\"rung 0\" column;")
-    say("  equal to k_c unless marked *); 1: variance equation → eq. 5 (no α²/(2V_s) term);")
+    say("  rung 0 = drift_critical_rate's steady states (house of Gauss, N_e = the breeders, discrete, Beverton–Holt), maximised over all of them by an independent")
+    say("  parametrisation (\"rung 0\" column; equal to k_c, drift_critical_rate's default, unless marked *); k_c(old) = drift_critical_rate with the settings that were")
+    say("  its default until 2026-11-19 (ne = :falconer, solver = :iteration); 1: variance equation → eq. 5 (no α²/(2V_s) term);")
     say("  2: drift from the census of adults; 3: first-order response and loads; 4: logistic regulation (K1) = eq. 6 at the mapped parameters.")
     say("  Each ratio is rung i / rung i−1; their product is v_c(eq. 6)/rung 0. The attribution depends on the order of the rungs. \"ratio\" = v_c(eq. 6)/rung 0.")
-    sayf("  %-44s %10s %10s %10s %7s | %7s %7s %7s %7s | %9s %9s %7s", "case", "k_c", "rung 0", "v_c(eq.6)", "ratio", "1/0", "2/1", "3/2", "4/3", "rung4 chk", "v_c (K2)", "K2/rung0")
+    sayf("  %-44s %10s %10s %10s %10s %7s | %7s %7s %7s %7s | %9s %9s %7s", "case", "k_c(old)", "k_c", "rung 0", "v_c(eq.6)", "ratio", "1/0", "2/1", "3/2", "4/3", "rung4 chk", "v_c (K2)", "K2/rung0")
     for (name, p) in cases
         kc = drift_critical_rate(p).k
         vc = xu_shen_critical_rate(xs_map(p)).v
         vc2 = xu_shen_critical_rate(xs_map(p; Kmap = :K2)).v
         g = rungs(p)
-        sayf("  %-44s %10.4g %10.4g%s %9.4g %7.3f | %7.3f %7.3f %7.3f %7.3f | %9.4g %9.4g %7.3f", name, kc, g[1], abs(g[1] - kc) <= 1e-3 * g[1] ? " " : "*", vc, vc / g[1],
+        sayf("  %-44s %10.4g %10.4g %10.4g%s %9.4g %7.3f | %7.3f %7.3f %7.3f %7.3f | %9.4g %9.4g %7.3f", name, drift_critical_rate(p; ne = :falconer, solver = :iteration).k,
+             kc, g[1], abs(g[1] - kc) <= 1e-3 * g[1] ? " " : "*", vc, vc / g[1],
              g[2] / g[1], g[3] / g[2], g[4] / g[3], g[5] / g[4], g[5], vc2, vc2 / g[1])
     end
 end
@@ -562,12 +566,17 @@ function comparison()
              name, p.Ploidy, p.NoQTL, p.PopSize, p.GrowthRate, initFitSD(p), QTLSim.envVar(p), p.MutationScalar, QTLSim.mutation_effect_variance(p), m.r, m.ω2, m.VM, m.K, m.ne)
     end
     ladder_table(cases)
-    say("  * drift_critical_rate differs from the maximum over all steady states. In these inputs the variance of a large population carries a load close to or above")
-    say("    the growth rate (V_c^M/(2ω²) against r: n_e = 100 standard 0.224 against 0.2), so viable steady states exist only at sizes where drift has reduced the")
-    say("    variance; drift_critical_rate's inner iteration starts from the variance at N = K and follows one branch. Published-type inputs (V ≪ ω²) are far from this.")
+    say("  * (if any) drift_critical_rate differs from the maximum over all steady states. In these inputs the variance of a large population carries a load close to")
+    say("    or above the growth rate (V_c^M/(2ω²) against r: n_e = 100 standard 0.224 against 0.2), so viable steady states exist only at sizes where drift has reduced")
+    say("    the variance. An iteration from the variance at N = K alone (solver = :iteration) misses them; with the iteration alone and N_e = the breeders:")
+    for (name, p) in cases
+        ki, kb = drift_critical_rate(p; solver = :iteration).k, drift_critical_rate(p).k
+        abs(ki - kb) > 1e-9 * kb && sayf("      %-30s iteration alone %.4g, default (bisection where it fails) %.4g", name, ki, kb)
+    end
+    say("    Published-type inputs (V ≪ ω²) are far from this.")
 
     say("\n(ii), (iii) Published-type QTSim inputs (diploid, N = 1000) under Beverton–Holt, with the ladder; and the fixed-size k_c, which has no mapping")
-    say("    (no dynamics of N: the feedback acts through N_e(N, N W̄) alone).")
+    say("    (no dynamics of N: the feedback acts through N_e = N W̄ alone).")
     pubs = Pair{String,Params}[]
     push!(pubs, "test/critical.jl's input, L = 100" => Params(PopSize = 1000, Ploidy = 2, NoQTL = 100, RecombPoissonMean = 3.0, PhenotypeVar = 0.03, Heritability = 0.4,
                                                               MutationScalar = 0.005, MutationRatePerGamete = 1e-4, InitFitnessSD = 4.0, MoveType = :continuous))
@@ -598,18 +607,18 @@ function comparison()
              drift_critical_rate(Params(p; Demography = :beverton_holt, GrowthRate = 2.0)).k, xu_shen_critical_rate(m).v, xu_shen_critical_rate(XuShen(m; K = Inf)).v)
     end
 
-    say("\n    Post hoc side line (not in the targets file): effective_size(N, n) is close to the harmonic mean 2Nn/(N + n) of adults and breeders. With the breeders")
-    say("    themselves as N_e (drift = n; rung 0′), all else as drift_critical_rate:")
+    say("\n    Side line (not in the targets file): the effective size. Rung 0 uses N_e = n, the breeders (validate/effective_size.md). The earlier form,")
+    say("    effective_size(N, n; scheme = :falconer), is close to the harmonic mean 2Nn/(N + n) of adults and breeders; with it, all else as rung 0:")
     for (name, p) in vcat(cases[[1, 9]], cases2[[2, 5, 8, 11]])
         k0 = ladder_kc(p; variance = :hog, drift = :breeders, form = :discrete, density = :bh)
-        k1 = ladder_kc(p; variance = :hog, drift = :n, form = :discrete, density = :bh)
-        sayf("    %-44s k_c = %.4g; with N_e = n: %.4g (ratio %.3f)", name, k0, k1, k1 / k0)
+        k1 = ladder_kc(p; variance = :hog, drift = :falconer, form = :discrete, density = :bh)
+        sayf("    %-44s k_c = %.4g; with the earlier form: %.4g (k_c over it: %.3f)", name, k0, k1, k0 / k1)
     end
 
     say("\n(iv) The n_e that eq. 5 would need to hold a given equilibrium variance at v = 0: n_e = V²/(V_s(V_M − V/(2N_e))), fixed size N = 1000, published-type inputs.")
     say("     A rough estimate. V from: the house of Gauss (linkage equilibrium); multilocus_equilibrium(p; drift = true) (rare alleles + LD under QTSim's single")
     say("     crossover); its loci = :multilocus form (Gaussian + LD); for sampled published inputs also the table's pre-move V_G (one QTSim run each).")
-    say("     N_e = effective_size(1000, n), n the breeders at equilibrium (as QTLSim's functions use). 2L is the value for free recombination in the Gaussian limit.")
+    say("     N_e = n, the breeders at equilibrium (effective_size(1000, n), as QTLSim's functions use). 2L is the value for free recombination in the Gaussian limit.")
     ne_needed(V, Vs, VM, ng) = (d = VM - V / ng; d > 0 ? V^2 / (Vs * d) : NaN)
     function row(name, p)
         Vs, VM = selection_variance(p), QTLSim.muteVar(p)

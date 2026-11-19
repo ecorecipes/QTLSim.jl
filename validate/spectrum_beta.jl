@@ -8,6 +8,9 @@
 # Caches (resumable `sweep` CSVs, one row per input): validate/spectrum_beta_runs.csv (metrics 1–3,
 # 6, 7), spectrum_beta_ld.csv (5), spectrum_beta_k50.csv (4).
 
+# 2026-11-19: `ne = :falconer`, `solver = :iteration` and `QTLSim.burnin_start_vg` below keep the effective size, the solver and
+# the starting variance this script was run with (the package's defaults are now `:breeders` and `:bisection`; NEWS.md), so that
+# it still reproduces its log.
 using QTLSim, Printf, Random, Statistics
 import Catlab
 
@@ -42,7 +45,7 @@ readp(id) = Params(read_qtsim_options(joinpath(SIMDIR, id)); Seed = nothing)
 # one solver on one input: equilibrium V_G, the trajectory as emulate runs it, the emulator
 function solve(p, spec)
     q = Params(p; Sample = 1, NoGenerations = BURNIN + HORIZON, MoveFitnessSDGen = BURNIN)
-    VG = house_of_gauss_vg(p)
+    VG = QTLSim.burnin_start_vg(p)
     eq = spectrum_vg(p; spec...)
     m = run_moments(q; VG, erosion = true, loci = :spectrum, spectrum = spec)
     v(t) = BURNIN + t + 1 <= length(m.geno_var) ? Float64(m.geno_var[BURNIN+t+1]) : NaN

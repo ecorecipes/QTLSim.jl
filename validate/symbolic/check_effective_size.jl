@@ -15,11 +15,12 @@
 # (d) Var(Δp): (1 − n/N)/(2n) + 1/(2N) = 1/(2n);
 # (e) offspring-number formulas: over all N adults V_k = 2(1 − 1/n) + 4N/n − 4 and 4N/(V_k + 2) =
 #     4Nn/(4N − 2); over the n breeders (mean 2N/n) the general form gives n exactly;
-# (f) `effective_size` = 2Nn²/(N(n − 1) + n²): the breeders' V_k in the formula for a mean of 2;
-#     equal to (e) at n = N only; the :breeders scheme returns n;
+# (f) `effective_size(…; scheme = :falconer)` = 2Nn²/(N(n − 1) + n²): the breeders' V_k in the formula
+#     for a mean of 2; equal to (e) at n = N only; the default scheme, :breeders, returns n;
 # (g) haploid clones: x′ = (1 − ε)x + V_m, x = nV_m; fecundity: Σp² = ΣW²/(ΣW)²;
 # (h) numerically: the code's formula; the moments lowering's own recursion (hap_reproduce,
-#     hap_mutate), which uses n directly, converges to 2nV_m, not to 2·effective_size·V_m.
+#     hap_mutate), which uses n directly, converges to 2nV_m = 2·effective_size·V_m, not to the
+#     :falconer form's value.
 
 include("common.jl")
 
@@ -85,24 +86,26 @@ function main()
     check("with distinct parents (Binomial(N, 2/n)): the same form gives n(2N − 1)/(2N − 2) = n(1 + 1/(2N − 2))",
           iszero_sym((n * kb - 1) / (kb - 1 + v2 / kb) - n * (2N - 1) / (2N - 2)))
 
-    say("\n(f) effective_size as coded")
+    say("\n(f) effective_size as coded: the default is n; scheme = :falconer is the earlier form")
     es = 4N / (2N * (n - 1) / n^2 + 2)
-    check("effective_size(N, n) = 2Nn²/(N(n − 1) + n²)", iszero_sym(es - 2N * n^2 / (N * (n - 1) + n^2)))
+    check("scheme = :falconer: 4N/(2N(n − 1)/n² + 2) = 2Nn²/(N(n − 1) + n²)", iszero_sym(es - 2N * n^2 / (N * (n - 1) + n^2)))
     check("= the harmonic mean 2Nn/(N + n) with N(n − 1) for Nn: 1/es − (N + n)/(2Nn) = −1/(2n²)",
           iszero_sym(1 / es - (N + n) / (2N * n) + 1 / (2n^2)))
     check("at n = N: 2N²/(2N − 1) = N(1 + 1/(2N − 1)), equal to (e)'s 4Nn/(4N − 2)",
           iszero_sym(Symbolics.substitute(es, Dict(n => N)) - Symbolics.substitute(4N * n / (4N - 2), Dict(n => N))))
-    check("effective_size(N, N/2)/(N/2) = 4N/(3N − 4) ≈ 4/3",
+    check(":falconer at n = N/2, over N/2: 4N/(3N − 4) ≈ 4/3",
           iszero_sym(Symbolics.substitute(es / n, Dict(n => N / 2)) - 4N / (3N - 4)))
     ok = true
     for (NN, nn) in ((200, 200), (200, 100), (200, 50), (1000, 250), (1000, 100.5))
-        ok &= effective_size(NN, nn) ≈ 2NN * nn^2 / (NN * (nn - 1) + nn^2)
-        ok &= effective_size(NN, nn; scheme = :breeders) == nn && effective_size(NN, nn; scheme = :falconer) === effective_size(NN, nn)
+        ok &= effective_size(NN, nn; scheme = :falconer) ≈ 2NN * nn^2 / (NN * (nn - 1) + nn^2)
+        ok &= effective_size(NN, nn; scheme = :breeders) == nn && effective_size(NN, nn; scheme = :breeders) === effective_size(NN, nn)
     end
-    check("code: effective_size(N, n) is that formula; scheme = :breeders returns n; :falconer is the default", ok)
-    check(@sprintf("N = 200: effective_size = %.0f, %.0f, %.0f for n = 200, 100, 50 (xu_shen.md: 200, 134, 81)",
-                   effective_size(200, 200), effective_size(200, 100), effective_size(200, 50)),
-          round.(Int, effective_size.(200, (200, 100, 50))) == (200, 134, 81) || round.(Int, effective_size.(200, (200, 100, 50))) == (201, 134, 81))
+    check("code: scheme = :falconer is that formula; scheme = :breeders returns n and is the default", ok)
+    fal(nn) = effective_size(200, nn; scheme = :falconer)
+    check(@sprintf("N = 200: the :falconer form = %.0f, %.0f, %.0f for n = 200, 100, 50 (xu_shen.md: 200, 134, 81); the default 200, 100, 50",
+                   fal(200), fal(100), fal(50)),
+          (round.(Int, fal.((200, 100, 50))) == (200, 134, 81) || round.(Int, fal.((200, 100, 50))) == (201, 134, 81)) &&
+          effective_size.(200, (200, 100, 50)) == (200, 100, 50))
 
     say("\n(g) haploid clones and fecundity selection")
     xh = n * Vm
@@ -121,8 +124,9 @@ function main()
             st = QTLSim.hap_mutate(st, VmN, 2)
         end
         V = QTLSim.hap_vpop(st, float(NN), 2) * NN / (NN - 1)
-        check(@sprintf("N = %d, n = %.0f: neutral fixed point of hap_reproduce ⋅ hap_mutate, V_G/(2V_m) = %.2f = n (effective_size %.1f)",
-                       NN, nn, V / (2VmN), effective_size(NN, nn)), isapprox(V / (2VmN), nn; rtol = 1e-6))
+        check(@sprintf("N = %d, n = %.0f: neutral fixed point of hap_reproduce ⋅ hap_mutate, V_G/(2V_m) = %.2f = effective_size = n (:falconer %.1f)",
+                       NN, nn, V / (2VmN), effective_size(NN, nn; scheme = :falconer)),
+              isapprox(V / (2VmN), effective_size(NN, nn); rtol = 1e-6))
     end
     finish(LOG, t0)
 end
