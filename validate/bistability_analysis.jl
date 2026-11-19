@@ -262,7 +262,7 @@ function _figures(cells, preds)
         for ir in 1:length(RATEF), il in 1:length(LAGF)
             ax = Axis(fig[ir, il]; title = @sprintf("k = %.2f k_c,  Δ₀ = %.1f λ*", RATEF[ir], LAGF[il]), titlecolor = ink, titlesize = 13,
                       xlabel = ir == length(RATEF) ? "initial size N₀ / K" : "", ylabel = il == 1 ? "initial variance V₀ / V_eq" : "",
-                      xticks = (1:5, string.(NFRAC)), yticks = (1:5, string.(VFRAC)), xgridvisible = false, ygridvisible = false,
+                      xticks = (1:5, collect(string.(NFRAC))), yticks = (1:5, collect(string.(VFRAC))), xgridvisible = false, ygridvisible = false,
                       xticklabelcolor = muted, yticklabelcolor = muted, xlabelcolor = ink, ylabelcolor = ink)
             Z = [frac(only(r for r in c.rows if r.ir == ir && r.il == il && r.iN == iN && r.iV == iV)) for iN in 1:5, iV in 1:5]
             hm = heatmap!(ax, 1:5, 1:5, Z; colormap = :Blues, colorrange = (0, 1))

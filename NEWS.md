@@ -8,6 +8,21 @@ All notable changes to QTLSim.jl are recorded here. The format follows
 
 ### Added
 
+- **An individual-based test of the bistability predicted by Xu and Shen (2026, bioRxiv preprint)**
+  (validation only, nothing in src/; validate/bistability.md, criteria committed after one disclosed
+  pilot and before every other run). 36,000 kernel runs under Beverton–Holt from prescribed initial
+  states (N₀, V₀, Δ₀) at 0.6 and 0.85 of the critical rate, two genetic architectures × three (K, R),
+  against four deterministic predictions (their eqs. 1–5 at two mappings; a discrete recursion with
+  QTLSim's ingredients and either N_e). QTSim-type genetics: persistence depends on the initial
+  variance and lag, hardly on the initial size; both basins occur at one rate in 4 of 6 cell × rate
+  units (B1 FAIL by the pre-set 75%; the other two persist from the whole grid, as predicted); the
+  deterministic boundaries match 84–91% of majority outcomes (B3 PASS for all four), with the kernel
+  persisting from 0.56–0.77 of the predicted boundary variance (a smaller extinction basin, the
+  opposite of the direction expected from stochasticity). A 50-locus high-mutation "Gaussian" arm
+  dies from every state at 0.85 k_c and, for K = 3000, at 0.6 k_c (B1 and B3 FAIL for all four
+  predictions): post hoc, its genic variance erodes under the move (to 0.22 in 500 generations; not
+  with 500 loci, not changed by more crossovers), which neither variance equation contains.
+  Monotonicity and all null arms pass. Figures in validate/bistability_figs/.
 - **`effective_size(N, n; scheme)` and `drift_critical_rate(p; ne, solver)`: two options, both off by
   default** (every default is bitwise unchanged; validate/effective_size.md, criteria committed first).
   (1) `effective_size(N, n)`, Falconer's 4N/(V_k + 2) with the breeders' V_k, is about the harmonic mean
