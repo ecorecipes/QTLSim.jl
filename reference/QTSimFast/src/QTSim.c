@@ -290,6 +290,7 @@ typedef struct
 	// loci b*B .. b*B+B-1 (the last block LastLen of them). Chromosomes share
 	// blocks until a crossover inside a block or a mutation makes a new one.
 	int		B, NB, LastLen;
+	size_t	Row;				// N * P, the chromosomes of a population
 	size_t	IndIds;				// P * NB, block numbers per individual
 	double	*Data;				// Cap blocks of B alleles
 	uint32_t Cap, HW;			// capacity; blocks HW.. have never been used
@@ -297,7 +298,19 @@ typedef struct
 	uint32_t *Owner;			// for a block made this generation, the chromosome
 								// that alone holds it (1-based), else 0
 	uint32_t *New, NoNew;		// the blocks made this generation
-	uint32_t *Ids, *NIds;		// block numbers of the current and the next population
+	uint32_t *Ids, *NIds;		// block numbers of the current and the next population:
+								// block BNo of chromosome ChrNo of individual Ind is
+								// Ids[BNo * Row + Ind * P + ChrNo]
+
+	// The gametes of the next population, as drawn: the first Cut blocks come
+	// from chromosome Src1 of the current population, the rest from Src2;
+	// Mix lists the crossovers inside a block.
+	uint32_t *Src1, *Src2;
+	int		*Cut;
+	struct { uint32_t G; int BNo, Off; } *Mix;
+	int		NoMix;
+	int		*Head, *Next;		// the gametes whose Cut is a given position, as lists
+	uint32_t **Cur;				// one working array per thread
 
 	// Collecting unused blocks: marks are set while the genotypes are summed.
 	uint8_t	**Mark;				// one array per thread
@@ -326,6 +339,7 @@ typedef struct
 
 	FAST_POOL *Pool;			// for genotypes
 	int		ParGeno;			// sum genotypes on the pool's threads
+	int		ParFill;			// copy block numbers on the pool's threads
 	FAST_POOL *OutPool;			// for output
 	int		OutBusy;
 } SIM;
@@ -440,15 +454,21 @@ static int StatsMSame(void)
 	return Ret;
 }
 
+// The default block size (QTSIM_BLOCK overrides it). Small enough that the blocks
+// in use at one position fit the first-level cache, large enough that the block
+// numbers are few beside the alleles.
 static int DefBlockSize(OPTIONS *Opt)
 {
 	if(Opt->NoQTL <= 16)
 		return Opt->NoQTL;
 
-	if(Opt->NoQTL <= 256)
+	if(Opt->NoQTL < 400)
 		return 16;
 
-	return 32;
+	if(Opt->NoQTL < 2500)
+		return 32;
+
+	return 64;
 }
 
 // Allocate the populations. Draws the environmental deviations of both of the
@@ -493,6 +513,7 @@ static SIM* CreateSim(OPTIONS *Opt)
 
 	S->LastLen = S->L - (S->NB - 1) * S->B;
 	S->IndIds = (size_t)S->P * S->NB;
+	S->Row = NoInd * S->P;
 	S->Cap = (uint32_t)Cap;
 
 	// Blocks are taken in order, so memory that is never used is never touched.
@@ -519,6 +540,15 @@ static SIM* CreateSim(OPTIONS *Opt)
 	S->Env = (double*)SMalloc(sizeof(double) * NoInd);
 	S->NEnv = (double*)SMalloc(sizeof(double) * NoInd);
 	S->Surv = (int*)SMalloc(sizeof(int) * NoInd);
+
+	S->Src1 = (uint32_t*)SMalloc(sizeof(uint32_t) * S->Row);
+	S->Src2 = (uint32_t*)SMalloc(sizeof(uint32_t) * S->Row);
+	S->Cut = (int*)SMalloc(sizeof(int) * S->Row);
+	S->Mix = SMalloc(sizeof(*S->Mix) * S->Row);
+	S->Next = (int*)SMalloc(sizeof(int) * S->Row);
+	S->Head = (int*)SMalloc(sizeof(int) * (S->NB + 1));
+	for(Index=0;Index<=S->NB;Index++)
+		S->Head[Index] = -1;
 
 	S->Points = (int*)SMalloc(sizeof(int) * (S->L + 1));
 	S->Seen = (uint32_t*)calloc(S->L + 1, sizeof(uint32_t));
@@ -556,6 +586,10 @@ static SIM* CreateSim(OPTIONS *Opt)
 	if(NoThreads > 1 && (double)S->N * S->P * S->L >= (double)EnvInt("QTSIM_PAR_MIN", 200000, 0, 1 << 30))
 		S->ParGeno = TRUE;
 
+	S->ParFill = FALSE;
+	if(S->ParGeno == TRUE && S->NB >= 4 * NoThreads)
+		S->ParFill = TRUE;
+
 	// With more than one thread the output lines are computed and written by a
 	// thread of their own (QTSIM_ASYNC_OUTPUT=0 turns that off).
 	S->OutPool = FastThreadsCreate(EnvInt("QTSIM_ASYNC_OUTPUT", NoThreads > 1, 0, 1) ? 2 : 1);
@@ -572,6 +606,10 @@ static SIM* CreateSim(OPTIONS *Opt)
 		OutJob.X = Opt->X;
 		OutJob.Y = Opt->Y;
 	}
+
+	S->Cur = (uint32_t**)SMalloc(sizeof(uint32_t*) * NoThreads);
+	for(Index=0;Index<NoThreads;Index++)
+		S->Cur[Index] = (uint32_t*)SMalloc(sizeof(uint32_t) * S->Row);
 
 	S->Mark = (uint8_t**)SMalloc(sizeof(uint8_t*) * NoThreads);
 	for(Index=0;Index<NoThreads;Index++)
@@ -624,58 +662,82 @@ static SIM* CreateSim(OPTIONS *Opt)
 // Sum the genotypes of individuals Lo .. Hi-1, W at a time: CaclGenotype.
 // Genotype = 0, then Genotype += Genome[0][l] + Genome[1][l] for each locus l in
 // order (diploid), or Genotype += Genome[0][l] (haploid).
+//
+// The sums advance one block of loci at a time over all the individuals, each
+// individual's partial sum waiting in Geno, so that the blocks in use at one
+// position of the chromosome (a few hundred at most, as a rule) stay in the
+// first-level cache while every individual reads them.
 static inline __attribute__((always_inline)) void SumGenotypesW(const SIM *S, int Lo, int Hi, uint8_t *Mark, const int W, const int Diploid)
 {
 	const double *A[LANES], *C[LANES];
-	const uint32_t *I[LANES];
+	const uint32_t *Row;
+	double *Geno;
 	double Sum[LANES];
 	int Start, J, K, Index, Len, Ind;
 	const int NB = S->NB;
+	const int P = Diploid ? 2 : 1;
 
-	for(Start=Lo;Start<Hi;Start+=W)
+	Geno = S->Geno;
+
+	for(Ind=Lo;Ind<Hi;Ind++)
+		Geno[Ind] = 0;
+
+	for(K=0;K<NB;K++)
 	{
-		// A short last group is filled up with its last individual.
-		for(J=0;J<W;J++)
+		Len = (K == NB - 1) ? S->LastLen : S->B;
+		Row = S->Ids + (size_t)K * S->Row;
+
+		if(Mark != NULL)
+			for(Index=Lo*P;Index<Hi*P;Index++)
+				Mark[Row[Index]] = 1;
+
+		for(Start=Lo;Start<Hi;Start+=W)
 		{
-			Ind = Start + J;
-			if(Ind > Hi - 1)
-				Ind = Hi - 1;
-
-			I[J] = S->Ids + (size_t)Ind * S->IndIds;
-			Sum[J] = 0;
-		}
-
-		for(K=0;K<NB;K++)
-		{
-			Len = (K == NB - 1) ? S->LastLen : S->B;
-
+			// A short last group is filled up with its last individual.
 			for(J=0;J<W;J++)
 			{
-				A[J] = Block(S, I[J][K]);
-				if(Diploid)
-					C[J] = Block(S, I[J][NB + K]);
-			}
+				Ind = Start + J;
+				if(Ind > Hi - 1)
+					Ind = Hi - 1;
 
-			if(Mark != NULL)
-				for(J=0;J<W;J++)
-				{
-					Mark[I[J][K]] = 1;
-					if(Diploid)
-						Mark[I[J][NB + K]] = 1;
-				}
+				Sum[J] = Geno[Ind];
+				A[J] = Block(S, Row[(size_t)Ind * P]);
+				if(Diploid)
+					C[J] = Block(S, Row[(size_t)Ind * P + 1]);
+			}
 
 			Index = 0;
 
 			if(Diploid)
 			{
 #ifdef FAST_VECTOR
-				for(;Index+1<Len;Index+=2)
-					for(J=0;J<W;J++)
+				if(W > 1)
+				{
+					// Two loci of two individuals at a time: the alleles are
+					// added in pairs, a + c, for loci Index and Index+1 of each
+					// individual; then both individuals' sums take locus Index,
+					// then locus Index+1. Every sum still adds its own terms
+					// in order.
+					V2D VSum[LANES / 2];
+
+					for(J=0;J<W;J+=2)
+						VSum[J / 2] = (V2D){Sum[J], Sum[J + 1]};
+
+					for(;Index+1<Len;Index+=2)
+						for(J=0;J<W;J+=2)
+						{
+							V2D P0 = Load2(A[J] + Index) + Load2(C[J] + Index);
+							V2D P1 = Load2(A[J + 1] + Index) + Load2(C[J + 1] + Index);
+							VSum[J / 2] += (V2D){P0[0], P1[0]};
+							VSum[J / 2] += (V2D){P0[1], P1[1]};
+						}
+
+					for(J=0;J<W;J+=2)
 					{
-						V2D Pair = Load2(A[J] + Index) + Load2(C[J] + Index);
-						Sum[J] += Pair[0];
-						Sum[J] += Pair[1];
+						Sum[J] = VSum[J / 2][0];
+						Sum[J + 1] = VSum[J / 2][1];
 					}
+				}
 #endif
 				for(;Index<Len;Index++)
 					for(J=0;J<W;J++)
@@ -687,10 +749,10 @@ static inline __attribute__((always_inline)) void SumGenotypesW(const SIM *S, in
 					for(J=0;J<W;J++)
 						Sum[J] += A[J][Index];
 			}
-		}
 
-		for(J=0;J<W && Start+J<Hi;J++)
-			S->Geno[Start + J] = Sum[J];
+			for(J=0;J<W && Start+J<Hi;J++)
+				Geno[Start + J] = Sum[J];
+		}
 	}
 }
 
@@ -712,19 +774,27 @@ static void SumGenotypes(const SIM *S, int Lo, int Hi, uint8_t *Mark)
 	}
 }
 
+// The part of 0 .. No-1 that thread ThreadNo of NoThreads works on, in whole
+// multiples of Unit.
+static void ThreadRange(int No, int Unit, int ThreadNo, int NoThreads, int *Lo, int *Hi)
+{
+	int Groups;
+
+	Groups = (No + Unit - 1) / Unit;
+	*Lo = (int)((long)Groups * ThreadNo / NoThreads) * Unit;
+	*Hi = (int)((long)Groups * (ThreadNo + 1) / NoThreads) * Unit;
+	if(*Hi > No)
+		*Hi = No;
+}
+
 static void SumGenotypesJob(void *Ctx, int ThreadNo, int NoThreads)
 {
 	SIM *S;
-	int Lo, Hi, Groups;
+	int Lo, Hi;
 
 	S = (SIM*)Ctx;
 
-	// Whole groups of LANES individuals to each thread.
-	Groups = (S->N + LANES - 1) / LANES;
-	Lo = (int)((long)Groups * ThreadNo / NoThreads) * LANES;
-	Hi = (int)((long)Groups * (ThreadNo + 1) / NoThreads) * LANES;
-	if(Hi > S->N)
-		Hi = S->N;
+	ThreadRange(S->N, LANES, ThreadNo, NoThreads, &Lo, &Hi);
 
 	if(Lo < Hi)
 		SumGenotypes(S, Lo, Hi, S->Marking ? S->Mark[ThreadNo] : NULL);
@@ -877,8 +947,11 @@ static void SetSurviving(SIM *S)
 
 	S->NoSurv = 0;
 	for(Index=0;Index<S->N;Index++)
-		if(FastUniform(&S->Rng) < S->Fit[Index])
-			S->Surv[S->NoSurv++] = Index;
+	{
+		// if(gsl_rng_uniform(Opt->rng) < In->Fitness) ..., without a branch
+		S->Surv[S->NoSurv] = Index;
+		S->NoSurv += (FastUniform(&S->Rng) < S->Fit[Index]);
+	}
 }
 
 // The lowest crossover point of a gamete, or NoQTL for none: CreateCombMap.
@@ -939,56 +1012,132 @@ static inline int LowestCrossover(SIM *S)
 }
 
 // Crate a gamete from a parent, using a number of recombination points, drawn
-// from a Poisson: RecombinationPoissonChr. Par is the parent's block numbers
-// (both chromosomes), Chr the gamete's, Tag the gamete's chromosome number.
-static inline void RecombinationPoissonChr(SIM *S, uint32_t *Chr, const uint32_t *Par, uint32_t Tag)
+// from a Poisson: RecombinationPoissonChr. Par is the parent's first chromosome
+// and G the gamete, as columns of the tables of block numbers. Only the draws
+// are made here, in the original order; FillGametes copies the block numbers.
+static inline void RecombinationPoissonChr(SIM *S, uint32_t G, uint32_t Par)
 {
-	const uint32_t *CP, *OP;
-	const double *CD, *OD;
-	double *ND;
-	uint32_t Id;
-	int Low, BNo, Off, Len;
-	const int NB = S->NB;
+	uint32_t CP, OP;
+	int Low, BNo, Off, Second;
 
 	Low = LowestCrossover(S);
 
-	CP = Par;
-	OP = Par + NB;
-	if(FastUniform(&S->Rng) < 0.5)
-	{
-		CP = Par + NB;
-		OP = Par;
-	}
+	// CP = P1; if(gsl_rng_uniform(Opt->rng) < 0.5) CP = P2;
+	Second = (FastUniform(&S->Rng) < 0.5);
+	CP = Par + (uint32_t)Second;
+	OP = Par + 1 - (uint32_t)Second;
+
+	S->Src1[G] = CP;
+	S->Src2[G] = OP;
 
 	if(Low == S->L)
 	{
-		memcpy(Chr, CP, sizeof(uint32_t) * NB);
+		S->Cut[G] = S->NB;
 		return;
 	}
 
 	// Loci 0 .. Low from CP, the rest from OP.
 	BNo = Low / S->B;
 	Off = Low - BNo * S->B;
-	Len = BlockLen(S, BNo);
 
-	memcpy(Chr, CP, sizeof(uint32_t) * BNo);
-	memcpy(Chr + BNo + 1, OP + BNo + 1, sizeof(uint32_t) * (NB - BNo - 1));
-
-	if(Off == Len - 1 || CP[BNo] == OP[BNo])
+	if(Off == BlockLen(S, BNo) - 1)
 	{
-		Chr[BNo] = CP[BNo];
+		// Low is not the last locus, so BNo + 1 is a block.
+		S->Cut[G] = BNo + 1;
+		S->Next[G] = S->Head[BNo + 1];
+		S->Head[BNo + 1] = (int)G;
 		return;
 	}
 
-	Id = NewBlock(S, Tag);
-	ND = Block(S, Id);
-	CD = Block(S, CP[BNo]);
-	OD = Block(S, OP[BNo]);
+	// The crossover is inside block BNo.
+	S->Cut[G] = BNo;
+	S->Next[G] = S->Head[BNo];
+	S->Head[BNo] = (int)G;
+	S->Mix[S->NoMix].G = G;
+	S->Mix[S->NoMix].BNo = BNo;
+	S->Mix[S->NoMix].Off = Off;
+	S->NoMix++;
+}
 
-	memcpy(ND, CD, sizeof(double) * (Off + 1));
-	memcpy(ND + Off + 1, OD + Off + 1, sizeof(double) * (Len - Off - 1));
+// The block numbers of the gametes at positions Lo .. Hi-1: the first Cut
+// from one chromosome of the parent and the rest from the other.
+static void FillGametes(const SIM *S, int Lo, int Hi, uint32_t *Cur)
+{
+	const uint32_t *PRow;
+	uint32_t *Row;
+	int K, G;
+	const int No = (int)S->Row;
 
-	Chr[BNo] = Id;
+	// Cur: the chromosome each gamete is copying at position K
+	for(G=0;G<No;G++)
+		Cur[G] = (Lo < S->Cut[G]) ? S->Src1[G] : S->Src2[G];
+
+	for(K=Lo;K<Hi;K++)
+	{
+		for(G=S->Head[K];G!=-1;G=S->Next[G])
+			Cur[G] = S->Src2[G];
+
+		PRow = S->Ids + (size_t)K * S->Row;
+		Row = S->NIds + (size_t)K * S->Row;
+
+		for(G=0;G<No;G++)
+			Row[G] = PRow[Cur[G]];
+	}
+}
+
+static void FillGametesJob(void *Ctx, int ThreadNo, int NoThreads)
+{
+	SIM *S;
+	int Lo, Hi;
+
+	S = (SIM*)Ctx;
+
+	ThreadRange(S->NB, 1, ThreadNo, NoThreads, &Lo, &Hi);
+
+	if(Lo < Hi)
+		FillGametes(S, Lo, Hi, S->Cur[ThreadNo]);
+}
+
+// The blocks in which a crossover fell: alleles 0 .. Off from one chromosome
+// of the parent, the rest from the other, in a new block unless the parent's
+// two blocks are the same block.
+static void MixBlocks(SIM *S)
+{
+	const double *CD, *OD;
+	double *ND;
+	uint32_t CId, OId, Id, G;
+	int Index, I, BNo, Off, Len;
+
+	for(Index=0;Index<S->NoMix;Index++)
+	{
+		G = S->Mix[Index].G;
+		BNo = S->Mix[Index].BNo;
+		Off = S->Mix[Index].Off;
+
+		CId = S->Ids[(size_t)BNo * S->Row + S->Src1[G]];
+		OId = S->Ids[(size_t)BNo * S->Row + S->Src2[G]];
+
+		if(CId == OId)
+			continue;	// FillGametes has set it
+
+		Id = NewBlock(S, G + 1);
+		ND = Block(S, Id);
+		CD = Block(S, CId);
+		OD = Block(S, OId);
+		Len = BlockLen(S, BNo);
+
+		for(I=0;I<=Off;I++)
+			ND[I] = CD[I];
+		for(;I<Len;I++)
+			ND[I] = OD[I];
+
+		S->NIds[(size_t)BNo * S->Row + G] = Id;
+	}
+
+	S->NoMix = 0;
+
+	for(Index=0;Index<S->NB;Index++)
+		S->Head[Index] = -1;
 }
 
 // Test if the population has died.
@@ -1003,6 +1152,13 @@ int DeadPopulation(OPTIONS *Opt, int PopSize)
 	return FALSE;
 }
 
+// QTSIM_STATS=1: block statistics on standard error at the end of a run.
+static void PrintStats(SIM *S, int Itter)
+{
+	if(EnvInt("QTSIM_STATS", 0, 0, 1) == 1)
+		fprintf(stderr, "QTSimFast: generation %d, block size %d, blocks per chromosome %d, blocks in use or free below high-water mark %u (free %u), capacity %u, threads %d\n", Itter, S->B, S->NB, S->HW, S->NoFree, S->Cap, S->ParGeno ? FastThreadsNo(S->Pool) : 1);
+}
+
 static void WaitOutput(SIM *S)
 {
 	if(S->OutBusy == TRUE)
@@ -1013,90 +1169,95 @@ static void WaitOutput(SIM *S)
 }
 
 // Crate a new population form the old.
-static void NewPop(OPTIONS *Opt, SIM *S)
+static void NewPop(OPTIONS *Opt, int Itter, SIM *S)
 {
 	int IIndex, P1, P2;
-	uint32_t *Chr;
-	const int NB = S->NB;
 
 	SetSurviving(S);
 
 	if(DeadPopulation(Opt, S->NoSurv) == TRUE)
 	{
 		WaitOutput(S);
+		PrintStats(S, Itter);
 		printf("Pop all died.\n");
 		exit(0);
 	}
 
 	if(Opt->Ploidy == 1)
 	{
+		// NewIn: a copy of one survivor's chromosome
 		for(IIndex=0;IIndex<S->N;IIndex++)
 		{
 			P1 = S->Surv[FastUniformInt(&S->Rng, S->NoSurv)];
-			memcpy(S->NIds + (size_t)IIndex * S->IndIds, S->Ids + (size_t)P1 * S->IndIds, sizeof(uint32_t) * NB);
+			S->Src1[IIndex] = (uint32_t)P1;
+			S->Src2[IIndex] = (uint32_t)P1;
+			S->Cut[IIndex] = S->NB;
 
 			S->NEnv[IIndex] = (Opt->EnvVar != 0) ? gsl_ran_gaussian(&S->Rng.GRng, S->EnvSD) : 0.0;
 		}
-
-		return;
 	}
-
-	for(IIndex=0;IIndex<S->N;IIndex++)
+	else
 	{
-		// Two different parents (ValidDiploidParents; AssortativeMating is not
-		// an option, so that is all it tests).
-		do
+		for(IIndex=0;IIndex<S->N;IIndex++)
 		{
-			P1 = (int)FastUniformInt(&S->Rng, S->NoSurv);
-			P2 = (int)FastUniformInt(&S->Rng, S->NoSurv);
-		} while(P1 == P2);
+			// Two different parents (ValidDiploidParents; AssortativeMating is
+			// not an option, so that is all it tests).
+			do
+			{
+				P1 = (int)FastUniformInt(&S->Rng, S->NoSurv);
+				P2 = (int)FastUniformInt(&S->Rng, S->NoSurv);
+			} while(P1 == P2);
 
-		Chr = S->NIds + (size_t)IIndex * S->IndIds;
+			RecombinationPoissonChr(S, (uint32_t)IIndex * 2, (uint32_t)S->Surv[P1] * 2);
+			RecombinationPoissonChr(S, (uint32_t)IIndex * 2 + 1, (uint32_t)S->Surv[P2] * 2);
 
-		RecombinationPoissonChr(S, Chr, S->Ids + (size_t)S->Surv[P1] * S->IndIds, (uint32_t)(IIndex * 2 + 1));
-		RecombinationPoissonChr(S, Chr + NB, S->Ids + (size_t)S->Surv[P2] * S->IndIds, (uint32_t)(IIndex * 2 + 2));
-
-		S->NEnv[IIndex] = (Opt->EnvVar != 0) ? gsl_ran_gaussian(&S->Rng.GRng, S->EnvSD) : 0.0;
+			S->NEnv[IIndex] = (Opt->EnvVar != 0) ? gsl_ran_gaussian(&S->Rng.GRng, S->EnvSD) : 0.0;
+		}
 	}
+
+	// The genomes, which no draw depends on.
+	if(S->ParFill == TRUE)
+		FastThreadsRun(S->Pool, FillGametesJob, S);
+	else
+		FillGametes(S, 0, S->NB, S->Cur[0]);
+
+	MixBlocks(S);
 }
 
 // Mutate the next population: MutatePop, MutateIndividual, MutateIndividualChrNo
 static void MutatePop(OPTIONS *Opt, SIM *S)
 {
-	int Index, ChrNo, No, Pos, BNo;
-	uint32_t *Chr, Tag, Id, NId;
-	const int NB = S->NB;
+	int Index, No, Pos, BNo;
+	uint32_t *Cell, Tag, Id, NId;
+	const int NoChr = (int)S->Row;
 
-	for(Index=0;Index<S->N;Index++)
-		for(ChrNo=0;ChrNo<S->P;ChrNo++)
+	// Chromosomes in the original order: individual by individual.
+	for(Index=0;Index<NoChr;Index++)
+	{
+		No = (int)FastPoisson(&S->Rng, S->MutMu, S->MutEmu);
+
+		Tag = (uint32_t)Index + 1;
+
+		while(No > 0)
 		{
-			No = (int)FastPoisson(&S->Rng, S->MutMu, S->MutEmu);
+			Pos = (int)FastUniformInt(&S->Rng, Opt->NoQTL);
+			BNo = Pos / S->B;
 
-			if(No <= 0)
-				continue;
-
-			Chr = S->NIds + (size_t)Index * S->IndIds + (size_t)ChrNo * NB;
-			Tag = (uint32_t)(Index * S->P + ChrNo + 1);
-
-			while(No > 0)
+			// Mutate a block of this chromosome's own, or a copy.
+			Cell = S->NIds + (size_t)BNo * S->Row + Index;
+			Id = *Cell;
+			if(S->Owner[Id] != Tag)
 			{
-				Pos = (int)FastUniformInt(&S->Rng, Opt->NoQTL);
-				BNo = Pos / S->B;
-
-				// Mutate a block of this chromosome's own, or a copy.
-				Id = Chr[BNo];
-				if(S->Owner[Id] != Tag)
-				{
-					NId = NewBlock(S, Tag);
-					memcpy(Block(S, NId), Block(S, Id), sizeof(double) * BlockLen(S, BNo));
-					Chr[BNo] = NId;
-					Id = NId;
-				}
-
-				Block(S, Id)[Pos - BNo * S->B] += gsl_ran_gaussian(&S->Rng.GRng, S->MutSD);
-				No--;
+				NId = NewBlock(S, Tag);
+				memcpy(Block(S, NId), Block(S, Id), sizeof(double) * BlockLen(S, BNo));
+				*Cell = NId;
+				Id = NId;
 			}
+
+			Block(S, Id)[Pos - BNo * S->B] += gsl_ran_gaussian(&S->Rng.GRng, S->MutSD);
+			No--;
 		}
+	}
 
 	// The next generation shares these blocks.
 	for(Index=0;Index<(int)S->NoNew;Index++)
@@ -1219,8 +1380,14 @@ static void FreeSim(SIM *S)
 	FastThreadsFree(S->Pool);
 
 	for(Index=0;Index<NoThreads;Index++)
+	{
 		free(S->Mark[Index]);
+		free(S->Cur[Index]);
+	}
 	free(S->Mark);
+	free(S->Cur);
+	free(S->Head);
+	free(S->Next);
 
 	free(S->Data);
 	free(S->Free);
@@ -1234,6 +1401,10 @@ static void FreeSim(SIM *S)
 	free(S->Env);
 	free(S->NEnv);
 	free(S->Surv);
+	free(S->Src1);
+	free(S->Src2);
+	free(S->Cut);
+	free(S->Mix);
 	free(S->Points);
 	free(S->Seen);
 	free(S);
@@ -1256,7 +1427,7 @@ void RunSim(OPTIONS* Opt)
 	{
 		PopFitness(Opt, Itter, S);
 
-		NewPop(Opt, S);
+		NewPop(Opt, Itter, S);
 
 		if(Itter % Opt->Sample == 0)
 			Output(Opt, Itter, S);
@@ -1270,6 +1441,7 @@ void RunSim(OPTIONS* Opt)
 		swap((void**)&S->Env, (void**)&S->NEnv);
 	}
 
+	PrintStats(S, Itter);
 	FreeSim(S);
 }
 
