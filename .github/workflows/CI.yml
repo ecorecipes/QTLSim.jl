@@ -79,6 +79,11 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libgsl-dev
       - name: Check and build the bundled QTSim source
         run: make -C reference/QTSim check && make -C reference/QTSim
+      # QTSimFast is a modified, faster copy of QTSim (reference/QTSimFast). Its standard output must be
+      # the original's, byte for byte: a small matrix of options, block sizes and thread counts, about a
+      # minute. The original stays the reference for everything else.
+      - name: QTSimFast (optimised copy) reproduces QTSim's output byte for byte
+        run: make -C reference/QTSimFast check && make -C reference/QTSimFast && make -C reference/QTSimFast parity
       - uses: julia-actions/setup-julia@v2
         with:
           version: '1'

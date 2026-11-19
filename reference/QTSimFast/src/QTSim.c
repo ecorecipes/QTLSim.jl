@@ -284,7 +284,8 @@ void PrintOptions(OPTIONS* Opt)
 
 typedef struct
 {
-	int		N, L, P;			// PopSize, NoQTL, Ploidy
+	int		N, L, P;			// PopSize, NoQTL (1 if NoQTL is 0), Ploidy
+	int		NoQTL;				// NoQTL as given
 
 	// Genomes. A chromosome is NB block numbers; block b holds the alleles of
 	// loci b*B .. b*B+B-1 (the last block LastLen of them). Chromosomes share
@@ -484,14 +485,19 @@ static SIM* CreateSim(OPTIONS *Opt)
 	memset(S, 0, sizeof(SIM));
 
 	S->N = Opt->PopSize;
-	S->L = Opt->NoQTL;
+	S->NoQTL = Opt->NoQTL;
 	S->P = Opt->Ploidy;
 
-	if(S->N < 1 || S->L < 1)
+	if(S->N < 0 || S->NoQTL < 0)
 	{
-		fprintf(stderr, "QTSimFast: PopSize and NoQTL must be at least 1.\n");
+		// (The original fails on these too, each in its own way.)
+		fprintf(stderr, "QTSimFast: PopSize and NoQTL must not be negative.\n");
 		exit(1);
 	}
+
+	// With no loci the original runs, with genotypes of zero. Here that is one
+	// locus that no crossover or mutation ever touches: the draws use NoQTL.
+	S->L = (S->NoQTL == 0) ? 1 : S->NoQTL;
 
 	NoInd = (size_t)S->N;
 
@@ -499,7 +505,7 @@ static SIM* CreateSim(OPTIONS *Opt)
 	S->B = EnvInt("QTSIM_BLOCK", 0, 0, 1 << 30);
 	if(S->B == 0)
 		S->B = DefBlockSize(Opt);
-	if(S->B > S->L)
+	if(S->B > S->L || S->B < 1)
 		S->B = S->L;
 
 	for(;;)
@@ -583,7 +589,7 @@ static SIM* CreateSim(OPTIONS *Opt)
 
 	// Small populations are summed faster by one thread than handed out.
 	S->ParGeno = FALSE;
-	if(NoThreads > 1 && (double)S->N * S->P * S->L >= (double)EnvInt("QTSIM_PAR_MIN", 200000, 0, 1 << 30))
+	if(NoThreads > 1 && (double)S->N * S->P * S->L >= (double)EnvInt("QTSIM_PAR_MIN", 2000000, 0, 1 << 30))
 		S->ParGeno = TRUE;
 
 	S->ParFill = FALSE;
@@ -962,7 +968,7 @@ static inline int LowestCrossover(SIM *S)
 
 	NoPoints = (int)FastPoisson(&S->Rng, S->RecMu, S->RecEmu);
 
-	if(NoPoints == 0 || NoPoints >= S->L)
+	if(NoPoints == 0 || NoPoints >= S->NoQTL)
 		return S->L;
 
 	Low = S->L;
@@ -973,7 +979,7 @@ static inline int LowestCrossover(SIM *S)
 		{
 			do
 			{
-				Point = (int)FastUniformInt(&S->Rng, S->L - 1);
+				Point = (int)FastUniformInt(&S->Rng, S->NoQTL - 1);
 
 				Found = FALSE;
 				for(PIndex=0;PIndex<Index;PIndex++)
@@ -1000,7 +1006,7 @@ static inline int LowestCrossover(SIM *S)
 	{
 		do
 		{
-			Point = (int)FastUniformInt(&S->Rng, S->L - 1);
+			Point = (int)FastUniformInt(&S->Rng, S->NoQTL - 1);
 		} while(S->Seen[Point] == S->Stamp);
 
 		S->Seen[Point] = S->Stamp;
@@ -1415,6 +1421,23 @@ void RunSim(OPTIONS* Opt)
 {
 	int Itter;
 	SIM *S;
+
+	// A population of no one (the original allocates nothing, draws nothing
+	// and finds no survivor in the first generation).
+	if(Opt->PopSize == 0)
+	{
+		printf("Generation\tPhenotype Mean\tPhenotype Ratio\tGenotype Var\tP Survived\tFitness Function Mean\tFitness Function SD\tSurviving Slope\tSurviving Standardised Slope\tw\t");
+
+		printf("\n");
+
+		if(Opt->NoGenerations > 0)
+		{
+			printf("Pop all died.\n");
+			exit(0);
+		}
+
+		return;
+	}
 
 	S = CreateSim(Opt);
 

@@ -183,6 +183,12 @@ for P in 1 2; do
 	syn "rec0.01-P$P" "$q" "NoQTL 50" "RecombinationPoissonMean 0.01"
 	# seeds
 	for s in 0 1 4294967295 4294967296 4294967297 25106888622.8; do syn "seed-P$P-$s" "$q" "NoQTL 6" "Generations 60" "Seed $s"; done
+	# nothing to simulate: no loci, no generations; a negative Sample
+	syn "zero-loci-P$P" "$q" "NoQTL 0" "MoveFitnessSD 200 0.5"
+	syn "zero-loci-rec0-P$P" "$q" "NoQTL 0" "RecombinationPoissonMean 0" "Heritability 1"
+	syn "zero-gens-P$P" "$q" "Generations 0"
+	syn "one-gen-P$P" "$q" "Generations 1"
+	syn "sample-neg-P$P" "$q" "Sample -3" "NoQTL 4"
 	# many loci, small population; block collection under heavy mutation
 	syn "big-P$P" "$q" "NoQTL 5000" "PopSize 64" "Generations 150" "RecombinationPoissonMean 5" "MutationRatePerGamete 0.001" "MoveFitnessSD 100 0.002" "OptimumMoveType continuous"
 	syn "churn-P$P" "$q" "NoQTL 257" "PopSize 48" "Generations 300" "RecombinationPoissonMean 5" "MutationRatePerGamete 0.3"
@@ -204,6 +210,9 @@ err negsd "InitFitnessSD -1"
 err help "Help"
 err movetype "OptimumMoveType sideways" "MoveFitnessSD 2 0.1"
 err assort "AssortativeMating 1"
+err zeropop1 "PopSize 0" "Ploidy 1"
+err zeropop2 "PopSize 0" "Ploidy 2" "StandardisePhenotype" "MoveFitnessSD 0 0.5"
+err zeropop0 "PopSize 0" "Generations 0"
 add "$WORK/syn/does-not-exist.txt" "t1" ""
 
 # ------------------------------------------------- (b) the single-locus protocol
@@ -260,9 +269,9 @@ if [ "$MODE" = full ] && [ -d "$SIMS/QT0100-Possion3.0" ]; then
 			;;
 		*)
 			for s in own 1001 1002; do
-				pub $st "$a" $s 12000 own "t1" "t2,t4"
-				pub $st "$b" $s 12000 own "t1" "t3"
-				pub $st "$c" $s 12000 own "t1" "t8"
+				pub $st "$a" $s 12000 own "t1" "p2,t4"
+				pub $st "$b" $s 12000 own "t1" "p3"
+				pub $st "$c" $s 12000 own "t1" "p8"
 			done
 			;;
 		esac
