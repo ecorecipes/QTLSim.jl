@@ -376,6 +376,10 @@ Apple clang 21, GSL 2.8), recorded in `PARITY_FULL.txt`:
   sizes 1, 5, 16, 64: 1100; one individual at a time 369; collection every 50 generations
   365; the build without the inlined generator, threads and vector extensions 366.
 
+Run again from a clean extraction of this package (`make parity-full`, synthetic inputs
+in place of the published ones): 400 option files, 6,277 comparisons, all identical, no
+sanitizer report (also in `PARITY_FULL.txt`).
+
 `PARITY_DEMO.txt` is the transcript of `./demo_parity.sh`: six example inputs, two seeds,
 1, 2, 4 and 8 threads, with the SHA-256 and size of each program's output and the wall
 time of each run (48 comparisons, all identical), and a negative control (another seed
