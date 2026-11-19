@@ -23,24 +23,31 @@
 # starts, default 2000), BENCH_JULIA=0 to leave Julia out, BENCH_ABLATION=1 to
 # add a second table (QTSimFast with one optimisation switched off at a time),
 # JULIA (default julia), QTSIM (the original, default ../QTSim/build/QTSim),
-# BENCH_OUT (where the three files are written, default this directory).
+# BENCH_OUT (where the three files are written, default this directory),
+# QTLSIM_PROJECT (a Julia environment with QTLSim.jl; without Julia or without it
+# the Julia column is left out).
 
 set -u
 cd "$(dirname "$0")"
 HERE=$(pwd)
 PKG=$(cd "$HERE/../.." && pwd)
 
-ORIG=${QTSIM:-$HERE/../QTSim/build/QTSim}
-FAST=$HERE/build/QTSimFast
+# Two layouts: inside QTLSim.jl, or the hand-over package (original/ and fast/ here).
+if [ -d "$HERE/original/src" ]; then ORIGDIR=$HERE/original; FASTDIR=$HERE/fast
+else ORIGDIR=$HERE/../QTSim; FASTDIR=$HERE; fi
+ORIG=${QTSIM:-$ORIGDIR/build/QTSim}
+FAST=$FASTDIR/build/QTSimFast
+# The Julia column needs QTLSim.jl: its vignettes environment (QTLSIM_PROJECT overrides).
+JPROJ=${QTLSIM_PROJECT:-$PKG/vignettes}
 SIMS=${QTSIM_SIMULATIONS:-$PKG/../Repository/Simulations}
 NSEED=${BENCH_SEEDS:-3}
 THREADS=${BENCH_THREADS:-"1 2 4 8"}
 STRATA=${BENCH_STRATA:-"QT0100-Possion3.0 QT0100-Possion5.0 QT0500-Possion3.0 QT0500-Possion5.0 QT1000-Possion3.0 QT1000-Possion5.0 QT5000-Possion3.0 QT5000-Possion5.0"}
 AFTER=${BENCH_AFTER:-2000}
 JULIA=${JULIA:-julia}
-WORK=$HERE/build/bench
+WORK=$FASTDIR/build/bench
 
-[ -x "$ORIG" ] || { echo "no original at $ORIG (make -C ../QTSim)"; exit 2; }
+[ -x "$ORIG" ] || { echo "no original at $ORIG (run make)"; exit 2; }
 [ -x "$FAST" ] || { echo "no $FAST (make)"; exit 2; }
 mkdir -p "$WORK"
 OUT=${BENCH_OUT:-$HERE}
@@ -103,7 +110,7 @@ done
 
 # ---------------------------------------------------------------- the Julia kernel
 julia_version="not run"
-if [ "${BENCH_JULIA:-1}" = 1 ] && command -v "$JULIA" > /dev/null 2>&1; then
+if [ "${BENCH_JULIA:-1}" = 1 ] && command -v "$JULIA" > /dev/null 2>&1 && [ -f "$JPROJ/Project.toml" ]; then
 	cat > "$WORK/bench.jl" <<'EOF'
 # Times QTLSim's kernel (simulate) on the option files of bench.sh; one thread.
 using QTLSim
@@ -126,7 +133,7 @@ open(runs, "a") do io
 end
 EOF
 	julia_version=$("$JULIA" --version 2> /dev/null)
-	"$JULIA" -t 1 --project="$PKG/vignettes" "$WORK/bench.jl" "$WORK" "$RUNS" "$STRATA" "$NSEED" || echo "note: the Julia runs failed; the table will lack them" >&2
+	"$JULIA" -t 1 --project="$JPROJ" "$WORK/bench.jl" "$WORK" "$RUNS" "$STRATA" "$NSEED" || echo "note: the Julia runs failed; the table will lack them" >&2
 fi
 
 load_after=$(uptime | sed 's/.*load average[s]*: *//')

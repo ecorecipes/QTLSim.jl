@@ -1,0 +1,16 @@
+# A haploid population with many crossover points drawn and a high mutation rate.
+# Written for the QTSimFast package (not one of the paper's input files).
+# 200 haploid individuals, 257 loci, fitness move from generation 300.
+Sample 1
+PopSize 200
+NoQTL 257
+Generations 600
+Ploidy 1
+MoveFitnessSD 300 0.3
+OptimumMoveType fitness
+PhenotypeVar 0.02
+MutationScalar 0.001
+Heritability 0.5
+Seed 4711
+MutationRatePerGamete 0.05
+RecombinationPoissonMean 12

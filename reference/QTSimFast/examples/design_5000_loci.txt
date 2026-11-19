@@ -1,0 +1,17 @@
+# 5000 loci, slow move (the move brought forward to keep the run short).
+# Written for the QTSimFast package (not one of the paper's input files).
+# Design of the published sweep: 1000 diploid individuals, 5000 loci, continuous move of 0.002 per generation from generation 1000, Poisson(5) crossover points, 1200 generations.
+Sample 1
+PopSize 1000
+NoQTL 5000
+Generations 1200
+Ploidy 2
+MoveFitnessSD 1000 0.002
+PhenotypeVar 0.02
+MutationScalar 0.001
+Heritability 0.6
+Seed 1001
+InitFitnessSD 1.0
+OptimumMoveType continuous
+MutationRatePerGamete 0.0001
+RecombinationPoissonMean 5

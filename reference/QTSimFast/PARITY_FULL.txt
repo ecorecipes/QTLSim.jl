@@ -1,0 +1,64 @@
+QTSimFast: the full parity matrix (./test_parity.sh full)
+
+Run on the packaged code (fast/src and test_parity.sh as packaged; the Lean files, reports
+and packaging were added afterwards and do not enter the programs), from the QTLSim.jl
+layout, with the paper's input files at hand. macOS arm64 (Apple M3 Pro), Apple clang 21,
+GSL 2.8, JOBS=4. Each comparison is cmp on standard output plus equal exit codes against
+the original QTSim built from the unmodified source. Variant letters: t = threads,
+p = threads forced on small inputs (2, 3, 4, 8), r = repeats with 4 threads, s = output on
+the main thread, auto = QTSIM_THREADS=auto, b = block sizes (1, 5, 16, 64), l = one
+individual at a time, g = collection every 50 generations, plain = no inlined generator,
+no threads, no vector extensions, asan = AddressSanitizer + UndefinedBehaviorSanitizer,
+tsan = ThreadSanitizer (a sanitizer report would count as a failure).
+
+Without the paper's inputs (as in this package) the script uses synthetic inputs of the
+same design instead of the 72 published option files; the other 385 option files are the
+same.
+
+The script's output (the absolute path of the original shortened):
+
+Thu 19 Nov 2026 12:27:58 PST
+parity (full): 457 option files, original ../QTSim/build/QTSim
+option files run by the original: 457 (77 ended with 'Pop all died.'), 66404183 bytes of output
+comparisons: 6406 identical, 0 different
+by variant (trailing digits dropped):
+  asan OK 365
+  auto OK 365
+  b OK 1100
+  g OK 365
+  l OK 369
+  p OK 1518
+  plain OK 366
+  r OK 730
+  s OK 365
+  t OK 498
+  tsan OK 365
+published inputs: 72 files, 48 died
+original under ASan/UBSan: 365 clean, 0 with reports
+PARITY OK
+exit code: 0
+Thu 19 Nov 2026 12:46:06 PST
+
+
+The same matrix run from a clean extraction of the hand-over package (make parity-full;
+no published inputs there, so 16 synthetic inputs of the same design take their place),
+19 November 2026, same machine. The script's output from its summary on:
+
+option files run by the original: 400 (37 ended with 'Pop all died.'), 23424372 bytes of output
+comparisons: 6277 identical, 0 different
+by variant (trailing digits dropped):
+  asan OK 365
+  auto OK 365
+  b OK 1096
+  g OK 365
+  l OK 365
+  p OK 1464
+  plain OK 366
+  r OK 730
+  s OK 365
+  t OK 431
+  tsan OK 365
+published inputs: 16 files, 8 died
+original under ASan/UBSan: 365 clean, 0 with reports
+PARITY OK
+exit code: 0
