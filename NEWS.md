@@ -8,6 +8,38 @@ All notable changes to QTLSim.jl are recorded here. The format follows
 
 ### Added
 
+- **The eco-evolutionary model of Xu and Shen (2026), re-implemented from its equations** (additive, a
+  theory module beside the simulation; no default and no existing output changes; src/xu_shen.jl).
+  Xu, K. and Shen, H. (2026), "Eco-evolutionary feedbacks generate bistability in population
+  persistence under gradual environmental change", bioRxiv preprint, doi:10.64898/2026.08.05.743160
+  (version 1; not peer reviewed; we know of no published code). The lag, the genetic variance and the
+  population size as three coupled equations in continuous time: `XuShen` (parameters; the
+  preprint's standard set by default), `xu_shen_field`, `xu_shen_critical_rate` (their eq. 6, by
+  bisection on the monotone factor of h′), `xu_shen_equilibria`/`xu_shen_equilibrium` (eqs. 7–8: a
+  saddle and a stable node below the critical rate), `xu_shen_jacobian`, `xu_shen_stability` (S8,
+  Routh–Hurwitz), `xu_shen_trajectory` (an adaptive Rosenbrock integrator written here, no new
+  dependency; extinction = N below a threshold, default 1e-3), `xu_shen_persists`,
+  `xu_shen_boundary` (the basin boundary of their Figure 3), and their three scenarios
+  (`xu_shen_balance_variance`, `xu_shen_critical_size`, `xu_shen_max_rate`, `xu_shen_max_duration`).
+  Their eq. 6 has priority over `drift_critical_rate`, which is a discrete-generation counterpart
+  matched to QTSim's life cycle; the feedback is Bürger and Lynch (1995).
+  Tests: topic `xu_shen` (422). Symbolic checks: validate/symbolic/check_xu_shen.jl (77), with notes
+  where a printed equation and the derivation differ: S17's first term has the opposite sign to the
+  one that follows from S16 (so S19–S21 do not bound P₁ as written); the conclusion of S2 stands,
+  because a₁a₂ − a₃ is a sum of positive terms at every equilibrium; no result is affected.
+  Figures (validate/xu_shen.jl, validate/xu_shen.log, validate/xu_shen_figs/, summary
+  validate/xu_shen.md; read-offs from the preprint's figures committed first in
+  validate/xu_shen_targets.md): Figures 1, 2a (three of four curves), 3 and 4a, b, d agree with the
+  read-offs within reading precision; the "V_M = 0.5" curve of Figure 2a matches V_M = 0.2 and
+  panels 2b, c match K = 500 better than the caption's K = 1000 (both post hoc); Figure 4c's rate
+  is not stated. The read-offs of Figure 4d were first taken against a misplaced axis and were read
+  again after the comparison (disclosed in the log). Comparison with `drift_critical_rate`
+  (descriptive): at mapped parameters eq. 6 is 1.01–1.10 times it for Xu–Shen-type inputs and
+  1.01–1.27 times it for published-type inputs under Beverton–Holt (R = 1.5–5); the differences are
+  drift from the census against N_e from the breeders (×1.07–1.39), logistic against Beverton–Holt
+  regulation (×0.78–0.94) and the house-of-Gauss term α²/(2V_s) (×1.00–1.16), with the weak-selection
+  forms below 0.5%. A fixed size has no counterpart in the preprint's model.
+
 - **`k50_gradient`: the emulator's half-survival rate and its elasticities on a target that does not
   saturate** (additive; `emulate`, `extinction_distribution` and every default are unchanged;
   src/k50_gradient.jl, with `QTLSim.emulated_log_hazard` and `QTLSim.log_cumulative_hazard`). Phase A

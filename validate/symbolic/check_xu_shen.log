@@ -1,0 +1,110 @@
+QTLSim validate/symbolic/check_xu_shen.jl (Symbolics 7.48.0)
+
+(a) the equilibrium (S2, S4; eqs. 7, 8)
+  dΔ/dt = 0 at Δ* = vω²/V (S2, eq. 7)                                      ok
+  dV/dt = 0 at N* = V n_e ω²/(V_M n_e ω² − V²) (S2, eq. 7)                 ok
+  dN/dt = 0 (N > 0) ⇔ N = N₂(V) = K(r − (V + Δ*²)/(2ω²)) (S3, eq. 8)       ok
+  N₁ = N₂ ⇔ v² = (2V²/ω²)[r − V/(2ω²) − N₁/K] (S4; the argument of eq. 6)  ok
+  all three right-hand sides vanish at (Δ*, V, N₁) with r from S4          ok
+
+(b) S5, S6a, S6b
+  S6a: N₁′ = n_e ω²(V_M n_e ω² + V²)/(V_M n_e ω² − V²)²                    ok
+  S6b: N₁″ = 2V n_e ω²(3V_M n_e ω² + V²)/(V_M n_e ω² − V²)³                ok
+  S5: h′ = (2V/ω²)[2f − V N₁′/K − V/(2ω²)]                                 ok
+  g′ = 4V/ω² and f′ = −1/(2ω²) − N₁′/K                                     ok
+  φ′ = −3/(2ω²) − 3N₁′/K − V N₁″/K (each term negative on (0, V_c^M): φ decreases) ok
+  φ(0) = 2r                                                                ok
+  NOTE: text after S5 (line 394): the decreasing function is written with the term ½·V/(2ω²); S5 itself has V/(2ω²) (checked above). Either is decreasing, so the argument and eq. 6 are unaffected.
+  NOTE: S1 (line 377) describes extinction as N → 0, V/N → V_M, Δ → +∞; this is an attracting state rather than an equilibrium of S1 (Δ grows without bound), which is how src/xu_shen.jl treats it (a threshold on N).
+
+(c) the Jacobian (S7, S8)
+  the general Jacobian of S1 is xu_shen_jacobian's matrix                  ok
+  at the equilibrium it is S8 (J₁₂ = −v/V, J₃₁ = −N*v/V, J₃₃ = −N*/K)      ok
+  NOTE: line 410: "All other terms (J13, J21, J33) are zero"; J₃₃ = −N*/K is given two lines above and in S8, so the list should read (J₁₃, J₂₁). No effect.
+
+(d) the determinant (S10–S15)
+  S10: det J = J₁₁J₂₂J₃₃ − J₂₃(J₁₁J₃₂ − J₃₁J₁₂)                            ok
+  S11: J₁₁J₃₂ − J₃₁J₁₂ = V*N*/(2ω⁴) − v²N*/V*²                             ok
+  S12: −J₂₃(J₁₁J₃₂ − J₃₁J₁₂) = [v² − V*³/(2ω⁴)]/(N*V*)                     ok
+  S13: J₁₁J₂₂J₃₃ = −(N*/(Kω²))[V_M + V*²/(n_e ω²)]                         ok
+  S14, first line: h′(V*) = 2v²/V* − V*²/ω⁴ − 2V*²N₁′/(Kω²)                ok
+  S14, second line: = (2/V*)[v² − V*³/(2ω⁴)] − (2N*²/(Kω²))[V_M + V*²/(n_e ω²)] ok
+  S15: det J = h′(V*)/(2N*)                                                ok
+
+(e) the third Routh–Hurwitz condition (S16–S21)
+  S16: det(J − λI) = −(λ³ + a₁λ² + a₂λ + a₃) with the printed a₁, a₂, a₃   ok
+  a₁a₂ − a₃ = P₁ + P₂ with P₁ = −J₂₃(J₁₁J₃₂ − J₃₁J₁₂) − J₃₃(J₁₁ + J₂₂)² and P₂ as in S18 ok
+  with P₁ as printed in S17 the sum differs from a₁a₂ − a₃ by 2J₂₃(J₁₁J₃₂ − J₃₁J₁₂) ok
+  S19 is S17 as printed, evaluated with S8 (a = 1 + 2/n_e)                 ok
+  the derived P₁ at the equilibrium: −V*²/(2N*ω⁴) + (N*/K)(aV*/ω² + 1/N*)² + v²/(N*V*) ok
+  NOTE: S17: P₁ is printed as J₂₃(J₁₁J₃₂ − J₃₁J₁₂) − J₃₃(J₁₁ + J₂₂)². Expanding a₁a₂ − a₃ with S16 gives −J₂₃(J₁₁J₃₂ − J₃₁J₁₂) − J₃₃(J₁₁ + J₂₂)² (P₂ of S18 as printed): the first term has the opposite sign. S19 follows S17 as printed, so its first and third terms, V*²/(2N*ω⁴) and −v²/(N*V*), have the opposite signs to the derived ones. S20 and S21 are correct algebra given S19 as printed (checked below), but S20 bounds v² from above, which bounds the derived P₁ from above, not below, so S19–S21 do not establish P₁ > 0 as written.
+  S20: h′(V*) < 0 ⇔ v² < V*³/(2ω⁴) + V*³N₁′/(Kω²) (h′ is linear in v²: S14) ok
+  S21 line 1: S19 at v² = the bound of S20                                 ok
+  S21 line 2: V*²N₁′ = N*²[V_M + V*²/(n_e ω²)]                             ok
+  S21 line 3: V_M = V*²/(n_e ω²) + V*/N*                                   ok
+  S21 line 4: b = 1 + 2/n_e + 4/n_e² (a² − 2/n_e)                          ok
+  a₁a₂ − a₃ = J₂₃J₃₁J₁₂ + J₂₂J₂₃J₃₂ + J₃₃J₂₃J₃₂ − (J₁₁+J₂₂)(J₁₁J₂₂ + J₃₃(J₁₁+J₂₂+J₃₃)) ok
+  NOTE: The conclusion of S2 (the equilibrium V₂ is locally stable whenever it exists) stands: in the identity above, with J₁₁, J₂₂, J₃₃, J₁₂, J₃₁, J₃₂ < 0 < J₂₃ (S8, v > 0), every term is positive (the J₁₁J₂₃J₃₂ parts of P₁ and P₂ cancel), so a₁a₂ − a₃ > 0 at every equilibrium with N* > 0, and stability is decided by the sign of det J alone (S15). No result of the preprint depends on the sign in S17.
+
+(f) invariances
+  trait units: (Δ, v) × a, (V, ω², V_M) × a² scales (dΔ, dV, dN) by (a, a², 1) ok
+  time units: (r, V_M, v) × b, ω²/b, K/b², N/b scales (dΔ, dV, dN) by (b, b, 1) ok
+  K → ∞ at fixed V: h → (2V²/ω²)(r − V/(2ω²)), maximal at V = 4rω²/3       ok
+  xu_shen_balance_variance solves eq. 5 at fixed N (dV/dt = 0 numerically, 20 points) ok
+
+(g) numerical checks against src/xu_shen.jl
+  r=0.60 ω²=81.1 V_M=0.00249 K=252 n_e=100: _xs_h, _xs_phi, _xs_dN1 equal h, φ, N₁′ ok
+  r=0.60 ω²=81.1 V_M=0.00249 K=252 n_e=100: h′(V_c) = 0 at xu_shen_critical_rate's V_c (φ = 5.6e-17) and v_c² = h(V_c) ok
+  r=0.60 ω²=81.1 V_M=0.00249 K=252 n_e=100: v_c² is the maximum of h (grid of 4000, 1e-5) ok
+  r=0.60 ω²=81.1 V_M=0.00249 K=252 n_e=100: xu_shen_jacobian equals the symbolic Jacobian at a random state ok
+  r=0.60 ω²=81.1 V_M=0.00249 K=252 n_e=100: xu_shen_field equals S1        ok
+  r=0.86 ω²=64.9 V_M=0.00201 K=2.34e+03 n_e=1: _xs_h, _xs_phi, _xs_dN1 equal h, φ, N₁′ ok
+  r=0.86 ω²=64.9 V_M=0.00201 K=2.34e+03 n_e=1: h′(V_c) = 0 at xu_shen_critical_rate's V_c (φ = 2.4e-15) and v_c² = h(V_c) ok
+  r=0.86 ω²=64.9 V_M=0.00201 K=2.34e+03 n_e=1: v_c² is the maximum of h (grid of 4000, 1e-5) ok
+  r=0.86 ω²=64.9 V_M=0.00201 K=2.34e+03 n_e=1: xu_shen_jacobian equals the symbolic Jacobian at a random state ok
+  r=0.86 ω²=64.9 V_M=0.00201 K=2.34e+03 n_e=1: xu_shen_field equals S1     ok
+  r=0.72 ω²=11.8 V_M=0.00326 K=105 n_e=2: _xs_h, _xs_phi, _xs_dN1 equal h, φ, N₁′ ok
+  r=0.72 ω²=11.8 V_M=0.00326 K=105 n_e=2: h′(V_c) = 0 at xu_shen_critical_rate's V_c (φ = -2.2e-16) and v_c² = h(V_c) ok
+  r=0.72 ω²=11.8 V_M=0.00326 K=105 n_e=2: v_c² is the maximum of h (grid of 4000, 1e-5) ok
+  r=0.72 ω²=11.8 V_M=0.00326 K=105 n_e=2: xu_shen_jacobian equals the symbolic Jacobian at a random state ok
+  r=0.72 ω²=11.8 V_M=0.00326 K=105 n_e=2: xu_shen_field equals S1          ok
+  r=0.31 ω²=118 V_M=0.0653 K=542 n_e=1: _xs_h, _xs_phi, _xs_dN1 equal h, φ, N₁′ ok
+  r=0.31 ω²=118 V_M=0.0653 K=542 n_e=1: h′(V_c) = 0 at xu_shen_critical_rate's V_c (φ = -2.8e-16) and v_c² = h(V_c) ok
+  r=0.31 ω²=118 V_M=0.0653 K=542 n_e=1: v_c² is the maximum of h (grid of 4000, 1e-5) ok
+  r=0.31 ω²=118 V_M=0.0653 K=542 n_e=1: xu_shen_jacobian equals the symbolic Jacobian at a random state ok
+  r=0.31 ω²=118 V_M=0.0653 K=542 n_e=1: xu_shen_field equals S1            ok
+  r=0.20 ω²=37.9 V_M=0.00218 K=2.13e+04 n_e=10: _xs_h, _xs_phi, _xs_dN1 equal h, φ, N₁′ ok
+  r=0.20 ω²=37.9 V_M=0.00218 K=2.13e+04 n_e=10: h′(V_c) = 0 at xu_shen_critical_rate's V_c (φ = 7.8e-16) and v_c² = h(V_c) ok
+  r=0.20 ω²=37.9 V_M=0.00218 K=2.13e+04 n_e=10: v_c² is the maximum of h (grid of 4000, 1e-5) ok
+  r=0.20 ω²=37.9 V_M=0.00218 K=2.13e+04 n_e=10: xu_shen_jacobian equals the symbolic Jacobian at a random state ok
+  r=0.20 ω²=37.9 V_M=0.00218 K=2.13e+04 n_e=10: xu_shen_field equals S1    ok
+  r=0.32 ω²=238 V_M=0.125 K=1.24e+04 n_e=1: _xs_h, _xs_phi, _xs_dN1 equal h, φ, N₁′ ok
+  r=0.32 ω²=238 V_M=0.125 K=1.24e+04 n_e=1: h′(V_c) = 0 at xu_shen_critical_rate's V_c (φ = -2.1e-15) and v_c² = h(V_c) ok
+  r=0.32 ω²=238 V_M=0.125 K=1.24e+04 n_e=1: v_c² is the maximum of h (grid of 4000, 1e-5) ok
+  r=0.32 ω²=238 V_M=0.125 K=1.24e+04 n_e=1: xu_shen_jacobian equals the symbolic Jacobian at a random state ok
+  r=0.32 ω²=238 V_M=0.125 K=1.24e+04 n_e=1: xu_shen_field equals S1        ok
+  r=0.96 ω²=91.4 V_M=0.0364 K=444 n_e=1: _xs_h, _xs_phi, _xs_dN1 equal h, φ, N₁′ ok
+  r=0.96 ω²=91.4 V_M=0.0364 K=444 n_e=1: h′(V_c) = 0 at xu_shen_critical_rate's V_c (φ = 1.8e-15) and v_c² = h(V_c) ok
+  r=0.96 ω²=91.4 V_M=0.0364 K=444 n_e=1: v_c² is the maximum of h (grid of 4000, 1e-5) ok
+  r=0.96 ω²=91.4 V_M=0.0364 K=444 n_e=1: xu_shen_jacobian equals the symbolic Jacobian at a random state ok
+  r=0.96 ω²=91.4 V_M=0.0364 K=444 n_e=1: xu_shen_field equals S1           ok
+  r=0.44 ω²=40.7 V_M=0.0416 K=3.79e+03 n_e=1: _xs_h, _xs_phi, _xs_dN1 equal h, φ, N₁′ ok
+  r=0.44 ω²=40.7 V_M=0.0416 K=3.79e+03 n_e=1: h′(V_c) = 0 at xu_shen_critical_rate's V_c (φ = 1.9e-15) and v_c² = h(V_c) ok
+  r=0.44 ω²=40.7 V_M=0.0416 K=3.79e+03 n_e=1: v_c² is the maximum of h (grid of 4000, 1e-5) ok
+  r=0.44 ω²=40.7 V_M=0.0416 K=3.79e+03 n_e=1: xu_shen_jacobian equals the symbolic Jacobian at a random state ok
+  r=0.44 ω²=40.7 V_M=0.0416 K=3.79e+03 n_e=1: xu_shen_field equals S1      ok
+  60 random parameter sets, 120 equilibria: a₁ > 0 and a₁a₂ − a₃ > 0 at all ok
+  … stable ⇔ V* > V_c ⇔ h′(V*) < 0, det J = h′/(2N*) and v² = h(V*) (S4, S15) at all ok
+  J₁₁J₃₂ − J₃₁J₁₂ > 0 (where the sign in S17 matters) at 17 of 120 equilibria; smallest derived P₁/(a₁a₂ − a₃) at a stable one: -0.181
+  NOTE: the derived P₁ is negative at some stable equilibria of the random sets (smallest P₁/(a₁a₂ − a₃) = -0.181); there P₂ makes up the difference, as the decomposition in (e) shows.
+
+Notes on the preprint's equations (6):
+  1. text after S5 (line 394): the decreasing function is written with the term ½·V/(2ω²); S5 itself has V/(2ω²) (checked above). Either is decreasing, so the argument and eq. 6 are unaffected.
+  2. S1 (line 377) describes extinction as N → 0, V/N → V_M, Δ → +∞; this is an attracting state rather than an equilibrium of S1 (Δ grows without bound), which is how src/xu_shen.jl treats it (a threshold on N).
+  3. line 410: "All other terms (J13, J21, J33) are zero"; J₃₃ = −N*/K is given two lines above and in S8, so the list should read (J₁₃, J₂₁). No effect.
+  4. S17: P₁ is printed as J₂₃(J₁₁J₃₂ − J₃₁J₁₂) − J₃₃(J₁₁ + J₂₂)². Expanding a₁a₂ − a₃ with S16 gives −J₂₃(J₁₁J₃₂ − J₃₁J₁₂) − J₃₃(J₁₁ + J₂₂)² (P₂ of S18 as printed): the first term has the opposite sign. S19 follows S17 as printed, so its first and third terms, V*²/(2N*ω⁴) and −v²/(N*V*), have the opposite signs to the derived ones. S20 and S21 are correct algebra given S19 as printed (checked below), but S20 bounds v² from above, which bounds the derived P₁ from above, not below, so S19–S21 do not establish P₁ > 0 as written.
+  5. The conclusion of S2 (the equilibrium V₂ is locally stable whenever it exists) stands: in the identity above, with J₁₁, J₂₂, J₃₃, J₁₂, J₃₁, J₃₂ < 0 < J₂₃ (S8, v > 0), every term is positive (the J₁₁J₂₃J₃₂ parts of P₁ and P₂ cancel), so a₁a₂ − a₃ > 0 at every equilibrium with N* > 0, and stability is decided by the sign of det J alone (S15). No result of the preprint depends on the sign in S17.
+  6. the derived P₁ is negative at some stable equilibria of the random sets (smallest P₁/(a₁a₂ − a₃) = -0.181); there P₂ makes up the difference, as the decomposition in (e) shows.
+
+77 checks, 0 failed; 8 s
+PASS

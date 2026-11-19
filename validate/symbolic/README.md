@@ -85,6 +85,13 @@ job. `common.jl` holds the shared helpers.
   mean fitness with the cost by quadrature; spot checks of `steady_lag`, `critical_rate`,
   `sustainable_rate`, `red_noise_lag_var`, `red_noise_lag_autocov`, `expected_lag2`,
   `lag_load`, `reaction_norm_response` and `reaction_norm_lag`.
+- `check_xu_shen.jl` (77 checks) — the algebra of Xu and Shen (2026, bioRxiv preprint,
+  doi:10.64898/2026.08.05.743160), Supplement S1–S2, as used by src/xu_shen.jl: the
+  equilibrium (S2, S4; eqs. 7, 8), S5–S6, the Jacobian S8, the determinant S10–S15, the
+  third Routh–Hurwitz condition S16–S21 and a decomposition of `a₁a₂ − a₃` into positive
+  terms, the two scaling invariances; spot checks of `xu_shen_critical_rate`,
+  `xu_shen_equilibria`, `xu_shen_jacobian`, `xu_shen_stability`. Where a printed equation
+  differs from the derivation the log records a note, with whether a result is affected.
 
 Square roots are handled by reducing a polynomial in `r = √D` modulo `r² = D`. Large
 rational identities are checked by substituting a closed form into the equations it
