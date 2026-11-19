@@ -4,6 +4,7 @@
 #
 #     make -C reference/QTSimFast          # builds reference/QTSimFast/build/QTSimFast
 #     make -C reference/QTSimFast check    # the unmodified files are unmodified
+#     make -C reference/QTSimFast demo     # a few cases with checksums and times
 #     make -C reference/QTSimFast parity   # quick parity test against reference/QTSim
 #     make -C reference/QTSimFast parity-full   # the whole parity matrix (hours)
 #     make -C reference/QTSimFast bench    # timings, writes bench_results.{md,csv}
@@ -51,6 +52,10 @@ variants: build/QTSimFast-asan build/QTSimFast-tsan build/QTSimFast-plain build/
 check:
 	@for f in $(UNMODIFIED); do cmp src/$$f ../QTSim/src/$$f || exit 1; done; echo "unmodified files: OK"
 
+# A short demonstration with checksums (writes nothing; see PARITY_DEMO.txt for a transcript).
+demo: build/QTSimFast ../QTSim/build/QTSim
+	./demo_parity.sh
+
 parity: build/QTSimFast ../QTSim/build/QTSim
 	./test_parity.sh quick
 
@@ -63,4 +68,4 @@ bench: build/QTSimFast ../QTSim/build/QTSim
 clean:
 	rm -rf build
 
-.PHONY: all check parity parity-full bench variants clean
+.PHONY: all check demo parity parity-full bench variants clean

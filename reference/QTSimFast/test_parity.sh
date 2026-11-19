@@ -8,7 +8,8 @@
 #
 # full also needs the variants (make variants) and, for the published inputs, the
 # paper's Simulations directory (QTSIM_SIMULATIONS, default ../../../Repository/Simulations);
-# without it, synthetic inputs of the same design are used.
+# without it, synthetic inputs of the same design are used. The script works in
+# QTLSim.jl (reference/QTSimFast) and in the hand-over package (original/, fast/).
 #
 # Environment: JOBS (processes at once for single-thread runs, default 4), QTSIM
 # (the original, default ../QTSim/build/QTSim), QTSIM_PARITY_TMP (work directory,
@@ -29,9 +30,13 @@ cd "$(dirname "$0")"
 HERE=$(pwd)
 
 MODE=${1:-quick}
-ORIG=${QTSIM:-$HERE/../QTSim/build/QTSim}
-FAST=$HERE/build/QTSimFast
-WORK=${QTSIM_PARITY_TMP:-$HERE/build/parity}
+# Two layouts: inside QTLSim.jl (reference/QTSimFast beside reference/QTSim), or the
+# hand-over package (original/ and fast/ under the directory of this script).
+if [ -d "$HERE/original/src" ]; then ORIGDIR=$HERE/original; FASTDIR=$HERE/fast
+else ORIGDIR=$HERE/../QTSim; FASTDIR=$HERE; fi
+ORIG=${QTSIM:-$ORIGDIR/build/QTSim}
+FAST=$FASTDIR/build/QTSimFast
+WORK=${QTSIM_PARITY_TMP:-$FASTDIR/build/parity}
 SIMS=${QTSIM_SIMULATIONS:-$HERE/../../../Repository/Simulations}
 JOBS=${JOBS:-4}
 
@@ -58,7 +63,7 @@ if [ "$MODE" = "__one" ]; then
 			plain) bin=$FAST-plain ;;
 			asan)  bin=$FAST-asan; e="QTSIM_THREADS=3 QTSIM_PAR_MIN=0" ;;
 			tsan)  bin=$FAST-tsan; e="QTSIM_THREADS=4 QTSIM_PAR_MIN=0" ;;
-			osan)  bin=$HERE/build/QTSim-asan ;;
+			osan)  bin=$FASTDIR/build/QTSim-asan ;;
 			*)     echo "FAIL $f $v unknown-variant" >> "$WORK/results"; continue ;;
 		esac
 		out=$f.$v.out
@@ -84,10 +89,10 @@ if [ "$MODE" = "__one" ]; then
 fi
 
 case $MODE in quick|full) ;; *) echo "usage: $0 quick|full"; exit 2 ;; esac
-[ -x "$ORIG" ] || { echo "no original at $ORIG (make -C ../QTSim)"; exit 2; }
+[ -x "$ORIG" ] || { echo "no original at $ORIG (run make)"; exit 2; }
 [ -x "$FAST" ] || { echo "no $FAST (make)"; exit 2; }
 if [ "$MODE" = full ]; then
-	for b in "$FAST-plain" "$FAST-asan" "$FAST-tsan" "$HERE/build/QTSim-asan"; do
+	for b in "$FAST-plain" "$FAST-asan" "$FAST-tsan" "$FASTDIR/build/QTSim-asan"; do
 		[ -x "$b" ] || { echo "no $b (make variants)"; exit 2; }
 	done
 fi

@@ -1,0 +1,15 @@
+# Single-locus protocol: 6500 generations, the optimum jumps at generation 5000.
+# Written for the QTSimFast package (not one of the paper's input files).
+# One diploid locus, 1000 individuals, phenotype move of 2 SD, fitness width 0.17 from generation 5000.
+Sample 1
+PopSize 1000
+NoQTL 1
+Generations 6500
+Ploidy 2
+ChangeFitnessSD 5000	0.170000
+MoveFitnessSD 5000 2.0
+OptimumMoveType phenotype
+PhenotypeVar 0.01
+MutationScalar 0.001
+Heritability 0.5
+Seed 101
