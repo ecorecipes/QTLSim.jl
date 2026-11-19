@@ -8,6 +8,23 @@ All notable changes to QTLSim.jl are recorded here. The format follows
 
 ### Added
 
+- **QTSimFast, a faster copy of QTSim with the same output bit for bit** (reference/QTSimFast; the
+  package and its defaults are unchanged, and `find_qtsim()` never returns it: the original in
+  reference/QTSim stays the reference). A modified version of QTSim's C source (GPL-3.0-or-later,
+  © 2023 Andrew Meade; modified 2026-11, each file says how): for the same options file its standard
+  output and exit code are the original's. Genomes are shared blocks of loci copied only on a
+  crossover or a mutation; genotypes are summed in the original order, eight individuals side by
+  side and optionally on threads (`QTSIM_THREADS`, default 1; the output does not depend on it);
+  MT19937 is inlined and checked against `gsl_rng_mt19937` at start, every other draw is GSL's own
+  in the original order; crossover maps are neither allocated nor sorted; statistics the original
+  computes twice or never uses are computed once or not at all. Cached block sums, as in the Julia
+  kernel, are ruled out by bit parity. `reference/QTSimFast/test_parity.sh` compares the two
+  programs (`make -C reference/QTSimFast parity`, a step of CI's `QTSim parity` job; `parity-full`
+  is the whole matrix: published inputs of every stratum, the single-locus protocol, a synthetic
+  matrix of every option, thread counts 1, 2, 3, 4 and 8, block sizes, sanitizer builds).
+  Timings are not reported yet: `make -C reference/QTSimFast bench` writes
+  reference/QTSimFast/bench_results.md (original, QTSimFast at 1, 2, 4 and 8 threads, the Julia
+  kernel) and is to be run on a quiet machine. See reference/QTSimFast/README.md.
 - **The eco-evolutionary model of Xu and Shen (2026), re-implemented from its equations** (additive, a
   theory module beside the simulation; no default and no existing output changes; src/xu_shen.jl).
   Xu, K. and Shen, H. (2026), "Eco-evolutionary feedbacks generate bistability in population

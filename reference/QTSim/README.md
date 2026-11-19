@@ -50,3 +50,10 @@ reference/QTSim/build/QTSim options.txt > out.tsv
 
 `validate/gsl_locked.jl` (`write_opts`) writes options files from QTLSim's `Params`,
 whose fields have QTSim's option names.
+
+## A faster copy
+
+[`../QTSimFast`](../QTSimFast) holds a modified version of this source that is
+faster and writes the same output, byte for byte (its `test_parity.sh` compares
+the two). It is not used by the package's validation, and `find_qtsim()` does not return
+it: this directory stays the reference.
