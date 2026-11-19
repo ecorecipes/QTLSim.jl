@@ -17,7 +17,7 @@
 #   julia -t 6 --project=vignettes validate/narrow_omega.jl local     # kernel against emulators, per input
 #   julia -t 6 --project=vignettes validate/narrow_omega.jl traj      # kernel and emulator trajectories at ω·e^{±δ}, one rate
 #   julia -t 6 --project=vignettes validate/narrow_omega.jl links     # which link carries the difference
-#   julia -t 6 --project=vignettes validate/narrow_omega.jl blocks    # block-lineage model at ω·e^{±δ} (some inputs)
+#   julia -t 6 --project=vignettes validate/narrow_omega.jl blocks J1,J2  # block-lineage model at ω·e^{±δ} (written, NOT run: budget)
 # Each mode writes validate/narrow_omega_raw/out_<mode>.txt (copied into the log by hand, after the
 # hypotheses of its step) and resumable caches in validate/narrow_omega_raw/ (git-ignored).
 # Needs validate/elasticity_raw/inputs.tsv, table_cells.tsv, sample.tsv, b_screen.csv
