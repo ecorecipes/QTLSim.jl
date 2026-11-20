@@ -141,28 +141,28 @@ static uint64_t SplitMix64(uint64_t *x)
 
 static unsigned long TypeGetX(void *State)
 {
-	return (unsigned long)(FastNextX((FAST_RNG*)State) >> 32);
+	return (unsigned long)(XsNext((FAST_XS*)State) >> 32);
 }
 
 static double TypeGetDoubleX(void *State)
 {
-	return FastUniformX((FAST_RNG*)State);
+	return XsUniform((FAST_XS*)State);
 }
+#endif
 
 // ZIGNOR's tail beyond FAST_ZIG_R (Marsaglia 1964)
-double FastZigTail(FAST_RNG *R, int Negative)
+double XsZigTail(FAST_XS *X, int Negative)
 {
 	double x, y;
 
 	do
 	{
-		x = log(FastOpenX(R)) / FAST_ZIG_R;
-		y = log(FastOpenX(R));
+		x = log(XsOpen(X)) / FAST_ZIG_R;
+		y = log(XsOpen(X));
 	} while(-2.0 * y < x * x);
 
 	return Negative ? x - FAST_ZIG_R : FAST_ZIG_R - x;
 }
-#endif
 
 // QTSIM_FAST=2: every draw from here on comes from xoshiro256++. Not available
 // in the build with GSL's generator (returns 0).
@@ -178,7 +178,7 @@ int FastRngSetX(FAST_RNG *R, unsigned long Seed)
 
 	x = (uint64_t)Seed;
 	for(i=0;i<4;i++)
-		R->Xs[i] = SplitMix64(&x);
+		R->Xs.s[i] = SplitMix64(&x);
 
 	f = exp(-0.5 * FAST_ZIG_R * FAST_ZIG_R);
 	FastZigX[0] = FAST_ZIG_V / f;
@@ -201,7 +201,7 @@ int FastRngSetX(FAST_RNG *R, unsigned long Seed)
 	R->GType.get = TypeGetX;
 	R->GType.get_double = TypeGetDoubleX;
 	R->GRng.type = &R->GType;
-	R->GRng.state = R;
+	R->GRng.state = &R->Xs;
 
 	return 1;
 #endif

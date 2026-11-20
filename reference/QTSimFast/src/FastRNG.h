@@ -64,20 +64,25 @@ typedef struct
 	int mti;
 } FAST_MT;
 
+// A xoshiro256++ state (QTSIM_FAST=2)
+typedef struct
+{
+	uint64_t s[4];
+} FAST_XS;
+
 typedef struct
 {
 	FAST_MT	MT;
 	gsl_rng	GRng;			// a gsl_rng reading MT, for GSL's own distribution functions
 	gsl_rng_type GType;
 	int		X;				// QTSIM_FAST=2: draws from Xs (xoshiro256++) by other methods
-	uint64_t Xs[4];
+	FAST_XS	Xs;
 } FAST_RNG;
 
 void	FastRngSet(FAST_RNG *R, unsigned long Seed);
 void	FastMTRefill(FAST_MT *S);
 int		FastRngSelfCheck(const FAST_RNG *R, unsigned long Seed);
 int		FastRngSetX(FAST_RNG *R, unsigned long Seed);	// QTSIM_FAST=2's generator; 0 if unavailable
-double	FastZigTail(FAST_RNG *R, int Negative);
 
 /*
 *  QTSIM_FAST=2 (not bit-identical to QTSim; see FAST.md): xoshiro256++ (Blackman
@@ -90,9 +95,9 @@ double	FastZigTail(FAST_RNG *R, int Negative);
 */
 static inline uint64_t FastRotl(uint64_t x, int k) { return (x << k) | (x >> (64 - k)); }
 
-static inline uint64_t FastNextX(FAST_RNG *R)
+static inline uint64_t XsNext(FAST_XS *X)
 {
-	uint64_t *s = R->Xs;
+	uint64_t *s = X->s;
 	const uint64_t result = FastRotl(s[0] + s[3], 23) + s[0];
 	const uint64_t t = s[1] << 17;
 
@@ -106,24 +111,51 @@ static inline uint64_t FastNextX(FAST_RNG *R)
 	return result;
 }
 
+// SplitMix64's output function: a bijective mix of 64 bits
+static inline uint64_t XsMix(uint64_t z)
+{
+	z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
+	z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
+	return z ^ (z >> 31);
+}
+
+// A stream for a key (seeded by SplitMix64 from it)
+static inline void XsSeed(FAST_XS *X, uint64_t Key)
+{
+	int i;
+
+	for(i=0;i<4;i++)
+	{
+		Key += 0x9e3779b97f4a7c15ULL;
+		X->s[i] = XsMix(Key);
+	}
+}
+
+// The key of stream (Seed, Gen, Phase, Ind): independent streams for each
+// generation, phase of a generation and individual (QTSIM_FAST=2)
+static inline uint64_t XsKey(uint64_t Seed, uint64_t Gen, uint64_t Phase, uint64_t Ind)
+{
+	return XsMix(XsMix(XsMix(Seed + 0x632be59bd9b4e019ULL) + Gen) + ((Phase << 40) ^ Ind));
+}
+
 // (0, 1) and [0, 1), 53 random bits
-static inline double FastOpenX(FAST_RNG *R) { return ((double)(FastNextX(R) >> 11) + 0.5) * 0x1.0p-53; }
-static inline double FastUniformX(FAST_RNG *R) { return (double)(FastNextX(R) >> 11) * 0x1.0p-53; }
+static inline double XsOpen(FAST_XS *X) { return ((double)(XsNext(X) >> 11) + 0.5) * 0x1.0p-53; }
+static inline double XsUniform(FAST_XS *X) { return (double)(XsNext(X) >> 11) * 0x1.0p-53; }
 
 // Lemire's method: 0 .. n-1, 0 < n < 2^32, unbiased
-static inline unsigned long FastUniformIntX(FAST_RNG *R, uint32_t n)
+static inline unsigned long XsUniformInt(FAST_XS *X, uint32_t n)
 {
 	uint64_t m;
 	uint32_t l, t;
 
-	m = (FastNextX(R) >> 32) * (uint64_t)n;
+	m = (XsNext(X) >> 32) * (uint64_t)n;
 	l = (uint32_t)m;
 	if(l < n)
 	{
 		t = (uint32_t)(-n) % n;
 		while(l < t)
 		{
-			m = (FastNextX(R) >> 32) * (uint64_t)n;
+			m = (XsNext(X) >> 32) * (uint64_t)n;
 			l = (uint32_t)m;
 		}
 	}
@@ -131,13 +163,14 @@ static inline unsigned long FastUniformIntX(FAST_RNG *R, uint32_t n)
 	return (unsigned long)(m >> 32);
 }
 
-// ZIGNOR; the tables are set by FastRngSetX
+// ZIGNOR; the tables are set by FastRngSetX (or FastZigInit)
 #define FAST_ZIG_C 128
 #define FAST_ZIG_R 3.442619855899
 #define FAST_ZIG_V 9.91256303526217e-3
 extern double FastZigX[FAST_ZIG_C + 1], FastZigRatio[FAST_ZIG_C];
+double	XsZigTail(FAST_XS *X, int Negative);
 
-static inline double FastNormalX(FAST_RNG *R)
+static inline double XsNormal(FAST_XS *X)
 {
 	uint64_t b;
 	double u, x, f0, f1;
@@ -145,7 +178,7 @@ static inline double FastNormalX(FAST_RNG *R)
 
 	for(;;)
 	{
-		b = FastNextX(R);
+		b = XsNext(X);
 		i = (int)(b & 0x7f);
 		u = 2.0 * ((double)(b >> 11) * 0x1.0p-53) - 1.0;
 
@@ -153,23 +186,23 @@ static inline double FastNormalX(FAST_RNG *R)
 			return u * FastZigX[i];
 
 		if(i == 0)
-			return FastZigTail(R, u < 0);
+			return XsZigTail(X, u < 0);
 
 		x = u * FastZigX[i];
 		f0 = exp(-0.5 * (FastZigX[i] * FastZigX[i] - x * x));
 		f1 = exp(-0.5 * (FastZigX[i + 1] * FastZigX[i + 1] - x * x));
-		if(f1 + FastUniformX(R) * (f0 - f1) < 1.0)
+		if(f1 + XsUniform(X) * (f0 - f1) < 1.0)
 			return x;
 	}
 }
 
 // Poisson by inversion, mu <= 10, emu = exp(-mu)
-static inline unsigned int FastPoissonX(FAST_RNG *R, double mu, double emu)
+static inline unsigned int XsPoisson(FAST_XS *X, double mu, double emu)
 {
 	double u, p, F;
 	unsigned int k;
 
-	u = FastUniformX(R);
+	u = XsUniform(X);
 	p = emu;
 	F = p;
 	k = 0;
@@ -182,6 +215,13 @@ static inline unsigned int FastPoissonX(FAST_RNG *R, double mu, double emu)
 
 	return k;
 }
+
+// the same on the run's own stream
+static inline uint64_t FastNextX(FAST_RNG *R) { return XsNext(&R->Xs); }
+static inline double FastUniformX(FAST_RNG *R) { return XsUniform(&R->Xs); }
+static inline unsigned long FastUniformIntX(FAST_RNG *R, uint32_t n) { return XsUniformInt(&R->Xs, n); }
+static inline double FastNormalX(FAST_RNG *R) { return XsNormal(&R->Xs); }
+static inline unsigned int FastPoissonX(FAST_RNG *R, double mu, double emu) { return XsPoisson(&R->Xs, mu, emu); }
 
 #ifndef QTSIM_GSL_RNG
 

@@ -313,7 +313,23 @@ typedef struct
 								// that alone holds it (1-based), else 0
 	uint32_t *New, NoNew;		// the blocks made this generation
 	double	*BSum;				// QTSIM_FAST=1 only: each block's alleles summed (NULL otherwise)
-	int		Fast;				// QTSIM_FAST: 0 the exact program, 1 genotypes from block sums
+	int		Fast;				// QTSIM_FAST: 0 the exact program, 1 genotypes from block sums,
+								// 2 also other random numbers: see "QTSIM_FAST=2" below
+
+	// QTSIM_FAST=2: every individual's draws in a generation come from a stream of
+	// its own (XsKey), so they are made on the pool's threads and the output does
+	// not depend on the number of threads.
+	uint64_t XSeed;
+	int		XGen;				// the generation whose draws are made
+	int		HasEnv;				// EnvVar != 0
+	uint8_t	*Alive;				// survival, before the survivors are listed
+	struct XMUT { uint32_t Chr; int Pos; double Eff; } **XMut;	// per thread, in order
+	size_t	*XNoMut, *XMutCap;
+	uint32_t **XSeen, *XStamp;	// per thread: points drawn for a gamete, when many
+	gsl_rng	*XG;				// per thread: a gsl_rng that reads the stream in use
+	uint32_t *XMixId;			// the new block of each crossover inside a block, or UINT32_MAX
+	double	XTheta, XOmega, XScale, XSD;	// the fitness function, for FitnessJobX
+	int		XStd;
 	uint32_t *Ids, *NIds;		// block numbers of the current and the next population:
 								// block BNo of chromosome ChrNo of individual Ind is
 								// Ids[BNo * Row + Ind * P + ChrNo]
@@ -414,6 +430,7 @@ typedef struct
 	int		Itter, N, NoS;
 	double	Theta, Omega, MuteVar;
 	int		HaveMean, UseM, UseMean;
+	int		OnePass;			// QTSIM_FAST=2: the statistics in one pass
 	double	Mean;
 	double	*Pheno, *Geno;		// N
 	double	*X, *Y;				// NoS survivors: phenotype, fitness
@@ -799,8 +816,9 @@ static SIM* CreateSim(OPTIONS *Opt)
 
 	// How long waiting threads poll before they sleep (the pipeline's threads
 	// wait often and briefly). Without the pipeline the pool is left as it was.
-	PerMicro = (S->Pipe == TRUE) ? FastThreadsPollsPerMicro() : 1;
-	if(S->Pipe == TRUE)
+	// (QTSIM_FAST=2 hands the pool several short jobs per generation too)
+	PerMicro = (S->Pipe == TRUE || (S->Fast == 2 && FastThreadsNo(S->Pool) > 1)) ? FastThreadsPollsPerMicro() : 1;
+	if(S->Pipe == TRUE || (S->Fast == 2 && FastThreadsNo(S->Pool) > 1))
 		FastThreadsSetSpin(S->Pool, SpinPolls(EnvInt("QTSIM_SPIN_POOL", PIPE_SPIN_POOL, 0, 1000000), PerMicro));
 
 	// With more than one thread the output lines are computed and written by a
@@ -853,6 +871,35 @@ static SIM* CreateSim(OPTIONS *Opt)
 	{
 		fprintf(stderr, "QTSimFast: QTSIM_FAST=2 needs the built-in generator (this build uses GSL's).\n");
 		exit(3);
+	}
+
+	if(S->Fast == 2)
+	{
+		int T, NT;
+
+		NT = FastThreadsNo(S->Pool);
+		S->XSeed = (uint64_t)Opt->Seed;
+		S->HasEnv = (Opt->EnvVar != 0);
+		S->Alive = (uint8_t*)SMalloc(NoInd + 1);
+		S->XMixId = (uint32_t*)SMalloc(sizeof(uint32_t) * (S->Row + 1));
+		S->XMut = SMalloc(sizeof(*S->XMut) * NT);
+		S->XNoMut = (size_t*)SMalloc(sizeof(size_t) * NT);
+		S->XMutCap = (size_t*)SMalloc(sizeof(size_t) * NT);
+		S->XSeen = (uint32_t**)SMalloc(sizeof(uint32_t*) * NT);
+		S->XStamp = (uint32_t*)SMalloc(sizeof(uint32_t) * NT);
+		S->XG = (gsl_rng*)SMalloc(sizeof(gsl_rng) * NT);
+		for(T=0;T<NT;T++)
+		{
+			S->XMutCap[T] = 1024;
+			S->XNoMut[T] = 0;
+			S->XMut[T] = SMalloc(sizeof(**S->XMut) * S->XMutCap[T]);
+			S->XSeen[T] = (uint32_t*)calloc(S->L + 1, sizeof(uint32_t));
+			if(S->XSeen[T] == NULL)
+				MallocErr();
+			S->XStamp[T] = 0;
+			S->XG[T].type = S->Rng.GRng.type;	// reads a FAST_XS (FastRngSetX)
+			S->XG[T].state = NULL;
+		}
 	}
 
 	S->EnvSD = sqrt(Opt->EnvVar);
@@ -1264,6 +1311,26 @@ static void SetFitnessMean(OPTIONS *Opt, SIM *S)
 		Opt->FitnessPar[0] = Opt->FitnessPar[0] + Opt->MoveFitnessSD;
 }
 
+// QTSIM_FAST=2: the fitness loop of PopFitness on the pool's threads (each value
+// computed as in that loop)
+static void FitnessJobX(void *Ctx, int ThreadNo, int NoThreads)
+{
+	SIM *S;
+	int Lo, Hi, Index;
+	double Phenotype;
+
+	S = (SIM*)Ctx;
+	ThreadRange(S->N, 64, ThreadNo, NoThreads, &Lo, &Hi);
+
+	for(Index=Lo;Index<Hi;Index++)
+	{
+		Phenotype = S->Pheno[Index] - S->XTheta;
+		if(S->XStd)
+			Phenotype = Phenotype / S->XSD;
+		S->Fit[Index] = gsl_ran_gaussian_pdf(Phenotype, S->XOmega) / S->XScale;
+	}
+}
+
 // Calculate the fitness of the population
 static void PopFitness(OPTIONS *Opt, int Itter, SIM *S)
 {
@@ -1293,6 +1360,17 @@ static void PopFitness(OPTIONS *Opt, int Itter, SIM *S)
 	}
 
 	Scale = (0.4 / Opt->FitnessPar[1]);
+
+	if(S->Fast == 2)
+	{
+		S->XTheta = Opt->FitnessPar[0];
+		S->XOmega = Opt->FitnessPar[1];
+		S->XScale = Scale;
+		S->XSD = PhenotypeSD;
+		S->XStd = Opt->StandardisePhenotype;
+		FastThreadsRun(S->Pool, FitnessJobX, S);
+		return;
+	}
 
 	if(Opt->StandardisePhenotype == FALSE)
 	{
@@ -2021,11 +2099,350 @@ static void MutateDraws(OPTIONS *Opt, SIM *S)
 }
 
 // Crate a new population form the old.
+/* --------------------------------------------------------------------------
+*  QTSIM_FAST=2: independent streams. Survival: one uniform per individual from
+*  the key (Seed, generation, 1, individual). Offspring i: a xoshiro256++ stream
+*  seeded from (Seed, generation, 2, i) makes all of its draws, as QTSim makes
+*  them for one offspring (parents, gamete 0, gamete 1, environment), and then the
+*  mutations of its chromosomes. The draws are made on the pool's threads, each
+*  thread a contiguous range of offspring, and recorded; the genomes are then
+*  built from the records in the offspring's order, by one thread.
+* -------------------------------------------------------------------------*/
+
+static void SurvivalJobX(void *Ctx, int ThreadNo, int NoThreads)
+{
+	SIM *S;
+	int Lo, Hi, Index;
+	double U;
+
+	S = (SIM*)Ctx;
+	ThreadRange(S->N, 64, ThreadNo, NoThreads, &Lo, &Hi);
+
+	for(Index=Lo;Index<Hi;Index++)
+	{
+		U = (double)(XsMix(XsKey(S->XSeed, (uint64_t)S->XGen, 1, (uint64_t)Index)) >> 11) * 0x1.0p-53;
+		S->Alive[Index] = (U < S->Fit[Index]);
+	}
+}
+
+static void SetSurvivingX(SIM *S, int Itter)
+{
+	int Index;
+
+	S->XGen = Itter;
+	FastThreadsRun(S->Pool, SurvivalJobX, S);
+
+	S->NoSurv = 0;
+	for(Index=0;Index<S->N;Index++)
+	{
+		S->Surv[S->NoSurv] = Index;
+		S->NoSurv += S->Alive[Index];
+	}
+}
+
+static inline unsigned int PoissonX(FAST_XS *X, gsl_rng *G, double Mu, double Emu)
+{
+	if(Mu > 10)
+	{
+		G->state = X;
+		return gsl_ran_poisson(G, Mu);
+	}
+
+	return XsPoisson(X, Mu, Emu);
+}
+
+// LowestCrossover from stream X, with thread T's table
+static inline int LowestCrossoverX(SIM *S, FAST_XS *X, int T)
+{
+	int NoPoints, Index, Point, Low, PIndex, Found, Points[16];
+	uint32_t *Seen, Stamp;
+
+	NoPoints = (int)PoissonX(X, &S->XG[T], S->RecMu, S->RecEmu);
+
+	if(NoPoints == 0 || NoPoints >= S->NoQTL)
+		return S->L;
+
+	Low = S->L;
+
+	if(NoPoints <= 16)
+	{
+		for(Index=0;Index<NoPoints;Index++)
+		{
+			do
+			{
+				Point = (int)XsUniformInt(X, (uint32_t)(S->NoQTL - 1));
+
+				Found = FALSE;
+				for(PIndex=0;PIndex<Index;PIndex++)
+					if(Points[PIndex] == Point)
+						Found = TRUE;
+			} while(Found == TRUE);
+
+			Points[Index] = Point;
+			if(Point < Low)
+				Low = Point;
+		}
+
+		return Low;
+	}
+
+	Seen = S->XSeen[T];
+	if(++S->XStamp[T] == 0)
+	{
+		memset(Seen, 0, sizeof(uint32_t) * (S->L + 1));
+		S->XStamp[T] = 1;
+	}
+	Stamp = S->XStamp[T];
+
+	for(Index=0;Index<NoPoints;Index++)
+	{
+		do
+		{
+			Point = (int)XsUniformInt(X, (uint32_t)(S->NoQTL - 1));
+		} while(Seen[Point] == Stamp);
+
+		Seen[Point] = Stamp;
+		if(Point < Low)
+			Low = Point;
+	}
+
+	return Low;
+}
+
+// GameteDraws from stream X; the crossover's place in block Cut, or -1, in Off[G]
+static inline void GameteDrawsX(SIM *S, FAST_XS *X, int T, uint32_t G, uint32_t Par)
+{
+	int Low, BNo, Off, Second;
+
+	Low = LowestCrossoverX(S, X, T);
+
+	Second = (XsUniform(X) < 0.5);
+	S->Src1[G] = Par + (uint32_t)Second;
+	S->Src2[G] = Par + 1 - (uint32_t)Second;
+	S->Off[G] = -1;
+
+	if(Low == S->L)
+	{
+		S->Cut[G] = S->NB;
+		return;
+	}
+
+	BNo = Low / S->B;
+	Off = Low - BNo * S->B;
+
+	if(Off == BlockLen(S, BNo) - 1)
+	{
+		S->Cut[G] = BNo + 1;
+		return;
+	}
+
+	S->Cut[G] = BNo;
+	S->Off[G] = Off;
+}
+
+static void OffspringJobX(void *Ctx, int ThreadNo, int NoThreads)
+{
+	SIM *S;
+	FAST_XS X;
+	gsl_rng *G;
+	struct XMUT *M;
+	int Lo, Hi, Ind, P1, P2, C, No;
+	uint32_t Chr;
+
+	S = (SIM*)Ctx;
+	G = &S->XG[ThreadNo];
+	ThreadRange(S->N, 1, ThreadNo, NoThreads, &Lo, &Hi);
+	S->XNoMut[ThreadNo] = 0;
+
+	for(Ind=Lo;Ind<Hi;Ind++)
+	{
+		XsSeed(&X, XsKey(S->XSeed, (uint64_t)S->XGen, 2, (uint64_t)Ind));
+
+		if(S->P == 1)
+		{
+			P1 = S->Surv[XsUniformInt(&X, (uint32_t)S->NoSurv)];
+			S->Src1[Ind] = (uint32_t)P1;
+			S->Src2[Ind] = (uint32_t)P1;
+			S->Cut[Ind] = S->NB;
+			S->Off[Ind] = -1;
+		}
+		else
+		{
+			do
+			{
+				P1 = (int)XsUniformInt(&X, (uint32_t)S->NoSurv);
+				P2 = (int)XsUniformInt(&X, (uint32_t)S->NoSurv);
+			} while(P1 == P2);
+
+			GameteDrawsX(S, &X, ThreadNo, (uint32_t)Ind * 2, (uint32_t)S->Surv[P1] * 2);
+			GameteDrawsX(S, &X, ThreadNo, (uint32_t)Ind * 2 + 1, (uint32_t)S->Surv[P2] * 2);
+		}
+
+		S->NEnv[Ind] = S->HasEnv ? S->EnvSD * XsNormal(&X) : 0.0;
+
+		// MutateIndividualChrNo for each of its chromosomes, recorded
+		for(C=0;C<S->P;C++)
+		{
+			Chr = (uint32_t)(Ind * S->P + C);
+			No = (int)PoissonX(&X, G, S->MutMu, S->MutEmu);
+			for(;No>0;No--)
+			{
+				if(S->XNoMut[ThreadNo] == S->XMutCap[ThreadNo])
+				{
+					S->XMutCap[ThreadNo] *= 2;
+					S->XMut[ThreadNo] = realloc(S->XMut[ThreadNo], sizeof(**S->XMut) * S->XMutCap[ThreadNo]);
+					if(S->XMut[ThreadNo] == NULL)
+						MallocErr();
+				}
+				M = &S->XMut[ThreadNo][S->XNoMut[ThreadNo]++];
+				M->Chr = Chr;
+				M->Pos = (int)XsUniformInt(&X, (uint32_t)S->NoQTL);
+				M->Eff = S->MutSD * XsNormal(&X);
+			}
+		}
+	}
+}
+
+static void MixBlocksX(SIM *S);
+
+static void NewPopX(SIM *S, int Itter)
+{
+	int G;
+	const int No = (int)S->Row;
+
+	S->XGen = Itter;
+	FastThreadsRun(S->Pool, OffspringJobX, S);
+
+	// the lists of RecombinationPoissonChr, from the records, in order
+	for(G=0;G<No;G++)
+	{
+		if(S->Cut[G] == S->NB)
+			continue;
+
+		S->Next[G] = S->Head[S->Cut[G]];
+		S->Head[S->Cut[G]] = G;
+
+		if(S->Off[G] >= 0)
+		{
+			S->Mix[S->NoMix].G = (uint32_t)G;
+			S->Mix[S->NoMix].BNo = S->Cut[G];
+			S->Mix[S->NoMix].Off = S->Off[G];
+			S->NoMix++;
+		}
+	}
+
+	if(S->ParFill == TRUE)
+		FastThreadsRun(S->Pool, FillGametesJob, S);
+	else
+		FillGametes(S, 0, S->NB, S->Cur[0]);
+
+	MixBlocksX(S);
+}
+
+// MixBlocks: the new blocks are numbered here, in order, and filled on the pool
+static void MixFillJobX(void *Ctx, int ThreadNo, int NoThreads)
+{
+	SIM *S;
+	int Lo, Hi, Index, I, Len, Off, BNo;
+	uint32_t G, Id;
+	const double *CD, *OD;
+	double *ND;
+
+	S = (SIM*)Ctx;
+	ThreadRange(S->NoMix, 16, ThreadNo, NoThreads, &Lo, &Hi);
+
+	for(Index=Lo;Index<Hi;Index++)
+	{
+		Id = S->XMixId[Index];
+		if(Id == UINT32_MAX)
+			continue;
+
+		G = S->Mix[Index].G;
+		BNo = S->Mix[Index].BNo;
+		Off = S->Mix[Index].Off;
+		CD = Block(S, S->Ids[(size_t)BNo * S->Row + S->Src1[G]]);
+		OD = Block(S, S->Ids[(size_t)BNo * S->Row + S->Src2[G]]);
+		ND = Block(S, Id);
+		Len = BlockLen(S, BNo);
+
+		for(I=0;I<Len;I++)
+			ND[I] = (I <= Off) ? CD[I] : OD[I];
+
+		SetBlockSum(S, Id, BNo);
+	}
+}
+
+static void MixBlocksX(SIM *S)
+{
+	int Index, BNo;
+	uint32_t G, CId, OId, Id;
+
+	for(Index=0;Index<S->NoMix;Index++)
+	{
+		G = S->Mix[Index].G;
+		BNo = S->Mix[Index].BNo;
+		CId = S->Ids[(size_t)BNo * S->Row + S->Src1[G]];
+		OId = S->Ids[(size_t)BNo * S->Row + S->Src2[G]];
+
+		Id = UINT32_MAX;	// the block numbers are already right
+		if(CId != OId)
+		{
+			Id = NewBlock(S, G + 1);
+			S->NIds[(size_t)BNo * S->Row + G] = Id;
+		}
+		S->XMixId[Index] = Id;
+	}
+
+	FastThreadsRun(S->Pool, MixFillJobX, S);
+
+	S->NoMix = 0;
+	for(Index=0;Index<S->NB;Index++)
+		S->Head[Index] = -1;
+}
+
+// MutatePop from the records, in the offspring's order
+static void MutatePopX(SIM *S)
+{
+	int T, Pos, BNo;
+	size_t K;
+	uint32_t *Cell, Tag, Id, NId;
+	const struct XMUT *M;
+
+	for(T=0;T<FastThreadsNo(S->Pool);T++)
+		for(K=0;K<S->XNoMut[T];K++)
+		{
+			M = &S->XMut[T][K];
+			Pos = M->Pos;
+			BNo = Pos / S->B;
+			Tag = M->Chr + 1;
+
+			Cell = S->NIds + (size_t)BNo * S->Row + M->Chr;
+			Id = *Cell;
+			if(S->Owner[Id] != Tag)
+			{
+				NId = NewBlock(S, Tag);
+				memcpy(Block(S, NId), Block(S, Id), sizeof(double) * BlockLen(S, BNo));
+				*Cell = NId;
+				Id = NId;
+			}
+
+			Block(S, Id)[Pos - BNo * S->B] += M->Eff;
+			SetBlockSum(S, Id, BNo);
+		}
+
+	for(K=0;K<S->NoNew;K++)
+		S->Owner[S->New[K]] = 0;
+	S->NoNew = 0;
+}
+
 static void NewPop(OPTIONS *Opt, int Itter, SIM *S)
 {
 	int IIndex, P1, P2;
 
-	SetSurviving(S);
+	if(S->Fast == 2)
+		SetSurvivingX(S, Itter);
+	else
+		SetSurviving(S);
 
 	if(DeadPopulation(Opt, S->NoSurv) == TRUE)
 	{
@@ -2039,6 +2456,12 @@ static void NewPop(OPTIONS *Opt, int Itter, SIM *S)
 	if(S->Pipe == TRUE)
 	{
 		NewPopDraws(Opt, Itter, S);
+		return;
+	}
+
+	if(S->Fast == 2)
+	{
+		NewPopX(S, Itter);
 		return;
 	}
 
@@ -2143,6 +2566,64 @@ static void WriteOutput(void *Ctx, int ThreadNo, int NoThreads)
 	// X: the survivors' phenotypes (OuputReg)
 	X = Job->X;
 
+	if(Job->OnePass == TRUE)
+	{
+		// QTSIM_FAST=2: one loop over the population and one over the survivors,
+		// sums about the first value (shifted, for accuracy), instead of GSL's
+		// passes; the regression of OuputReg in the same loop, its phenotypes
+		// reflected at the optimum as below.
+		double P0, G0, SP, SPP, SG, SGG, X0, R0, Y0, SX, SXX, SR, SRR, SY, SRY, D, E, R;
+		const double N = (double)Job->N, NS = (double)Job->NoS;
+
+		P0 = Job->Pheno[0];
+		G0 = Job->Geno[0];
+		SP = SPP = SG = SGG = 0;
+		for(Index=0;Index<Job->N;Index++)
+		{
+			D = Job->Pheno[Index] - P0;
+			E = Job->Geno[Index] - G0;
+			SP += D;
+			SPP += D * D;
+			SG += E;
+			SGG += E * E;
+		}
+		PhenotypeMean = P0 + SP / N;
+		PhenotypeVar = (SPP - SP * SP / N) / (N - 1);
+		GenotypeVar = (SGG - SG * SG / N) / (N - 1);
+
+		X0 = X[0];
+		R0 = (X0 > Job->Theta) ? Job->Theta - (X0 - Job->Theta) : X0;
+		Y0 = Job->Y[0];
+		SX = SXX = SR = SRR = SY = SRY = 0;
+		for(Index=0;Index<Job->NoS;Index++)
+		{
+			D = X[Index] - X0;
+			R = ((X[Index] > Job->Theta) ? Job->Theta - (X[Index] - Job->Theta) : X[Index]) - R0;
+			E = Job->Y[Index] - Y0;
+			SX += D;
+			SXX += D * D;
+			SR += R;
+			SRR += R * R;
+			SY += E;
+			SRY += R * E;
+		}
+		PhenotypeFullSD = sqrt((SXX - SX * SX / NS) / (NS - 1));
+		Slope = (SRY - SR * SY / NS) / (SRR - SR * SR / NS);
+
+		printf("%d\t", Job->Itter);
+		printf("%f\t", PhenotypeMean);
+		printf("%f\t", PhenotypeMean / sqrt(PhenotypeVar));
+		printf("%f\t", GenotypeVar);
+		printf("%d\t", Job->NoS);
+		printf("%f\t%f\t", Job->Theta, Job->Omega);
+		printf("%f\t%f\t", Slope, Slope * PhenotypeFullSD);
+		printf("%f\t", sqrt((GenotypeVar*GenotypeVar) / Job->MuteVar));
+		printf("\n");
+
+		fflush(stdout);
+		return;
+	}
+
 	if(Job->UseMean == TRUE)
 	{
 		// The three means in one loop, then GSL's variance and SD about a
@@ -2213,6 +2694,7 @@ static void Output(OPTIONS *Opt, int Itter, SIM *S)
 	Job->Mean = S->Mean;
 	Job->UseM = S->UseM;
 	Job->UseMean = S->UseMean;
+	Job->OnePass = (S->Fast == 2);
 
 	if(Async)
 	{
@@ -2274,6 +2756,22 @@ static void FreeSim(SIM *S)
 	free(S->New);
 	free(S->Owner);
 	free(S->BSum);
+	if(S->Fast == 2)
+	{
+		for(Index=0;Index<NoThreads;Index++)
+		{
+			free(S->XMut[Index]);
+			free(S->XSeen[Index]);
+		}
+		free(S->XMut);
+		free(S->XNoMut);
+		free(S->XMutCap);
+		free(S->XSeen);
+		free(S->XStamp);
+		free(S->XG);
+		free(S->Alive);
+		free(S->XMixId);
+	}
 	free(S->Ids);
 	free(S->NIds);
 	free(S->Geno);
@@ -2345,6 +2843,8 @@ void RunSim(OPTIONS* Opt)
 
 		if(S->Pipe == TRUE)
 			MutateDraws(Opt, S);
+		else if(S->Fast == 2)
+			MutatePopX(S);
 		else
 			MutatePop(Opt, S);
 
