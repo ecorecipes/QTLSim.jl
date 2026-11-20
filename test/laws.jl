@@ -159,7 +159,9 @@ end
     @test all(abs.(z1) .< 4)
     z2 = law_z((LG1 ⊗ LG2) ⋅ s, s ⋅ (LG2 ⊗ LG1))
     @test all(abs.(z2) .< 4)
-    # and the test has power: two composites that differ in law are told apart
-    z3 = law_z((LG1 ⊗ LG2) ⋅ (LG3 ⊗ LG4), (LG3 ⊗ LG4) ⋅ (LG3 ⊗ LG4); stats = (:pheno_mean,))
+    # and the test has power: two composites that differ in law are told apart. Sized so
+    # that the expected |z| is about 7-12, not just over 4: at 20 generations and 150
+    # replicates it was 4.6 on Julia 1.12 and fell below 4 on 1.10's random streams.
+    z3 = law_z((LG1 ⊗ LG2) ⋅ (LG3 ⊗ LG4), (LG3 ⊗ LG4) ⋅ (LG3 ⊗ LG4); stats = (:pheno_mean,), R = 300, ngen = 60)
     @test any(abs.(z3) .> 4)
 end
