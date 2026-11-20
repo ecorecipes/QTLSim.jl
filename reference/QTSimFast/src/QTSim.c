@@ -3,7 +3,8 @@
 *
 *  Modified 2026-11 for speed, for the QTLSim.jl project
 *  (https://github.com/ecorecipes/QTLSim.jl), with Claude (Anthropic). The output
-*  is bit-identical to the original's for the same options file and seed. The
+*  is bit-identical to the original's for the same options file and seed, unless
+*  the environment variable QTSIM_FAST is set (see below and ../FAST.md). The
 *  original is by Andrew Meade; its notice follows unchanged.
 *
 *  What was changed in this file (see ../README.md for the full account):
@@ -22,7 +23,11 @@
 *   - (2026-11-19) the three means of a line of output are computed in one loop
 *     that is gsl_stats_mean's recurrence, checked against the library at start;
 *     with two threads or more the draws are made by one thread and the genomes
-*     built by another (see "The pipeline" below).
+*     built by another (see "The pipeline" below);
+*   - (2026-11-20) QTSIM_FAST=1 or 2, off by default, gives up bit parity: level 1
+*     sums genotypes from a cached sum per block (SumGenotypesCached), level 2
+*     also draws from another generator by other methods (FastRNG.h). With
+*     QTSIM_FAST unset nothing changes.
 *  GenLib.*, PassOptionFile.*, RandLib.* are unmodified copies of the original's.
 *
 *  ---------------------------------------------------------------------------
@@ -307,6 +312,8 @@ typedef struct
 	uint32_t *Owner;			// for a block made this generation, the chromosome
 								// that alone holds it (1-based), else 0
 	uint32_t *New, NoNew;		// the blocks made this generation
+	double	*BSum;				// QTSIM_FAST=1 only: each block's alleles summed (NULL otherwise)
+	int		Fast;				// QTSIM_FAST: 0 the exact program, 1 genotypes from block sums
 	uint32_t *Ids, *NIds;		// block numbers of the current and the next population:
 								// block BNo of chromosome ChrNo of individual Ind is
 								// Ids[BNo * Row + Ind * P + ChrNo]
@@ -675,6 +682,15 @@ static SIM* CreateSim(OPTIONS *Opt)
 	if(S->Owner == NULL)
 		MallocErr();
 
+	// (block 0, all zeros, sums to 0)
+	S->BSum = NULL;
+	if(EnvInt("QTSIM_FAST", 0, 0, 2) != 0)
+	{
+		S->BSum = (double*)calloc(Cap, sizeof(double));
+		if(S->BSum == NULL)
+			MallocErr();
+	}
+
 	// Every chromosome starts as block 0, all zeros.
 	S->HW = 1;
 	S->Ids = (uint32_t*)calloc(NoInd * S->IndIds, sizeof(uint32_t));
@@ -730,8 +746,17 @@ static SIM* CreateSim(OPTIONS *Opt)
 	// PIPE_SPEC_MAX mutations (QTSIM_SPEC=0 or 1 decides otherwise).
 	S->MutMu = Opt->NoQTL * Opt->MutationRatePerGamete;
 
+	// QTSIM_FAST=1 gives up bit parity with QTSim: see SumGenotypesCached. The
+	// pipeline exists to hide the exact sums behind the draws; with cached sums
+	// it is not used.
+	S->Fast = EnvInt("QTSIM_FAST", 0, 0, 2);
+	if(S->Fast != 0)
+		fprintf(stderr, "QTSimFast: QTSIM_FAST=%d: %s; the output is NOT bit-identical to QTSim's (see FAST.md)\n", S->Fast,
+			S->Fast == 1 ? "genotypes are sums of cached block sums, added in another order" :
+			"genotypes from cached block sums, and other random numbers (xoshiro256++, ziggurat normals, inversion Poisson, Lemire integers)");
+
 	S->Pipe = FALSE;
-	if(Requested > 1 && EnvInt("QTSIM_PIPELINE", 1, 0, 1) == 1)
+	if(Requested > 1 && S->Fast == 0 && EnvInt("QTSIM_PIPELINE", 1, 0, 1) == 1)
 		S->Pipe = TRUE;
 
 	S->Spec = FALSE;
@@ -823,6 +848,13 @@ static SIM* CreateSim(OPTIONS *Opt)
 		exit(3);
 	}
 
+	// QTSIM_FAST=2: another generator and other methods, from the first draw on
+	if(S->Fast == 2 && FastRngSetX(&S->Rng, Opt->Seed) == 0)
+	{
+		fprintf(stderr, "QTSimFast: QTSIM_FAST=2 needs the built-in generator (this build uses GSL's).\n");
+		exit(3);
+	}
+
 	S->EnvSD = sqrt(Opt->EnvVar);
 
 	S->RecMu = Opt->RecombPoissonMean;
@@ -872,10 +904,10 @@ static SIM* CreateSim(OPTIONS *Opt)
 	// CreatePop(CPop), CreatePop(NPop): SetIndividualEnv for each individual.
 	// The second population's values are never used, but they are drawn.
 	for(Index=0;Index<S->N;Index++)
-		S->Env[Index] = (Opt->EnvVar != 0) ? gsl_ran_gaussian(&S->Rng.GRng, S->EnvSD) : 0.0;
+		S->Env[Index] = (Opt->EnvVar != 0) ? FastGaussian(&S->Rng, S->EnvSD) : 0.0;
 
 	for(Index=0;Index<S->N;Index++)
-		S->NEnv[Index] = (Opt->EnvVar != 0) ? gsl_ran_gaussian(&S->Rng.GRng, S->EnvSD) : 0.0;
+		S->NEnv[Index] = (Opt->EnvVar != 0) ? FastGaussian(&S->Rng, S->EnvSD) : 0.0;
 
 	return S;
 }
@@ -981,9 +1013,69 @@ static inline __attribute__((always_inline)) void SumGenotypesW(const SIM *S, co
 	}
 }
 
+// QTSIM_FAST=1: an individual's genotype is the sum over block positions of its
+// chromosomes' cached block sums, (a_K + c_K) for diploids, instead of the sum of
+// its alleles locus by locus. The same real number, rounded differently: results
+// differ from the original's in the last bits, and runs diverge from there. Cost
+// N * P * NB additions instead of N * P * L, plus B per block made.
+static void SumGenotypesCached(const SIM *S, const uint32_t *Ids, double *Geno, const int *List, int Lo, int Hi, uint8_t *Mark)
+{
+	const double *BS = S->BSum;
+	const uint32_t *Row;
+	int K, I, Ind;
+	const int P = S->P;
+
+	for(I=Lo;I<Hi;I++)
+		Geno[(List != NULL) ? List[I] : I] = 0;
+
+	for(K=0;K<S->NB;K++)
+	{
+		Row = Ids + (size_t)K * S->Row;
+
+		if(Mark != NULL)
+			for(I=Lo*P;I<Hi*P;I++)
+				Mark[Row[I]] = 1;
+
+		if(P == 2)
+			for(I=Lo;I<Hi;I++)
+			{
+				Ind = (List != NULL) ? List[I] : I;
+				Geno[Ind] += BS[Row[(size_t)Ind * 2]] + BS[Row[(size_t)Ind * 2 + 1]];
+			}
+		else
+			for(I=Lo;I<Hi;I++)
+			{
+				Ind = (List != NULL) ? List[I] : I;
+				Geno[Ind] += BS[Row[Ind]];
+			}
+	}
+}
+
+// The sum of a block's alleles, kept in BSum (QTSIM_FAST=1).
+static inline void SetBlockSum(SIM *S, uint32_t Id, int BNo)
+{
+	const double *D;
+	double Sum;
+	int I, Len;
+
+	D = Block(S, Id);
+	Len = BlockLen(S, BNo);
+	Sum = 0;
+	for(I=0;I<Len;I++)
+		Sum += D[I];
+
+	S->BSum[Id] = Sum;
+}
+
 static void SumGenotypesOf(const SIM *S, const uint32_t *Ids, double *Geno, const int *List, int Lo, int Hi, uint8_t *Mark)
 {
 	const int W = (S->Lanes == 1) ? 1 : LANES;
+
+	if(S->BSum != NULL)
+	{
+		SumGenotypesCached(S, Ids, Geno, List, Lo, Hi, Mark);
+		return;
+	}
 
 	// (one copy of the loops for each case, each with its constants known)
 	if(List == NULL)
@@ -1426,6 +1518,9 @@ static inline void MixBlock(SIM *S, uint32_t G, int BNo, int Off)
 	for(I=0;I<Len;I++)
 		ND[I] = (I <= Off) ? CD[I] : OD[I];
 
+	if(S->BSum != NULL)
+		SetBlockSum(S, Id, BNo);
+
 	S->NIds[(size_t)BNo * S->Row + G] = Id;
 }
 
@@ -1839,7 +1934,7 @@ static void NewPopDraws(OPTIONS *Opt, int Itter, SIM *S)
 			S->Cut[IIndex] = S->NB;
 			S->Off[IIndex] = -1;
 
-			S->NEnv[IIndex] = (Opt->EnvVar != 0) ? gsl_ran_gaussian(&S->Rng.GRng, S->EnvSD) : 0.0;
+			S->NEnv[IIndex] = (Opt->EnvVar != 0) ? FastGaussian(&S->Rng, S->EnvSD) : 0.0;
 
 			if((IIndex & (PIPE_PUBLISH - 1)) == PIPE_PUBLISH - 1)
 				FastChanSet(S->Prog, Base + IIndex + 1);
@@ -1858,7 +1953,7 @@ static void NewPopDraws(OPTIONS *Opt, int Itter, SIM *S)
 			S->Off[IIndex * 2] = GameteDraws(S, (uint32_t)IIndex * 2, (uint32_t)S->Surv[P1] * 2);
 			S->Off[IIndex * 2 + 1] = GameteDraws(S, (uint32_t)IIndex * 2 + 1, (uint32_t)S->Surv[P2] * 2);
 
-			S->NEnv[IIndex] = (Opt->EnvVar != 0) ? gsl_ran_gaussian(&S->Rng.GRng, S->EnvSD) : 0.0;
+			S->NEnv[IIndex] = (Opt->EnvVar != 0) ? FastGaussian(&S->Rng, S->EnvSD) : 0.0;
 
 			if((IIndex & (PIPE_PUBLISH - 1)) == PIPE_PUBLISH - 1)
 				FastChanSet(S->Prog, Base + IIndex + 1);
@@ -1898,7 +1993,7 @@ static void MutateDraws(OPTIONS *Opt, SIM *S)
 
 			S->Mut[S->NoMut].Chr = (uint32_t)Index;
 			S->Mut[S->NoMut].Pos = Pos;
-			S->Mut[S->NoMut].Eff = gsl_ran_gaussian(&S->Rng.GRng, S->MutSD);
+			S->Mut[S->NoMut].Eff = FastGaussian(&S->Rng, S->MutSD);
 			S->NoMut++;
 			No--;
 		}
@@ -1957,7 +2052,7 @@ static void NewPop(OPTIONS *Opt, int Itter, SIM *S)
 			S->Src2[IIndex] = (uint32_t)P1;
 			S->Cut[IIndex] = S->NB;
 
-			S->NEnv[IIndex] = (Opt->EnvVar != 0) ? gsl_ran_gaussian(&S->Rng.GRng, S->EnvSD) : 0.0;
+			S->NEnv[IIndex] = (Opt->EnvVar != 0) ? FastGaussian(&S->Rng, S->EnvSD) : 0.0;
 		}
 	}
 	else
@@ -1975,7 +2070,7 @@ static void NewPop(OPTIONS *Opt, int Itter, SIM *S)
 			RecombinationPoissonChr(S, (uint32_t)IIndex * 2, (uint32_t)S->Surv[P1] * 2);
 			RecombinationPoissonChr(S, (uint32_t)IIndex * 2 + 1, (uint32_t)S->Surv[P2] * 2);
 
-			S->NEnv[IIndex] = (Opt->EnvVar != 0) ? gsl_ran_gaussian(&S->Rng.GRng, S->EnvSD) : 0.0;
+			S->NEnv[IIndex] = (Opt->EnvVar != 0) ? FastGaussian(&S->Rng, S->EnvSD) : 0.0;
 		}
 	}
 
@@ -2018,7 +2113,9 @@ static void MutatePop(OPTIONS *Opt, SIM *S)
 				Id = NId;
 			}
 
-			Block(S, Id)[Pos - BNo * S->B] += gsl_ran_gaussian(&S->Rng.GRng, S->MutSD);
+			Block(S, Id)[Pos - BNo * S->B] += FastGaussian(&S->Rng, S->MutSD);
+			if(S->BSum != NULL)
+				SetBlockSum(S, Id, BNo);
 			No--;
 		}
 	}
@@ -2176,6 +2273,7 @@ static void FreeSim(SIM *S)
 	free(S->Free);
 	free(S->New);
 	free(S->Owner);
+	free(S->BSum);
 	free(S->Ids);
 	free(S->NIds);
 	free(S->Geno);
