@@ -1,0 +1,57 @@
+QTSimFast fast modes against the exact mode (criteria: validate/qtsimfast_fast_criteria.md)
+started 2026-11-20T11:38:32.313; binary /Users/lshsf3/Projects/quantitative_genetics/wt-qtsim-fastmath/reference/QTSimFast/build/QTSimFast; 6 threads
+scenario A: 1000 runs per program done (327 s elapsed)
+scenario B: 1000 runs per program done (684 s elapsed)
+scenario C: 1000 runs per program done (1469 s elapsed)
+scenario D: 500 runs per program done (2444 s elapsed)
+scenario E: 1000 runs per program done (2484 s elapsed)
+scenario F: 1000 runs per program done (2792 s elapsed)
+scenario G: 1000 runs per program done (3054 s elapsed)
+
+== Level 1 (QTSIM_FAST=1, the exact runs' seeds): byte-identical outputs
+  A: 1000 of 1000 identical (100.0%)
+  B: 1000 of 1000 identical (100.0%)
+  C: 1000 of 1000 identical (100.0%)
+  D: 500 of 500 identical (100.0%)
+  E: 1000 of 1000 identical (100.0%)
+  F: 1000 of 1000 identical (100.0%)
+  G: 1000 of 1000 identical (100.0%)
+Level 1: PASS
+
+== Level 2 (QTSIM_FAST=2, own seeds) against the exact runs
+  A a1 VG 4000-4999          p 0.8280  n 1000/1000, D 0.0280, AD p 0.762, mean diff -2.3637% [-10.5654, +5.8380]
+  A a2 PSurv 4000-4999       p 0.9541  n 1000/1000, D 0.0230, AD p 0.966, mean diff +0.0002% [-0.0027, +0.0031]
+  A a3 PhenMean @5049        p 0.4005  n 1000/1000, D 0.0400, AD p 0.484, mean diff -0.5649% [-4.6157, +3.4860]
+  A a4 alive at end          p 1.0000  exact 1000/1000, fast2 1000/1000
+  A a5 time of death         p   –     NOT TESTED: 0 and 0 values
+  B b1 VG window             p 0.2406  n 1000/1000, D 0.0460, AD p 0.246, mean diff +0.9479% [-0.4384, +2.3342]
+  B b2 VG @last              p 0.1811  n 1000/1000, D 0.0490, AD p 0.071, mean diff +1.8511% [+0.1430, +3.5593]
+  B b3 PhenMean window       p 0.8593  n 1000/1000, D 0.0270, AD p 0.860, mean diff -447.0926% [-3191.0984, +2296.9131]
+  B b4 PSurv window          p 0.0484  n 1000/1000, D 0.0610, AD p 0.083, mean diff -0.0056% [-0.0121, +0.0008]
+  B b5 SurvSlope window      p 0.2877  n 1000/1000, D 0.0440, AD p 0.220, mean diff +0.2446% [-0.0951, +0.5844]
+  C c1 VG window             p 0.8593  n 1000/1000, D 0.0270, AD p 0.677, mean diff -0.3122% [-0.9801, +0.3556]
+  C c2 VG @last              p 0.3700  n 1000/1000, D 0.0410, AD p 0.195, mean diff +0.9619% [-0.1725, +2.0963]
+  C c3 PhenMean window       p 0.5727  n 1000/1000, D 0.0350, AD p 0.589, mean diff -1031.8341% [-5126.0127, +3062.3445]
+  C c4 PSurv window          p 0.8593  n 1000/1000, D 0.0270, AD p 0.689, mean diff +0.0015% [-0.0023, +0.0053]
+  C c5 SurvSlope window      p 0.5361  n 1000/1000, D 0.0360, AD p 0.464, mean diff -0.0914% [-0.2691, +0.0864]
+  D d1 VG window             p 0.8186  n 500/500, D 0.0400, AD p 0.732, mean diff -0.0402% [-0.7547, +0.6743]
+  D d2 VG @last              p 0.9022  n 500/500, D 0.0360, AD p 0.934, mean diff -0.0225% [-1.2758, +1.2308]
+  D d3 PhenMean window       p 0.1294  n 500/500, D 0.0740, AD p 0.073, mean diff +128.6828% [-5.2173, +262.5828]
+  D d4 PSurv window          p 0.8186  n 500/500, D 0.0400, AD p 0.847, mean diff +0.0004% [-0.0040, +0.0048]
+  D d5 SurvSlope window      p 0.9895  n 500/500, D 0.0280, AD p 0.974, mean diff +0.0325% [-0.1707, +0.2356]
+  E e1 VG 200-299            p 0.5361  n 1000/1000, D 0.0360, AD p 0.511, mean diff +1.0560% [-4.6569, +6.7689]
+  E e2 PSurv 200-299         p 0.4658  n 1000/1000, D 0.0380, AD p 0.290, mean diff -0.0021% [-0.0057, +0.0014]
+  E e3 alive at end          p 1.0000  exact 1000/1000, fast2 1000/1000
+  E e4 PhenMean @last        p 0.3700  n 1000/1000, D 0.0410, AD p 0.489, mean diff -0.8579% [-13.1755, +11.4597]
+  F f1 VG 1500-1999          p 0.6476  n 1000/1000, D 0.0330, AD p 0.649, mean diff -0.3487% [-1.2346, +0.5371]
+  F f2 time of death         p 0.9987  n 1000/1000, D 0.0170, AD p 0.849, mean diff -0.0047% [-0.0207, +0.0113]
+  F f3 alive at end          p 1.0000  exact 0/1000, fast2 0/1000
+  G g1 VG 1500-1999          p 0.8593  n 1000/1000, D 0.0270, AD p 0.956, mean diff +0.2166% [-1.3282, +1.7614]
+  G g2 alive at end          p 0.7783  exact 352/1000, fast2 345/1000
+  G g3 time of death         p 0.1715  n 648/655, D 0.0614, AD p 0.200, mean diff +0.0870% [-0.1944, +0.3683]
+  G g4 lag @2199             p 0.9541  n 1000/1000, D 0.0230, AD p 0.876, mean diff +0.1667% [-0.7455, +1.0789]
+
+30 primary tests performed (1 not testable); smallest p 0.0484; Holm rejections: 0
+Level 2: PASS
+
+finished 2026-11-20T12:29:30.480 (3058 s)
