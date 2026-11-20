@@ -86,3 +86,22 @@ before the end of a window has no value for it. V_G = column "Genotype Var".
 - Exit status 1 if level 2 or level 1 fails.
 
 Timings are not part of the verdict; they are measured separately on a quiet machine.
+
+## Addendum 1 (2026-11-20, written and committed before run 2)
+
+Run 1 (`validate/qtsimfast_fast.log`) passed both levels. Level 2 has since been changed
+(commit ed6ca28): every individual's draws in a generation now come from a stream of its
+own (survival from a key (Seed, generation, 1, individual); offspring i from a xoshiro256++
+stream seeded from (Seed, generation, 2, i)), the draws are made on the pool's threads, and
+the output line's statistics are computed in one pass. So level 2 is compared again:
+
+- **Run 2**: the same scenarios, statistics, tests, thresholds and verdict rules as above,
+  on fresh seeds: exact runs 730,000,001 + i, level 2 runs 740,000,001 + i (never used
+  before). Level 1 is checked again on the exact runs' seeds (it is unchanged; its quick
+  parity matrix passed after the change). Every level-2 run uses `QTSIM_THREADS=4`.
+- **New criterion T (thread invariance).** For the first 100 runs of every scenario, level 2
+  is also run with `QTSIM_THREADS=1` on the same seed; **T PASSES** if all 650 pairs of
+  outputs are byte-identical.
+- Log `validate/qtsimfast_fast_run2.log`, data `validate/qtsimfast_fast_runs_run2.csv`,
+  plots `validate/qtsimfast_fast_figs_run2/`. Run 1's files are kept. The verdict on the
+  current level 2 is run 2's. Exit status 1 if level 1, level 2 or T fails.
