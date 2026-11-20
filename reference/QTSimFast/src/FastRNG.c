@@ -126,6 +126,87 @@ void FastRngSet(FAST_RNG *R, unsigned long Seed)
 	TypeSet(&R->MT, Seed);
 }
 
+double FastZigX[FAST_ZIG_C + 1], FastZigRatio[FAST_ZIG_C];
+
+#ifndef QTSIM_GSL_RNG
+static uint64_t SplitMix64(uint64_t *x)
+{
+	uint64_t z;
+
+	z = (*x += 0x9e3779b97f4a7c15ULL);
+	z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
+	z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
+	return z ^ (z >> 31);
+}
+
+static unsigned long TypeGetX(void *State)
+{
+	return (unsigned long)(XsNext((FAST_XS*)State) >> 32);
+}
+
+static double TypeGetDoubleX(void *State)
+{
+	return XsUniform((FAST_XS*)State);
+}
+#endif
+
+// ZIGNOR's tail beyond FAST_ZIG_R (Marsaglia 1964)
+double XsZigTail(FAST_XS *X, int Negative)
+{
+	double x, y;
+
+	do
+	{
+		x = log(XsOpen(X)) / FAST_ZIG_R;
+		y = log(XsOpen(X));
+	} while(-2.0 * y < x * x);
+
+	return Negative ? x - FAST_ZIG_R : FAST_ZIG_R - x;
+}
+
+// QTSIM_FAST=2: every draw from here on comes from xoshiro256++. Not available
+// in the build with GSL's generator (returns 0).
+int FastRngSetX(FAST_RNG *R, unsigned long Seed)
+{
+#ifdef QTSIM_GSL_RNG
+	(void)R; (void)Seed;
+	return 0;
+#else
+	uint64_t x;
+	double f;
+	int i;
+
+	x = (uint64_t)Seed;
+	for(i=0;i<4;i++)
+		R->Xs.s[i] = SplitMix64(&x);
+
+	f = exp(-0.5 * FAST_ZIG_R * FAST_ZIG_R);
+	FastZigX[0] = FAST_ZIG_V / f;
+	FastZigX[1] = FAST_ZIG_R;
+	FastZigX[FAST_ZIG_C] = 0;
+	for(i=2;i<FAST_ZIG_C;i++)
+	{
+		FastZigX[i] = sqrt(-2.0 * log(FAST_ZIG_V / FastZigX[i - 1] + f));
+		f = exp(-0.5 * FastZigX[i] * FastZigX[i]);
+	}
+	for(i=0;i<FAST_ZIG_C;i++)
+		FastZigRatio[i] = FastZigX[i + 1] / FastZigX[i];
+
+	R->X = 1;
+
+	// GSL's own functions read the same stream
+	R->GType.name = "qtsimfast_xoshiro256pp";
+	R->GType.max = 0xffffffffUL;
+	R->GType.min = 0;
+	R->GType.get = TypeGetX;
+	R->GType.get_double = TypeGetDoubleX;
+	R->GRng.type = &R->GType;
+	R->GRng.state = &R->Xs;
+
+	return 1;
+#endif
+}
+
 // Compare the stream, from its current point, with gsl_rng_mt19937 seeded with
 // Seed. R itself is not advanced. Returns TRUE (1) if the streams agree.
 int FastRngSelfCheck(const FAST_RNG *R, unsigned long Seed)
