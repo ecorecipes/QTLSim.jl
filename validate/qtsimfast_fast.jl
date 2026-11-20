@@ -45,16 +45,19 @@ const SCEN = [
 ]
 # QTF_SMOKE=1: a check of this script, 24 runs per scenario on other seeds, written to
 # *_smoke files (its numbers are not part of the comparison)
+# QTF_RUN=2: run 2 of addendum 1 (level 2 on 4 threads, fresh seeds, thread invariance)
 const SMOKE = get(ENV, "QTF_SMOKE", "0") == "1"
-const SEED_EXACT = SMOKE ? 990_500_001 : 710_000_001
-const SEED_FAST2 = SMOKE ? 990_600_001 : 720_000_001
-const SFX = SMOKE ? "_smoke" : ""
+const RUN = parse(Int, get(ENV, "QTF_RUN", "1"))
+const SEED_EXACT = SMOKE ? 990_500_001 : RUN == 2 ? 730_000_001 : 710_000_001
+const SEED_FAST2 = SMOKE ? 990_600_001 : RUN == 2 ? 740_000_001 : 720_000_001
+const SFX = (RUN == 2 ? "_run2" : "") * (SMOKE ? "_smoke" : "")
+const T_FIRST = 100        # run 2: runs per scenario checked for thread invariance
 
 # ------------------------------------------------------------------ one run
-function runqt(opts, seed, fast)
+function runqt(opts, seed, fast; threads = 1)
     path, io = mktemp()
     write(io, opts, "Seed $seed\n"); close(io)
-    cmd = fast == 0 ? `$BIN $path` : addenv(`$BIN $path`, "QTSIM_FAST" => string(fast))
+    cmd = fast == 0 ? `$BIN $path` : addenv(`$BIN $path`, "QTSIM_FAST" => string(fast), "QTSIM_THREADS" => string(threads))
     out = read(pipeline(cmd; stderr = devnull), String)
     rm(path)
     out
@@ -118,7 +121,7 @@ end
 # ------------------------------------------------------------------ runs
 logio = open(joinpath(HERE, "qtsimfast_fast$(SFX).log"), "w")
 say(x...) = (println(x...); println(logio, x...); flush(logio))
-say("QTSimFast fast modes against the exact mode (criteria: validate/qtsimfast_fast_criteria.md)")
+say("QTSimFast fast modes against the exact mode (criteria: validate/qtsimfast_fast_criteria.md)", RUN == 2 ? ", run 2 (addendum 1)" : "")
 say("started ", now(), "; binary ", BIN, "; ", Threads.nthreads(), " threads")
 
 results = Dict{String,Any}()
@@ -130,6 +133,7 @@ for s in SCEN
     R = SMOKE ? 24 : s.R
     ex = Vector{Any}(undef, R); f2 = Vector{Any}(undef, R)
     ident = falses(R); diffs = Vector{String}(undef, R)
+    tsame = fill(true, R); tchk = falses(R)
     Threads.@threads :greedy for i in 1:R
         seed = SEED_EXACT + i - 1
         oe = runqt(s.opts, seed, 0)
@@ -138,13 +142,18 @@ for s in SCEN
         diffs[i] = ident[i] ? "" : firstdiff(oe, o1)
         ex[i] = stats(s.id, parse_out(oe))
         seed2 = SEED_FAST2 + i - 1
-        f2[i] = stats(s.id, parse_out(runqt(s.opts, seed2, 2)))
+        o2 = runqt(s.opts, seed2, 2; threads = RUN == 2 ? 4 : 1)
+        f2[i] = stats(s.id, parse_out(o2))
+        if RUN == 2 && i <= T_FIRST
+            tchk[i] = true
+            tsame[i] = o2 == runqt(s.opts, seed2, 2; threads = 1)
+        end
         lock(csvlock) do
             for (k, v) in ex[i]; println(csv, s.id, ",exact,", seed, ",", k, ",", v); end
             for (k, v) in f2[i]; println(csv, s.id, ",fast2,", seed2, ",", k, ",", v); end
         end
     end
-    results[s.id] = (; ex, f2, ident, diffs, R)
+    results[s.id] = (; ex, f2, ident, diffs, R, tsame, tchk)
     say(@sprintf("scenario %s: %d runs per program done (%.0f s elapsed)", s.id, R, time() - t0))
 end
 close(csv)
@@ -162,6 +171,18 @@ for s in SCEN
         isempty(d) ? "" : "; first differences at: " * join(first(d, 10), ", ") * (length(d) > 10 ? ", …" : ""))
 end
 say("Level 1: ", l1pass ? "PASS" : "FAIL")
+
+tpass = true
+if RUN == 2
+    say("\n== Criterion T: level 2 on 4 threads against 1 thread, the first $T_FIRST runs of each scenario")
+    for s in SCEN
+        r = results[s.id]
+        n, k = count(r.tchk), count(r.tchk .& r.tsame)
+        global tpass &= (n == k)
+        say(@sprintf("  %s: %d of %d byte-identical", s.id, k, n))
+    end
+    say("T: ", tpass ? "PASS" : "FAIL")
+end
 
 # ------------------------------------------------------------------ level 2
 say("\n== Level 2 (QTSIM_FAST=2, own seeds) against the exact runs")
@@ -220,4 +241,4 @@ say(@sprintf("\n%d primary tests performed (%d not testable); smallest p %.4f; H
 say("Level 2: ", l2pass ? "PASS" : "FAIL: " * join([done[k][1] * " " * done[k][2] for k in 1:m if rejected[k]], "; "))
 say("\nfinished ", now(), @sprintf(" (%.0f s)", time() - t0))
 close(logio)
-exit(l1pass && l2pass ? 0 : 1)
+exit(l1pass && l2pass && tpass ? 0 : 1)
