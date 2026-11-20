@@ -60,7 +60,19 @@ QTSim's run.
 near the survival threshold), 1000 runs per program (500 at 5000 loci), 31 summary
 statistics, their empirical distributions compared by Kolmogorov–Smirnov tests (Fisher's
 test for proportions), Holm-corrected. Level 1 is checked by counting byte-identical
-outputs. Results: see that script's log (`validate/qtsimfast_fast.log`).
+outputs. Results (2026-11-20, `validate/qtsimfast_fast.log`, plots in
+`validate/qtsimfast_fast_figs/`):
+
+- **Level 1: PASS.** All 6500 runs byte-identical to the exact program's. Also the full
+  parity matrix run with `QTSIM_FAST=1`: 13,915 of 13,915 comparisons with the original
+  QTSim identical (457 option files incl. 72 published inputs, 48 of them to extinction;
+  1–8 threads; sanitizer builds clean). No case was found in which level 1's output
+  differs from QTSim's; it is possible in principle.
+- **Level 2: PASS.** No Holm rejection among 30 tests (smallest p 0.048; KS distances
+  0.017–0.074, means within about 2% wherever the mean is not near zero). One statistic
+  (time of death in the single-locus protocol) was not testable: no run died. The test
+  detects distribution differences of D ≥ 0.06–0.08 with 1000 runs per sample (0.12 at
+  5000 loci, 500 runs); smaller differences are not excluded.
 
 ## Speed
 
