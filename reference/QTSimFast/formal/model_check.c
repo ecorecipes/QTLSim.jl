@@ -16,7 +16,9 @@
 *
 *    -DMODEL_ORIG  the original:  CaclGenotype and RecombinationPoissonChr
 *    -DMODEL_FAST  QTSimFast:     SumGenotypes; RecombinationPoissonChr,
-*                                 FillGametes and MixBlocks (built with
+*                                 FillGametes and MixBlocks, and the pipeline's
+*                                 GameteDraws and FillBatch, which must give the
+*                                 same gamete (built with
 *                                 -DQTSIM_GSL_RNG so that its draws go through
 *                                 a gsl_rng, which is replaced by a script)
 *
@@ -242,6 +244,23 @@ static void Run(int Variant, int BlockSize, char *Out)
 		MixBlocks(S);
 		for(L=0;L<NLOCI;L++)
 			Gam[C][L] = Block(S, S->NIds[(size_t)(L / S->B) * S->Row + 0])[L % S->B];
+
+		// The same gamete as the pipeline builds it (GameteDraws, FillBatch):
+		// the same draws from the same script, the same alleles.
+		for(G=0;G<(int)S->Row;G++)
+		{
+			S->Src1[G] = 0; S->Src2[G] = 0; S->Cut[G] = S->NB; S->Off[G] = -1;
+		}
+		Sc.pos = 0;
+		S->Off[0] = GameteDraws(S, 0, 2);
+		if(Sc.pos != Sc.n) { fprintf(stderr, "model_check: case %d left draws unused (pipeline)\n", C + 1); exit(4); }
+		FillBatch(S, 0, S->N);
+		for(L=0;L<NLOCI;L++)
+			if(memcmp(&Gam[C][L], &Block(S, S->NIds[(size_t)(L / S->B) * S->Row + 0])[L % S->B], sizeof(double)) != 0)
+			{
+				fprintf(stderr, "model_check: case %d, locus %d: the pipeline's gamete differs\n", C + 1, L);
+				exit(4);
+			}
 	}
 
 	Emit(Out, Variant, S->Geno, Gam);
