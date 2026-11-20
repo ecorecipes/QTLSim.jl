@@ -88,6 +88,18 @@ All notable changes to QTLSim.jl are recorded here. The format follows
   Timings are not reported yet: `make -C reference/QTSimFast bench` writes
   reference/QTSimFast/bench_results.md (original, QTSimFast at 1, 2, 4 and 8 threads, the Julia
   kernel) and is to be run on a quiet machine. See reference/QTSimFast/README.md.
+- **QTSimFast: a pipeline of two threads, and smaller gains on one** (reference/QTSimFast,
+  2026-11-19; output still byte-identical to QTSim's). With `QTSIM_THREADS` of 2 or more the main
+  thread makes every random draw of a generation in the original order and records it, and a second
+  thread builds the genomes from the records (gametes, mutations and, when few individuals mutate,
+  the genotype sums, begun before the mutations are known and repeated for the individuals a
+  mutation changes); further threads sum behind the draws too. No draw depends on a genome, which
+  is the hypothesis `DrawsIgnoreData` of `lean/CategoricalQuantGen/QTSimFast.lean`'s two-pass
+  theorem; the threads themselves are not modelled. On one thread: the three running means of an
+  output line in one loop (GSL's recurrence, checked against the library at start), blocks collected
+  every fourth generation below 2500 loci. `QTSIM_THREADS=auto` and the pool that sums genotypes stay
+  within the performance cores. Indicative wall times for 12,000 generations on a busy machine (two threads before and after): 100 loci 2.0 to 1.1 s, 500 loci 3.0 to 1.75 s, 1000 loci 3.3 to 2.55 s, 5000 loci 8.9 to 8.0 s; four threads 1.1, 1.4, 1.7 and 5.6 s; processor time rises. See reference/QTSimFast/README.md and REPORT.md,
+  sections 3.9 to 3.13.
 - **An individual-based test of the bistability predicted by Xu and Shen (2026, bioRxiv preprint)**
   (validation only, nothing in src/; validate/bistability.md, criteria committed after one disclosed
   pilot and before every other run). 36,000 kernel runs under Beverton–Holt from prescribed initial

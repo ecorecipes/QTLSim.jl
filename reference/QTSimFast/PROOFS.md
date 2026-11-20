@@ -136,6 +136,10 @@ same arrays as the original's, each once; the values the original computes and n
 (an SD in `SetFitnessMean`, the variance of `Env` in `Output`, a correlation in
 `OuputReg`) draw no random number. `gsl_stats_variance_m`/`gsl_stats_sd_m` with the mean
 already computed are tested against the plain functions at start-up (`StatsMSame`).
+Since 19 November 2026 the three means of the output line are computed side by side by
+a loop that is `gsl_stats_mean`'s recurrence (`ThreeMeans`); that it gives the library's
+bits is likewise tested at start-up, with the library's functions as the fallback, and is
+not a theorem (in the model the statistics are uninterpreted functions of the genotypes).
 
 ### (f) `newPop_refines`, `mutLoop_sim`, `gen_refines`, `run_refines`, `init_rel` — fully proved for the diploid model
 
@@ -147,11 +151,52 @@ already computed are tested against the plain functions at start-up (`StatsMSame
 | Hypotheses | `SortSpec sort` (as in c). `hpos : ∀ s, (pr.mutPos s).1 < y.L`: a mutation's locus is below the number of loci; `gsl_rng_uniform_int(rng, NoQTL)` (and `FastUniformInt`) return only values below their bound, by their own loop, whatever the generator. `hN : 0 < N`: the population is not empty (`PopSize = 0` is a separate branch of the fast `RunSim`, covered by tests). |
 | Scope | Diploid, `L ≥ 1`. Not modelled: the haploid path, `NoQTL = 0`, `PopSize = 0`, the creation of the populations (both programs draw `2 × PopSize` environmental deviations before the loop: by inspection), `Sample` (inside `Prims.output`), threads, the asynchronous output thread. |
 
+### The pipeline (QTSimFast with two threads or more): what the model covers, and what it does not
+
+Added 19 November 2026 (`REPORT.md`, section 3.11). With `QTSIM_THREADS` of 2 or more
+the main thread makes every draw of a generation and records it, and a second thread
+builds the genomes from the records. **No Lean file was changed for it, and threads are
+not modelled at all.** What the existing theorems do and do not say about it:
+
+- **Covered at the level of the model.** The pipeline is the two-pass organisation of
+  (d) carried further: all the decisions are drawn first, in the original order, and all
+  the applications to the data are made afterwards, in the same order. That this equals
+  the original's interleaving is `interleaved_eq_two_pass`, whose hypothesis
+  `DrawsIgnoreData` is exactly the pipeline's premise: no draw reads a genome. The
+  theorem is generic in the items, the decisions and the applications. For `NewPop` it
+  is instantiated in the development (`newPop_refines`). For the mutations the pipeline
+  uses it a second time, with one item per chromosome, the decision "the list of (locus,
+  effect) drawn for it" and the application "apply them in order"; `DrawsIgnoreData`
+  holds there for the same kind of reason, checked by reading `MutatePop`,
+  `MutateIndividual` and `MutateIndividualChrNo` (`original/src/QTSim.c`, lines 391–430):
+  the arguments of the three draws are `NoQTL * MutationRatePerGamete`, `NoQTL` and a
+  variance computed from options, and the loop bounds are the population size, the
+  ploidy and the Poisson count just drawn. **This second instance is not written out in
+  Lean**: the composed theorems `gen_refines` and `run_refines` describe the fast program
+  with one thread, in which a mutation is drawn and applied at once (`mutLoop`).
+- **Covered by (a) and (b) as they stand.** The gametes are built from the same records
+  with the same result (`fillRow`, `mixStep`; the pipeline's `FillBatch` goes through
+  the gametes in order, which is how the model iterates). A genotype summed again after
+  a mutation is the in-order sum of the final genome (`fastGeno_eq`); a sum made before
+  the mutation is discarded, and nothing in the model depends on it. Collecting blocks
+  at the same points with exact marks is one of the schedules over which `run_refines`
+  quantifies (`gc`); in the pipeline the marks are set by a pass over the table of block
+  numbers instead of during the sums, which is `markOf` again.
+- **Not covered.** That the recorded draws reach the genome thread unchanged and in
+  order; that the two threads never touch the same memory at the same time; the claiming
+  of batches; the main thread's share of the sums. These are argued in `REPORT.md`
+  (section 3.11: a thread reads only what was written before the number it has read) and
+  tested: the parity matrix with the pipeline on and off, in each of its modes and with 1
+  to 8 threads, and ThreadSanitizer. `make model-check` now also builds each scripted
+  gamete with the pipeline's routines (`GameteDraws`, `FillBatch`) and requires the same
+  alleles as the serial routines give.
+
 ### Not provable here
 
 That the C code implements the model; the inlined MT19937 against GSL's (tested at
 start-up and by the parity matrix); `printf` formatting; thread scheduling (argued:
-disjoint writes, no reduction across threads; ThreadSanitizer clean on 365 option files).
+disjoint writes, no reduction across threads, and for the pipeline a hand-over of
+records through atomic counters; ThreadSanitizer clean, see `REPORT.md`, section 7.2).
 
 ## 4. Do the statements say what is claimed? (alignment checks)
 
@@ -195,7 +240,10 @@ routines and not copies of them:
 - original: `CaclGenotype`, `RecombinationPoissonChr` (which calls `CreateCombMap`);
 - fast: `SumGenotypes`, `RecombinationPoissonChr`, `FillGametes`, `MixBlocks`, with block
   sizes 1, 2, 3 and 6 (built with `-DQTSIM_GSL_RNG`, so that its draws go through a
-  `gsl_rng`; the inlined generator is not part of this check).
+  `gsl_rng`; the inlined generator is not part of this check); and, since 19 November
+  2026, the same gametes built again by the pipeline's `GameteDraws` and `FillBatch`
+  from the same script, which must have the same alleles (the harness stops otherwise;
+  the recorded output is unchanged).
 
 Instance: 4 diploid individuals, 6 loci; allele of chromosome g at locus l either
 `10g + l` (sums exact) or `scale[l] + 1/(g+3)` with scale = 1, 2^53, 3, −2^53, 0.5, 7

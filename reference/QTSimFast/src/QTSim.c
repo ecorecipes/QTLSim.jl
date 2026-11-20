@@ -18,7 +18,11 @@
 *   - the random numbers are those of gsl_rng_mt19937 in the original order, drawn
 *     through FastRNG.h;
 *   - the options code (defaults, option file, printed header) is unchanged;
-*   - functions the original never calls were removed.
+*   - functions the original never calls were removed;
+*   - (2026-11-19) the three means of a line of output are computed in one loop
+*     that is gsl_stats_mean's recurrence, checked against the library at start;
+*     with two threads or more the draws are made by one thread and the genomes
+*     built by another (see "The pipeline" below).
 *  GenLib.*, PassOptionFile.*, RandLib.* are unmodified copies of the original's.
 *
 *  ---------------------------------------------------------------------------
@@ -261,6 +265,10 @@ void PrintOptions(OPTIONS* Opt)
 *      the statistics are the original's expressions and GSL calls);
 *   3. threads and the block size only decide who computes a value and where an
 *      allele is stored, never how a value is computed.
+*
+*  With one thread a generation is PopFitness, NewPop, Output, MutatePop, as in
+*  the original. With two or more (the pipeline) NewPop and MutatePop only make
+*  their draws, and a second thread does their work on the genomes.
 * -------------------------------------------------------------------------*/
 
 // The number of individuals whose genotypes are summed side by side. Each sum is
@@ -342,9 +350,55 @@ typedef struct
 	FAST_POOL *Pool;			// for genotypes
 	int		ParGeno;			// sum genotypes on the pool's threads
 	int		ParFill;			// copy block numbers on the pool's threads
+	double	ParMin;				// smallest number of alleles summed on the pool
 	FAST_POOL *OutPool;			// for output
 	int		OutBusy;
+
+	// What the pool's threads sum (SumGenotypesJob): the individuals
+	// JobList[0 .. JobLen-1], or 0 .. JobLen-1 if JobList is NULL.
+	const uint32_t *JobIds;
+	double	*JobGeno;
+	const int *JobList;
+	int		JobLen;
+
+	// The pipeline (see "The pipeline" below). The main thread makes the draws
+	// and records them; the genome thread builds the next population from the
+	// records.
+	int		Pipe;				// the pipeline is in use
+	int		Spec;				// the genome thread also sums the genotypes
+	int		Batch;				// individuals it takes at a time
+	FAST_THREAD *PipeThread;
+	FAST_CHAN *Prog;			// set by the main thread: how far the draws are
+	FAST_CHAN *Done;			// set by the genome thread: the generation it has finished
+	FAST_CHAN *Helped;			// set by the main thread: the generation in which it has summed its share
+	int		HelpLo, HelpHi;		// its share: List[HelpLo .. HelpHi-1]
+	double	HelpMin;			// fewest alleles to sum for which it is asked
+	FAST_CHAN *Fill, *Claim;		// within a generation: individuals built, individuals claimed for summing
+	long	FBase, FProg;		// the generation's first value of Prog, and the last read
+	int		FSum;				// genotypes are summed behind the draws in this generation
+	int		ParSpec;			// and on the pool's threads
+	long	PGen, Stride;		// Prog is PGen * Stride + progress within the generation
+	int		PLast;				// this is the last generation: its offspring are not needed
+	int		PStopped;
+	int		*Off;				// per gamete: the crossover's place inside block Cut, or -1
+	double	*NGeno;				// genotypes of the next population (Spec)
+	uint8_t	*MutFlag;			// individuals a mutation has changed
+	int		*List;				// individuals to sum
+	struct { uint32_t Chr; int Pos; double Eff; } *Mut;	// the mutations, as drawn
+	size_t	NoMut, MutCap;
+	int		SpinMain, SpinGenome;
 } SIM;
+
+// The pipeline's constants. None changes a result.
+#define PIPE_PUBLISH 32			// the main thread tells its progress every so many individuals
+#define PIPE_BATCH 64			// individuals the genome thread takes at a time
+#define PIPE_SPEC_MAX 0.7		// most mutations expected per individual for sums behind the draws
+#define PIPE_HELP_MIN 40000		// fewest alleles left to sum for the main thread to take a share
+#define PIPE_SPIN_MAIN 300		// microseconds, about, that the main thread polls before it sleeps
+#define PIPE_SPIN_GENOME 100	// and the genome thread
+#define PIPE_SPIN_POOL 200		// and a thread of the pool, between jobs
+
+static void PipeMain(void *Ctx);
 
 // What a line of output is computed from: a copy when it is written by another
 // thread while the simulation goes on.
@@ -547,13 +601,26 @@ static int DefGCEvery(const SIM *S)
 	return 1;
 }
 
+// A number of polls that takes about Micro microseconds.
+static int SpinPolls(int Micro, long PerMicro)
+{
+	double Polls;
+
+	Polls = (double)Micro * (double)PerMicro;
+	if(Polls > 1.0e9)
+		Polls = 1.0e9;
+
+	return (int)Polls;
+}
+
 // Allocate the populations. Draws the environmental deviations of both of the
 // original's populations, as CreatePop does twice.
 static SIM* CreateSim(OPTIONS *Opt)
 {
 	SIM *S;
 	size_t NoInd, Cap;
-	int Index, NoThreads, MaxThreads;
+	int Index, NoThreads, MaxThreads, Requested, Perf;
+	long PerMicro;
 	char *Str;
 
 	S = (SIM*)SMalloc(sizeof(SIM));
@@ -637,22 +704,49 @@ static SIM* CreateSim(OPTIONS *Opt)
 		MallocErr();
 
 	// Threads. QTSIM_THREADS: a number, or "auto". The default is 1.
+	// Perf: the performance cores, where the system tells them apart (0 if not).
 	MaxThreads = 256;
-	NoThreads = 1;
+	Perf = FastThreadsPerfCPUs();
 	Str = getenv("QTSIM_THREADS");
 	if(Str != NULL && strcicmp(Str, "auto") == 0)
 	{
-		// Only large populations gain from threads.
-		NoThreads = 1;
-		if((double)S->N * S->P * S->L >= 4.0e6)
-		{
-			NoThreads = FastThreadsCPUs() / 2;
-			if(NoThreads > 4)
-				NoThreads = 4;
-		}
+		// As many as the performance cores, or half the processors, up to 4,
+		// when there are enough alleles for the sums to gain from them; else 2,
+		// for the pipeline.
+		Requested = (Perf > 0) ? Perf : FastThreadsCPUs() / 2;
+		if(Requested > 4)
+			Requested = 4;
+		if((double)S->N * S->P * S->L < 4.0e6 && Requested > 2)
+			Requested = 2;
+		if(Requested < 1)
+			Requested = 1;
 	}
 	else
-		NoThreads = EnvInt("QTSIM_THREADS", 1, 1, MaxThreads);
+		Requested = EnvInt("QTSIM_THREADS", 1, 1, MaxThreads);
+
+	// The pipeline: with two threads or more, unless QTSIM_PIPELINE=0. Then
+	// the genome thread also sums the genotypes, behind the draws, when few of
+	// them will have to be summed again: when an individual expects at most
+	// PIPE_SPEC_MAX mutations (QTSIM_SPEC=0 or 1 decides otherwise).
+	S->MutMu = Opt->NoQTL * Opt->MutationRatePerGamete;
+
+	S->Pipe = FALSE;
+	if(Requested > 1 && EnvInt("QTSIM_PIPELINE", 1, 0, 1) == 1)
+		S->Pipe = TRUE;
+
+	S->Spec = FALSE;
+	if(S->Pipe == TRUE)
+		S->Spec = EnvInt("QTSIM_SPEC", (S->P * S->MutMu <= PIPE_SPEC_MAX), 0, 1);
+
+	// The threads that sum genotypes: no more than the performance cores
+	// (more were slower when measured), unless QTSIM_POOL says how many. When
+	// the genome thread sums, it is one of them and the main thread is not.
+	NoThreads = Requested;
+	if(Perf > 0 && NoThreads > Perf)
+		NoThreads = Perf;
+	if(S->Spec == TRUE)
+		NoThreads--;
+	NoThreads = EnvInt("QTSIM_POOL", NoThreads, 1, MaxThreads);
 
 	if(NoThreads > S->N / LANES)
 		NoThreads = S->N / LANES;
@@ -663,17 +757,30 @@ static SIM* CreateSim(OPTIONS *Opt)
 	NoThreads = FastThreadsNo(S->Pool);
 
 	// Small populations are summed faster by one thread than handed out.
+	S->ParMin = (double)EnvInt("QTSIM_PAR_MIN", 2000000, 0, 1 << 30);
 	S->ParGeno = FALSE;
-	if(NoThreads > 1 && (double)S->N * S->P * S->L >= (double)EnvInt("QTSIM_PAR_MIN", 2000000, 0, 1 << 30))
+	if(NoThreads > 1 && (double)S->N * S->P * S->L >= S->ParMin)
 		S->ParGeno = TRUE;
 
 	S->ParFill = FALSE;
 	if(S->ParGeno == TRUE && S->NB >= 4 * NoThreads)
 		S->ParFill = TRUE;
 
+	// Behind the draws the pool is worth its while for smaller populations:
+	// its threads work while the main thread draws.
+	S->ParSpec = FALSE;
+	if(S->Spec == TRUE && NoThreads > 1 && (double)S->N * S->P * S->L >= S->ParMin / 4)
+		S->ParSpec = TRUE;
+
+	// How long waiting threads poll before they sleep (the pipeline's threads
+	// wait often and briefly). Without the pipeline the pool is left as it was.
+	PerMicro = (S->Pipe == TRUE) ? FastThreadsPollsPerMicro() : 1;
+	if(S->Pipe == TRUE)
+		FastThreadsSetSpin(S->Pool, SpinPolls(EnvInt("QTSIM_SPIN_POOL", PIPE_SPIN_POOL, 0, 1000000), PerMicro));
+
 	// With more than one thread the output lines are computed and written by a
 	// thread of their own (QTSIM_ASYNC_OUTPUT=0 turns that off).
-	S->OutPool = FastThreadsCreate(EnvInt("QTSIM_ASYNC_OUTPUT", NoThreads > 1, 0, 1) ? 2 : 1);
+	S->OutPool = FastThreadsCreate(EnvInt("QTSIM_ASYNC_OUTPUT", Requested > 1, 0, 1) ? 2 : 1);
 
 	if(FastThreadsNo(S->OutPool) > 1)
 	{
@@ -721,7 +828,6 @@ static SIM* CreateSim(OPTIONS *Opt)
 	S->RecMu = Opt->RecombPoissonMean;
 	S->RecEmu = exp(-S->RecMu);
 
-	S->MutMu = Opt->NoQTL * Opt->MutationRatePerGamete;
 	S->MutEmu = exp(-S->MutMu);
 
 	// MutateIndividualChrNo
@@ -731,6 +837,36 @@ static SIM* CreateSim(OPTIONS *Opt)
 		MutVar = Opt->MuteVarScalar / (Opt->Ploidy * Opt->NoQTL * Opt->MutationRatePerGamete);
 		MutVar = MutVar * Opt->EnvVar;
 		S->MutSD = sqrt(MutVar);
+	}
+
+	// The pipeline's records and its thread.
+	S->Off = (int*)SMalloc(sizeof(int) * (S->Row + 1));
+	S->NGeno = (double*)SMalloc(sizeof(double) * (NoInd + 1));
+	S->List = (int*)SMalloc(sizeof(int) * (NoInd + 1));
+	S->MutFlag = (uint8_t*)calloc(NoInd + 1, 1);
+	if(S->MutFlag == NULL)
+		MallocErr();
+	S->MutCap = 1024;
+	S->Mut = SMalloc(sizeof(*S->Mut) * S->MutCap);
+
+	S->Stride = (long)S->N + 2;
+	S->Prog = FastChanCreate(0);
+	S->Done = FastChanCreate(0);
+	S->Helped = FastChanCreate(0);
+	S->HelpMin = (double)EnvInt("QTSIM_HELP_MIN", PIPE_HELP_MIN, 0, 1 << 30);
+	S->Fill = FastChanCreate(0);
+	S->Claim = FastChanCreate(0);
+	S->SpinMain = SpinPolls(EnvInt("QTSIM_SPIN_MAIN", PIPE_SPIN_MAIN, 0, 1000000), PerMicro);
+	S->SpinGenome = SpinPolls(EnvInt("QTSIM_SPIN_GENOME", PIPE_SPIN_GENOME, 0, 1000000), PerMicro);
+
+	S->Batch = EnvInt("QTSIM_BATCH", PIPE_BATCH, 1, 1 << 30);
+	S->Batch = (S->Batch + LANES - 1) / LANES * LANES;
+
+	if(S->Pipe == TRUE)
+	{
+		S->PipeThread = FastThreadSpawn(PipeMain, S);
+		if(S->PipeThread == NULL)
+			S->Pipe = S->Spec = S->ParSpec = FALSE;
 	}
 
 	// CreatePop(CPop), CreatePop(NPop): SetIndividualEnv for each individual.
@@ -752,25 +888,27 @@ static SIM* CreateSim(OPTIONS *Opt)
 // individual's partial sum waiting in Geno, so that the blocks in use at one
 // position of the chromosome (a few hundred at most, as a rule) stay in the
 // first-level cache while every individual reads them.
-static inline __attribute__((always_inline)) void SumGenotypesW(const SIM *S, int Lo, int Hi, uint8_t *Mark, const int W, const int Diploid)
+//
+// The chromosomes are read through the table of block numbers Ids and the
+// sums are left in Geno. With a List the individuals are List[Lo .. Hi-1]
+// instead of Lo .. Hi-1 (and Mark must be NULL): which individuals are summed
+// together, and by which thread, never changes an individual's sum.
+static inline __attribute__((always_inline)) void SumGenotypesW(const SIM *S, const uint32_t *Ids, double *Geno, const int *List, int Lo, int Hi, uint8_t *Mark, const int W, const int Diploid)
 {
 	const double *A[LANES], *C[LANES];
 	const uint32_t *Row;
-	double *Geno;
 	double Sum[LANES];
 	int Start, J, K, Index, Len, Ind;
 	const int NB = S->NB;
 	const int P = Diploid ? 2 : 1;
 
-	Geno = S->Geno;
-
 	for(Ind=Lo;Ind<Hi;Ind++)
-		Geno[Ind] = 0;
+		Geno[(List != NULL) ? List[Ind] : Ind] = 0;
 
 	for(K=0;K<NB;K++)
 	{
 		Len = (K == NB - 1) ? S->LastLen : S->B;
-		Row = S->Ids + (size_t)K * S->Row;
+		Row = Ids + (size_t)K * S->Row;
 
 		if(Mark != NULL)
 			for(Index=Lo*P;Index<Hi*P;Index++)
@@ -784,6 +922,8 @@ static inline __attribute__((always_inline)) void SumGenotypesW(const SIM *S, in
 				Ind = Start + J;
 				if(Ind > Hi - 1)
 					Ind = Hi - 1;
+				if(List != NULL)
+					Ind = List[Ind];
 
 				Sum[J] = Geno[Ind];
 				A[J] = Block(S, Row[(size_t)Ind * P]);
@@ -836,27 +976,56 @@ static inline __attribute__((always_inline)) void SumGenotypesW(const SIM *S, in
 			}
 
 			for(J=0;J<W && Start+J<Hi;J++)
-				Geno[Start + J] = Sum[J];
+				Geno[(List != NULL) ? List[Start + J] : Start + J] = Sum[J];
 		}
 	}
 }
 
-static void SumGenotypes(const SIM *S, int Lo, int Hi, uint8_t *Mark)
+static void SumGenotypesOf(const SIM *S, const uint32_t *Ids, double *Geno, const int *List, int Lo, int Hi, uint8_t *Mark)
 {
+	const int W = (S->Lanes == 1) ? 1 : LANES;
+
+	// (one copy of the loops for each case, each with its constants known)
+	if(List == NULL)
+	{
+		if(S->P == 2)
+		{
+			if(W == 1)
+				SumGenotypesW(S, Ids, Geno, NULL, Lo, Hi, Mark, 1, 1);
+			else
+				SumGenotypesW(S, Ids, Geno, NULL, Lo, Hi, Mark, LANES, 1);
+		}
+		else
+		{
+			if(W == 1)
+				SumGenotypesW(S, Ids, Geno, NULL, Lo, Hi, Mark, 1, 0);
+			else
+				SumGenotypesW(S, Ids, Geno, NULL, Lo, Hi, Mark, LANES, 0);
+		}
+
+		return;
+	}
+
 	if(S->P == 2)
 	{
-		if(S->Lanes == 1)
-			SumGenotypesW(S, Lo, Hi, Mark, 1, 1);
+		if(W == 1)
+			SumGenotypesW(S, Ids, Geno, List, Lo, Hi, NULL, 1, 1);
 		else
-			SumGenotypesW(S, Lo, Hi, Mark, LANES, 1);
+			SumGenotypesW(S, Ids, Geno, List, Lo, Hi, NULL, LANES, 1);
 	}
 	else
 	{
-		if(S->Lanes == 1)
-			SumGenotypesW(S, Lo, Hi, Mark, 1, 0);
+		if(W == 1)
+			SumGenotypesW(S, Ids, Geno, List, Lo, Hi, NULL, 1, 0);
 		else
-			SumGenotypesW(S, Lo, Hi, Mark, LANES, 0);
+			SumGenotypesW(S, Ids, Geno, List, Lo, Hi, NULL, LANES, 0);
 	}
+}
+
+// The genotypes of individuals Lo .. Hi-1 of the current population.
+static void SumGenotypes(const SIM *S, int Lo, int Hi, uint8_t *Mark)
+{
+	SumGenotypesOf(S, S->Ids, S->Geno, NULL, Lo, Hi, Mark);
 }
 
 // The part of 0 .. No-1 that thread ThreadNo of NoThreads works on, in whole
@@ -879,24 +1048,24 @@ static void SumGenotypesJob(void *Ctx, int ThreadNo, int NoThreads)
 
 	S = (SIM*)Ctx;
 
-	ThreadRange(S->N, LANES, ThreadNo, NoThreads, &Lo, &Hi);
+	ThreadRange(S->JobLen, LANES, ThreadNo, NoThreads, &Lo, &Hi);
 
 	if(Lo < Hi)
-		SumGenotypes(S, Lo, Hi, S->Marking ? S->Mark[ThreadNo] : NULL);
+		SumGenotypesOf(S, S->JobIds, S->JobGeno, S->JobList, Lo, Hi, (S->Marking && S->JobList == NULL) ? S->Mark[ThreadNo] : NULL);
 }
 
 // Free the blocks no chromosome of the current population uses. Called when
-// only the current population is alive and its marks have just been set.
-static void CollectBlocks(SIM *S)
+// only the current population is alive and its marks have just been set, in
+// the mark arrays of NoT threads.
+static void CollectBlocks(SIM *S, int NoT)
 {
 	uint8_t *M, *O;
 	uint32_t Id, HW, NewHW, NoFree, *Free;
-	int T, NoT;
+	int T;
 
 	HW = S->HW;
 	M = S->Mark[0];
 
-	NoT = S->ParGeno ? FastThreadsNo(S->Pool) : 1;
 	for(T=1;T<NoT;T++)
 	{
 		O = S->Mark[T];
@@ -931,25 +1100,45 @@ static void CollectBlocks(SIM *S)
 	S->SinceGC = 0;
 }
 
+// Is this a generation in which unused blocks are collected? Every GCEvery
+// generations, and whenever a generation that made a new block for every block
+// of every chromosome would run out. Asked once per generation, when the
+// population about to be summed is the only one alive.
+static int CollectNow(SIM *S)
+{
+	S->SinceGC++;
+
+	if(S->SinceGC >= S->GCEvery || (size_t)(S->Cap - S->HW) + S->NoFree < (size_t)S->N * S->IndIds)
+		return TRUE;
+
+	return FALSE;
+}
+
 // Calculate the phenotype for each individual in the population.
-static void CaclPopPhenotype(SIM *S)
+static void CaclPopPhenotype(SIM *S, int Itter)
 {
 	int Index;
 
-	// Collect unused blocks every GCEvery generations, and whenever a generation
-	// that made a new block for every block of every chromosome would run out.
-	S->SinceGC++;
-	S->Marking = FALSE;
-	if(S->SinceGC >= S->GCEvery || (size_t)(S->Cap - S->HW) + S->NoFree < (size_t)S->N * S->IndIds)
-		S->Marking = TRUE;
+	// (When the genome thread sums the genotypes, it has summed these and
+	// collected the unused blocks; the first population is summed here.)
+	if(S->Spec == FALSE || Itter == 0)
+	{
+		S->Marking = CollectNow(S);
 
-	if(S->ParGeno == TRUE)
-		FastThreadsRun(S->Pool, SumGenotypesJob, S);
-	else
-		SumGenotypes(S, 0, S->N, S->Marking ? S->Mark[0] : NULL);
+		if(S->ParGeno == TRUE)
+		{
+			S->JobIds = S->Ids;
+			S->JobGeno = S->Geno;
+			S->JobList = NULL;
+			S->JobLen = S->N;
+			FastThreadsRun(S->Pool, SumGenotypesJob, S);
+		}
+		else
+			SumGenotypes(S, 0, S->N, S->Marking ? S->Mark[0] : NULL);
 
-	if(S->Marking == TRUE)
-		CollectBlocks(S);
+		if(S->Marking == TRUE)
+			CollectBlocks(S, S->ParGeno ? FastThreadsNo(S->Pool) : 1);
+	}
 
 	for(Index=0;Index<S->N;Index++)
 		S->Pheno[Index] = S->Geno[Index] + S->Env[Index];
@@ -989,7 +1178,7 @@ static void PopFitness(OPTIONS *Opt, int Itter, SIM *S)
 	int Index;
 	double PhenotypeSD, Phenotype, Scale;
 
-	CaclPopPhenotype(S);
+	CaclPopPhenotype(S, Itter);
 
 	PhenotypeSD = 1.0;
 	if(Opt->StandardisePhenotype == TRUE)
@@ -1103,11 +1292,13 @@ static inline int LowestCrossover(SIM *S)
 	return Low;
 }
 
-// Crate a gamete from a parent, using a number of recombination points, drawn
-// from a Poisson: RecombinationPoissonChr. Par is the parent's first chromosome
-// and G the gamete, as columns of the tables of block numbers. Only the draws
-// are made here, in the original order; FillGametes copies the block numbers.
-static inline void RecombinationPoissonChr(SIM *S, uint32_t G, uint32_t Par)
+// The draws of a gamete, in the original order: RecombinationPoissonChr. Par
+// is the parent's first chromosome and G the gamete, as columns of the tables
+// of block numbers. Records the gamete as Src1, Src2 and Cut: its first Cut
+// blocks are those of chromosome Src1 and the rest those of Src2. If the
+// crossover is inside block Cut, returns its place there (alleles up to it
+// from Src1, the others from Src2); else returns -1.
+static inline int GameteDraws(SIM *S, uint32_t G, uint32_t Par)
 {
 	uint32_t CP, OP;
 	int Low, BNo, Off, Second;
@@ -1125,7 +1316,7 @@ static inline void RecombinationPoissonChr(SIM *S, uint32_t G, uint32_t Par)
 	if(Low == S->L)
 	{
 		S->Cut[G] = S->NB;
-		return;
+		return -1;
 	}
 
 	// Loci 0 .. Low from CP, the rest from OP.
@@ -1136,19 +1327,38 @@ static inline void RecombinationPoissonChr(SIM *S, uint32_t G, uint32_t Par)
 	{
 		// Low is not the last locus, so BNo + 1 is a block.
 		S->Cut[G] = BNo + 1;
-		S->Next[G] = S->Head[BNo + 1];
-		S->Head[BNo + 1] = (int)G;
-		return;
+		return -1;
 	}
 
 	// The crossover is inside block BNo.
 	S->Cut[G] = BNo;
-	S->Next[G] = S->Head[BNo];
-	S->Head[BNo] = (int)G;
-	S->Mix[S->NoMix].G = G;
-	S->Mix[S->NoMix].BNo = BNo;
-	S->Mix[S->NoMix].Off = Off;
-	S->NoMix++;
+	return Off;
+}
+
+// Crate a gamete from a parent, using a number of recombination points, drawn
+// from a Poisson: RecombinationPoissonChr. Only the draws are made here;
+// FillGametes copies the block numbers and MixBlocks makes the blocks in which
+// a crossover fell, from the lists kept here.
+static inline void RecombinationPoissonChr(SIM *S, uint32_t G, uint32_t Par)
+{
+	int Off, Cut;
+
+	Off = GameteDraws(S, G, Par);
+	Cut = S->Cut[G];
+
+	if(Cut == S->NB)
+		return;
+
+	S->Next[G] = S->Head[Cut];
+	S->Head[Cut] = (int)G;
+
+	if(Off >= 0)
+	{
+		S->Mix[S->NoMix].G = G;
+		S->Mix[S->NoMix].BNo = Cut;
+		S->Mix[S->NoMix].Off = Off;
+		S->NoMix++;
+	}
 }
 
 // The block numbers of the gametes at positions Lo .. Hi-1: the first Cut
@@ -1193,37 +1403,38 @@ static void FillGametesJob(void *Ctx, int ThreadNo, int NoThreads)
 // The blocks in which a crossover fell: alleles 0 .. Off from one chromosome
 // of the parent, the rest from the other, in a new block unless the parent's
 // two blocks are the same block.
-static void MixBlocks(SIM *S)
+static inline void MixBlock(SIM *S, uint32_t G, int BNo, int Off)
 {
 	const double *CD, *OD;
 	double *ND;
-	uint32_t CId, OId, Id, G;
-	int Index, I, BNo, Off, Len;
+	uint32_t CId, OId, Id;
+	int I, Len;
+
+	CId = S->Ids[(size_t)BNo * S->Row + S->Src1[G]];
+	OId = S->Ids[(size_t)BNo * S->Row + S->Src2[G]];
+
+	if(CId == OId)
+		return;	// the block numbers are already right
+
+	Id = NewBlock(S, G + 1);
+	ND = Block(S, Id);
+	CD = Block(S, CId);
+	OD = Block(S, OId);
+	Len = BlockLen(S, BNo);
+
+	// (a select per allele, so that the loop has no branch on Off)
+	for(I=0;I<Len;I++)
+		ND[I] = (I <= Off) ? CD[I] : OD[I];
+
+	S->NIds[(size_t)BNo * S->Row + G] = Id;
+}
+
+static void MixBlocks(SIM *S)
+{
+	int Index;
 
 	for(Index=0;Index<S->NoMix;Index++)
-	{
-		G = S->Mix[Index].G;
-		BNo = S->Mix[Index].BNo;
-		Off = S->Mix[Index].Off;
-
-		CId = S->Ids[(size_t)BNo * S->Row + S->Src1[G]];
-		OId = S->Ids[(size_t)BNo * S->Row + S->Src2[G]];
-
-		if(CId == OId)
-			continue;	// FillGametes has set it
-
-		Id = NewBlock(S, G + 1);
-		ND = Block(S, Id);
-		CD = Block(S, CId);
-		OD = Block(S, OId);
-		Len = BlockLen(S, BNo);
-
-		// (a select per allele, so that the loop has no branch on Off)
-		for(I=0;I<Len;I++)
-			ND[I] = (I <= Off) ? CD[I] : OD[I];
-
-		S->NIds[(size_t)BNo * S->Row + G] = Id;
-	}
+		MixBlock(S, S->Mix[Index].G, S->Mix[Index].BNo, S->Mix[Index].Off);
 
 	S->NoMix = 0;
 
@@ -1247,7 +1458,7 @@ int DeadPopulation(OPTIONS *Opt, int PopSize)
 static void PrintStats(SIM *S, int Itter)
 {
 	if(EnvInt("QTSIM_STATS", 0, 0, 1) == 1)
-		fprintf(stderr, "QTSimFast: generation %d, block size %d, blocks per chromosome %d, blocks in use or free below high-water mark %u (free %u), capacity %u, threads %d\n", Itter, S->B, S->NB, S->HW, S->NoFree, S->Cap, S->ParGeno ? FastThreadsNo(S->Pool) : 1);
+		fprintf(stderr, "QTSimFast: generation %d, block size %d, blocks per chromosome %d, blocks in use or free below high-water mark %u (free %u), capacity %u, threads %d, pipeline %s\n", Itter, S->B, S->NB, S->HW, S->NoFree, S->Cap, S->ParGeno ? FastThreadsNo(S->Pool) : 1, S->Pipe ? (S->Spec ? "with sums" : "without sums") : "off");
 }
 
 static void WaitOutput(SIM *S)
@@ -1256,6 +1467,461 @@ static void WaitOutput(SIM *S)
 	{
 		FastThreadsWait(S->OutPool);
 		S->OutBusy = FALSE;
+	}
+}
+
+/* ---------------------------------------------------------------------------
+*  The pipeline (QTSIM_THREADS of 2 or more; QTSIM_PIPELINE=0 turns it off).
+*
+*  After SetSurviving, every draw of a generation (parents, crossover points,
+*  strand, environmental deviation; then the mutations' numbers, places and
+*  effects) depends on the survivors and the options and on no genome. So the
+*  main thread makes all the draws, in the original order, and only records
+*  them; a second thread, the genome thread, follows it and does everything
+*  that touches genomes: the block numbers of the gametes, the blocks in which
+*  a crossover fell, the mutations, and (when few individuals mutate) the
+*  genotype sums. Who does the work and when changes no value: each gamete is
+*  built from the same record, each mutation is the same addition to the same
+*  allele in the original order, and each genotype is the same chain of
+*  additions over the loci.
+*
+*  The two threads talk through two numbers. Prog, set by the main thread, is
+*  PGen * Stride + k: in generation PGen the records of individuals 0 .. k-1 are
+*  written (k <= N), and k = N + 1 says that the mutations are recorded too.
+*  Done, set by the genome thread, is twice the last generation it has finished
+*  (one less while it asks the main thread, which has made its draws by then,
+*  to sum a share of the genotypes that remain). A
+*  thread reads only what the other wrote before the number it has read, and
+*  the main thread touches no genome between its first Prog of a generation and
+*  the genome thread's Done.
+* -------------------------------------------------------------------------*/
+
+// The block numbers of the gametes of individuals Lo .. Hi-1 and the blocks
+// in which their crossovers fell: FillGametes and MixBlocks, from the records.
+static void FillBatch(SIM *S, int Lo, int Hi)
+{
+	const uint32_t *PRow, *Src1, *Src2;
+	const int *Cut, *Off;
+	uint32_t *Row;
+	int K, G;
+	const int GLo = Lo * S->P, GHi = Hi * S->P, NB = S->NB;
+
+	Src1 = S->Src1;
+	Src2 = S->Src2;
+	Cut = S->Cut;
+	Off = S->Off;
+
+	for(K=0;K<NB;K++)
+	{
+		PRow = S->Ids + (size_t)K * S->Row;
+		Row = S->NIds + (size_t)K * S->Row;
+
+		for(G=GLo;G<GHi;G++)
+			Row[G] = PRow[(K < Cut[G]) ? Src1[G] : Src2[G]];
+	}
+
+	for(G=GLo;G<GHi;G++)
+		if(Off[G] >= 0)
+			MixBlock(S, (uint32_t)G, Cut[G], Off[G]);
+}
+
+// The mutations of a generation, as the main thread drew them, in that order:
+// the second half of MutatePop. If Flag, the individuals changed are flagged.
+static void ApplyMutations(SIM *S, int Flag)
+{
+	uint32_t *Cell, Tag, Id, NId, Chr;
+	size_t Index;
+	int Pos, BNo;
+
+	for(Index=0;Index<S->NoMut;Index++)
+	{
+		Chr = S->Mut[Index].Chr;
+		Pos = S->Mut[Index].Pos;
+		BNo = Pos / S->B;
+		Tag = Chr + 1;
+
+		// Mutate a block of this chromosome's own, or a copy.
+		Cell = S->NIds + (size_t)BNo * S->Row + Chr;
+		Id = *Cell;
+		if(S->Owner[Id] != Tag)
+		{
+			NId = NewBlock(S, Tag);
+			memcpy(Block(S, NId), Block(S, Id), sizeof(double) * BlockLen(S, BNo));
+			*Cell = NId;
+			Id = NId;
+		}
+
+		Block(S, Id)[Pos - BNo * S->B] += S->Mut[Index].Eff;
+
+		if(Flag)
+			S->MutFlag[Chr / (uint32_t)S->P] = 1;
+	}
+
+	// The next generation shares these blocks.
+	for(Index=0;Index<S->NoNew;Index++)
+		S->Owner[S->New[Index]] = 0;
+	S->NoNew = 0;
+}
+
+// The first part of a generation behind the draws, as a job of the pool. The
+// genome thread (ThreadNo 0) follows the main thread: it builds the gametes of
+// the individuals whose draws are recorded, and tells how far it is in Fill.
+// If genotypes are summed here (FSum), every thread of the job, the genome
+// thread when it has nothing to build, claims PIPE_BATCH built individuals at
+// a time from Claim and sums them, until the main thread has recorded the
+// mutations; what is not summed by then is summed after them. Fill is the
+// number of individuals built, and N + 1 once the claiming is over.
+static void PipeFollowJob(void *Ctx, int ThreadNo, int NoThreads)
+{
+	SIM *S;
+	const uint32_t *NIds;
+	long V, F, Lo, Hi, PendLo, PendHi;
+	int Filled;
+
+	(void)NoThreads;
+	S = (SIM*)Ctx;
+	NIds = S->NIds;
+
+	const long N = S->N, Base = S->FBase, Batch = S->Batch;
+
+	if(ThreadNo != 0)
+	{
+		F = FastChanGet(S->Fill);
+		for(;;)
+		{
+			if(F > N)
+				return;
+
+			Lo = FastChanGet(S->Claim);
+			if(Lo >= N)
+				return;
+
+			Hi = (Lo + Batch < N) ? Lo + Batch : N;
+			if(F < Hi)
+			{
+				F = FastChanWait(S->Fill, F, S->SpinGenome);
+				continue;
+			}
+
+			Lo = FastChanClaim(S->Claim, Batch);
+			if(Lo >= N)
+				return;
+
+			// (another thread may have claimed in between: wait for these to be built)
+			Hi = (Lo + Batch < N) ? Lo + Batch : N;
+			while(F < Hi)
+				F = FastChanWait(S->Fill, F, S->SpinGenome);
+
+			SumGenotypesOf(S, NIds, S->NGeno, NULL, (int)Lo, (int)Hi, NULL);
+			F = FastChanGet(S->Fill);
+		}
+	}
+
+	V = S->FProg;
+	Filled = 0;
+	PendLo = PendHi = 0;	// individuals this thread has claimed and not yet summed
+	for(;;)
+	{
+		if(V - Base > N)
+			break;	// all the draws are made, the mutations too
+
+		if(V - Base > Filled)
+		{
+			FillBatch(S, Filled, (int)(V - Base));
+			Filled = (int)(V - Base);
+			FastChanSet(S->Fill, Filled);
+			V = FastChanGet(S->Prog);
+			continue;
+		}
+
+		if(S->FSum)
+		{
+			if(PendHi > PendLo)
+			{
+				if(Filled >= PendHi)
+				{
+					SumGenotypesOf(S, NIds, S->NGeno, NULL, (int)PendLo, (int)PendHi, NULL);
+					PendLo = PendHi = 0;
+					V = FastChanGet(S->Prog);
+					continue;
+				}
+			}
+			else
+			{
+				Lo = FastChanGet(S->Claim);
+				Hi = (Lo + Batch < N) ? Lo + Batch : N;
+				if(Lo < N && Filled >= Hi)
+				{
+					Lo = FastChanClaim(S->Claim, Batch);
+					if(Lo < N)
+					{
+						PendLo = Lo;
+						PendHi = (Lo + Batch < N) ? Lo + Batch : N;
+					}
+					continue;
+				}
+			}
+		}
+
+		V = FastChanWait(S->Prog, V, S->SpinGenome);
+	}
+
+	if(Filled < N)
+	{
+		FillBatch(S, Filled, (int)N);
+		FastChanSet(S->Fill, N);
+	}
+
+	if(PendHi > PendLo)
+		SumGenotypesOf(S, NIds, S->NGeno, NULL, (int)PendLo, (int)PendHi, NULL);
+
+	FastChanSet(S->Fill, N + 1);
+	S->FProg = V;
+}
+
+// One generation of the genome thread. V is the value of Prog that told it the
+// generation had begun; returns the last value it read.
+static long PipeGeneration(SIM *S, long V)
+{
+	const uint32_t *NIds;
+	const int N = S->N;
+	size_t Index, No;
+	const long Gen = V / S->Stride;
+	long Next;
+	int Summed, Len, Ind, Collect, Help;
+
+	NIds = S->NIds;
+
+	// The gametes, and genotypes behind the draws. (The offspring of the last
+	// generation are never looked at, so they are not summed.)
+	S->FBase = Gen * S->Stride;
+	S->FProg = V;
+	S->FSum = (S->Spec == TRUE && S->PLast == FALSE);
+	FastChanSet(S->Fill, 0);
+	FastChanSet(S->Claim, 0);
+
+	if(S->FSum && S->ParSpec == TRUE)
+		FastThreadsRun(S->Pool, PipeFollowJob, S);
+	else
+		PipeFollowJob(S, 0, 1);
+
+	V = S->FProg;
+
+	// Every claim was summed: individuals 0 .. Summed-1 have genotypes, of
+	// their genomes before mutation.
+	Next = FastChanGet(S->Claim);
+	Summed = (Next < N) ? (int)Next : N;
+
+	ApplyMutations(S, S->FSum);
+
+	Collect = FALSE;
+	if(S->FSum)
+	{
+		// To sum now: the individuals summed before a mutation changed them,
+		// and those not summed yet.
+		Len = 0;
+		for(Ind=0;Ind<Summed;Ind++)
+		{
+			S->List[Len] = Ind;
+			Len += S->MutFlag[Ind];
+		}
+		for(Ind=Summed;Ind<N;Ind++)
+			S->List[Len++] = Ind;
+
+		for(Index=0;Index<S->NoMut;Index++)
+			S->MutFlag[S->Mut[Index].Chr / (uint32_t)S->P] = 0;
+
+		// The main thread has made its draws and waits: if there is enough
+		// to sum, it takes a share, the last part of the list.
+		Help = 0;
+		if((double)Len * S->P * S->L >= S->HelpMin)
+		{
+			Help = Len / (FastThreadsNo(S->Pool) + 1) / LANES * LANES;
+			if(Help > 0)
+			{
+				Len -= Help;
+				S->HelpLo = Len;
+				S->HelpHi = Len + Help;
+				FastChanSet(S->Done, 2 * Gen - 1);
+			}
+		}
+
+		if(S->ParSpec == TRUE && (double)Len * S->P * S->L >= S->ParMin / 8)
+		{
+			S->Marking = FALSE;
+			S->JobIds = NIds;
+			S->JobGeno = S->NGeno;
+			S->JobList = S->List;
+			S->JobLen = Len;
+			FastThreadsRun(S->Pool, SumGenotypesJob, S);
+		}
+		else if(Len > 0)
+			SumGenotypesOf(S, NIds, S->NGeno, S->List, 0, Len, NULL);
+
+		if(Help > 0)
+		{
+			long Seen = FastChanGet(S->Helped);
+
+			while(Seen != Gen)
+				Seen = FastChanWait(S->Helped, Seen, S->SpinGenome);
+		}
+
+		// The population just built is now the only one whose blocks matter:
+		// the point at which CaclPopPhenotype asks.
+		Collect = CollectNow(S);
+	}
+
+	FastChanSet(S->Done, 2 * Gen);
+
+	// Collecting needs nothing from the main thread, which goes on meanwhile
+	// (it exchanges the two tables' pointers: NIds was read before).
+	if(Collect == TRUE)
+	{
+		uint8_t *Mark = S->Mark[0];
+
+		No = S->Row * (size_t)S->NB;
+		for(Index=0;Index<No;Index++)
+			Mark[NIds[Index]] = 1;
+
+		CollectBlocks(S, 1);
+	}
+
+	return V;
+}
+
+static void PipeMain(void *Ctx)
+{
+	SIM *S;
+	long V, Seen;
+
+	S = (SIM*)Ctx;
+	Seen = 0;
+
+	for(;;)
+	{
+		V = FastChanWait(S->Prog, Seen, S->SpinGenome);
+		if(V < 0)
+			return;
+
+		Seen = PipeGeneration(S, V);
+	}
+}
+
+// Stop the genome thread; it finishes what it is doing first.
+static void PipeStop(SIM *S)
+{
+	if(S->Pipe == TRUE && S->PStopped == FALSE)
+	{
+		FastChanSet(S->Prog, -1);
+		FastThreadJoin(S->PipeThread);
+		S->PStopped = TRUE;
+	}
+}
+
+// NewPop's draws with the pipeline: the same draws in the same order, recorded
+// for the genome thread.
+static void NewPopDraws(OPTIONS *Opt, int Itter, SIM *S)
+{
+	long Base;
+	int IIndex, P1, P2;
+
+	S->PGen++;
+	S->PLast = (Itter == Opt->NoGenerations - 1);
+	Base = S->PGen * S->Stride;
+
+	if(Opt->Ploidy == 1)
+	{
+		for(IIndex=0;IIndex<S->N;IIndex++)
+		{
+			P1 = S->Surv[FastUniformInt(&S->Rng, S->NoSurv)];
+			S->Src1[IIndex] = (uint32_t)P1;
+			S->Src2[IIndex] = (uint32_t)P1;
+			S->Cut[IIndex] = S->NB;
+			S->Off[IIndex] = -1;
+
+			S->NEnv[IIndex] = (Opt->EnvVar != 0) ? gsl_ran_gaussian(&S->Rng.GRng, S->EnvSD) : 0.0;
+
+			if((IIndex & (PIPE_PUBLISH - 1)) == PIPE_PUBLISH - 1)
+				FastChanSet(S->Prog, Base + IIndex + 1);
+		}
+	}
+	else
+	{
+		for(IIndex=0;IIndex<S->N;IIndex++)
+		{
+			do
+			{
+				P1 = (int)FastUniformInt(&S->Rng, S->NoSurv);
+				P2 = (int)FastUniformInt(&S->Rng, S->NoSurv);
+			} while(P1 == P2);
+
+			S->Off[IIndex * 2] = GameteDraws(S, (uint32_t)IIndex * 2, (uint32_t)S->Surv[P1] * 2);
+			S->Off[IIndex * 2 + 1] = GameteDraws(S, (uint32_t)IIndex * 2 + 1, (uint32_t)S->Surv[P2] * 2);
+
+			S->NEnv[IIndex] = (Opt->EnvVar != 0) ? gsl_ran_gaussian(&S->Rng.GRng, S->EnvSD) : 0.0;
+
+			if((IIndex & (PIPE_PUBLISH - 1)) == PIPE_PUBLISH - 1)
+				FastChanSet(S->Prog, Base + IIndex + 1);
+		}
+	}
+
+	FastChanSet(S->Prog, Base + S->N);
+}
+
+// MutatePop's draws with the pipeline: the first half of MutatePop. The number
+// of mutations of each chromosome, and for each mutation its locus and then its
+// effect, in the original order; the genome thread applies them.
+static void MutateDraws(OPTIONS *Opt, SIM *S)
+{
+	long Seen;
+	int Index, No, Pos, Helped;
+	const int NoChr = (int)S->Row;
+
+	S->NoMut = 0;
+	Helped = FALSE;
+
+	for(Index=0;Index<NoChr;Index++)
+	{
+		No = (int)FastPoisson(&S->Rng, S->MutMu, S->MutEmu);
+
+		while(No > 0)
+		{
+			Pos = (int)FastUniformInt(&S->Rng, Opt->NoQTL);
+
+			if(S->NoMut == S->MutCap)
+			{
+				S->MutCap *= 2;
+				S->Mut = realloc(S->Mut, sizeof(*S->Mut) * S->MutCap);
+				if(S->Mut == NULL)
+					MallocErr();
+			}
+
+			S->Mut[S->NoMut].Chr = (uint32_t)Index;
+			S->Mut[S->NoMut].Pos = Pos;
+			S->Mut[S->NoMut].Eff = gsl_ran_gaussian(&S->Rng.GRng, S->MutSD);
+			S->NoMut++;
+			No--;
+		}
+	}
+
+	// The mutations are recorded: the genome thread finishes the generation.
+	FastChanSet(S->Prog, S->PGen * S->Stride + S->N + 1);
+
+	// Wait for it, and sum a share of the genotypes if it asks (Done is odd).
+	Seen = 2 * S->PGen - 2;
+	for(;;)
+	{
+		Seen = FastChanWait(S->Done, Seen, S->SpinMain);
+
+		if(Seen == 2 * S->PGen)
+			break;
+
+		if(Seen == 2 * S->PGen - 1 && Helped == FALSE)
+		{
+			SumGenotypesOf(S, S->NIds, S->NGeno, S->List, S->HelpLo, S->HelpHi, NULL);
+			Helped = TRUE;
+			FastChanSet(S->Helped, S->PGen);
+		}
 	}
 }
 
@@ -1268,10 +1934,17 @@ static void NewPop(OPTIONS *Opt, int Itter, SIM *S)
 
 	if(DeadPopulation(Opt, S->NoSurv) == TRUE)
 	{
+		PipeStop(S);
 		WaitOutput(S);
 		PrintStats(S, Itter);
 		printf("Pop all died.\n");
 		exit(0);
+	}
+
+	if(S->Pipe == TRUE)
+	{
+		NewPopDraws(Opt, Itter, S);
+		return;
 	}
 
 	if(Opt->Ploidy == 1)
@@ -1474,6 +2147,7 @@ static void FreeSim(SIM *S)
 {
 	int Index, NoThreads;
 
+	PipeStop(S);
 	WaitOutput(S);
 
 	if(FastThreadsNo(S->OutPool) > 1)
@@ -1516,6 +2190,16 @@ static void FreeSim(SIM *S)
 	free(S->Mix);
 	free(S->Points);
 	free(S->Seen);
+	free(S->Off);
+	free(S->NGeno);
+	free(S->List);
+	free(S->MutFlag);
+	free(S->Mut);
+	FastChanFree(S->Prog);
+	FastChanFree(S->Done);
+	FastChanFree(S->Helped);
+	FastChanFree(S->Fill);
+	FastChanFree(S->Claim);
 	free(S);
 }
 
@@ -1561,12 +2245,18 @@ void RunSim(OPTIONS* Opt)
 		if(Itter == Opt->ChangeFitnessGen)
 			Opt->FitnessPar[1] = Opt->ChangeFitnessSD;
 
-		MutatePop(Opt, S);
+		if(S->Pipe == TRUE)
+			MutateDraws(Opt, S);
+		else
+			MutatePop(Opt, S);
 
 		swap((void**)&S->Ids, (void**)&S->NIds);
 		swap((void**)&S->Env, (void**)&S->NEnv);
+		if(S->Spec == TRUE)
+			swap((void**)&S->Geno, (void**)&S->NGeno);
 	}
 
+	PipeStop(S);
 	PrintStats(S, Itter);
 	FreeSim(S);
 }

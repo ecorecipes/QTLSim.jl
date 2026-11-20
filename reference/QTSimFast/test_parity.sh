@@ -20,6 +20,14 @@
 #   b<n>   QTSIM_BLOCK=n (block size)      g<n>  QTSIM_GC=n (collect every n generations)
 #   l1     QTSIM_LANES=1                   s<n>  n threads, output on the main thread
 #   auto   QTSIM_THREADS=auto              r<k>  a repeat of p4
+# With two threads or more the pipeline is on (one thread draws, another builds the
+# genomes); these variants force its modes on small inputs, with n threads:
+#   o<n>   the pipeline off (QTSIM_PIPELINE=0): the threaded path without it
+#   x<n>   genotypes summed after the mutations (QTSIM_SPEC=0)
+#   y<n>   genotypes summed behind the draws (QTSIM_SPEC=1), 8 individuals at a time,
+#          the main thread always given a share of what is left
+#   z<n>   threads that sleep at once instead of polling
+#   tsan, asan also take one of these letters: tsano, tsanx, tsany, tsanz, asano, asany
 #   ps     QTSIM_PLAIN_STATS=1 (GSL's plain mean and variance calls, the fallback)
 #   plain  build without the built-in generator, threads and vector extensions
 #   asan   build with AddressSanitizer and UndefinedBehaviorSanitizer (3 threads)
@@ -50,23 +58,40 @@ if [ "$MODE" = "__one" ]; then
 		echo $? > "$ref.rc"
 	fi
 	rc=$(cat "$ref.rc")
+	XMODE="QTSIM_SPEC=0"
+	YMODE="QTSIM_SPEC=1 QTSIM_BATCH=8 QTSIM_HELP_MIN=0"
+	ZMODE="QTSIM_SPIN_MAIN=0 QTSIM_SPIN_GENOME=0 QTSIM_SPIN_POOL=0"
 	for v in $(echo "$variants" | tr ',' ' '); do
 		bin=$FAST; e="QTSIM_THREADS=1"
 		case $v in
+			tsan*|asan*) ;;
 			t*)    e="QTSIM_THREADS=${v#t}" ;;
-			p*)    e="QTSIM_THREADS=${v#p} QTSIM_PAR_MIN=0" ;;
+			ps)    e="QTSIM_PLAIN_STATS=1" ;;
+			p*)    e="QTSIM_THREADS=${v#p} QTSIM_POOL=${v#p} QTSIM_PAR_MIN=0" ;;
 			r*)    e="QTSIM_THREADS=4 QTSIM_PAR_MIN=0" ;;
 			s*)    e="QTSIM_THREADS=${v#s} QTSIM_PAR_MIN=0 QTSIM_ASYNC_OUTPUT=0" ;;
+			o*)    e="QTSIM_THREADS=${v#o} QTSIM_POOL=${v#o} QTSIM_PAR_MIN=0 QTSIM_PIPELINE=0" ;;
+			x*)    e="QTSIM_THREADS=${v#x} QTSIM_POOL=${v#x} QTSIM_PAR_MIN=0 $XMODE" ;;
+			y*)    e="QTSIM_THREADS=${v#y} QTSIM_POOL=${v#y} QTSIM_PAR_MIN=0 $YMODE" ;;
+			z*)    e="QTSIM_THREADS=${v#z} QTSIM_POOL=${v#z} QTSIM_PAR_MIN=0 $ZMODE" ;;
 			b*)    e="QTSIM_BLOCK=${v#b}" ;;
 			g*)    e="QTSIM_GC=${v#g}" ;;
 			l1)    e="QTSIM_LANES=1" ;;
-			ps)    e="QTSIM_PLAIN_STATS=1" ;;
 			auto)  e="QTSIM_THREADS=auto" ;;
 			plain) bin=$FAST-plain ;;
-			asan)  bin=$FAST-asan; e="QTSIM_THREADS=3 QTSIM_PAR_MIN=0" ;;
-			tsan)  bin=$FAST-tsan; e="QTSIM_THREADS=4 QTSIM_PAR_MIN=0" ;;
 			osan)  bin=$FASTDIR/build/QTSim-asan ;;
 			*)     echo "FAIL $f $v unknown-variant" >> "$WORK/results"; continue ;;
+		esac
+		case $v in
+			asan)  bin=$FAST-asan; e="QTSIM_THREADS=3 QTSIM_PAR_MIN=0" ;;
+			asano) bin=$FAST-asan; e="QTSIM_THREADS=3 QTSIM_PAR_MIN=0 QTSIM_PIPELINE=0" ;;
+			asany) bin=$FAST-asan; e="QTSIM_THREADS=3 QTSIM_PAR_MIN=0 $YMODE" ;;
+			tsan)  bin=$FAST-tsan; e="QTSIM_THREADS=4 QTSIM_PAR_MIN=0" ;;
+			tsano) bin=$FAST-tsan; e="QTSIM_THREADS=4 QTSIM_PAR_MIN=0 QTSIM_PIPELINE=0" ;;
+			tsanx) bin=$FAST-tsan; e="QTSIM_THREADS=3 QTSIM_PAR_MIN=0 $XMODE" ;;
+			tsany) bin=$FAST-tsan; e="QTSIM_THREADS=4 QTSIM_PAR_MIN=0 $YMODE" ;;
+			tsanz) bin=$FAST-tsan; e="QTSIM_THREADS=3 QTSIM_PAR_MIN=0 $ZMODE" ;;
+			tsan*|asan*) echo "FAIL $f $v unknown-variant" >> "$WORK/results"; continue ;;
 		esac
 		out=$f.$v.out
 		env $e "$bin" "$f" > "$out" 2> "$out.err"
@@ -113,9 +138,9 @@ add() {
 }
 
 if [ "$MODE" = full ]; then
-	SV="t1,b1,b5,b64,l1,g1,g50,ps,plain,asan,osan"; TV="p2,p3,p4,p8,s2,r1,r2,auto,tsan"
+	SV="t1,b1,b5,b64,l1,g1,g50,ps,plain,asan,asano,asany,osan"; TV="p2,p3,p4,p8,o2,o3,o4,o8,x2,x3,x8,y2,y3,y4,y8,z3,s2,r1,r2,auto,tsan,tsano,tsanx,tsany,tsanz"
 else
-	SV="t1,b5,g1,ps"; TV="p3"
+	SV="t1,b5,g1,ps"; TV="p3,o3,x2,y4,z2"
 fi
 
 # ------------------------------------------------- (c) the synthetic option matrix
@@ -229,15 +254,15 @@ one_locus() {
 	add "$f" "$5" "$6"
 }
 if [ "$MODE" = full ]; then
-	one_locus a 1000 0.170000 101 "t1,b1,plain" "p2,p4,p8"
-	one_locus b 1000 0.100000 102 "t1" "p3"
-	one_locus c 1000 0.250000 103 "t1" "t2"
-	one_locus d 1000 0.170000 25106888622.8 "t1" "t4"
+	one_locus a 1000 0.170000 101 "t1,b1,plain" "p2,p4,p8,o2,o4,o8,x3,y3"
+	one_locus b 1000 0.100000 102 "t1" "p3,o3,y8"
+	one_locus c 1000 0.250000 103 "t1" "t2,o2,x2"
+	one_locus d 1000 0.170000 25106888622.8 "t1" "t4,o4,z2"
 	# QTSim's demonstration input, if the paper's code is at hand
 	ex=$SIMS/../Code/QTSim/Demo/Example1.txt
-	if [ -f "$ex" ]; then cp "$ex" "$WORK/syn/Example1.txt"; add "$WORK/syn/Example1.txt" "t1" "t2,t8"; fi
+	if [ -f "$ex" ]; then cp "$ex" "$WORK/syn/Example1.txt"; add "$WORK/syn/Example1.txt" "t1" "t2,t8,o2,o8"; fi
 else
-	one_locus a 300 0.170000 101 "t1" "p3"
+	one_locus a 300 0.170000 101 "t1" "p3,o3"
 fi
 
 # ------------------------------------------------- (a) the published inputs
@@ -265,20 +290,20 @@ if [ "$MODE" = full ] && [ -d "$SIMS/QT0100-Possion3.0" ]; then
 		case $st in
 		QT5000*)
 			# two full-length runs per stratum, the rest with the move brought forward
-			pub $st "$a" own 12000 own "t1" "t4"
-			pub $st "$c" own 12000 own "t1" "t3"
+			pub $st "$a" own 12000 own "t1" "t4,o4"
+			pub $st "$c" own 12000 own "t1" "t3,o3,y4"
 			for s in 1001 1002; do
-				pub $st "$a" $s 1600 1000 "t1,b16" "t2"
-				pub $st "$b" $s 1600 1000 "t1" "t8"
-				pub $st "$c" $s 1600 1000 "t1,l1" "t4"
+				pub $st "$a" $s 1600 1000 "t1,b16" "t2,o2,y2"
+				pub $st "$b" $s 1600 1000 "t1" "t8,o8,y8"
+				pub $st "$c" $s 1600 1000 "t1,l1" "t4,o4,z4"
 			done
-			pub $st "$b" own 1600 1000 "t1" "t3"
+			pub $st "$b" own 1600 1000 "t1" "t3,o3,x3"
 			;;
 		*)
 			for s in own 1001 1002; do
-				pub $st "$a" $s 12000 own "t1" "p2,t4"
-				pub $st "$b" $s 12000 own "t1" "p3"
-				pub $st "$c" $s 12000 own "t1" "p8"
+				pub $st "$a" $s 12000 own "t1" "p2,o2,t4,o4,x4"
+				pub $st "$b" $s 12000 own "t1" "p3,o3,t2,y3"
+				pub $st "$c" $s 12000 own "t1" "p8,o8,t3,z3"
 			done
 			;;
 		esac
@@ -286,14 +311,14 @@ if [ "$MODE" = full ] && [ -d "$SIMS/QT0100-Possion3.0" ]; then
 elif [ "$MODE" = full ]; then
 	echo "note: no published inputs at $SIMS; using synthetic inputs of the same design"
 	for L in 100 500 1000; do for R in 3 5; do for k in 0.2 0.002; do
-		f=$WORK/pub/synpub-L$L-R$R-k$k.txt; synthetic_pub $L $k 1001 $R 12000 10000 "$f"; add "$f" "t1" "t2,t4"
+		f=$WORK/pub/synpub-L$L-R$R-k$k.txt; synthetic_pub $L $k 1001 $R 12000 10000 "$f"; add "$f" "t1" "t2,t3,t4,t8,o2,o4,x4,y3,z3"
 	done; done; done
 	for R in 3 5; do for k in 0.2 0.002; do
-		f=$WORK/pub/synpub-L5000-R$R-k$k.txt; synthetic_pub 5000 $k 1001 $R 1600 1000 "$f"; add "$f" "t1" "t3"
+		f=$WORK/pub/synpub-L5000-R$R-k$k.txt; synthetic_pub 5000 $k 1001 $R 1600 1000 "$f"; add "$f" "t1" "t2,t3,t8,o3,y4"
 	done; done
 else
 	for L in 100 500; do
-		f=$WORK/pub/synpub-L$L.txt; synthetic_pub $L 0.05 1001 3 700 500 "$f"; add "$f" "t1" "t2"
+		f=$WORK/pub/synpub-L$L.txt; synthetic_pub $L 0.05 1001 3 700 500 "$f"; add "$f" "t1" "t2,t4,o2"
 	done
 fi
 

@@ -266,10 +266,191 @@ See section 5.
 
 ### 3.8 Smaller things
 
-No allocation inside the generation loop; survival and strand choice without a branch
-(`S->NoSurv += (u < Fit[Index])`); `sqrt` of the variances and `exp(-mean)` taken once
-(same function, same argument, same result). Tried and dropped: forming the first eight
-products of the Poisson loop ahead of the draws (slower).
+No allocation inside the generation loop (with the pipeline the list of a generation's
+mutations grows when a generation has more than any before); survival and strand choice
+without a branch (`S->NoSurv += (u < Fit[Index])`); `sqrt` of the variances and
+`exp(-mean)` taken once (same function, same argument, same result).
+
+Sections 3.9 to 3.13 were added on 19 November 2026, after the benchmark of section 1.
+
+### 3.9 The three means of the output line in one loop
+
+*Before.* A line of output needs the means of the phenotypes, of the genotypes and of
+the survivors' phenotypes (inside `gsl_stats_variance` and `gsl_stats_sd`, which compute
+the mean first). Each is GSL's running mean,
+
+```c
+long double mean = 0;
+for (i = 0; i < size; i++)
+    mean += (data[i * stride] - mean) / (i + 1);
+```
+
+a chain of `size` divisions in which each waits for the one before: with 1000 individuals
+about three times 1000 division latencies per line, a fifth of the fast program's time at
+100 loci (section 3.13).
+
+*Now.* `ThreeMeans` advances the three chains side by side in one loop, each written as
+above (a `long double` accumulator, a `size_t` index), so that the processor overlaps
+their divisions; the variances and the SD are then GSL's own `gsl_stats_variance_m` and
+`gsl_stats_sd_m` about those means.
+
+*Why the output cannot change.* A step of the recurrence is one subtraction, one
+conversion of the index, one division and one addition: there is no product next to an
+addition, so there is nothing a compiler could contract into a fused operation, in this
+copy or in the library's, and each of the operations has one IEEE result (R2). The three
+chains do not share a variable. `gsl_stats_variance(x)` is, in GSL,
+`gsl_stats_variance_m(x, gsl_stats_mean(x))`, which was already relied on (3.6). Both
+steps are tested against the library in use at start-up, on vectors of 1 to 1000 numbers
+(section 6); if either differed the plain GSL calls would be made, as
+`QTSIM_PLAIN_STATS=1` forces (a variant of the parity matrix). The variance itself and
+the regression are still left to GSL: their code has products and sums that a compiler
+may fuse.
+
+### 3.10 Collecting blocks: less often, without branches
+
+- **Interval.** Unused blocks were collected in every generation. They are now collected
+  every fourth generation below 2500 loci (`QTSIM_GC` overrides). Measured on one thread
+  (minimum of three runs, load 2.5 to 3.9, so indicative): every 1 / 2 / 4 / 8 generations
+  1.90 / 1.85 / 1.84 / 1.84 s at 100 loci, 2.94 / 2.89 / 2.87 / 2.88 s at 500, 4.07 /
+  3.92 / 3.96 / 3.86 s at 1000, and 12.46 / 12.40 / 12.40 s (1 / 2 / 4) at 5000. At 5000
+  loci there is nothing to gain, and an interval of 8 was 1.5 times slower in the
+  ablation of section 3 (blocks left uncollected spread the alleles in use over more
+  memory), so the interval stays 1 from 2500 loci.
+- **The free list** is built without a branch: the highest block in use is found first;
+  then every block number below it is written to the list and the list's length advances
+  only past the unmarked ones. The list is the same list in the same order as before.
+- **The block in which a crossover falls** is copied by one loop with a select per allele
+  (`ND[I] = (I <= Off) ? CD[I] : OD[I]`) instead of two loops whose lengths depend on the
+  crossover.
+
+*Why the output cannot change.* Which blocks are free, and when, decides only where an
+allele is stored (rule 3; proved for the model for every schedule of collections:
+`run_refines`, `collect_inv`). The mixed block has the same alleles: a select copies one
+of two doubles and computes nothing.
+
+### 3.11 The pipeline: draws on one thread, genomes on another
+
+*Before.* With few loci most of a run is the serial stream of random numbers, so threads
+helped only through the asynchronous output line (section 1's old table: 2.9x at 100
+loci with any number of threads).
+
+*Now* (with `QTSIM_THREADS` of 2 or more; `QTSIM_PIPELINE=0` turns it off; one thread is
+the serial program unchanged). After `SetSurviving`, every remaining draw of a generation
+depends on the survivors and the options and never on a genome: the parents
+(`gsl_rng_uniform_int(rng, NoSPop)`), the crossover number and points
+(`RecombPoissonMean`, `NoQTL-1`), the strand, the environmental deviation (`EnvVar`), and
+then, in `MutatePop`, the number of mutations of each chromosome (`NoQTL ×
+MutationRatePerGamete`), each mutation's locus (`NoQTL`) and its effect (a variance
+computed from options). So:
+
+- **the main thread** makes all these draws in the original order and only records them:
+  per gamete the two source chromosomes, the number of leading blocks from the first, and
+  the crossover's place inside a block if it falls inside one (`GameteDraws`,
+  `NewPopDraws`); per mutation the chromosome, the locus and the effect (`MutateDraws`);
+- **the genome thread** follows it (`PipeFollowJob`, `PipeGeneration`): it copies the
+  block numbers of the gametes whose records are written and builds the blocks in which a
+  crossover fell (`FillBatch`), then, when the mutations are recorded, applies them in
+  the recorded order with the same copy-on-write rule as `MutatePop`
+  (`ApplyMutations`);
+- **the genotype sums** are started before the mutations are known, when an individual
+  expects at most 0.7 mutations per generation (`QTSIM_SPEC`): the genome thread and, for
+  populations large enough, the pool's threads claim batches of 64 built individuals and
+  sum them while the main thread is still drawing. When the mutations arrive, the
+  individuals a mutation changed are summed again from the start and those not yet
+  reached are summed for the first time; the main thread, which has finished its draws,
+  takes a share of that list if it is long enough. With more mutations (5000 loci in the
+  published design: 63% of individuals mutate in a generation) the sums are made after
+  the mutations, on the pool, as before; then the pipeline moves only the gametes and
+  the mutations off the main thread;
+- the genotypes of the next population go to an array of their own, exchanged with the
+  current one at the end of the generation, because the output line still needs the
+  current ones.
+
+*Why the output cannot change.*
+
+- R1: the main thread makes the same calls in the same order with the same arguments as
+  the serial program; recording a draw instead of using it at once does not change the
+  generator. This needs that no draw depends on a genome, which is the hypothesis
+  `DrawsIgnoreData` of the two-pass theorem (3.5, section 7.3), now also for the draws of
+  `MutatePop`: its arguments are options, and its loop bounds are the population size and
+  the Poisson counts just drawn.
+- Genomes: every gamete is built from its own record exactly as `FillGametes` and
+  `MixBlocks` build it (the same block numbers; the mixed blocks allocated in the same
+  gamete order), and every mutation is the same `+=` of the same double to the same
+  allele, applied in the original order, so two mutations of one allele add in the same
+  order. All allocation of blocks is done by one thread at a time.
+- R2: a genotype is the in-order sum over the loci of the genome it is read from. A sum
+  made before a mutation changed the individual is discarded and made again in full from
+  the final genome; no partial sum is reused. Which thread sums an individual, and in
+  which batch, does not enter its sum (3.2).
+- Block collection: the genome thread asks whether to collect at the same point of the
+  generation as the serial program (when the new population is the only one alive) and
+  marks exactly the blocks that population holds, by one pass over its table; so the
+  free list, and with it every block number, is the serial program's (rule 3 does not
+  require that; `QTSIM_STATS=1` shows the same counts of blocks at the end of a run in
+  every mode).
+
+*Synchronisation.* The two threads share two numbers. `Prog`, set by the main thread, is
+`generation × (N + 2) + k`: the records of individuals `0 … k−1` are written, and `k = N
++ 1` says that the mutations are recorded. `Done`, set by the genome thread, says that
+the generation is finished (and, one step before, that the main thread may sum its
+share). Within the genome thread's job two more numbers hand out work: how many
+individuals are built, and how many are claimed for summing (an atomic add, so no two
+threads get the same batch). A thread reads only what another wrote before the number it
+has read; the main thread writes no genome and reads none between its first `Prog` of a
+generation and `Done`. The numbers are sequentially consistent atomics (`FastThreads.c`);
+a waiting thread polls a bounded number of times and then sleeps on a condition variable
+until the number is set, so no signal is lost when the machine is busy. There is no lock
+per batch. The polling budgets are set in microseconds (the cost of a poll is measured at
+start; that measurement, like everything about waiting, cannot reach the output). ThreadSanitizer finds no race (section 7.2).
+
+*What limits it.* The floor is the main thread's own work: the draws, the fitness of each
+individual (one `exp` in `gsl_ran_gaussian_pdf`) and handing the line of output to its
+thread. At 100 loci the genome thread keeps up and a run takes what the main thread
+takes. With more loci the sums take longer than the draws and more threads shorten what
+is left.
+
+### 3.12 Threads: performance cores
+
+`QTSIM_THREADS=auto` now gives 2 (the pipeline) for small populations and up to 4 for
+large ones, never more than the performance cores where the system tells them apart
+(macOS: `hw.perflevel0.physicalcpu`; elsewhere half the processors, as before), and the
+pool that sums genotypes is not made larger than the performance cores either
+(`QTSIM_POOL` overrides): in the benchmark of 19 November, 8 threads on a machine with 6
+performance cores were slower than 4.
+
+### 3.13 Where the fast program spends its time, and what did not help
+
+Shares of samples (`sample`, 1 ms) of the fast program on one thread before the changes
+of 3.9 to 3.11, on inputs of the published design (1000 individuals; one run each, a
+guide and not a benchmark):
+
+| Share of samples | 100 loci | 1000 loci | 5000 loci |
+|---|---|---|---|
+| The main loop: draws (inlined), gametes, mutations, fitness, collection; `gsl_ran_gaussian`, `log`, `exp` | 65% | 40% | 21% |
+| Genotype sums (`SumGenotypes`) | 12% | 49% | 75% |
+| Statistics of the output line (`gsl_stats_mean` 6%, `gsl_fit_linear` 5%, variances and SD 7%, at 100 loci) | 20% | 10% | 3% |
+| Writing the output | 2% | 1% | <1% |
+
+So with few loci the serial draws dominate (hence the pipeline and the means), and with
+many the sums, which bit parity fixes at one addition per allele in order.
+
+Measured on 19 November 2026 and not kept, because each gave no gain or a loss (the
+output was identical in every case):
+
+- wider and narrower lanes in the genotype sums (more or fewer than eight individuals
+  side by side), and other sum kernels;
+- `-O3`, link-time optimisation and profile-guided optimisation in place of `-O2`;
+- forming the first products of the Poisson loop ahead of the draws, to avoid its
+  unpredictable exit (2.36 s against 2.18 s at 100 loci: the multiplications wait on each
+  other longer than the branch costs);
+- with the pipeline: summing genotypes behind the draws at 5000 loci (6.25 s against
+  5.62 s on four threads, 7.89 s against 7.80 s on two, indicative: most of those sums are
+  thrown away), hence the switch on the expected number of mutations;
+- with the pipeline: larger batches for the sums behind the draws (128 individuals
+  instead of 64 was slower with four threads at 500 and 1000 loci in two runs each, on a
+  busy machine, and no different with two threads; smaller batches were not clearly
+  better).
 
 ## 4. What bit parity rules out, and what it costs
 
@@ -285,12 +466,14 @@ products of the Poisson loop ahead of the draws (slower).
 - **Splitting the random stream.** All draws come from one MT19937 stream in a fixed
   order, and a Gaussian or a Poisson consumes a data-dependent number of uniforms, so the
   position in the stream of the n-th draw is not known in advance: the draws cannot be
-  divided among threads. With few loci this serial part is most of the run, which is why
-  threads do not help at 100 and 500 loci.
-- **Re-implementing GSL's statistics.** GSL's running mean and variance divide at every
-  element, each step waiting on the last; several statistics could be interleaved in one
-  loop, but that would mean reproducing GSL's arithmetic (which uses `long double` and,
-  in some builds, fused operations) instead of calling it.
+  divided among threads. With few loci this serial part is most of the run. The pipeline
+  (3.11) lets everything else go on beside it; the draws remain the floor of a run's
+  wall time.
+- **Re-implementing GSL's variance and regression.** GSL's running variance divides at
+  every element, each step waiting on the last, and its code has a product next to a sum,
+  which some builds of the library fuse; so it is called, not copied. The running mean
+  has no product, and only it is written out (3.9), with a check against the library at
+  start.
 - **Vector `exp`, fused multiply-add, reassociation.** None is used: the build has
   `-ffp-contract=off` and no option that relaxes IEEE arithmetic, and the fitness is the
   original's expression calling `gsl_ran_gaussian_pdf`.
@@ -302,20 +485,28 @@ the in-order sums could not have been proved for them.
 
 ## 5. Threads and determinism
 
-`QTSIM_THREADS` (default 1) sets the size of a small pool of POSIX threads
-(`FastThreads.c`). Two pieces of work are divided among them:
+With one thread (the default) the program is serial. With `QTSIM_THREADS` of 2 or more
+there are three kinds of thread: the main thread, which makes every random draw; the
+genome thread of the pipeline (3.11); and a pool that sums genotypes; and one more thread
+writes the output line. This section describes the pool and the output thread, which
+are as they were; the pipeline's own argument is in 3.11.
+
+`QTSIM_THREADS` sets the size of a small pool of POSIX threads (`FastThreads.c`), at most
+the performance cores (3.12). Two pieces of work are divided among them:
 
 - the genotype sums (`SumGenotypesJob`): each thread sums a contiguous range of
   individuals, a multiple of eight, and writes only those individuals' entries of `Geno[]`
   and its own array of marks;
-- the copying of block numbers (`FillGametesJob`): each thread fills a contiguous range of
-  block positions of the next population's table, reading the current population's table
-  and the gamete records, which no thread writes.
+- the copying of block numbers (`FillGametesJob`; only without the pipeline, whose
+  genome thread copies them): each thread fills a contiguous range of block positions of
+  the next population's table, reading the current population's table and the gamete
+  records, which no thread writes.
 
 Nothing is reduced across threads: there is no sum, minimum or count whose value could
-depend on how the work was divided. The marks are combined afterwards by the main thread
-with a bitwise OR, which does not depend on order. All random draws, the survivors, the
-mutations and the allocation of blocks are made by the main thread alone. So each value
+depend on how the work was divided. The marks are combined afterwards by one thread
+with a bitwise OR, which does not depend on order. All random draws and the survivors
+are made by the main thread alone; the mutations and the allocation of blocks by one
+thread at a time (the main thread, or with the pipeline the genome thread). So each value
 is computed by the same operations whichever thread computes it, and the output is the
 same for every thread count.
 
@@ -332,7 +523,7 @@ ThreadSanitizer, with no difference and no report (section 7).
 
 ## 6. The start-up self-checks
 
-Two assumptions about the GSL library in use are tested each time the program starts.
+Three assumptions about the GSL library in use are tested each time the program starts.
 
 1. **The inlined generator** (`FastRngSelfCheck`): the inlined MT19937, seeded with the
    run's seed, is compared with `gsl_rng_mt19937` seeded with the same seed over
@@ -345,8 +536,13 @@ Two assumptions about the GSL library in use are tested each time the program st
    compared bit for bit with `gsl_stats_variance(x)` and `gsl_stats_sd(x)`. If any
    differs, the program calls the plain functions throughout, as the original does (it is
    then slightly slower and still exact).
+3. **The means in one loop** (`StatsMSame`, `ThreeMeans`; 3.9): on the same vectors, and
+   on a second vector of mixed magnitudes with a part of it as the third, the three means
+   computed side by side are compared bit for bit with `gsl_stats_mean`. If any differs,
+   `gsl_stats_mean` and the plain functions are called (`QTSIM_PLAIN_STATS=1` forces
+   this path, and the parity matrix runs it).
 
-Neither check has failed on the machine used.
+None of the checks has failed on the machine used.
 
 ## 7. Verification
 
@@ -521,12 +717,20 @@ QTSIM_THREADS=4 fast/build/QTSimFast options.txt > out.tsv
 ```
 
 Environment variables of QTSimFast (none changes the output; invalid values are ignored
-with a note on standard error): `QTSIM_THREADS` (a number or `auto`, default 1),
+with a note on standard error): `QTSIM_THREADS` (a number or `auto`, default 1; 2 or more
+turn on the pipeline),
 `QTSIM_BLOCK` (loci per block; default 16 below 400 loci, 32 below 2500, else 64),
-`QTSIM_GC` (generations between collections, default 1), `QTSIM_LANES` (1: one individual
-at a time), `QTSIM_PAR_MIN` (smallest `PopSize × Ploidy × NoQTL` summed on several
-threads, default 2,000,000), `QTSIM_ASYNC_OUTPUT` (0: output on the main thread),
-`QTSIM_STATS` (1: block statistics on standard error at the end).
+`QTSIM_GC` (generations between collections, default 4 below 2500 loci, else 1),
+`QTSIM_LANES` (1: one individual at a time), `QTSIM_PAR_MIN` (smallest `PopSize × Ploidy ×
+NoQTL` summed on several threads, default 2,000,000; a quarter of it for sums behind the
+draws), `QTSIM_ASYNC_OUTPUT` (0: output on the main thread), `QTSIM_PLAIN_STATS` (1: GSL's
+plain statistics calls), `QTSIM_STATS` (1: block statistics on standard error at the
+end); for the pipeline `QTSIM_PIPELINE` (0: off), `QTSIM_SPEC` (1 or 0: genotypes summed
+behind the draws or after the mutations; default by the expected number of mutations per
+individual, at most 0.7), `QTSIM_POOL` (threads that sum genotypes), `QTSIM_BATCH`
+(individuals claimed at a time, default 64), `QTSIM_HELP_MIN` (fewest alleles left for the
+main thread to take a share, default 40,000), `QTSIM_SPIN_MAIN`, `QTSIM_SPIN_GENOME`,
+`QTSIM_SPIN_POOL` (microseconds a waiting thread polls before it sleeps: 300, 100, 200).
 
 **Licence.** GNU General Public License, version 3 or (at your option) any later version
 (`COPYING`). QTSim is copyright 2023 Andrew Meade. QTSimFast is a modified version (GPL
