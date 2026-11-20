@@ -49,8 +49,22 @@ On top of level 1:
 Each sampler was checked on 10⁷ draws against the exact distribution (moments, tails,
 Kolmogorov–Smirnov, χ²; integers on five more seeds with 5·10⁷ draws each): no departure.
 
-The same `Seed` gives the same run, every time, on the same machine; it does not give
-QTSim's run.
+- **Independent streams.** Every individual's draws in a generation come from a stream of
+  its own: its survival from a key (Seed, generation, 1, individual), and all the draws of
+  offspring *i* (its parents, its two gametes, its environmental deviation, then the
+  mutations of its chromosomes, in QTSim's order for one offspring) from a xoshiro256++
+  stream seeded from (Seed, generation, 2, *i*). So the draws are made on the threads of
+  `QTSIM_THREADS`, each thread a range of offspring, and recorded; the genomes are then
+  built from the records in the offspring's order (mixed blocks numbered in order, filled
+  on the threads). The fitness loop runs on the threads too.
+- **One-pass statistics.** The output line's means, variances, standard deviation and the
+  regression of fitness on (reflected) phenotype are computed in one loop over the
+  population and one over the survivors, from sums about the first value, instead of
+  GSL's separate passes.
+
+The same `Seed` gives the same run, every time, **for any number of threads**: the output
+is byte-identical with 1, 2, 4 or 8 threads (checked on every example, and in the
+validation below). It does not give QTSim's run.
 
 ## Validation
 
@@ -68,11 +82,19 @@ outputs. Results (2026-11-20, `validate/qtsimfast_fast.log`, plots in
   QTSim identical (457 option files incl. 72 published inputs, 48 of them to extinction;
   1–8 threads; sanitizer builds clean). No case was found in which level 1's output
   differs from QTSim's; it is possible in principle.
-- **Level 2: PASS.** No Holm rejection among 30 tests (smallest p 0.048; KS distances
-  0.017–0.074, means within about 2% wherever the mean is not near zero). One statistic
-  (time of death in the single-locus protocol) was not testable: no run died. The test
-  detects distribution differences of D ≥ 0.06–0.08 with 1000 runs per sample (0.12 at
-  5000 loci, 500 runs); smaller differences are not excluded.
+- **Level 2 (run 1, the first implementation, one stream): PASS.** No Holm rejection
+  among 30 tests (smallest p 0.048).
+- **Level 2 as it is now (run 2, addendum 1: independent streams, parallel draws, one-pass
+  statistics; fresh seeds; 4 threads; `validate/qtsimfast_fast_run2.log`): PASS.** No Holm
+  rejection among 30 tests; smallest p 0.026 (V_G before the move in the extinction
+  scenario, +1.1% in the mean, Anderson–Darling p 0.010; p 0.65 for the same statistic in
+  run 1); KS distances 0.017–0.084; means within about 2% wherever the mean is not near
+  zero. **Thread invariance: PASS**, 700 of 700 runs byte-identical with 1 and with 4
+  threads. Level 1 again 6500 of 6500 identical.
+- In both runs one statistic (time of death in the single-locus protocol) was not
+  testable: no run died. The tests detect distribution differences of D ≥ 0.06–0.08 with
+  1000 runs per sample (0.12 at 5000 loci, 500 runs); smaller differences are not
+  excluded.
 
 ## Speed
 
@@ -83,6 +105,7 @@ See `bench_results.md` (the `QTSIM_FAST` columns), measured on a quiet machine.
 - To reproduce a QTSim run, or anything published from QTSim: the exact mode.
 - For new simulations of QTSim's model, many runs, many loci: level 1 gives most of the
   gain at no measurable cost in fidelity.
-- Level 2 adds little speed on top of level 1 (the random numbers are a small part of a
-  run once the genotypes are cheap) and gives up run-for-run agreement; use it only where
-  that does not matter.
+- Level 2 gives up run-for-run agreement with QTSim for more speed, mostly from threads:
+  it is the only mode in which the draws themselves run in parallel, and its output does
+  not depend on the number of threads. Use it for large sweeps of new simulations where
+  agreement in distribution is enough.
