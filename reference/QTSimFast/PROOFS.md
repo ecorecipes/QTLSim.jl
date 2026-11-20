@@ -12,7 +12,7 @@ GSL: no verified semantics of C was used. The alignment between the model and th
 is supported by (i) inspection: every definition names the C function it models, and the
 correspondence is tabulated below; (ii) an executable cross-check on a small instance, in
 which the two programs' own routines and the Lean model produce the same bit patterns
-(section 5); (iii) the parity matrix of the two programs (6,406 comparisons, all
+(section 5); (iii) the parity matrix of the two programs (13,915 comparisons, all
 identical). It is not proved. Even with the alignment checks of section 4, this remains
 so.
 

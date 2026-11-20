@@ -2,81 +2,81 @@ Transcript of ./demo_parity.sh, run in the assembled package (not edited). The t
 wall-clock seconds on a machine shared with other work: an indication, not a benchmark.
 
 QTSimFast parity demonstration
-date:      2026-11-19 15:05 PST
+date:      2026-11-20 06:13 PST
 machine:   Darwin arm64
 compiler:  Apple clang version 21.0.0 (clang-2100.4.1.1)
 GSL:       2.8
 original:  original/build/QTSim
 fast:      fast/build/QTSimFast
 sources:   original QTSim.c sha256 0416dd0a860532d339a097274ae7129c07c5dfc6239a62accd846d6f958154aa
-           fast     QTSim.c sha256 5e6837aedcf4efd6849c87f3bbdd23829fc458858f38bf90c2ae4e91a7d6e90f
+           fast     QTSim.c sha256 1a7f29a45e36b8d1f2c3279e83b8943d587c428e5cad519178b9c9489a91468e
 
 == design_0100_loci: 100 loci, slow move: the population survives.
-   seed 1001  original          sha256 4fd16138c8ff312d29e002862f53e49a84888bd14370e601666c0fa19e183327  496900 bytes  exit 0  2.950s  (last line: 5999)
-   seed 1001  fast, 1 thread(s)  sha256 4fd16138c8ff312d29e002862f53e49a84888bd14370e601666c0fa19e183327  496900 bytes  exit 0  1.428s  IDENTICAL
-   seed 1001  fast, 2 thread(s)  sha256 4fd16138c8ff312d29e002862f53e49a84888bd14370e601666c0fa19e183327  496900 bytes  exit 0  0.895s  IDENTICAL
-   seed 1001  fast, 4 thread(s)  sha256 4fd16138c8ff312d29e002862f53e49a84888bd14370e601666c0fa19e183327  496900 bytes  exit 0  0.893s  IDENTICAL
-   seed 1001  fast, 8 thread(s)  sha256 4fd16138c8ff312d29e002862f53e49a84888bd14370e601666c0fa19e183327  496900 bytes  exit 0  0.999s  IDENTICAL
-   seed 1002  original          sha256 c085ff3738893b67b5030544b10ecbc129f5c321decc9ea07c843602a26d25bb  498009 bytes  exit 0  2.554s  (last line: 5999)
-   seed 1002  fast, 1 thread(s)  sha256 c085ff3738893b67b5030544b10ecbc129f5c321decc9ea07c843602a26d25bb  498009 bytes  exit 0  1.100s  IDENTICAL
-   seed 1002  fast, 2 thread(s)  sha256 c085ff3738893b67b5030544b10ecbc129f5c321decc9ea07c843602a26d25bb  498009 bytes  exit 0  0.900s  IDENTICAL
-   seed 1002  fast, 4 thread(s)  sha256 c085ff3738893b67b5030544b10ecbc129f5c321decc9ea07c843602a26d25bb  498009 bytes  exit 0  0.899s  IDENTICAL
-   seed 1002  fast, 8 thread(s)  sha256 c085ff3738893b67b5030544b10ecbc129f5c321decc9ea07c843602a26d25bb  498009 bytes  exit 0  0.996s  IDENTICAL
+   seed 1001  original          sha256 4fd16138c8ff312d29e002862f53e49a84888bd14370e601666c0fa19e183327  496900 bytes  exit 0  2.623s  (last line: 5999)
+   seed 1001  fast, 1 thread(s)  sha256 4fd16138c8ff312d29e002862f53e49a84888bd14370e601666c0fa19e183327  496900 bytes  exit 0  1.018s  IDENTICAL
+   seed 1001  fast, 2 thread(s)  sha256 4fd16138c8ff312d29e002862f53e49a84888bd14370e601666c0fa19e183327  496900 bytes  exit 0  0.574s  IDENTICAL
+   seed 1001  fast, 4 thread(s)  sha256 4fd16138c8ff312d29e002862f53e49a84888bd14370e601666c0fa19e183327  496900 bytes  exit 0  0.583s  IDENTICAL
+   seed 1001  fast, 8 thread(s)  sha256 4fd16138c8ff312d29e002862f53e49a84888bd14370e601666c0fa19e183327  496900 bytes  exit 0  0.599s  IDENTICAL
+   seed 1002  original          sha256 c085ff3738893b67b5030544b10ecbc129f5c321decc9ea07c843602a26d25bb  498009 bytes  exit 0  2.753s  (last line: 5999)
+   seed 1002  fast, 1 thread(s)  sha256 c085ff3738893b67b5030544b10ecbc129f5c321decc9ea07c843602a26d25bb  498009 bytes  exit 0  1.016s  IDENTICAL
+   seed 1002  fast, 2 thread(s)  sha256 c085ff3738893b67b5030544b10ecbc129f5c321decc9ea07c843602a26d25bb  498009 bytes  exit 0  0.572s  IDENTICAL
+   seed 1002  fast, 4 thread(s)  sha256 c085ff3738893b67b5030544b10ecbc129f5c321decc9ea07c843602a26d25bb  498009 bytes  exit 0  0.585s  IDENTICAL
+   seed 1002  fast, 8 thread(s)  sha256 c085ff3738893b67b5030544b10ecbc129f5c321decc9ea07c843602a26d25bb  498009 bytes  exit 0  0.595s  IDENTICAL
 == design_0500_loci_extinct: 500 loci, fast move: the population dies ('Pop all died.').
-   seed 1001  original          sha256 4cba3a97f29277884d42d8ab8876174bc78cf0583d02fd8c4152d0d0c2c5b704  172876 bytes  exit 0  2.835s  (last line: Pop all died.)
-   seed 1001  fast, 1 thread(s)  sha256 4cba3a97f29277884d42d8ab8876174bc78cf0583d02fd8c4152d0d0c2c5b704  172876 bytes  exit 0  0.614s  IDENTICAL
-   seed 1001  fast, 2 thread(s)  sha256 4cba3a97f29277884d42d8ab8876174bc78cf0583d02fd8c4152d0d0c2c5b704  172876 bytes  exit 0  0.473s  IDENTICAL
-   seed 1001  fast, 4 thread(s)  sha256 4cba3a97f29277884d42d8ab8876174bc78cf0583d02fd8c4152d0d0c2c5b704  172876 bytes  exit 0  0.454s  IDENTICAL
-   seed 1001  fast, 8 thread(s)  sha256 4cba3a97f29277884d42d8ab8876174bc78cf0583d02fd8c4152d0d0c2c5b704  172876 bytes  exit 0  0.503s  IDENTICAL
-   seed 1002  original          sha256 e6400ae8f4de1b9a27c072ed41cf1b01ca470b4dd3d2e2df7c95394a8aedba8f  173373 bytes  exit 0  2.837s  (last line: Pop all died.)
-   seed 1002  fast, 1 thread(s)  sha256 e6400ae8f4de1b9a27c072ed41cf1b01ca470b4dd3d2e2df7c95394a8aedba8f  173373 bytes  exit 0  0.616s  IDENTICAL
-   seed 1002  fast, 2 thread(s)  sha256 e6400ae8f4de1b9a27c072ed41cf1b01ca470b4dd3d2e2df7c95394a8aedba8f  173373 bytes  exit 0  0.476s  IDENTICAL
-   seed 1002  fast, 4 thread(s)  sha256 e6400ae8f4de1b9a27c072ed41cf1b01ca470b4dd3d2e2df7c95394a8aedba8f  173373 bytes  exit 0  0.456s  IDENTICAL
-   seed 1002  fast, 8 thread(s)  sha256 e6400ae8f4de1b9a27c072ed41cf1b01ca470b4dd3d2e2df7c95394a8aedba8f  173373 bytes  exit 0  0.505s  IDENTICAL
+   seed 1001  original          sha256 4cba3a97f29277884d42d8ab8876174bc78cf0583d02fd8c4152d0d0c2c5b704  172876 bytes  exit 0  2.860s  (last line: Pop all died.)
+   seed 1001  fast, 1 thread(s)  sha256 4cba3a97f29277884d42d8ab8876174bc78cf0583d02fd8c4152d0d0c2c5b704  172876 bytes  exit 0  0.590s  IDENTICAL
+   seed 1001  fast, 2 thread(s)  sha256 4cba3a97f29277884d42d8ab8876174bc78cf0583d02fd8c4152d0d0c2c5b704  172876 bytes  exit 0  0.349s  IDENTICAL
+   seed 1001  fast, 4 thread(s)  sha256 4cba3a97f29277884d42d8ab8876174bc78cf0583d02fd8c4152d0d0c2c5b704  172876 bytes  exit 0  0.285s  IDENTICAL
+   seed 1001  fast, 8 thread(s)  sha256 4cba3a97f29277884d42d8ab8876174bc78cf0583d02fd8c4152d0d0c2c5b704  172876 bytes  exit 0  0.282s  IDENTICAL
+   seed 1002  original          sha256 e6400ae8f4de1b9a27c072ed41cf1b01ca470b4dd3d2e2df7c95394a8aedba8f  173373 bytes  exit 0  2.846s  (last line: Pop all died.)
+   seed 1002  fast, 1 thread(s)  sha256 e6400ae8f4de1b9a27c072ed41cf1b01ca470b4dd3d2e2df7c95394a8aedba8f  173373 bytes  exit 0  0.596s  IDENTICAL
+   seed 1002  fast, 2 thread(s)  sha256 e6400ae8f4de1b9a27c072ed41cf1b01ca470b4dd3d2e2df7c95394a8aedba8f  173373 bytes  exit 0  0.344s  IDENTICAL
+   seed 1002  fast, 4 thread(s)  sha256 e6400ae8f4de1b9a27c072ed41cf1b01ca470b4dd3d2e2df7c95394a8aedba8f  173373 bytes  exit 0  0.283s  IDENTICAL
+   seed 1002  fast, 8 thread(s)  sha256 e6400ae8f4de1b9a27c072ed41cf1b01ca470b4dd3d2e2df7c95394a8aedba8f  173373 bytes  exit 0  0.283s  IDENTICAL
 == design_1000_loci: 1000 loci, slow move.
-   seed 1001  original          sha256 1b73083b120be43e608184d1f14e57c5fac481857b1341848fcf8cc7b3435d77  205732 bytes  exit 0  6.355s  (last line: 2499)
-   seed 1001  fast, 1 thread(s)  sha256 1b73083b120be43e608184d1f14e57c5fac481857b1341848fcf8cc7b3435d77  205732 bytes  exit 0  0.885s  IDENTICAL
-   seed 1001  fast, 2 thread(s)  sha256 1b73083b120be43e608184d1f14e57c5fac481857b1341848fcf8cc7b3435d77  205732 bytes  exit 0  0.645s  IDENTICAL
-   seed 1001  fast, 4 thread(s)  sha256 1b73083b120be43e608184d1f14e57c5fac481857b1341848fcf8cc7b3435d77  205732 bytes  exit 0  0.601s  IDENTICAL
-   seed 1001  fast, 8 thread(s)  sha256 1b73083b120be43e608184d1f14e57c5fac481857b1341848fcf8cc7b3435d77  205732 bytes  exit 0  0.688s  IDENTICAL
-   seed 1002  original          sha256 5d45fdb88e802c7b632c7036f2e4c8d3690f56c6acecca771694d5e74e596357  207036 bytes  exit 0  6.339s  (last line: 2499)
-   seed 1002  fast, 1 thread(s)  sha256 5d45fdb88e802c7b632c7036f2e4c8d3690f56c6acecca771694d5e74e596357  207036 bytes  exit 0  0.887s  IDENTICAL
-   seed 1002  fast, 2 thread(s)  sha256 5d45fdb88e802c7b632c7036f2e4c8d3690f56c6acecca771694d5e74e596357  207036 bytes  exit 0  0.666s  IDENTICAL
-   seed 1002  fast, 4 thread(s)  sha256 5d45fdb88e802c7b632c7036f2e4c8d3690f56c6acecca771694d5e74e596357  207036 bytes  exit 0  0.599s  IDENTICAL
-   seed 1002  fast, 8 thread(s)  sha256 5d45fdb88e802c7b632c7036f2e4c8d3690f56c6acecca771694d5e74e596357  207036 bytes  exit 0  0.708s  IDENTICAL
+   seed 1001  original          sha256 1b73083b120be43e608184d1f14e57c5fac481857b1341848fcf8cc7b3435d77  205732 bytes  exit 0  6.367s  (last line: 2499)
+   seed 1001  fast, 1 thread(s)  sha256 1b73083b120be43e608184d1f14e57c5fac481857b1341848fcf8cc7b3435d77  205732 bytes  exit 0  0.896s  IDENTICAL
+   seed 1001  fast, 2 thread(s)  sha256 1b73083b120be43e608184d1f14e57c5fac481857b1341848fcf8cc7b3435d77  205732 bytes  exit 0  0.554s  IDENTICAL
+   seed 1001  fast, 4 thread(s)  sha256 1b73083b120be43e608184d1f14e57c5fac481857b1341848fcf8cc7b3435d77  205732 bytes  exit 0  0.419s  IDENTICAL
+   seed 1001  fast, 8 thread(s)  sha256 1b73083b120be43e608184d1f14e57c5fac481857b1341848fcf8cc7b3435d77  205732 bytes  exit 0  0.370s  IDENTICAL
+   seed 1002  original          sha256 5d45fdb88e802c7b632c7036f2e4c8d3690f56c6acecca771694d5e74e596357  207036 bytes  exit 0  6.360s  (last line: 2499)
+   seed 1002  fast, 1 thread(s)  sha256 5d45fdb88e802c7b632c7036f2e4c8d3690f56c6acecca771694d5e74e596357  207036 bytes  exit 0  0.892s  IDENTICAL
+   seed 1002  fast, 2 thread(s)  sha256 5d45fdb88e802c7b632c7036f2e4c8d3690f56c6acecca771694d5e74e596357  207036 bytes  exit 0  0.546s  IDENTICAL
+   seed 1002  fast, 4 thread(s)  sha256 5d45fdb88e802c7b632c7036f2e4c8d3690f56c6acecca771694d5e74e596357  207036 bytes  exit 0  0.420s  IDENTICAL
+   seed 1002  fast, 8 thread(s)  sha256 5d45fdb88e802c7b632c7036f2e4c8d3690f56c6acecca771694d5e74e596357  207036 bytes  exit 0  0.343s  IDENTICAL
 == design_5000_loci: 5000 loci, slow move (the move brought forward to keep the run short).
-   seed 1001  original          sha256 75f499c8c92add69a13c72792a2da1beb46c705996ad29a25efe9860c7ea87d6  99622 bytes  exit 0  14.452s  (last line: 1199)
-   seed 1001  fast, 1 thread(s)  sha256 75f499c8c92add69a13c72792a2da1beb46c705996ad29a25efe9860c7ea87d6  99622 bytes  exit 0  1.304s  IDENTICAL
-   seed 1001  fast, 2 thread(s)  sha256 75f499c8c92add69a13c72792a2da1beb46c705996ad29a25efe9860c7ea87d6  99622 bytes  exit 0  0.839s  IDENTICAL
-   seed 1001  fast, 4 thread(s)  sha256 75f499c8c92add69a13c72792a2da1beb46c705996ad29a25efe9860c7ea87d6  99622 bytes  exit 0  0.627s  IDENTICAL
-   seed 1001  fast, 8 thread(s)  sha256 75f499c8c92add69a13c72792a2da1beb46c705996ad29a25efe9860c7ea87d6  99622 bytes  exit 0  0.696s  IDENTICAL
-   seed 1002  original          sha256 35fdcd056216aa3f109e59c7465d166a48eba7d25218b672cf04008680acf1ed  98774 bytes  exit 0  14.452s  (last line: 1199)
-   seed 1002  fast, 1 thread(s)  sha256 35fdcd056216aa3f109e59c7465d166a48eba7d25218b672cf04008680acf1ed  98774 bytes  exit 0  1.276s  IDENTICAL
-   seed 1002  fast, 2 thread(s)  sha256 35fdcd056216aa3f109e59c7465d166a48eba7d25218b672cf04008680acf1ed  98774 bytes  exit 0  0.844s  IDENTICAL
-   seed 1002  fast, 4 thread(s)  sha256 35fdcd056216aa3f109e59c7465d166a48eba7d25218b672cf04008680acf1ed  98774 bytes  exit 0  0.625s  IDENTICAL
-   seed 1002  fast, 8 thread(s)  sha256 35fdcd056216aa3f109e59c7465d166a48eba7d25218b672cf04008680acf1ed  98774 bytes  exit 0  0.681s  IDENTICAL
+   seed 1001  original          sha256 75f499c8c92add69a13c72792a2da1beb46c705996ad29a25efe9860c7ea87d6  99622 bytes  exit 0  15.135s  (last line: 1199)
+   seed 1001  fast, 1 thread(s)  sha256 75f499c8c92add69a13c72792a2da1beb46c705996ad29a25efe9860c7ea87d6  99622 bytes  exit 0  1.321s  IDENTICAL
+   seed 1001  fast, 2 thread(s)  sha256 75f499c8c92add69a13c72792a2da1beb46c705996ad29a25efe9860c7ea87d6  99622 bytes  exit 0  0.795s  IDENTICAL
+   seed 1001  fast, 4 thread(s)  sha256 75f499c8c92add69a13c72792a2da1beb46c705996ad29a25efe9860c7ea87d6  99622 bytes  exit 0  0.574s  IDENTICAL
+   seed 1001  fast, 8 thread(s)  sha256 75f499c8c92add69a13c72792a2da1beb46c705996ad29a25efe9860c7ea87d6  99622 bytes  exit 0  0.688s  IDENTICAL
+   seed 1002  original          sha256 35fdcd056216aa3f109e59c7465d166a48eba7d25218b672cf04008680acf1ed  98774 bytes  exit 0  14.737s  (last line: 1199)
+   seed 1002  fast, 1 thread(s)  sha256 35fdcd056216aa3f109e59c7465d166a48eba7d25218b672cf04008680acf1ed  98774 bytes  exit 0  1.316s  IDENTICAL
+   seed 1002  fast, 2 thread(s)  sha256 35fdcd056216aa3f109e59c7465d166a48eba7d25218b672cf04008680acf1ed  98774 bytes  exit 0  0.796s  IDENTICAL
+   seed 1002  fast, 4 thread(s)  sha256 35fdcd056216aa3f109e59c7465d166a48eba7d25218b672cf04008680acf1ed  98774 bytes  exit 0  0.574s  IDENTICAL
+   seed 1002  fast, 8 thread(s)  sha256 35fdcd056216aa3f109e59c7465d166a48eba7d25218b672cf04008680acf1ed  98774 bytes  exit 0  0.701s  IDENTICAL
 == haploid_0257_loci: A haploid population with many crossover points drawn and a high mutation rate.
-   seed 1001  original          sha256 4840f5b0f5badf1cee3ac8bb415eea8fc4208bbeca3a1a68b8aa4e0e55be4bb0  50159 bytes  exit 0  0.089s  (last line: 599)
-   seed 1001  fast, 1 thread(s)  sha256 4840f5b0f5badf1cee3ac8bb415eea8fc4208bbeca3a1a68b8aa4e0e55be4bb0  50159 bytes  exit 0  0.087s  IDENTICAL
-   seed 1001  fast, 2 thread(s)  sha256 4840f5b0f5badf1cee3ac8bb415eea8fc4208bbeca3a1a68b8aa4e0e55be4bb0  50159 bytes  exit 0  0.089s  IDENTICAL
-   seed 1001  fast, 4 thread(s)  sha256 4840f5b0f5badf1cee3ac8bb415eea8fc4208bbeca3a1a68b8aa4e0e55be4bb0  50159 bytes  exit 0  0.091s  IDENTICAL
-   seed 1001  fast, 8 thread(s)  sha256 4840f5b0f5badf1cee3ac8bb415eea8fc4208bbeca3a1a68b8aa4e0e55be4bb0  50159 bytes  exit 0  0.093s  IDENTICAL
-   seed 1002  original          sha256 06a6c36a1ff4d28af8e99eec307d84dd1f3d3e10fe012a0669fb2fb1aea3ed82  49833 bytes  exit 0  0.089s  (last line: 599)
-   seed 1002  fast, 1 thread(s)  sha256 06a6c36a1ff4d28af8e99eec307d84dd1f3d3e10fe012a0669fb2fb1aea3ed82  49833 bytes  exit 0  0.098s  IDENTICAL
-   seed 1002  fast, 2 thread(s)  sha256 06a6c36a1ff4d28af8e99eec307d84dd1f3d3e10fe012a0669fb2fb1aea3ed82  49833 bytes  exit 0  0.086s  IDENTICAL
-   seed 1002  fast, 4 thread(s)  sha256 06a6c36a1ff4d28af8e99eec307d84dd1f3d3e10fe012a0669fb2fb1aea3ed82  49833 bytes  exit 0  0.089s  IDENTICAL
-   seed 1002  fast, 8 thread(s)  sha256 06a6c36a1ff4d28af8e99eec307d84dd1f3d3e10fe012a0669fb2fb1aea3ed82  49833 bytes  exit 0  0.090s  IDENTICAL
+   seed 1001  original          sha256 4840f5b0f5badf1cee3ac8bb415eea8fc4208bbeca3a1a68b8aa4e0e55be4bb0  50159 bytes  exit 0  0.096s  (last line: 599)
+   seed 1001  fast, 1 thread(s)  sha256 4840f5b0f5badf1cee3ac8bb415eea8fc4208bbeca3a1a68b8aa4e0e55be4bb0  50159 bytes  exit 0  0.090s  IDENTICAL
+   seed 1001  fast, 2 thread(s)  sha256 4840f5b0f5badf1cee3ac8bb415eea8fc4208bbeca3a1a68b8aa4e0e55be4bb0  50159 bytes  exit 0  0.077s  IDENTICAL
+   seed 1001  fast, 4 thread(s)  sha256 4840f5b0f5badf1cee3ac8bb415eea8fc4208bbeca3a1a68b8aa4e0e55be4bb0  50159 bytes  exit 0  0.075s  IDENTICAL
+   seed 1001  fast, 8 thread(s)  sha256 4840f5b0f5badf1cee3ac8bb415eea8fc4208bbeca3a1a68b8aa4e0e55be4bb0  50159 bytes  exit 0  0.090s  IDENTICAL
+   seed 1002  original          sha256 06a6c36a1ff4d28af8e99eec307d84dd1f3d3e10fe012a0669fb2fb1aea3ed82  49833 bytes  exit 0  0.094s  (last line: 599)
+   seed 1002  fast, 1 thread(s)  sha256 06a6c36a1ff4d28af8e99eec307d84dd1f3d3e10fe012a0669fb2fb1aea3ed82  49833 bytes  exit 0  0.090s  IDENTICAL
+   seed 1002  fast, 2 thread(s)  sha256 06a6c36a1ff4d28af8e99eec307d84dd1f3d3e10fe012a0669fb2fb1aea3ed82  49833 bytes  exit 0  0.082s  IDENTICAL
+   seed 1002  fast, 4 thread(s)  sha256 06a6c36a1ff4d28af8e99eec307d84dd1f3d3e10fe012a0669fb2fb1aea3ed82  49833 bytes  exit 0  0.079s  IDENTICAL
+   seed 1002  fast, 8 thread(s)  sha256 06a6c36a1ff4d28af8e99eec307d84dd1f3d3e10fe012a0669fb2fb1aea3ed82  49833 bytes  exit 0  0.080s  IDENTICAL
 == single_locus: Single-locus protocol: 6500 generations, the optimum jumps at generation 5000.
-   seed 1001  original          sha256 4cf4e3b4e6f86f7b8221c0dd755a055b24897426bef1001102aeffe9fcf80d7b  541173 bytes  exit 0  1.251s  (last line: 6499)
-   seed 1001  fast, 1 thread(s)  sha256 4cf4e3b4e6f86f7b8221c0dd755a055b24897426bef1001102aeffe9fcf80d7b  541173 bytes  exit 0  0.588s  IDENTICAL
-   seed 1001  fast, 2 thread(s)  sha256 4cf4e3b4e6f86f7b8221c0dd755a055b24897426bef1001102aeffe9fcf80d7b  541173 bytes  exit 0  0.458s  IDENTICAL
-   seed 1001  fast, 4 thread(s)  sha256 4cf4e3b4e6f86f7b8221c0dd755a055b24897426bef1001102aeffe9fcf80d7b  541173 bytes  exit 0  0.464s  IDENTICAL
-   seed 1001  fast, 8 thread(s)  sha256 4cf4e3b4e6f86f7b8221c0dd755a055b24897426bef1001102aeffe9fcf80d7b  541173 bytes  exit 0  0.519s  IDENTICAL
-   seed 1002  original          sha256 792447b5a39c8286a4b7a6850c72c49a4f5998fdd7342268eb34e57821dfbc88  540762 bytes  exit 0  1.183s  (last line: 6499)
-   seed 1002  fast, 1 thread(s)  sha256 792447b5a39c8286a4b7a6850c72c49a4f5998fdd7342268eb34e57821dfbc88  540762 bytes  exit 0  0.595s  IDENTICAL
-   seed 1002  fast, 2 thread(s)  sha256 792447b5a39c8286a4b7a6850c72c49a4f5998fdd7342268eb34e57821dfbc88  540762 bytes  exit 0  0.465s  IDENTICAL
-   seed 1002  fast, 4 thread(s)  sha256 792447b5a39c8286a4b7a6850c72c49a4f5998fdd7342268eb34e57821dfbc88  540762 bytes  exit 0  0.465s  IDENTICAL
-   seed 1002  fast, 8 thread(s)  sha256 792447b5a39c8286a4b7a6850c72c49a4f5998fdd7342268eb34e57821dfbc88  540762 bytes  exit 0  0.521s  IDENTICAL
+   seed 1001  original          sha256 4cf4e3b4e6f86f7b8221c0dd755a055b24897426bef1001102aeffe9fcf80d7b  541173 bytes  exit 0  1.262s  (last line: 6499)
+   seed 1001  fast, 1 thread(s)  sha256 4cf4e3b4e6f86f7b8221c0dd755a055b24897426bef1001102aeffe9fcf80d7b  541173 bytes  exit 0  0.582s  IDENTICAL
+   seed 1001  fast, 2 thread(s)  sha256 4cf4e3b4e6f86f7b8221c0dd755a055b24897426bef1001102aeffe9fcf80d7b  541173 bytes  exit 0  0.399s  IDENTICAL
+   seed 1001  fast, 4 thread(s)  sha256 4cf4e3b4e6f86f7b8221c0dd755a055b24897426bef1001102aeffe9fcf80d7b  541173 bytes  exit 0  0.421s  IDENTICAL
+   seed 1001  fast, 8 thread(s)  sha256 4cf4e3b4e6f86f7b8221c0dd755a055b24897426bef1001102aeffe9fcf80d7b  541173 bytes  exit 0  0.426s  IDENTICAL
+   seed 1002  original          sha256 792447b5a39c8286a4b7a6850c72c49a4f5998fdd7342268eb34e57821dfbc88  540762 bytes  exit 0  1.243s  (last line: 6499)
+   seed 1002  fast, 1 thread(s)  sha256 792447b5a39c8286a4b7a6850c72c49a4f5998fdd7342268eb34e57821dfbc88  540762 bytes  exit 0  0.590s  IDENTICAL
+   seed 1002  fast, 2 thread(s)  sha256 792447b5a39c8286a4b7a6850c72c49a4f5998fdd7342268eb34e57821dfbc88  540762 bytes  exit 0  0.405s  IDENTICAL
+   seed 1002  fast, 4 thread(s)  sha256 792447b5a39c8286a4b7a6850c72c49a4f5998fdd7342268eb34e57821dfbc88  540762 bytes  exit 0  0.421s  IDENTICAL
+   seed 1002  fast, 8 thread(s)  sha256 792447b5a39c8286a4b7a6850c72c49a4f5998fdd7342268eb34e57821dfbc88  540762 bytes  exit 0  0.442s  IDENTICAL
 
 == negative control: the same input with another seed must differ
    original, seed 1001   sha256 138f48c6ceb01ed599f672b552164487e16fbd20e607f72be9bc962ebcb61d88  496706 bytes (lines from 'Generation')

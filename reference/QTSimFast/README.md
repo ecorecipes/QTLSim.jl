@@ -148,8 +148,50 @@ medians of three seeds on one published input per stratum, 12,000 generations): 
 thread QTSimFast is 2.4x (100 loci), 4.9x (500), 7.2x (1000) and 12x (5000) as fast as the
 original in wall time; with four threads 2.9x, 5.7x, 8 to 11x and 25x. The Julia kernel
 on one thread is 1.9x, 4.2x, 7x and 17x as fast as the original, so at 5000 loci it stays
-ahead of QTSimFast on one thread (it does not have to be bit-exact). `make bench` repeats
-the measurement; with `BENCH_ABLATION=1` it adds a table with one optimisation switched
+ahead of QTSimFast on one thread (it does not have to be bit-exact). That table was measured before the revision of 19 November (items 9 to 11) and has not
+been repeated since, because the machine was not quiet. **Indicative** timings of the
+revision, the program before it and after it run alternately on one synthetic input of
+the published design per number of loci (1000 diploid individuals, 12,000 generations;
+minimum of three runs; load averages 5.5 to 10 during the runs, so no more than a guide;
+every output identical to the original's):
+
+| Loci | Threads | Before: wall / CPU s | After: wall / CPU s | Wall, before / after |
+|---|---|---|---|---|
+| 100 | 1 | 2.39 / 2.37 | 2.05 / 2.04 | 1.17 |
+| 100 | 2 | 1.99 / 2.53 | 1.09 / 2.60 | 1.83 |
+| 100 | 4 | 1.99 / 2.52 | 1.09 / 2.63 | 1.83 |
+| 100 | 8 | 1.94 / 2.50 | 1.09 / 2.62 | 1.78 |
+| 500 | 1 | 3.48 / 3.45 | 3.24 / 3.22 | 1.07 |
+| 500 | 2 | 3.03 / 3.60 | 1.75 / 3.95 | 1.73 |
+| 500 | 4 | 3.07 / 3.61 | 1.36 / 6.00 | 2.26 |
+| 500 | 8 | 3.04 / 3.61 | 1.57 / 9.77 | 1.94 |
+| 1000 | 1 | 4.67 / 4.65 | 4.41 / 4.39 | 1.06 |
+| 1000 | 2 | 3.32 / 5.47 | 2.55 / 5.53 | 1.30 |
+| 1000 | 4 | 3.05 / 6.67 | 1.72 / 7.30 | 1.77 |
+| 1000 | 8 | 3.47 / 8.32 | 1.98 / 12.32 | 1.75 |
+| 5000 | 1 | 13.61 / 13.57 | 13.93 / 13.91 | 0.98 |
+| 5000 | 2 | 8.86 / 15.62 | 8.01 / 19.10 | 1.11 |
+| 5000 | 4 | 6.36 / 17.17 | 5.64 / 25.43 | 1.13 |
+| 5000 | 8 | 6.96 / 22.77 | 7.44 / 36.42 | 0.94 |
+
+With three threads the revised program took 1.09, 1.49, 2.01 and 6.50 s. With four
+threads and the pipeline switched off (`QTSIM_PIPELINE=0`) it took 1.70, 2.92, 2.89 and
+6.37 s, so the gain with several threads is the pipeline's. What the table also shows,
+and should not be overlooked:
+
+- **Processor time rises** with several threads (at 5000 loci and four threads 25 CPU
+  seconds against 17 before): the pipeline's threads poll while they wait. For a sweep
+  of many runs one thread per run remains the efficient setting, and the default.
+- **Eight threads are slower than four** at 500 loci and above (the machine has six
+  performance cores), and at 5000 loci slower than the earlier program with eight (7.44
+  against 6.96 s). Use at most four, which is what `auto` gives.
+- **On one thread at 5000 loci nothing was gained** (13.93 against 13.61 s here, 12.46
+  against 12.65 s in another comparison the same day: no difference beyond the noise).
+- At 5000 loci the pipeline gains about a tenth: the genotype sums, which it cannot start
+  before the mutations there, are nearly all of the work.
+
+`make bench` repeats
+the measurement of the first table; with `BENCH_ABLATION=1` it adds a table with one optimisation switched
 off at a time ([`REPORT.md`](REPORT.md), section 3, has one such table, taken on a shared
 machine and labelled indicative).
 
@@ -188,12 +230,35 @@ Three rules, kept throughout `QTSim.c`:
 - each of these with 1, 2, 3, 4 and 8 threads (forced on small inputs), repeated runs,
   block sizes 1, 5, 16 and 64, sums one individual at a time, and builds with
   AddressSanitizer + UndefinedBehaviorSanitizer, with ThreadSanitizer, and without the
-  inlined generator, threads and vector extensions.
+  inlined generator, threads and vector extensions;
+- the pipeline in each of its modes, again with 2, 3, 4 and 8 threads: on (as it comes),
+  off (`QTSIM_PIPELINE=0`), sums only after the mutations, sums behind the draws eight
+  individuals at a time with the main thread always given a share, and threads that
+  sleep at once instead of polling; the sanitizer builds in these modes too; GSL's plain
+  statistics calls; collection every generation and every 50.
 
 ### Parity results
 
-`./test_parity.sh full`, 2026-11-19, macOS arm64 (Apple M3 Pro, Apple clang 21, GSL 2.8),
-on the code as committed:
+`./test_parity.sh full` on the revised code as committed (started 19 November 2026 and
+finished the next morning, the machine having slept in between; macOS arm64,
+Apple M3 Pro, Apple clang 21, GSL 2.8):
+
+- 457 option files run by the original (66 MB of output; 77 runs end with
+  `Pop all died.`), 13,915 comparisons of QTSimFast with it: **13,915 identical, 0
+  different**.
+- By variant: one thread 498, and the published inputs with 2, 3, 4 and 8 threads (36
+  more); threads forced on small inputs 1518; the pipeline off 1558, sums after the
+  mutations 1117, sums behind the draws in the smallest batches 1490, threads that sleep
+  at once 388; repeats of 4 threads 730; output on the main thread 365; `auto` 365; block
+  sizes 1100; one individual at a time 369; collection every generation and every 50,
+  730; GSL's plain statistics 365; the plain build 366; AddressSanitizer +
+  UndefinedBehaviorSanitizer 1095 (the pipeline on, off, and with sums in the smallest
+  batches) and ThreadSanitizer 1825 (five modes), all without a report.
+- The original built with the sanitizers: 365 synthetic option files, no report.
+
+The first version of the code (before the revision of 19 November: no pipeline) gave,
+with `./test_parity.sh full` as it then was, 2026-11-19, macOS arm64 (Apple M3 Pro, Apple
+clang 21, GSL 2.8):
 
 - 457 option files run by the original (66 MB of output; 77 runs end with
   `Pop all died.`), 6406 comparisons of QTSimFast with it: **6406 identical, 0

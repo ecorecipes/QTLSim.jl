@@ -1,6 +1,8 @@
 # QTSimFast: a faster QTSim with the same output
 
-Technical report, 19 November 2026.
+Technical report, 19 November 2026; revised the same day for the changes of sections
+3.9 to 3.13 (the summary, section 5 and section 7 say which results are from before and
+which from after).
 
 QTSim (its source calls itself QTLSim 1.0) is by Andrew Meade, School of Biological
 Sciences, University of Reading, copyright 2023, and is free software under the GNU General
@@ -23,9 +25,10 @@ QTSimFast takes the same options file as QTSim and writes the same standard outp
 
 **The guarantee that was tested.** For the same options file (and therefore the same
 seed), the bytes QTSimFast writes to standard output and its exit code are those of the
-original, for every thread count, block size and block-collection interval. This was
-found to hold in all 6,406 comparisons of the test matrix (section 7) and in every run of
-the benchmark. It is an empirical statement about the two programs as built on one
+original, for every thread count, block size and block-collection interval, with the
+pipeline on or off. This was found to hold in all 13,915 comparisons of the test matrix
+(section 7; 6,406 for the first version of the code) and in every run of the benchmark
+and of the timings. It is an empirical statement about the two programs as built on one
 machine (macOS, arm64). Section 7 also describes machine-checked proofs that the
 *algorithms* agree; those are about a mathematical model, not about the C source.
 
@@ -55,9 +58,52 @@ machine (macOS, arm64). Section 7 also describes machine-checked proofs that the
 | QT5000-Possion5.0 | 155.93 / 155.87 | 12.98 / 12.95 (12.0x) | 8.58 / 14.99 (18.2x) | 6.35 / 16.86 (24.6x) | 7.11 / 21.49 (21.9x) | 9.55 / 9.55 (16.3x) | yes |
 
 On one thread QTSimFast is 2.4 times as fast as the original at 100 loci and 12 times at
-5000 loci; with four threads, up to 25 times at 5000 loci. Threads help only with many
-loci, and they cost CPU time (the workers poll before they sleep): for a sweep of many
-runs, one thread per run is the efficient setting, and it is the default.
+5000 loci; with four threads, up to 25 times at 5000 loci. In that version threads helped
+only with many loci, and they cost CPU time (the workers poll before they sleep): for a
+sweep of many runs, one thread per run is the efficient setting, and it is the default.
+
+**After the revision of 19 November 2026** (sections 3.9 to 3.13: the means of the output
+line, block collection, and the pipeline, in which one thread makes the draws and another
+builds the genomes). The benchmark above has not been repeated, because the machine was
+not quiet; the following timings are **indicative only**. The program before the revision
+and after it were run alternately on one synthetic input of the published design per
+number of loci (1000 diploid individuals, 12,000 generations; minimum of three runs;
+load averages 5.5 to 10 during the runs; every output identical to the original's):
+
+| Loci | Threads | Before: wall / CPU s | After: wall / CPU s | Wall, before / after |
+|---|---|---|---|---|
+| 100 | 1 | 2.39 / 2.37 | 2.05 / 2.04 | 1.17 |
+| 100 | 2 | 1.99 / 2.53 | 1.09 / 2.60 | 1.83 |
+| 100 | 4 | 1.99 / 2.52 | 1.09 / 2.63 | 1.83 |
+| 100 | 8 | 1.94 / 2.50 | 1.09 / 2.62 | 1.78 |
+| 500 | 1 | 3.48 / 3.45 | 3.24 / 3.22 | 1.07 |
+| 500 | 2 | 3.03 / 3.60 | 1.75 / 3.95 | 1.73 |
+| 500 | 4 | 3.07 / 3.61 | 1.36 / 6.00 | 2.26 |
+| 500 | 8 | 3.04 / 3.61 | 1.57 / 9.77 | 1.94 |
+| 1000 | 1 | 4.67 / 4.65 | 4.41 / 4.39 | 1.06 |
+| 1000 | 2 | 3.32 / 5.47 | 2.55 / 5.53 | 1.30 |
+| 1000 | 4 | 3.05 / 6.67 | 1.72 / 7.30 | 1.77 |
+| 1000 | 8 | 3.47 / 8.32 | 1.98 / 12.32 | 1.75 |
+| 5000 | 1 | 13.61 / 13.57 | 13.93 / 13.91 | 0.98 |
+| 5000 | 2 | 8.86 / 15.62 | 8.01 / 19.10 | 1.11 |
+| 5000 | 4 | 6.36 / 17.17 | 5.64 / 25.43 | 1.13 |
+| 5000 | 8 | 6.96 / 22.77 | 7.44 / 36.42 | 0.94 |
+
+With three threads the revised program took 1.09, 1.49, 2.01 and 6.50 s. With four
+threads and the pipeline switched off (`QTSIM_PIPELINE=0`) it took 1.70, 2.92, 2.89 and
+6.37 s, so the gain with several threads is the pipeline's. What the table also shows,
+and should not be overlooked:
+
+- **Processor time rises** with several threads (at 5000 loci and four threads 25 CPU
+  seconds against 17 before): the pipeline's threads poll while they wait. For a sweep
+  of many runs one thread per run remains the efficient setting, and the default.
+- **Eight threads are slower than four** at 500 loci and above (the machine has six
+  performance cores), and at 5000 loci slower than the earlier program with eight (7.44
+  against 6.96 s). Use at most four, which is what `auto` gives.
+- **On one thread at 5000 loci nothing was gained** (13.93 against 13.61 s here, 12.46
+  against 12.65 s in another comparison the same day: no difference beyond the noise).
+- At 5000 loci the pipeline gains about a tenth: the genotype sums, which it cannot start
+  before the mutations there, are nearly all of the work.
 
 ## 2. Where the original spends its time
 
@@ -549,11 +595,14 @@ None of the checks has failed on the machine used.
 ### 7.1 The parity matrix
 
 `./test_parity.sh full` compares standard output (`cmp`) and exit codes with the
-original's. Result on the packaged code, 19 November 2026, macOS arm64 (Apple M3 Pro,
-Apple clang 21, GSL 2.8), recorded in `PARITY_FULL.txt`:
+original's. Result on the revised code as packaged (run started 19 November 2026 and
+finished the next morning, the machine having slept in between), macOS arm64 (Apple M3
+Pro, Apple clang 21, GSL 2.8), recorded in `PARITY_FULL.txt`:
 
 - **457 option files** run by the original (66 MB of output; 77 runs end with `Pop all
-  died.`), **6,406 comparisons** of QTSimFast with it: **6,406 identical, 0 different**.
+  died.`), **13,915 comparisons** of QTSimFast with it: **13,915 identical, 0
+  different**. (The first version of the code, without the pipeline, passed the matrix as
+  it then was: 6,406 of 6,406.)
 - The paper's inputs: 72 option files from the eight strata (48 populations die, 24
   survive), 58 of them to 12,000 generations, four of those with 5000 loci. (The paper's
   input files are not in the package; without them the script uses synthetic inputs of
@@ -567,14 +616,20 @@ Apple clang 21, GSL 2.8), recorded in `PARITY_FULL.txt`:
   `StandardisePhenotype`, `Drift`; heritability 0, 1 and above 1; no mutation and mutation
   means above 10; seeds 0 and above 2^32; option-file syntax and every error exit; no
   loci, no individuals, no generations.
-- By variant of the fast program: one thread 498; threads forced on small inputs (2, 3,
-  4, 8) 1518; repeats with 4 threads 730; output on the main thread 365; `auto` 365; block
-  sizes 1, 5, 16, 64: 1100; one individual at a time 369; collection every 50 generations
-  365; the build without the inlined generator, threads and vector extensions 366.
+- By variant of the fast program: one thread 498, and the published inputs with 2, 3, 4
+  and 8 threads as they come (36 more); threads forced on small inputs (2, 3, 4, 8) 1518;
+  the same with the pipeline off 1558; the pipeline with sums only after the mutations
+  1117, with sums behind the draws eight individuals at a time and the main thread always
+  given a share 1490, with threads that sleep at once instead of polling 388; repeats with
+  4 threads 730; output on the main thread 365; `auto` 365; block sizes 1, 5, 16, 64:
+  1100; one individual at a time 369; collection every generation and every 50
+  generations 730; GSL's plain statistics calls 365; the build without the inlined
+  generator, threads and vector extensions 366; the sanitizer builds 2920 (7.2).
 
-Run again from a clean extraction of this package (`make parity-full`, synthetic inputs
-in place of the published ones): 400 option files, 6,277 comparisons, all identical, no
-sanitizer report (also in `PARITY_FULL.txt`).
+The first version of the code was also run from a clean extraction of its package
+(6,277 of 6,277). **For the revised code the full matrix was not repeated from an
+extracted package**; there, `make check`, `make parity` (the quick matrix), `make
+model-check` and `./demo_parity.sh` were run (`PARITY_FULL.txt` says so).
 
 `PARITY_DEMO.txt` is the transcript of `./demo_parity.sh`: six example inputs, two seeds,
 1, 2, 4 and 8 threads, with the SHA-256 and size of each program's output and the wall
@@ -584,9 +639,17 @@ gives a different output, so "identical" is informative).
 ### 7.2 Sanitizers
 
 - QTSimFast built with AddressSanitizer and UndefinedBehaviorSanitizer: 365 option files
-  (3 threads), no report, output identical.
-- QTSimFast built with ThreadSanitizer: 365 option files (4 threads), no report, output
-  identical.
+  with 3 threads, each with the pipeline on, with it off, and with sums behind the draws
+  in the smallest batches (1095 runs), no report, output identical.
+- QTSimFast built with ThreadSanitizer: 365 option files, each in five modes (the
+  pipeline on with 4 threads, off with 4, sums after the mutations with 3, sums behind
+  the draws in the smallest batches with 4, threads that sleep at once with 3: 1825
+  runs), no report, output identical. Before that, during development: four inputs
+  (100, 1000 and 5000 loci of the published design and a haploid one in which every
+  block mutates) with 2, 3, 4 and 8 threads in seven modes each, 112 runs under each
+  sanitizer build, no report.
+- ThreadSanitizer observes the runs it is given: it found no race in them, which is not
+  a proof that none exists.
 - The original built with AddressSanitizer and UndefinedBehaviorSanitizer ran the 365
   synthetic option files without a report: no undefined behaviour was observed in it on
   these inputs.
@@ -595,7 +658,7 @@ gives a different output, so "identical" is informative).
 
 `formal/QTSimFast.lean` (Lean 4 with Mathlib; rendered as `formal/QTSimFast.html` and
 `.pdf`) defines a mathematical model of the two programs' algorithms and proves that they
-agree. `PROOFS.md` lists every theorem with its plain statement, the C code it models in
+agree. The Lean files were not changed by the revision of 19 November. `PROOFS.md` lists every theorem with its plain statement, the C code it models in
 both versions, and its hypotheses.
 
 **What is proved, in plain words.** For a model in which the addition of doubles is an
@@ -631,8 +694,11 @@ machine:
 - The inlined MT19937 against GSL's is tested at start-up and by the parity matrix, not
   proved.
 - `printf` formatting (the same calls on the same values) is by inspection.
-- Thread scheduling is not modelled: section 5 is an argument, supported by
-  ThreadSanitizer.
+- Thread scheduling is not modelled: sections 3.11 and 5 are arguments, supported by
+  ThreadSanitizer. For the pipeline the model-level justification is the two-pass
+  theorem (d) with its hypothesis `DrawsIgnoreData`; its use for the mutations is by the
+  same generic theorem but is not instantiated in the composed theorem (f), which
+  describes the program with one thread (`PROOFS.md`).
 - Target (e), statistics computed once, is by inspection: in the model both programs
   apply the same uninterpreted functions to the genotypes.
 - The model covers the diploid path with at least one individual and one locus. The

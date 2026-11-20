@@ -15,9 +15,16 @@ doi:10.1038/s41598-025-24445-2.
   top that it was changed, how, and when, above the original notice (GPL section 5).
 
 For the same options file, and so the same seed, QTSimFast writes the same bytes to
-standard output as QTSim and exits with the same code, for any number of threads. It is 2.4
-to 12 times as fast on one thread (100 to 5000 loci) and up to 25 times with four threads.
-The original remains the reference: QTSimFast is tested against it.
+standard output as QTSim and exits with the same code, for any number of threads. In the
+benchmark (`bench_results.md`, made before the revision described next) it was 2.4 to 12
+times as fast on one thread (100 to 5000 loci) and up to 25 times with four threads. The
+original remains the reference: QTSimFast is tested against it.
+
+Revised on 19 November 2026 (`REPORT.md`, sections 3.9 to 3.13): with two threads or more
+one thread now makes the random draws and another builds the genomes, which roughly
+halves the wall time of a run at 100 to 1000 loci with two to four threads (indicative
+timings in `REPORT.md`, section 1; they cost processor time, and one thread remains the
+default).
 
 ## Quick start
 
@@ -56,8 +63,8 @@ arm64 only; written for Linux and x86-64 too, but not yet run there (run `make c
 | `Makefile` | builds both programs and the test variants; targets `check`, `demo`, `parity`, `parity-full`, `model-check`, `bench`, `docs` |
 | `examples/` | six option files written for this package (the paper's own input files are not included) |
 | `demo_parity.sh`, `PARITY_DEMO.txt` | the parity demonstration and a transcript of it |
-| `test_parity.sh`, `PARITY_FULL.txt` | the parity matrix (`quick`, `full`) and the result of the full run: 6,406 comparisons, all identical |
-| `bench.sh`, `bench_results.md`, `bench_results.csv`, `bench_runs.csv` | the benchmark and its results (quiet machine, 19 November 2026) |
+| `test_parity.sh`, `PARITY_FULL.txt` | the parity matrix (`quick`, `full`) and the result of the full run: 13,915 comparisons, all identical |
+| `bench.sh`, `bench_results.md`, `bench_results.csv`, `bench_runs.csv` | the benchmark and its results (quiet machine, 19 November 2026, before the revision of that day; not repeated since) |
 | `REPORT.md`, `PROOFS.md` | see above |
 | `formal/QTSimFast.lean` | the Lean 4 model and proofs (needs only Mathlib) |
 | `formal/QTSimFastShadows.lean` | alignment checks: consequences, second formalizations, concrete instances, counterexamples for non-exact algorithms |
@@ -68,17 +75,18 @@ arm64 only; written for Linux and x86-64 too, but not yet run there (run `make c
 
 ## What was verified, and how strongly
 
-- **Tested:** the two programs' outputs are byte-identical in every one of 6,406
-  comparisons (457 option files; 1 to 8 threads; block sizes; sanitizer builds), on one
-  machine. See `PARITY_FULL.txt` and `REPORT.md`, section 7.
+- **Tested:** the two programs' outputs are byte-identical in every one of 13,915
+  comparisons (457 option files; 1 to 8 threads; the pipeline on, off and in each of its
+  modes; block sizes; sanitizer builds), on one machine. See `PARITY_FULL.txt` and `REPORT.md`, section 7.
 - **Proved, for a model:** the algorithmic changes (summation order kept while the loops
   are regrouped; shared blocks with copy on write; the lowest crossover point; drawing
   first and copying afterwards; their composition over generations) give the same results
   as the original algorithms, with floating-point addition modelled as an arbitrary
   operation with no algebraic law. See `PROOFS.md`.
 - **Argued by inspection:** that the C code is what the model describes (supported by
-  `make model-check` on one instance), the threading, the output formatting, and the
-  statistics computed once.
+  `make model-check` on one instance), the threading (including the pipeline, whose
+  threads are not modelled; ThreadSanitizer finds no race in the runs of the matrix), the
+  output formatting, and the statistics computed once.
 
 ## Not included
 
