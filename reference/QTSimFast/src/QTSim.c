@@ -336,6 +336,7 @@ typedef struct
 	double	Mean;
 
 	int		UseM;				// gsl_stats_*_m give the bits of gsl_stats_*
+	int		UseMean;			// and ThreeMeans those of gsl_stats_mean
 	int		Lanes;
 
 	FAST_POOL *Pool;			// for genotypes
@@ -351,7 +352,7 @@ typedef struct
 {
 	int		Itter, N, NoS;
 	double	Theta, Omega, MuteVar;
-	int		HaveMean, UseM;
+	int		HaveMean, UseM, UseMean;
 	double	Mean;
 	double	*Pheno, *Geno;		// N
 	double	*X, *Y;				// NoS survivors: phenotype, fitness
@@ -414,29 +415,90 @@ static inline uint32_t NewBlock(SIM *S, uint32_t Tag)
 	return Id;
 }
 
+// The means of P[0..N-1], G[0..N-1] and X[0..NoS-1], NoS <= N, in one loop.
+// Each is gsl_stats_mean's recurrence, written as GSL writes it:
+//
+//     long double mean = 0;
+//     for(i = 0; i < size; i++) mean += (data[i * stride] - mean) / (i + 1);
+//
+// with a size_t i. A step is one subtraction, one division and one addition,
+// so there is no product for a compiler to fuse into the addition, and each
+// operation has one IEEE result. The three chains are independent; advancing
+// them side by side lets the processor overlap their divisions, which each
+// wait on the step before. StatsMSame compares the result with gsl_stats_mean
+// of the library in use, and the plain calls are made if it ever differs.
+static void ThreeMeans(const double *P, const double *G, size_t N, const double *X, size_t NoS, double *MeanP, double *MeanG, double *MeanX)
+{
+	long double MP = 0, MG = 0, MX = 0;
+	size_t i;
+
+	for(i=0;i<NoS;i++)
+	{
+		MP += (P[i] - MP) / (i + 1);
+		MG += (G[i] - MG) / (i + 1);
+		MX += (X[i] - MX) / (i + 1);
+	}
+
+	for(;i<N;i++)
+	{
+		MP += (P[i] - MP) / (i + 1);
+		MG += (G[i] - MG) / (i + 1);
+	}
+
+	*MeanP = MP;
+	*MeanG = MG;
+	*MeanX = MX;
+}
+
+// Two checks of the GSL library in use, on test vectors.
+//
 // Does gsl_stats_variance_m(x, mean(x)) give the bits of gsl_stats_variance(x),
-// and likewise gsl_stats_sd_m? In GSL's source they are the same code; this
-// checks the library in use, and if it ever differed the plain functions would
-// be called instead.
-static int StatsMSame(void)
+// and likewise gsl_stats_sd_m? In GSL's source they are the same code. If it
+// ever differed the plain functions would be called instead (returns FALSE).
+//
+// Does ThreeMeans give the bits of gsl_stats_mean? If not, *MeanSame is FALSE
+// and gsl_stats_mean is called instead.
+static int StatsMSame(int *MeanSame)
 {
 	static const int Sizes[] = {1, 2, 3, 10, 257, 1000};
-	double *V, A, B, Mean;
+	double *V, *U, A, B, Mean, M3[3];
 	gsl_rng *G;
-	int SIndex, Index, Size, Ret;
+	int SIndex, Index, Size, Part, Ret;
 
-	V = (double*)SMalloc(sizeof(double) * 1000);
+	V = (double*)SMalloc(sizeof(double) * 2000);
+	U = V + 1000;
 	G = gsl_rng_alloc(gsl_rng_mt19937);
 	gsl_rng_set(G, 20261119);
 
 	Ret = TRUE;
+	*MeanSame = TRUE;
 	for(SIndex=0;SIndex<(int)(sizeof(Sizes)/sizeof(Sizes[0]));SIndex++)
 	{
 		Size = Sizes[SIndex];
 		for(Index=0;Index<Size;Index++)
+		{
 			V[Index] = gsl_ran_gaussian(G, 0.37) + 0.11;
+			U[Index] = gsl_ran_gaussian(G, 1.0e-3) * (Index % 7 == 0 ? 1.0e6 : 1.0) - 3.0;
+		}
 
 		Mean = gsl_stats_mean(V, 1, Size);
+
+		// (the third vector: a part of the second, as the survivors are a part)
+		for(Part=1;Part<=Size;Part+=(Size+1)/2)
+		{
+			ThreeMeans(V, U, (size_t)Size, U, (size_t)Part, &M3[0], &M3[1], &M3[2]);
+
+			if(memcmp(&M3[0], &Mean, sizeof(double)) != 0)
+				*MeanSame = FALSE;
+
+			A = gsl_stats_mean(U, 1, Size);
+			if(memcmp(&M3[1], &A, sizeof(double)) != 0)
+				*MeanSame = FALSE;
+
+			A = gsl_stats_mean(U, 1, Part);
+			if(memcmp(&M3[2], &A, sizeof(double)) != 0)
+				*MeanSame = FALSE;
+		}
 
 		A = gsl_stats_variance(V, 1, Size);
 		B = gsl_stats_variance_m(V, 1, Size, Mean);
@@ -470,6 +532,19 @@ static int DefBlockSize(OPTIONS *Opt)
 		return 32;
 
 	return 64;
+}
+
+// The default number of generations between collections of unused blocks
+// (QTSIM_GC overrides it; any number gives the same output). Collecting less
+// often saves the marking and the scan; with many loci the blocks left
+// uncollected spread the alleles in use over more memory, which costs more in
+// the sums than the collection saves (measured, see REPORT.md).
+static int DefGCEvery(const SIM *S)
+{
+	if(S->L < 2500)
+		return 4;
+
+	return 1;
 }
 
 // Allocate the populations. Draws the environmental deviations of both of the
@@ -625,9 +700,13 @@ static SIM* CreateSim(OPTIONS *Opt)
 			MallocErr();
 	}
 
-	S->GCEvery = EnvInt("QTSIM_GC", 1, 1, 1 << 30);
+	S->GCEvery = EnvInt("QTSIM_GC", DefGCEvery(S), 1, 1 << 30);
 	S->Lanes = EnvInt("QTSIM_LANES", LANES, 1, LANES) == 1 ? 1 : LANES;
-	S->UseM = StatsMSame();
+	S->UseM = StatsMSame(&S->UseMean);
+	if(S->UseM == FALSE)
+		S->UseMean = FALSE;
+	if(EnvInt("QTSIM_PLAIN_STATS", 0, 0, 1) == 1)
+		S->UseM = S->UseMean = FALSE;
 
 	// The random numbers
 	FastRngSet(&S->Rng, Opt->Seed);
@@ -811,7 +890,7 @@ static void SumGenotypesJob(void *Ctx, int ThreadNo, int NoThreads)
 static void CollectBlocks(SIM *S)
 {
 	uint8_t *M, *O;
-	uint32_t Id, HW, NewHW;
+	uint32_t Id, HW, NewHW, NoFree, *Free;
 	int T, NoT;
 
 	HW = S->HW;
@@ -826,19 +905,26 @@ static void CollectBlocks(SIM *S)
 		memset(O, 0, HW);
 	}
 
-	// Lower-numbered blocks are reused first.
-	S->NoFree = 0;
+	// The new high-water mark: one above the highest block in use.
 	NewHW = 0;
 	for(Id=HW;Id-- > 0;)
-	{
 		if(M[Id])
 		{
-			if(NewHW == 0)
-				NewHW = Id + 1;
+			NewHW = Id + 1;
+			break;
 		}
-		else if(NewHW != 0)
-			S->Free[S->NoFree++] = Id;
+
+	// The free blocks below it, highest first, so that lower-numbered blocks
+	// are reused first. Every number is written and the count advances only
+	// past the unmarked ones: the same list as testing each mark with a branch.
+	NoFree = 0;
+	Free = S->Free;
+	for(Id=NewHW;Id-- > 0;)
+	{
+		Free[NoFree] = Id;
+		NoFree += (M[Id] == 0);
 	}
+	S->NoFree = NoFree;
 
 	memset(M, 0, HW);
 	S->HW = NewHW;
@@ -1132,10 +1218,9 @@ static void MixBlocks(SIM *S)
 		OD = Block(S, OId);
 		Len = BlockLen(S, BNo);
 
-		for(I=0;I<=Off;I++)
-			ND[I] = CD[I];
-		for(;I<Len;I++)
-			ND[I] = OD[I];
+		// (a select per allele, so that the loop has no branch on Off)
+		for(I=0;I<Len;I++)
+			ND[I] = (I <= Off) ? CD[I] : OD[I];
 
 		S->NIds[(size_t)BNo * S->Row + G] = Id;
 	}
@@ -1277,6 +1362,7 @@ static void WriteOutput(void *Ctx, int ThreadNo, int NoThreads)
 {
 	OUT_JOB *Job;
 	double PhenotypeMean, PhenotypeVar, GenotypeVar, PhenotypeFullSD, Slope, Int;
+	double GenotypeMean, XMean;
 	double *X;
 	double a[4];
 	int Index;
@@ -1284,22 +1370,38 @@ static void WriteOutput(void *Ctx, int ThreadNo, int NoThreads)
 	(void)ThreadNo; (void)NoThreads;
 	Job = (OUT_JOB*)Ctx;
 
-	if(Job->HaveMean == TRUE)
-		PhenotypeMean = Job->Mean;
-	else
-		PhenotypeMean = gsl_stats_mean(Job->Pheno, 1, Job->N);
+	// X: the survivors' phenotypes (OuputReg)
+	X = Job->X;
 
-	if(Job->UseM == TRUE)
+	if(Job->UseMean == TRUE)
+	{
+		// The three means in one loop, then GSL's variance and SD about a
+		// given mean: gsl_stats_variance(x) is gsl_stats_variance_m(x,
+		// gsl_stats_mean(x)) in GSL, and StatsMSame has checked both steps.
+		ThreeMeans(Job->Pheno, Job->Geno, (size_t)Job->N, X, (size_t)Job->NoS, &PhenotypeMean, &GenotypeMean, &XMean);
+
 		PhenotypeVar = gsl_stats_variance_m(Job->Pheno, 1, Job->N, PhenotypeMean);
+		GenotypeVar = gsl_stats_variance_m(Job->Geno, 1, Job->N, GenotypeMean);
+		PhenotypeFullSD = gsl_stats_sd_m(X, 1, Job->NoS, XMean);
+	}
 	else
-		PhenotypeVar = gsl_stats_variance(Job->Pheno, 1, Job->N);
+	{
+		if(Job->HaveMean == TRUE)
+			PhenotypeMean = Job->Mean;
+		else
+			PhenotypeMean = gsl_stats_mean(Job->Pheno, 1, Job->N);
 
-	GenotypeVar = gsl_stats_variance(Job->Geno, 1, Job->N);
+		if(Job->UseM == TRUE)
+			PhenotypeVar = gsl_stats_variance_m(Job->Pheno, 1, Job->N, PhenotypeMean);
+		else
+			PhenotypeVar = gsl_stats_variance(Job->Pheno, 1, Job->N);
+
+		GenotypeVar = gsl_stats_variance(Job->Geno, 1, Job->N);
+		PhenotypeFullSD = gsl_stats_sd(X, 1, Job->NoS);
+	}
 
 	// OuputReg: the regression of fitness on phenotype, phenotypes above the
 	// optimum reflected below it
-	X = Job->X;
-	PhenotypeFullSD = gsl_stats_sd(X, 1, Job->NoS);
 
 	for(Index=0;Index<Job->NoS;Index++)
 		if(X[Index] > Job->Theta)
@@ -1340,6 +1442,7 @@ static void Output(OPTIONS *Opt, int Itter, SIM *S)
 	Job->HaveMean = S->HaveMean;
 	Job->Mean = S->Mean;
 	Job->UseM = S->UseM;
+	Job->UseMean = S->UseMean;
 
 	if(Async)
 	{

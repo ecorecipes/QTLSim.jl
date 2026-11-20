@@ -106,6 +106,19 @@ allocation and sorting, and the statistics.
    computed and written by a further thread while the next generation starts.
 8. Smaller things: no allocation in the generation loop; survival and strand choice
    without a branch; `sqrt` of the variances and `exp(-mean)` taken once.
+9. **The three means of the output line in one loop** (19 November 2026). The means of
+   the phenotypes, the genotypes and the survivors' phenotypes are each GSL's running
+   mean, a chain of 1000 divisions that wait on one another; the three chains are now
+   advanced side by side in one loop that is `gsl_stats_mean`'s recurrence as GSL
+   writes it (one subtraction, one division, one addition per element: nothing a
+   compiler could fuse), and the variances and the SD are GSL's own
+   `gsl_stats_variance_m` and `gsl_stats_sd_m` about those means. At start the loop is
+   compared bit for bit with `gsl_stats_mean` on test vectors, and GSL's plain calls
+   are made if it ever differs (`QTSIM_PLAIN_STATS=1` forces them).
+10. **Blocks collected every fourth generation** below 2500 loci (every generation from
+    there, where waiting was no faster and can be much slower), the free list built
+    without a branch, and the block in which a crossover falls copied with a select per
+    allele in place of two loops.
 
 Tried and dropped: forming the first eight products of the Poisson loop ahead of the
 draws to avoid its unpredictable exit (slower: the multiplications wait on each other
@@ -210,7 +223,8 @@ None changes the output. Invalid values are ignored with a note on standard erro
 |---|---|---|
 | `QTSIM_THREADS` | threads for the genotype sums, or `auto` (up to 4 when PopSize x Ploidy x NoQTL is at least 4 million, else 1) | 1 |
 | `QTSIM_BLOCK` | loci per block | 16 below 400 loci, 32 below 2500, else 64 |
-| `QTSIM_GC` | generations between collections of unused blocks | 1 |
+| `QTSIM_GC` | generations between collections of unused blocks | 4 below 2500 loci, else 1 |
+| `QTSIM_PLAIN_STATS` | 1: GSL's plain mean, variance and SD calls for the output line (what the start-up check falls back to) | 0 |
 | `QTSIM_LANES` | 1: sum genotypes one individual at a time | 8 |
 | `QTSIM_PAR_MIN` | smallest PopSize x Ploidy x NoQTL summed on several threads (provisional, until the benchmark is run) | 2000000 |
 | `QTSIM_ASYNC_OUTPUT` | 0: write output on the main thread even with several threads | 1 with several threads |

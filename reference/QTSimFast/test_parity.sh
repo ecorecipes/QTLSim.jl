@@ -20,6 +20,7 @@
 #   b<n>   QTSIM_BLOCK=n (block size)      g<n>  QTSIM_GC=n (collect every n generations)
 #   l1     QTSIM_LANES=1                   s<n>  n threads, output on the main thread
 #   auto   QTSIM_THREADS=auto              r<k>  a repeat of p4
+#   ps     QTSIM_PLAIN_STATS=1 (GSL's plain mean and variance calls, the fallback)
 #   plain  build without the built-in generator, threads and vector extensions
 #   asan   build with AddressSanitizer and UndefinedBehaviorSanitizer (3 threads)
 #   tsan   build with ThreadSanitizer (4 threads)
@@ -59,6 +60,7 @@ if [ "$MODE" = "__one" ]; then
 			b*)    e="QTSIM_BLOCK=${v#b}" ;;
 			g*)    e="QTSIM_GC=${v#g}" ;;
 			l1)    e="QTSIM_LANES=1" ;;
+			ps)    e="QTSIM_PLAIN_STATS=1" ;;
 			auto)  e="QTSIM_THREADS=auto" ;;
 			plain) bin=$FAST-plain ;;
 			asan)  bin=$FAST-asan; e="QTSIM_THREADS=3 QTSIM_PAR_MIN=0" ;;
@@ -111,9 +113,9 @@ add() {
 }
 
 if [ "$MODE" = full ]; then
-	SV="t1,b1,b5,b64,l1,g50,plain,asan,osan"; TV="p2,p3,p4,p8,s2,r1,r2,auto,tsan"
+	SV="t1,b1,b5,b64,l1,g1,g50,ps,plain,asan,osan"; TV="p2,p3,p4,p8,s2,r1,r2,auto,tsan"
 else
-	SV="t1,b5"; TV="p3"
+	SV="t1,b5,g1,ps"; TV="p3"
 fi
 
 # ------------------------------------------------- (c) the synthetic option matrix
