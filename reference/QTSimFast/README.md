@@ -41,7 +41,8 @@ The original's identifiers are kept, misspellings included, where the functions 
 `OuputReg`'s code in `WriteOutput`, ...).
 
 The code was revised on 19 November 2026 (items 9 to 11 below); the benchmark table and
-the first full parity run predate that revision, and are marked so where they are quoted.
+the first full parity run predated that revision; the benchmark was repeated on a quiet
+machine on 20 November, after it, and the first full parity run is kept as a record.
 
 ## Where the original spends its time
 
@@ -143,14 +144,18 @@ longer than the branch costs).
 
 ### Speed
 
-[`bench_results.md`](bench_results.md) (quiet machine, Apple M3 Pro, 19 November 2026;
-medians of three seeds on one published input per stratum, 12,000 generations): on one
-thread QTSimFast is 2.4x (100 loci), 4.9x (500), 7.2x (1000) and 12x (5000) as fast as the
-original in wall time; with four threads 2.9x, 5.7x, 8 to 11x and 25x. The Julia kernel
-on one thread is 1.9x, 4.2x, 7x and 17x as fast as the original, so at 5000 loci it stays
-ahead of QTSimFast on one thread (it does not have to be bit-exact). That table was measured before the revision of 19 November (items 9 to 11) and has not
-been repeated since, because the machine was not quiet. **Indicative** timings of the
-revision, the program before it and after it run alternately on one synthetic input of
+[`bench_results.md`](bench_results.md) (quiet machine, Apple M3 Pro, 20 November 2026,
+after the revision, commit ab95295; medians of three seeds on one published input per
+stratum, 12,000 generations; 96 runs, every output identical to the original's): on one
+thread QTSimFast is 2.7 to 2.8x (100 loci), 5.1 to 5.2x (500), 7.5 to 7.7x (1000) and 11.5
+to 11.8x (5000) as fast as the original in wall time; with two threads 4.6 to 4.8x, 9.2 to
+9.3x, 12.7 to 12.8x and 19.3 to 19.4x; with four 4.6 to 4.8x, 10.6 to 11.5x, 16.9 to 17.7x
+and 26.8 to 27.4x. The Julia kernel on one thread is 1.7x, 3.7 to 4.1x, 6.3 to 6.8x and 15.5
+to 16x as fast as the original, so at 5000 loci it stays ahead of QTSimFast on one thread
+(it does not have to be bit-exact), but behind it on two threads at every size. The
+first version's benchmark (19 November, before the revision) is kept in
+[`REPORT.md`](REPORT.md), section 1. **Indicative** timings taken earlier, on a busy
+machine, of the revision, the program before it and after it run alternately on one synthetic input of
 the published design per number of loci (1000 diploid individuals, 12,000 generations;
 minimum of three runs; load averages 5.5 to 10 during the runs, so no more than a guide;
 every output identical to the original's):
@@ -182,16 +187,16 @@ and should not be overlooked:
 - **Processor time rises** with several threads (at 5000 loci and four threads 25 CPU
   seconds against 17 before): the pipeline's threads poll while they wait. For a sweep
   of many runs one thread per run remains the efficient setting, and the default.
-- **Eight threads are slower than four** at 500 loci and above (the machine has six
-  performance cores), and at 5000 loci slower than the earlier program with eight (7.44
-  against 6.96 s). Use at most four, which is what `auto` gives.
+- **Eight threads are no better than four** at 100 and 500 loci, slightly better at 1000
+  (1.69 against 1.83 s in the benchmark) and slower at 5000 (6.75 against 5.48 s; the
+  machine has six performance cores). Use at most four, which is what `auto` gives.
 - **On one thread at 5000 loci nothing was gained** (13.93 against 13.61 s here, 12.46
   against 12.65 s in another comparison the same day: no difference beyond the noise).
 - At 5000 loci the pipeline gains about a tenth: the genotype sums, which it cannot start
   before the mutations there, are nearly all of the work.
 
 `make bench` repeats
-the measurement of the first table; with `BENCH_ABLATION=1` it adds a table with one optimisation switched
+the benchmark; with `BENCH_ABLATION=1` it adds a table with one optimisation switched
 off at a time ([`REPORT.md`](REPORT.md), section 3, has one such table, taken on a shared
 machine and labelled indicative).
 

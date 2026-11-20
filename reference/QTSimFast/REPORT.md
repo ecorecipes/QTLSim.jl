@@ -32,19 +32,47 @@ and of the timings. It is an empirical statement about the two programs as built
 machine (macOS, arm64). Section 7 also describes machine-checked proofs that the
 *algorithms* agree; those are about a mathematical model, not about the C source.
 
-**Speed.** From `bench_results.md`, measured on a quiet machine:
+**Speed.** From `bench_results.md`, measured on a quiet machine on 20 November 2026,
+after the revision of 19 November (sections 3.9 to 3.13):
 
-- Machine: Apple M3 Pro, 12 processors; Darwin arm64. Load averages (1, 5, 15 min)
-  before: 2.40 3.67 5.12; after: 2.12 2.62 3.38. Runs were made one at a time.
-- Compiler: Apple clang 21.0.0; GSL 2.8; Julia 1.12.6; commit e35f5e3.
+- Machine: Apple M3 Pro, 12 processors (6 performance cores); Darwin arm64. Load
+  averages (1, 5, 15 min) before: 3.45 3.58 4.90; after: 2.92 3.27 3.46 (desktop
+  processes only). Runs were made one at a time.
+- Compiler: Apple clang 21.0.0; GSL 2.8; Julia 1.12.6; commit ab95295.
 - Protocol: the published inputs' options with `Generations` = the move's first
   generation + 2000 (12,000 generations); in each stratum the input with the
   slowest-moving optimum among the first 400; 3 seeds; medians over seeds.
 - Each cell: wall seconds / CPU seconds (user + system), and the speed-up in wall time
   against the original.
-- QTSimFast's output was compared with the original's on every run. The Julia kernel of
-  QTLSim.jl is shown for scale only: it has its own random numbers and is not
-  bit-identical to QTSim.
+- QTSimFast's output was compared with the original's on every run (96 runs, all
+  identical). The Julia kernel of QTLSim.jl is shown for scale only: it has its own random
+  numbers and is not bit-identical to QTSim.
+
+| Stratum | Original C | QTSimFast, 1 thread | 2 threads | 4 threads | 8 threads | Julia kernel, 1 thread | Output identical |
+|---|---|---|---|---|---|---|---|
+| QT0100-Possion3.0 | 5.32 / 5.29 | 1.98 / 1.96 (2.7x) | 1.10 / 2.68 (4.8x) | 1.10 / 2.69 (4.8x) | 1.10 / 2.69 (4.8x) | 3.06 / 3.06 (1.7x) | yes |
+| QT0100-Possion5.0 | 6.22 / 6.21 | 2.22 / 2.20 (2.8x) | 1.35 / 3.19 (4.6x) | 1.35 / 3.19 (4.6x) | 1.34 / 3.16 (4.6x) | 3.61 / 3.61 (1.7x) | yes |
+| QT0500-Possion3.0 | 16.15 / 16.12 | 3.10 / 3.08 (5.2x) | 1.74 / 3.98 (9.3x) | 1.40 / 5.98 (11.5x) | 1.42 / 8.67 (11.4x) | 3.95 / 3.95 (4.1x) | yes |
+| QT0500-Possion5.0 | 16.94 / 16.93 | 3.32 / 3.30 (5.1x) | 1.85 / 4.20 (9.2x) | 1.60 / 6.82 (10.6x) | 1.61 / 9.83 (10.5x) | 4.55 / 4.55 (3.7x) | yes |
+| QT1000-Possion3.0 | 32.30 / 32.29 | 4.22 / 4.20 (7.7x) | 2.53 / 5.55 (12.8x) | 1.83 / 7.81 (17.7x) | 1.69 / 10.80 (19.1x) | 4.72 / 4.71 (6.8x) | yes |
+| QT1000-Possion5.0 | 33.52 / 33.49 | 4.49 / 4.47 (7.5x) | 2.64 / 5.78 (12.7x) | 1.98 / 8.41 (16.9x) | 1.79 / 11.45 (18.7x) | 5.30 / 5.30 (6.3x) | yes |
+| QT5000-Possion3.0 | 150.35 / 150.32 | 12.72 / 12.70 (11.8x) | 7.75 / 18.58 (19.4x) | 5.48 / 24.92 (27.4x) | 6.75 / 34.31 (22.3x) | 9.38 / 9.38 (16.0x) | yes |
+| QT5000-Possion5.0 | 152.44 / 152.37 | 13.27 / 13.24 (11.5x) | 7.88 / 18.89 (19.3x) | 5.69 / 25.50 (26.8x) | 6.72 / 34.59 (22.7x) | 9.83 / 9.83 (15.5x) | yes |
+
+On one thread QTSimFast is 2.7 to 2.8 times as fast as the original at 100 loci, 5.1 to
+5.2 at 500, 7.5 to 7.7 at 1000 and 11.5 to 11.8 at 5000. With two threads (the pipeline)
+4.6 to 4.8, 9.2 to 9.3, 12.7 to 12.8 and 19.3 to 19.4 times; with four, up to 11.5, 17.7
+and 27.4 times at 500, 1000 and 5000 loci. At 100 loci two threads are as fast as more.
+Eight threads gain nothing over four at 100 and 500 loci, a little at 1000 (1.69 against
+1.83 s, 1.79 against 1.98), and lose at 5000 (6.75 against 5.48 s). Threads cost
+processor time (they poll while they wait: at 5000 loci four threads use 25 CPU seconds
+for a run that one thread does in 13), so for a sweep of many runs one thread per run is
+the efficient setting, and it is the default. The Julia kernel on one thread is faster
+than QTSimFast on one thread at 5000 loci (9.4 to 9.8 against 12.7 to 13.3 s; it does not
+have to be bit-exact), slower than QTSimFast on two threads at every size.
+
+The same benchmark of the first version of the code (19 November 2026, commit e35f5e3,
+load averages before 2.40 3.67 5.12, after 2.12 2.62 3.38), kept for comparison:
 
 | Stratum | Original C | QTSimFast, 1 thread | 2 threads | 4 threads | 8 threads | Julia kernel, 1 thread | Output identical |
 |---|---|---|---|---|---|---|---|
@@ -57,15 +85,12 @@ machine (macOS, arm64). Section 7 also describes machine-checked proofs that the
 | QT5000-Possion3.0 | 158.48 / 158.42 | 13.60 / 13.58 (11.7x) | 8.63 / 15.36 (18.4x) | 6.36 / 17.36 (24.9x) | 7.23 / 23.88 (21.9x) | 8.98 / 8.98 (17.6x) | yes |
 | QT5000-Possion5.0 | 155.93 / 155.87 | 12.98 / 12.95 (12.0x) | 8.58 / 14.99 (18.2x) | 6.35 / 16.86 (24.6x) | 7.11 / 21.49 (21.9x) | 9.55 / 9.55 (16.3x) | yes |
 
-On one thread QTSimFast is 2.4 times as fast as the original at 100 loci and 12 times at
-5000 loci; with four threads, up to 25 times at 5000 loci. In that version threads helped
-only with many loci, and they cost CPU time (the workers poll before they sleep): for a
-sweep of many runs, one thread per run is the efficient setting, and it is the default.
 
-**After the revision of 19 November 2026** (sections 3.9 to 3.13: the means of the output
-line, block collection, and the pipeline, in which one thread makes the draws and another
-builds the genomes). The benchmark above has not been repeated, because the machine was
-not quiet; the following timings are **indicative only**. The program before the revision
+**Before and after the revision, side by side** (sections 3.9 to 3.13: the means of the
+output line, block collection, and the pipeline, in which one thread makes the draws and
+another builds the genomes). These timings were taken before the benchmark above could be
+repeated, on a busy machine, and are **indicative only**; they add three threads and the
+pipeline switched off. The program before the revision
 and after it were run alternately on one synthetic input of the published design per
 number of loci (1000 diploid individuals, 12,000 generations; minimum of three runs;
 load averages 5.5 to 10 during the runs; every output identical to the original's):

@@ -16,15 +16,15 @@ doi:10.1038/s41598-025-24445-2.
 
 For the same options file, and so the same seed, QTSimFast writes the same bytes to
 standard output as QTSim and exits with the same code, for any number of threads. In the
-benchmark (`bench_results.md`, made before the revision described next) it was 2.4 to 12
-times as fast on one thread (100 to 5000 loci) and up to 25 times with four threads. The
+benchmark (`bench_results.md`, quiet machine, 20 November 2026) it was 2.7 to 11.8
+times as fast on one thread (100 to 5000 loci), 4.6 to 19.4 times with two threads and up
+to 27 times with four. The
 original remains the reference: QTSimFast is tested against it.
 
 Revised on 19 November 2026 (`REPORT.md`, sections 3.9 to 3.13): with two threads or more
 one thread now makes the random draws and another builds the genomes, which roughly
-halves the wall time of a run at 100 to 1000 loci with two to four threads (indicative
-timings in `REPORT.md`, section 1; they cost processor time, and one thread remains the
-default).
+halves the wall time of a run at 100 to 1000 loci with two to four threads (benchmark in
+`REPORT.md`, section 1; threads cost processor time, and one thread remains the default).
 
 ## Quick start
 
@@ -64,7 +64,7 @@ arm64 only; written for Linux and x86-64 too, but not yet run there (run `make c
 | `examples/` | six option files written for this package (the paper's own input files are not included) |
 | `demo_parity.sh`, `PARITY_DEMO.txt` | the parity demonstration and a transcript of it |
 | `test_parity.sh`, `PARITY_FULL.txt` | the parity matrix (`quick`, `full`) and the result of the full run: 13,915 comparisons, all identical |
-| `bench.sh`, `bench_results.md`, `bench_results.csv`, `bench_runs.csv` | the benchmark and its results (quiet machine, 19 November 2026, before the revision of that day; not repeated since) |
+| `bench.sh`, `bench_results.md`, `bench_results.csv`, `bench_runs.csv` | the benchmark and its results (quiet machine, 20 November 2026, after the revision; the first version's is kept in `REPORT.md`, section 1) |
 | `REPORT.md`, `PROOFS.md` | see above |
 | `formal/QTSimFast.lean` | the Lean 4 model and proofs (needs only Mathlib) |
 | `formal/QTSimFastShadows.lean` | alignment checks: consequences, second formalizations, concrete instances, counterexamples for non-exact algorithms |
