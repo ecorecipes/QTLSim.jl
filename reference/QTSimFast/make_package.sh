@@ -25,7 +25,7 @@ cp "$HERE"/examples/*.txt "$DEST/examples/"
 cp "$HERE/package/Makefile" "$DEST/Makefile"
 cp "$HERE/package/README.md" "$DEST/README.md"
 cp "$HERE/../../LICENSE" "$DEST/COPYING"
-for f in demo_parity.sh test_parity.sh bench.sh bench_results.md bench_results.csv bench_runs.csv REPORT.md PROOFS.md PARITY_DEMO.txt PARITY_FULL.txt; do
+for f in demo_parity.sh test_parity.sh bench.sh bench_results.md bench_results.csv bench_runs.csv REPORT.md PROOFS.md PROOFS.html PROOFS.pdf PARITY_DEMO.txt PARITY_FULL.txt; do
 	[ -f "$HERE/$f" ] && cp "$HERE/$f" "$DEST/$f" || echo "note: $f is missing"
 done
 for f in README.md QTSimFast.lean QTSimFastShadows.lean ModelCheck.lean model_check.c model_check_expected.txt check.sh render.sh lean2md.awk QTSimFast.md QTSimFast.html QTSimFast.pdf QTSimFastShadows.md QTSimFastShadows.html QTSimFastShadows.pdf; do

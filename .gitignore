@@ -32,3 +32,4 @@ validate/symbolic/Manifest-v*.toml
 /validate/narrow_omega_raw/
 /validate/bistability_raw/
 reference/QTSimFast/formal/*.html
+reference/QTSimFast/PROOFS.html

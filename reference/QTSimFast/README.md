@@ -292,7 +292,7 @@ with no loci, no individuals and no generations were added.
   arbitrary state machine, that the algorithmic changes give the original's results
   (`formal/QTSimFast.lean`, also in `lean/CategoricalQuantGen/` of the parent project);
   checks that the theorems say what is claimed (`formal/QTSimFastShadows.lean`); the
-  rendered documents (`formal/*.pdf`, `*.html`, by `formal/render.sh`); and an executable
+  rendered documents (`formal/*.pdf`, `*.html` and `PROOFS.pdf`, `.html`, by `formal/render.sh`); and an executable
   cross-check of the model against both programs' own routines (`make model-check`).
 - `./demo_parity.sh` (`make demo`): six example inputs from `examples/`, two seeds, 1 to
   8 threads, with checksums, sizes and times, and a negative control; a transcript is

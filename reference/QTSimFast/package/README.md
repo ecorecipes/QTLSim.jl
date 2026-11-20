@@ -46,7 +46,7 @@ arm64 only; written for Linux and x86-64 too, but not yet run there (run `make c
 - `REPORT.md`: the technical report. What was changed and why the output cannot change,
   measured speed, what bit parity rules out, threads, the start-up self-checks, how it
   was verified, limits.
-- `PROOFS.md`: the machine-checked proofs (Lean 4) that the algorithmic changes preserve
+- `PROOFS.md` (also `PROOFS.html`, `PROOFS.pdf`): the machine-checked proofs (Lean 4) that the algorithmic changes preserve
   the result. **The proofs are about a mathematical model of the algorithms, not about
   the C source**; the note says exactly what is proved, on which hypotheses, what links
   the model to the code, and what is not proved.
@@ -65,7 +65,7 @@ arm64 only; written for Linux and x86-64 too, but not yet run there (run `make c
 | `demo_parity.sh`, `PARITY_DEMO.txt` | the parity demonstration and a transcript of it |
 | `test_parity.sh`, `PARITY_FULL.txt` | the parity matrix (`quick`, `full`) and the result of the full run: 13,915 comparisons, all identical |
 | `bench.sh`, `bench_results.md`, `bench_results.csv`, `bench_runs.csv` | the benchmark and its results (quiet machine, 20 November 2026, after the revision; the first version's is kept in `REPORT.md`, section 1) |
-| `REPORT.md`, `PROOFS.md` | see above |
+| `REPORT.md`, `PROOFS.md` | see above; `PROOFS.html` and `PROOFS.pdf` are `PROOFS.md` rendered (`formal/render.sh PROOFS`) |
 | `formal/QTSimFast.lean` | the Lean 4 model and proofs (needs only Mathlib) |
 | `formal/QTSimFastShadows.lean` | alignment checks: consequences, second formalizations, concrete instances, counterexamples for non-exact algorithms |
 | `formal/*.md`, `*.html`, `*.pdf` | the two Lean files rendered as documents (`formal/render.sh`); each states the SHA-256 of the Lean file it was generated from |

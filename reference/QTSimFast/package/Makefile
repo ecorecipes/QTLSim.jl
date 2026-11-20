@@ -11,7 +11,7 @@
 #     make parity-full   the whole matrix (about 1.5 CPU-hours), with sanitizer builds
 #     make model-check   the C routines against the recorded output of the Lean model
 #     make bench         timings; writes bench_results.md, .csv, bench_runs.csv
-#     make docs          formal/render.sh: regenerate the rendered Lean documents
+#     make docs          formal/render.sh: regenerate the rendered Lean documents and PROOFS.html/.pdf
 #     make clean
 #
 # Floating-point contraction is off so that both builds do the arithmetic the sources

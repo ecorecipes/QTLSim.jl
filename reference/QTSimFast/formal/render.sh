@@ -2,11 +2,13 @@
 # Render the Lean files of this directory as documents: Markdown (mdgen's format),
 # a self-contained HTML page and a PDF.
 #
-#     formal/render.sh
+#     formal/render.sh [QTSimFast] [QTSimFastShadows] [PROOFS]    (default: all three)
 #
 # For QTSimFast.lean and QTSimFastShadows.lean it writes <name>.md, <name>.html and
 # <name>.pdf beside them. Every rendered document states the SHA-256 of the Lean file
-# it was made from; the documents are generated, never edited.
+# it was made from; the documents are generated, never edited. PROOFS renders the
+# hand-written note ../PROOFS.md (no mdgen involved) as ../PROOFS.html and ../PROOFS.pdf,
+# read as GitHub-flavoured Markdown so that `\|` in table cells is a plain `|`.
 #
 # Tools (each optional; what cannot be made is skipped with a note):
 #   mdgen   https://github.com/Seasawher/mdgen, the executable named by MDGEN or
@@ -29,10 +31,13 @@ sha() {
 	else sha256sum "$1" | cut -d' ' -f1; fi
 }
 
+TARGETS=" ${*:-QTSimFast QTSimFastShadows PROOFS} "
 MDGEN=${MDGEN:-$(command -v mdgen 2> /dev/null || true)}
 mkdir -p "$WORK/in" "$WORK/out"
 cp QTSimFast.lean QTSimFastShadows.lean "$WORK/in/"
-if [ -n "$MDGEN" ] && [ -x "$MDGEN" ] && "$MDGEN" "$WORK/in" "$WORK/out" > /dev/null 2>&1 && [ -s "$WORK/out/QTSimFast.md" ]; then
+if [ "$TARGETS" = " PROOFS " ]; then
+	:   # only the note: no Lean file to convert
+elif [ -n "$MDGEN" ] && [ -x "$MDGEN" ] && "$MDGEN" "$WORK/in" "$WORK/out" > /dev/null 2>&1 && [ -s "$WORK/out/QTSimFast.md" ]; then
 	converter="mdgen $("$MDGEN" --version 2> /dev/null | head -1)"
 else
 	echo "note: mdgen not available; using the fallback converter lean2md.awk"
@@ -42,6 +47,7 @@ fi
 
 status=0
 for n in QTSimFast QTSimFastShadows; do
+	case $TARGETS in *" $n "*) ;; *) continue ;; esac
 	cp "$WORK/out/$n.md" "$n.md"
 	h=$(sha "$n.lean")
 	echo "$n.md written ($converter); $n.lean sha256 $h"
@@ -89,4 +95,52 @@ EOT
 	( cd "$d" && quarto render "$n.md" --to html > html.log 2>&1 ) && [ -s "$d/$n.html" ] && cp "$d/$n.html" "$n.html" && echo "$n.html written" || { echo "note: HTML rendering of $n failed"; tail -5 "$d/html.log"; status=1; }
 	( cd "$d" && quarto render "$n.md" --to typst > pdf.log 2>&1 ) && [ -s "$d/$n.pdf" ] && cp "$d/$n.pdf" "$n.pdf" && echo "$n.pdf written" || { echo "note: PDF rendering of $n failed"; tail -5 "$d/pdf.log"; status=1; }
 done
+
+# The hand-written note on the proofs, one directory up, with the same styles.
+case $TARGETS in *" PROOFS "*)
+	if ! command -v quarto > /dev/null 2>&1; then
+		echo "note: quarto not found; PROOFS.html and PROOFS.pdf not made"
+	elif [ ! -f ../PROOFS.md ]; then
+		echo "note: ../PROOFS.md not found"; status=1
+	else
+		d=$WORK/q-PROOFS; mkdir -p "$d"
+		{
+			cat <<'EOT'
+---
+from: gfm
+pagetitle: "QTSimFast: the formal proofs"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    html-math-method: mathml
+    code-overflow: scroll
+    theme: cosmo
+    fontsize: 1em
+    monofont: "Menlo, DejaVu Sans Mono, monospace"
+  typst:
+    toc: true
+    toc-depth: 2
+    papersize: a4
+    margin:
+      x: 1.7cm
+      y: 2cm
+    fontsize: 10pt
+    include-in-header:
+      text: |
+        #show raw: set text(font: ("Menlo", "DejaVu Sans Mono", "STIX Two Math", "Apple Symbols"))
+        #show raw.where(block: true): set text(size: 7.3pt)
+        #show raw.where(block: true): set par(leading: 0.5em)
+        #set table(inset: 5pt)
+        #show table: set text(size: 8.5pt)
+---
+
+EOT
+			cat ../PROOFS.md
+		} > "$d/PROOFS.md"
+		( cd "$d" && quarto render PROOFS.md --to html > html.log 2>&1 ) && [ -s "$d/PROOFS.html" ] && cp "$d/PROOFS.html" ../PROOFS.html && echo "PROOFS.html written" || { echo "note: HTML rendering of PROOFS failed"; tail -5 "$d/html.log"; status=1; }
+		( cd "$d" && quarto render PROOFS.md --to typst > pdf.log 2>&1 ) && [ -s "$d/PROOFS.pdf" ] && cp "$d/PROOFS.pdf" ../PROOFS.pdf && echo "PROOFS.pdf written" || { echo "note: PDF rendering of PROOFS failed"; tail -5 "$d/pdf.log"; status=1; }
+	fi ;;
+esac
 exit $status
