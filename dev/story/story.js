@@ -71,14 +71,14 @@ function buildTables() {
   for (const s of D.design.strata) {
     const d = document.createElement("div");
     d.className = "stratum";
-    d.innerHTML = `<b>${s.L.toLocaleString("en-GB")} loci</b><span>${s.u} crossovers · ${s.n.toLocaleString("en-GB")} populations · ${s.sample} rerun</span>`;
+    d.innerHTML = `<b>${s.L.toLocaleString("en-GB")} loci</b><span>${s.u} crossovers · ${s.n.toLocaleString("en-GB")} populations · ${s.sample} in the sample</span>`;
     strata.appendChild(d);
   }
   table("params-table", ["Parameter", "5%", "median", "95%"], D.design.parameters.map((p) => [p.name, ...p.q.map((v) => sig(v))]));
   table("paper-table", ["Quantity", "Paper", "Recomputed"], D.paper.map((r) => [r.quantity, r.paper, iqr(r.table)]));
-  table("survivors-table", ["Survivors'", "Paper", "All published survivors", "Published runs, sample", "QTLSim reruns"],
+  table("survivors-table", ["Persisting populations", "Paper", "All published", "Sample, original simulations", "Sample, QTLSim"],
     D.survivors.stats.map((r) => [r.quantity, r.paper, iqr(r.all), iqr(r.published), iqr(r.reruns)]));
-  table("summary-table", ["Result", "Paper", "Paper's table", "Published runs, sample", "QTLSim reruns"],
+  table("summary-table", ["Result", "Paper", "Paper's table of results", "Sample, original simulations", "Sample, QTLSim"],
     D.summary.map((r) => [r.quantity, r.paper || "", sig(r.table), sig(r.published), sig(r.reruns)]));
 }
 
@@ -201,20 +201,20 @@ const SCENES = {
   model: [
     () => {
       const e = D.examples[0];
-      return { cap: "Genetic variance builds up from nothing", legend: [["--c-pub", "genetic variance"]],
+      return { cap: "Accumulation of genetic variance", legend: [["--c-pub", "genetic variance"]],
         spec: { x: { label: "generation", min: 0, max: 10000 }, y: { label: "variance", min: 0 },
           series: [{ kind: "line", data: zipXY(e.gen, e.vg).filter((p) => p[0] <= 10000), color: "--c-pub" }] } };
     },
     () => {
       const e = D.examples[0];
       const pre = (a) => zipXY(e.gen, a).filter((p) => p[0] <= 10000);
-      return { cap: "Mutation, selection and drift in balance", legend: [["--c-all", "phenotypic variance"], ["--c-pub", "genetic variance"]],
+      return { cap: "Genetic and phenotypic variance at equilibrium", legend: [["--c-all", "phenotypic variance"], ["--c-pub", "genetic variance"]],
         spec: { x: { label: "generation", min: 0, max: 10000 }, y: { label: "variance", min: 0 },
           series: [{ kind: "line", data: pre(e.vp), color: "--c-all" }, { kind: "line", data: pre(e.vg), color: "--c-pub" }] } };
     },
     () => {
       const e = D.examples[0], i = after(e, 9600);
-      return { cap: `The optimum moves by ${e.d} per generation: the population keeps up`, legend: [["--c-rerun", "optimum", true], ["--c-pub", "mean phenotype"]],
+      return { cap: `An optimum moving by ${e.d} per generation`, legend: [["--c-rerun", "optimum", true], ["--c-pub", "mean phenotype"]],
         spec: { x: { label: "generation" }, y: { label: "phenotype" },
           series: [{ kind: "line", data: i.map((j) => [e.gen[j], e.theta[j]]), color: "--c-rerun", dash: "6 4" },
                    { kind: "line", data: i.map((j) => [e.gen[j], e.z[j]]), color: "--c-pub" },
@@ -222,7 +222,7 @@ const SCENES = {
     },
     () => {
       const e = D.examples[1], i = after(e, 9600);
-      return { cap: `At ${e.d} per generation it falls behind and dies`, legend: [["--c-rerun", "optimum", true], ["--c-pub", "mean phenotype"]],
+      return { cap: `An optimum moving by ${e.d} per generation`, legend: [["--c-rerun", "optimum", true], ["--c-pub", "mean phenotype"]],
         spec: { x: { label: "generation" }, y: { label: "phenotype" },
           series: [{ kind: "line", data: i.map((j) => [e.gen[j], e.theta[j]]), color: "--c-rerun", dash: "6 4" },
                    { kind: "line", data: i.map((j) => [e.gen[j], e.z[j]]), color: "--c-pub" },
@@ -231,29 +231,29 @@ const SCENES = {
     () => {
       const lag = (e) => after(e, 10000).map((j) => [e.gen[j] - 10000, (e.theta[j] - e.z[j]) / Math.sqrt(e.vp[j])]);
       const [a, b] = D.examples;
-      return { cap: "The lag, in phenotypic standard deviations", legend: [["--c-pub", `d = ${a.d}`], ["--c-rerun", `d = ${b.d}`]],
+      return { cap: "Lag behind the optimum, in phenotypic standard deviations", legend: [["--c-pub", `d = ${a.d}`], ["--c-rerun", `d = ${b.d}`]],
         spec: { x: { label: "generations since the move", min: 0 }, y: { label: "lag (θ − z̄) / SD", min: 0 },
           series: [{ kind: "line", data: lag(a), color: "--c-pub" }, { kind: "line", data: lag(b), color: "--c-rerun" }] } };
     },
   ],
   rerun: [
-    () => ({ cap: "Alive 2000 generations after the move", legend: [["--c-all", "all published"], ["--c-pub", "published runs, sample"], ["--c-rerun", "QTLSim reruns"]],
+    () => ({ cap: "Proportion of populations persisting for 2000 generations", legend: [["--c-all", "all published populations"], ["--c-pub", "sample, original simulations"], ["--c-rerun", "sample, simulated with QTLSim"]],
       spec: { x: { label: "standardised rate of environmental change x", log: true }, y: { label: "share alive", min: 0, max: 1 },
         series: [{ kind: "line", data: D.survival.all, color: "--c-all", width: 3 },
                  { kind: "linepoints", data: D.survival.published, color: "--c-pub" },
                  { kind: "linepoints", data: D.survival.reruns, color: "--c-rerun" }] } }),
-    () => ({ cap: "Generations to extinction (Figure 1a)", legend: [["--c-all", "paper"], ["--c-pub", "published runs, sample"], ["--c-rerun", "QTLSim reruns"]],
+    () => ({ cap: "Time to extinction", legend: [["--c-all", "all published populations"], ["--c-pub", "sample, original simulations"], ["--c-rerun", "sample, simulated with QTLSim"]],
       spec: { x: { label: "standardised rate of environmental change x", log: true }, y: { label: "median generations to extinction", log: true },
         series: [{ kind: "line", data: D.fig1.a.paper, color: "--c-all", width: 3 },
                  { kind: "linepoints", data: D.fig1.a.published, color: "--c-pub" },
                  { kind: "linepoints", data: D.fig1.a.reruns, color: "--c-rerun" },
                  { kind: "hline", at: 2000, color: "--muted" }] } }),
-    () => ({ cap: "Standardised lag (Figure 1b)", legend: [["--c-all", "paper"], ["--c-pub", "published runs, sample"], ["--c-rerun", "QTLSim reruns"]],
+    () => ({ cap: "Lag behind the optimum", legend: [["--c-all", "all published populations"], ["--c-pub", "sample, original simulations"], ["--c-rerun", "sample, simulated with QTLSim"]],
       spec: { x: { label: "standardised rate of environmental change x", log: true }, y: { label: "median standardised lag", log: true },
         series: [{ kind: "line", data: D.fig1.b.paper, color: "--c-all", width: 3 },
                  { kind: "linepoints", data: D.fig1.b.published, color: "--c-pub" },
                  { kind: "linepoints", data: D.fig1.b.reruns, color: "--c-rerun" }] } }),
-    () => ({ cap: "Mortality 45 generations into the move (Figure 1c)", legend: [["--c-all", "paper"], ["--c-pub", "published runs, sample"], ["--c-rerun", "QTLSim reruns"]],
+    () => ({ cap: "Mortality 45 generations after the optimum starts to move", legend: [["--c-all", "all published populations"], ["--c-pub", "sample, original simulations"], ["--c-rerun", "sample, simulated with QTLSim"]],
       spec: { x: { label: "median standardised lag", log: true }, y: { label: "share dying in a generation", min: 0, max: 1 },
         series: [{ kind: "line", data: D.fig1.c.paper, color: "--c-all", width: 3 },
                  { kind: "linepoints", data: D.fig1.c.published, color: "--c-pub" },
@@ -261,7 +261,7 @@ const SCENES = {
     () => {
       const p = D.reruns.filter((r) => r.VG > 0 && r.shc > 0).map((r) => [r.shc, r.VG]);
       const lo = Math.min(...p.flat()), hi = Math.max(...p.flat());
-      return { cap: "Genetic variance before the move, against the house of cards", legend: [["--c-rerun", "QTLSim reruns"], ["--muted", "equality", true]],
+      return { cap: "Genetic variance at equilibrium and the stochastic house of cards", legend: [["--c-rerun", "simulated populations"], ["--muted", "equality", true]],
         spec: { x: { label: "stochastic house-of-cards approximation", log: true }, y: { label: "simulated genetic variance", log: true },
           series: [{ kind: "line", data: [[lo, lo], [hi, hi]], color: "--muted", dash: "4 4", width: 1.5 },
                    { kind: "points", data: p, color: "--c-rerun", r: 2.6, alpha: 0.45 }] } };
@@ -279,8 +279,8 @@ const SCENES = {
   moves: [
     () => {
       const c = D.crossover;
-      return { cap: "QTLSim against the published runs: two crossover models", legend: [["--c-pub", "QTSim's (lowest point only)"], ["--c-rerun", "every crossover point"]],
-        spec: { x: { label: "ratio to the published runs (geometric mean, 95% interval)", min: 0.95, max: 1.25 }, y: { label: "", min: 0, max: 5, ticks: [], fmt: () => "" },
+      return { cap: "Persistence and genetic variance under two models of recombination", legend: [["--c-pub", "at most one crossover per gamete"], ["--c-rerun", "every crossover point applied"]],
+        spec: { x: { label: "relative to the original simulations (geometric mean, 95% interval)", min: 0.95, max: 1.25 }, y: { label: "", min: 0, max: 5, ticks: [], fmt: () => "" },
           series: [{ kind: "vline", at: 1, color: "--muted" },
                    { kind: "interval", color: "--c-pub", data: [
                      { y: 4, est: c.qtsim.time[0], lo: c.qtsim.time[1], hi: c.qtsim.time[2], text: "time to extinction", color: "--c-pub" },
@@ -290,13 +290,13 @@ const SCENES = {
     },
     () => {
       const cols = ["--c-pub", "--c-4", "--c-rerun", "--c-5"];
-      return { cap: "Alive 2000 generations after the move, by demography", legend: D.demography.map((s, i) => [cols[i], s.name]),
+      return { cap: "Persistence with and without density regulation", legend: D.demography.map((s, i) => [cols[i], s.name]),
         spec: { x: { label: "standardised rate of environmental change x", log: true }, y: { label: "share alive", min: 0, max: 1 },
           series: D.demography.flatMap((s, i) => [{ kind: "line", data: s.curve, color: cols[i] }, { kind: "points", data: s.bins, color: cols[i] }]) } };
     },
     () => {
       const cols = ["--c-pub", "--c-4", "--c-rerun", "--c-5"];
-      return { cap: "The rate at which half survive 2000 generations", legend: D.demography.map((s, i) => [cols[i], s.name]),
+      return { cap: "Rate of change at which half of the populations persist", legend: D.demography.map((s, i) => [cols[i], s.name]),
         spec: { x: { label: "standardised rate x at which half are alive", min: 0.04, max: 0.085 }, y: { label: "", min: 0, max: 5, ticks: [], fmt: () => "" },
           series: [{ kind: "interval", color: "--c-pub", data: D.demography.map((s, i) => ({
             y: 4 - i, est: s.x50, lo: s.x50, hi: s.x50, color: cols[i],
@@ -304,6 +304,12 @@ const SCENES = {
     },
   ],
 };
+
+// the page's three docked sections and their scenes, in order
+SCENES.rates = SCENES.rerun.slice(0, 4);
+SCENES.limits = [SCENES.rerun[4], SCENES.moves[0], SCENES.moves[1], SCENES.moves[2]];
+delete SCENES.rerun;
+delete SCENES.moves;
 
 const current = {};
 function show(chart, step) {

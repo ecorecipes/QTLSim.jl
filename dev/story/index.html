@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>How Fast Can Populations Adapt?</title>
-<meta name="description" content="A walk through the reproduction of Pagel, Gardner and Meade (2025) with QTLSim.jl: the model, the paper's numbers recomputed, 710 populations rerun, and what changes the answer.">
+<title>Limits to Adaptation</title>
+<meta name="description" content="How fast populations can track a steadily changing environment, in the quantitative-genetic model of Pagel, Gardner and Meade (2025), explored with QTLSim.jl.">
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="story.css">
 </head>
@@ -12,33 +12,33 @@
 
 <header class="cover">
   <div class="cover-inner">
-    <p class="kicker">A reproduction, step by step</p>
-    <h1>How fast can a population adapt to a changing environment?</h1>
-    <p class="dek">Pagel, Gardner and Meade simulated <span data-v="design.populations" data-f="int">119,984</span> populations to find out. We recomputed their numbers, reran 710 of their populations with an independent implementation, and asked what changes the answer.</p>
+    <p class="kicker">Quantitative genetics of a changing environment</p>
+    <h1>Limits to the rate of adaptation to a steadily changing environment</h1>
+    <p class="dek">Pagel, Gardner and Meade (2025) simulated <span data-v="design.populations" data-f="int">119,984</span> populations adapting to a moving optimum and concluded that populations can sustain change of only a few percent of a phenotypic standard deviation per generation. Here we work through the model, its results and the assumptions on which they depend.</p>
     <p class="byline">QTLSim.jl · data generated <span data-v="meta.generated">–</span></p>
   </div>
-  <a class="scroll-cue" href="#claim" aria-label="Start reading">↓</a>
+  <a class="scroll-cue" href="#background" aria-label="Start reading">↓</a>
 </header>
 
 <nav class="sections" id="sections" aria-label="Sections">
-  <a href="#claim">The claim</a>
+  <a href="#background">Background</a>
   <a href="#model">The model</a>
-  <a href="#recompute">The numbers</a>
-  <a href="#rerun">Rerunning</a>
-  <a href="#survivors">Survivors</a>
-  <a href="#moves">What moves it</a>
-  <a href="#explore">Explore the data</a>
+  <a href="#rates">Rates of change</a>
+  <a href="#sustainable">The sustainable rate</a>
+  <a href="#limits">What sets the limit</a>
+  <a href="#caveats">Caveats</a>
+  <a href="#explore">Explore</a>
+  <a href="#methods">Methods</a>
 </nav>
 
 <main>
 
-<!-- ------------------------------------------------------------ the claim -->
-<section class="prose" id="claim">
-  <h2>The claim</h2>
-  <p>As climates warm, the traits that suit a population best shift: the time to breed, the size to grow, the temperature to tolerate. A population can follow by evolving, but only so fast. How fast is too fast?</p>
-  <p>Pagel, Gardner and Meade (<a href="https://doi.org/10.1038/s41598-025-24445-2">Scientific Reports, 2025</a>) answered with a simulation, QTSim. Each of <span data-v="design.populations" data-f="int">119,984</span> virtual populations spent 10,000 generations adapting to a fixed optimum; then the optimum started to move, a fixed amount every generation, until the population died out or 240,000 generations had passed. Only <span data-v="design.survived" data-f="int">6158</span> survived. Those survivors had changed at a median of <strong>0.031 phenotypic standard deviations per generation</strong>: the paper's estimate of the maximum sustainable rate of change, about 3% of a standard deviation per generation.</p>
-  <p>The paper then compared field data with a theoretical <em>critical rate</em> for each surviving population. Birds advance their breeding by a median of 0.022 standard deviations a year, which at two to four years per generation is 0.044 to 0.088 per generation: at the <span data-v="kc_percentiles.0" data-f="ord">68th</span> and <span data-v="kc_percentiles.1" data-f="ord">86th</span> percentiles of the survivors' critical rates. Many populations, the paper concluded, may already be changing faster than they can sustain.</p>
-  <p>Here we walk through that analysis with <a href="https://github.com/ecorecipes/QTLSim.jl">QTLSim.jl</a>, an independent Julia implementation of the same model: how it works, how the paper's numbers arise, whether they come out again, and which of the model's assumptions they depend on.</p>
+<!-- ------------------------------------------------------------ background -->
+<section class="prose" id="background">
+  <h2>Background</h2>
+  <p>Many natural populations are changing in response to a warming climate, and phenotypic traits such as the timing of breeding have shifted measurably over a few decades. Whether such change can continue depends on whether evolution can keep pace with the environment. While plasticity allows individuals to respond within their lifetime, sustained change over many generations requires a genetic response, and the rate of that response is limited by the genetic variance on which selection acts.</p>
+  <p>Quantitative-genetic theory has long addressed this question for a trait under stabilising selection toward an optimum that moves at a constant rate (Lynch and Lande 1993; Bürger and Lynch 1995). A population follows the optimum with a lag, and the lag reduces mean fitness; above a critical rate of change, the lag cannot be sustained and the population declines to extinction. The critical rate depends on the genetic variance, the strength of selection and the population's capacity for growth, all of which are difficult to measure in the field.</p>
+  <p>Pagel, Gardner and Meade (<a href="https://doi.org/10.1038/s41598-025-24445-2">Scientific Reports, 2025</a>) approached the problem by simulation. Each of <span data-v="design.populations" data-f="int">119,984</span> populations, with its own genetic architecture and strength of selection, was allowed to reach equilibrium under stabilising selection, after which its optimum moved by a fixed amount every generation. The populations that persisted changed at a median of 0.031 phenotypic standard deviations per generation, and the authors concluded that rates of change already observed in some natural populations exceed what most of their simulated populations could sustain.</p>
 </section>
 
 <!-- ------------------------------------------------------------ the model -->
@@ -53,130 +53,106 @@
   <div class="sidecar-steps">
     <h2 id="model-h">The model</h2>
     <div class="step" data-chart="model" data-step="0">
-      <h3>A population of individuals</h3>
-      <p>A population has <span data-v="examples.0.params.N" data-f="int">1000</span> diploid individuals. Each carries a trait, its <em>phenotype</em>: the sum of the effects of its alleles at <span data-v="examples.0.params.L">100</span> loci, its <em>genotype</em>, plus random environmental noise. In this example the phenotypic variance is <span data-v="examples.0.params.VP">0.02</span> and 60% of it is genetic at equilibrium.</p>
-      <p>Every population starts with no genetic variation. Mutations, each adding a small random effect at a random locus, build it up over thousands of generations.</p>
+      <h3>Genetic variance at equilibrium</h3>
+      <p>Each population consists of <span data-v="examples.0.params.N" data-f="int">1000</span> diploid individuals with a single trait, whose value is the sum of the allelic effects at <span data-v="examples.0.params.L">100</span> loci plus an environmental deviation. Populations start without genetic variation. Mutations, each adding a small random effect at a single locus, introduce variance, which accumulates over several thousand generations until it is balanced by its loss to selection and drift.</p>
     </div>
     <div class="step" data-chart="model" data-step="1">
-      <h3>Selection toward an optimum</h3>
-      <p>Fitness falls off on either side of an optimum like a bell curve. Each generation an individual survives with probability equal to its fitness; survivors pair at random and each offspring gets one gamete from each of two different parents, its chromosomes recombined at a random number of crossover points.</p>
-      <p>Mutation adds variance, selection and random drift remove it. After 10,000 generations the genetic variance has settled where the two balance.</p>
+      <h3>Stabilising selection</h3>
+      <p>Fitness declines with distance from an optimum according to a Gaussian function, and each individual survives with a probability equal to its fitness. Survivors mate at random, and each offspring receives one gamete from each of two parents. At equilibrium the genetic variance accounts for a fixed proportion of the phenotypic variance, here 60%, and the population is distributed around the optimum.</p>
     </div>
     <div class="step" data-chart="model" data-step="2">
-      <h3>The optimum starts to move</h3>
-      <p>At generation 10,000 the optimum moves by a fixed amount <em>d</em> every generation. Here it moves by <span data-v="examples.0.d">0.008</span> per generation. Selection now favours individuals ahead of the mean, and the population follows, a little behind: it settles into a steady <em>lag</em>.</p>
+      <h3>A moving optimum</h3>
+      <p>At generation 10,000 the optimum starts to move by a fixed amount every generation, here <span data-v="examples.0.d">0.008</span>. Selection now favours individuals ahead of the mean, and the mean phenotype responds in proportion to the genetic variance. The population therefore follows the optimum with a lag, which settles at a value at which the response to selection matches the rate of change.</p>
     </div>
     <div class="step" data-chart="model" data-step="3">
-      <h3>Too fast to follow</h3>
-      <p>The same population, with the optimum moving at <span data-v="examples.1.d">0.015</span> per generation. The response cannot keep up: the lag grows, fewer individuals survive selection, and the population dies out <span data-v="examples.1.died" data-f="int">954</span> generations after the move.</p>
+      <h3>Extinction</h3>
+      <p>If the optimum moves faster, here at <span data-v="examples.1.d">0.015</span> per generation, the response to selection cannot match it. The lag grows, fewer individuals survive selection each generation, and the population goes extinct <span data-v="examples.1.died" data-f="int">954</span> generations after the optimum started to move. Because the population is restored to its full size each generation, extinction occurs only when selection removes nearly every individual.</p>
     </div>
     <div class="step" data-chart="model" data-step="4">
-      <h3>What the paper measures</h3>
-      <p>From each run the paper records how long the population lasted after the move, how fast its mean phenotype changed, and how far it lagged, in units of its phenotypic standard deviation at the moment half the population died in a generation. The rate of environmental change in those units, <em>x</em>, is what decides survival, as we will see.</p>
-    </div>
-  </div>
-</section>
-
-<!-- ------------------------------------------------------------ the design -->
-<section class="prose" id="design">
-  <h2>The design</h2>
-  <p>The paper's populations come in eight groups of about 15,000: 100, 500, 1000 or 5000 loci, with a mean of three or five crossover points per gamete. Within each group, every population drew its own phenotypic variance, heritability, mutation scalar, fitness width and rate of change.</p>
-  <div class="strata" id="strata"></div>
-  <div class="table-wrap"><table class="data" id="params-table"><caption>The drawn parameters across all populations: 5th, 50th and 95th percentiles</caption></table></div>
-</section>
-
-<!-- ------------------------------------------------------------ recompute -->
-<section class="prose" id="recompute">
-  <h2>The paper's numbers, recomputed</h2>
-  <p>The paper's per-population results table comes with its code. Recomputing every summary the paper reports from that table pins down exactly how each number is defined, and they all come out again.</p>
-  <div class="table-wrap"><table class="data" id="paper-table"><caption>The paper's Table 2 and its survivors' statistics: as printed, and recomputed from its results table (median, quartiles)</caption></table></div>
-  <p>Two of them needed some detective work. The adjustment for the mutation scalar weights each survivor by the density of its mutation scalar under a gamma distribution, which turns out to be the maximum-likelihood fit to all populations' scalars. And the critical rate in the table is Bürger and Lynch's formula: compared with the equation as printed in the paper, it has a factor of 2 and the variance <em>V</em><sub>λ</sub> = <em>V</em><sub>s</sub> + σ<sub>g</sub>² + <em>V</em><sub>s</sub>/2<em>N</em><sub>e</sub> in place of <em>V</em><sub>s</sub> + σ<sub>g</sub>². With those, the table's columns are reproduced exactly.</p>
-</section>
-
-<!-- ------------------------------------------------------------ rerun -->
-<section class="sidecar" id="rerun" aria-labelledby="rerun-h">
-  <div class="sidecar-media">
-    <figure class="stage">
-      <figcaption id="rerun-cap"></figcaption>
-      <svg id="rerun-chart" role="img" aria-label="Chart for the current step"></svg>
-      <p class="legend" id="rerun-legend"></p>
-    </figure>
-  </div>
-  <div class="sidecar-steps">
-    <h2 id="rerun-h">Rerunning 710 populations</h2>
-    <div class="step" data-chart="rerun" data-step="0">
-      <h3>A second, independent run</h3>
-      <p>Recomputing the table checks the arithmetic, not the simulations. So we drew 710 of the paper's populations, from every group, and ran each again with QTLSim, from the same parameters but with different random numbers: a new realisation of the same population, not a copy of its run. Each rerun stops 2000 generations after the move, unless the population is still alive.</p>
-      <p>The share still alive at that point falls steeply with the standardised rate of change <em>x</em>. For all the paper's populations (grey), the published runs of the 710 (blue) and their reruns (orange), half are alive at about 0.07 standard deviations per generation, and almost none above 0.2.</p>
-    </div>
-    <div class="step" data-chart="rerun" data-step="1">
-      <h3>Time to extinction</h3>
-      <p>The paper's Figure 1a: the median number of generations a population lasts after the move, against <em>x</em>. Medians beyond the reruns' 2000 generations are drawn at 2000. Published runs and reruns lie on the paper's curve.</p>
-    </div>
-    <div class="step" data-chart="rerun" data-step="2">
       <h3>The lag</h3>
-      <p>The paper's Figure 1b: how far behind the optimum the population falls each generation grows in proportion to the rate of change.</p>
-    </div>
-    <div class="step" data-chart="rerun" data-step="3">
-      <h3>Mortality</h3>
-      <p>The paper's Figure 1c: the share of the population dying in a generation, 45 generations into the move, rises from almost none at small lags to about half at a lag of 0.2 and nearly all at 1.</p>
-    </div>
-    <div class="step" data-chart="rerun" data-step="4">
-      <h3>The genetic variance</h3>
-      <p>Before the move, each rerun's genetic variance against Bürger's stochastic house-of-cards approximation, the paper's own check. The median ratio is <span data-v="vg.reruns" data-f="f2">0.89</span> for the reruns and <span data-v="vg.published" data-f="f2">0.90</span> for the published runs of the same populations.</p>
-    </div>
-    <div class="step" data-chart="rerun" data-step="5">
-      <h3>Population by population</h3>
-      <p>Pairing each rerun with the published run of the same population: the reruns' genetic variance before the move is <span data-v="agreement.vg.0" data-f="x3">×0.990</span> the published one (95% interval <span data-v="agreement.vg.1" data-f="f3">0.973</span>–<span data-v="agreement.vg.2" data-f="f3">1.007</span>), and their time to extinction <span data-v="agreement.time.0" data-f="x3">×0.999</span> (<span data-v="agreement.time.1" data-f="f3">0.992</span>–<span data-v="agreement.time.2" data-f="f3">1.006</span>). Two independent programs, the same answer.</p>
+      <p>Measured in phenotypic standard deviations, the lag of the slower population fluctuates around a constant, whereas that of the faster population increases without bound. Whether a population persists therefore depends on whether a stable lag exists at the rate at which the environment changes.</p>
     </div>
   </div>
 </section>
 
-<!-- ------------------------------------------------------------ survivors -->
-<section class="prose" id="survivors">
-  <h2>The survivors</h2>
-  <p>The paper's headline number comes from the populations that lasted all 240,000 generations. The <span data-v="survivors.run_on" data-f="int">63</span> reruns still alive after 2000 generations were run on to the end.</p>
-  <div class="cards">
-    <div class="card"><span class="big" data-v="survivors.both" data-f="int">40</span><span>survived in both the published run and the rerun</span></div>
-    <div class="card"><span class="big" data-v="survivors.published_only" data-f="int">1</span><span>survived only in the published run</span></div>
-    <div class="card"><span class="big" data-v="survivors.reruns_only" data-f="int">0</span><span>survived only in the rerun</span></div>
-  </div>
-  <div class="table-wrap"><table class="data" id="survivors-table"><caption>The survivors' statistics (median, quartiles)</caption></table></div>
-  <p>The survivors of the sample change a little faster than all the paper's survivors, in the published runs as much as in the reruns. With about forty survivors that is sampling error in the choice of populations, not a difference between the two programs.</p>
-  <div class="table-wrap"><table class="data" id="summary-table"><caption>Every headline number, four ways (medians; for the samples, times capped at 2000 generations and the groups weighted equally)</caption></table></div>
-</section>
-
-<!-- ------------------------------------------------------------ what moves it -->
-<section class="sidecar" id="moves" aria-labelledby="moves-h">
+<!-- ------------------------------------------------------------ rates of change -->
+<section class="sidecar" id="rates" aria-labelledby="rates-h">
   <div class="sidecar-media">
     <figure class="stage">
-      <figcaption id="moves-cap"></figcaption>
-      <svg id="moves-chart" role="img" aria-label="Chart for the current step"></svg>
-      <p class="legend" id="moves-legend"></p>
+      <figcaption id="rates-cap"></figcaption>
+      <svg id="rates-chart" role="img" aria-label="Chart for the current step"></svg>
+      <p class="legend" id="rates-legend"></p>
     </figure>
   </div>
   <div class="sidecar-steps">
-    <h2 id="moves-h">What moves the answer</h2>
-    <div class="step" data-chart="moves" data-step="0">
-      <h3>One crossover per gamete</h3>
-      <p>Reproducing a program exactly means reproducing its quirks. QTSim draws several crossover points for each gamete but switches strand only at the lowest: every gamete has at most one crossover. With that behaviour, QTLSim's runs of <span data-v="crossover.inputs" data-f="int">589</span> published inputs match the published runs (time to extinction ×<span data-v="crossover.qtsim.time.0" data-f="f3">1.008</span>, genetic variance ×<span data-v="crossover.qtsim.vg.0" data-f="f3">1.007</span>). Applying every crossover point instead, populations live ×<span data-v="crossover.all.time.0" data-f="f2">1.12</span> as long and hold ×<span data-v="crossover.all.vg.0" data-f="f2">1.06</span> the genetic variance: the published results depend on the quirk.</p>
+    <h2 id="rates-h">How fast is too fast</h2>
+    <div class="step" data-chart="rates" data-step="0">
+      <h3>Persistence</h3>
+      <p>Across all simulated populations, persistence depends primarily on the rate of environmental change expressed in phenotypic standard deviations per generation, <em>x</em>. Half of the populations persist for 2000 generations at about 0.07 standard deviations per generation, and almost none persist above 0.2. The grey line shows all of the published populations; the coloured lines show a stratified sample of 710 of them, in the original simulations and when simulated again with QTLSim.</p>
     </div>
-    <div class="step" data-chart="moves" data-step="1">
-      <h3>A population that can shrink</h3>
-      <p>QTSim refills its population to 1000 every generation, however many survive selection. Real populations shrink when they are poorly adapted. Rerunning the same 710 populations with density-regulated growth (Beverton–Holt, with maximum growth rates <em>R</em> of 5, 2 and 1.5 offspring per individual), the share alive 2000 generations after the move falls from <span data-v="demography.0.alive" data-f="p1">8.8%</span> to <span data-v="demography.1.alive" data-f="p1">6.7%</span>, <span data-v="demography.2.alive" data-f="p1">4.4%</span> and <span data-v="demography.3.alive" data-f="p1">3.4%</span>.</p>
+    <div class="step" data-chart="rates" data-step="1">
+      <h3>Time to extinction</h3>
+      <p>Above the threshold, the time to extinction declines steeply with the rate of change, from more than a thousand generations at 0.1 standard deviations per generation to about a hundred at 0.5. Consequently, populations exposed to rapid change may be lost within a few decades for organisms with short generation times.</p>
     </div>
-    <div class="step" data-chart="moves" data-step="2">
-      <h3>A lower sustainable rate</h3>
-      <p>The rate of change at which half the populations are still alive after 2000 generations falls from <span data-v="demography.0.x50" data-f="f3">0.077</span> standard deviations per generation at a fixed size to <span data-v="demography.1.x50" data-f="f3">0.065</span>, <span data-v="demography.2.x50" data-f="f3">0.056</span> and <span data-v="demography.3.x50" data-f="f3">0.057</span>, and populations that die do so in <span data-v="demography.1.time_ratio" data-f="f2">0.60</span>, <span data-v="demography.2.time_ratio" data-f="f2">0.44</span> and <span data-v="demography.3.time_ratio" data-f="f2">0.37</span> of the time. A fixed population size makes the sustainable rate look higher than it would be for a population that can decline.</p>
+    <div class="step" data-chart="rates" data-step="2">
+      <h3>The lag</h3>
+      <p>The lag increases in proportion to the rate of change, as expected when the response to selection is proportional to the distance from the optimum.</p>
+    </div>
+    <div class="step" data-chart="rates" data-step="3">
+      <h3>Mortality</h3>
+      <p>Mortality rises with the lag, from almost none at lags of a few hundredths of a standard deviation to about half at a lag of 0.2 and nearly all individuals at a lag of 1. The lag therefore links the rate of environmental change to the demographic cost of selection.</p>
     </div>
   </div>
+</section>
+
+<!-- ------------------------------------------------------------ sustainable rate -->
+<section class="prose" id="sustainable">
+  <h2>The sustainable rate</h2>
+  <p>Of the <span data-v="design.populations" data-f="int">119,984</span> simulated populations, <span data-v="design.survived" data-f="int">6158</span> persisted for 240,000 generations after the optimum started to move. These populations changed at a median of 0.031 phenotypic standard deviations per generation, which the authors took as an estimate of the maximum rate of change that populations can sustain. As populations with larger mutational input were more likely to persist, the authors also reweighted the survivors to the distribution of mutational input across all populations, which reduced the estimate to 0.019.</p>
+  <p>The authors then calculated, for each surviving population, the critical rate of Bürger and Lynch (1995), which depends on its genetic variance, the strength of selection and the number of surviving parents. Birds advance their breeding by a median of 0.022 phenotypic standard deviations per year (Radchuk et al. 2019); with generation times of two to four years this corresponds to 0.044 to 0.088 per generation, at the <span data-v="kc_percentiles.0" data-f="ord">68th</span> and <span data-v="kc_percentiles.1" data-f="ord">86th</span> percentiles of the critical rates. If these rates reflect a genetic response, they suggest that many natural populations may already be changing faster than they could sustain.</p>
+</section>
+
+<!-- ------------------------------------------------------------ what sets the limit -->
+<section class="sidecar" id="limits" aria-labelledby="limits-h">
+  <div class="sidecar-media">
+    <figure class="stage">
+      <figcaption id="limits-cap"></figcaption>
+      <svg id="limits-chart" role="img" aria-label="Chart for the current step"></svg>
+      <p class="legend" id="limits-legend"></p>
+    </figure>
+  </div>
+  <div class="sidecar-steps">
+    <h2 id="limits-h">What sets the limit</h2>
+    <div class="step" data-chart="limits" data-step="0">
+      <h3>Genetic variance</h3>
+      <p>The response to selection, and hence the sustainable rate, is set by the genetic variance present when the environment begins to change. In the simulations this variance is maintained by a balance between mutation, selection and drift, and it is close to the prediction of Bürger's stochastic house-of-cards approximation (median ratio <span data-v="vg.reruns" data-f="f2">0.89</span>). Populations with weak mutational input carry less variance, and the persisting populations had larger mutational input than the populations as a whole.</p>
+    </div>
+    <div class="step" data-chart="limits" data-step="1">
+      <h3>Linkage</h3>
+      <p>In the simulation program, each gamete has at most one crossover, so that loci on the same chromosome are inherited together more often than they would be with free recombination. Linkage between loci under selection reduces the genetic variance available to selection. When every crossover point is applied, populations hold <span data-v="crossover.all.vg.0" data-f="f2">1.06</span> times as much genetic variance and persist <span data-v="crossover.all.time.0" data-f="f2">1.12</span> times as long, suggesting that the published estimates are somewhat conservative with respect to recombination.</p>
+    </div>
+    <div class="step" data-chart="limits" data-step="2">
+      <h3>Demography</h3>
+      <p>The simulations keep population size constant, so that a poorly adapted population is restored to its full size each generation. In natural populations, by contrast, maladaptation reduces population size, which in turn reduces the number of individuals on which selection can act. When the same populations are allowed to decline, with density-dependent growth of the Beverton–Holt form and maximum growth rates of 5, 2 and 1.5 offspring per individual, the proportion persisting for 2000 generations falls from <span data-v="demography.0.alive" data-f="p1">8.8%</span> to <span data-v="demography.1.alive" data-f="p1">6.7%</span>, <span data-v="demography.2.alive" data-f="p1">4.4%</span> and <span data-v="demography.3.alive" data-f="p1">3.4%</span>.</p>
+    </div>
+    <div class="step" data-chart="limits" data-step="3">
+      <h3>A lower sustainable rate</h3>
+      <p>The rate of change at which half of the populations persist falls from <span data-v="demography.0.x50" data-f="f3">0.077</span> standard deviations per generation at constant size to between <span data-v="demography.2.x50" data-f="f3">0.056</span> and <span data-v="demography.1.x50" data-f="f3">0.065</span>, and populations that go extinct do so in <span data-v="demography.3.time_ratio" data-f="f2">0.37</span> to <span data-v="demography.1.time_ratio" data-f="f2">0.60</span> of the time. A model of constant size may therefore overestimate the rate of change that populations can sustain, particularly for species with low reproductive capacity.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------ caveats -->
+<section class="prose" id="caveats">
+  <h2>Caveats</h2>
+  <p>The model describes a single trait under Gaussian stabilising selection, in a population of fixed size, with an optimum that moves at a constant rate. Natural environments fluctuate around their trends, and fluctuations are known to lower the rate of change that a population can sustain (Bürger and Lynch 1995). Conversely, many of the changes observed in the field, including shifts in breeding time, are at least partly plastic, and plasticity allows a population to track its environment without a genetic response. Comparisons between simulated and observed rates also depend on generation times and on how rates measured over different intervals are standardised. These considerations do not alter the qualitative conclusion that the sustainable rate is limited by the genetic variance and the demographic cost of selection, but they affect where any particular population lies relative to that limit.</p>
 </section>
 
 <!-- ------------------------------------------------------------ explore -->
 <section class="explore" id="explore">
   <div class="prose">
     <h2>Explore the data</h2>
-    <p>Each point is one of the 710 reruns. Choose what to plot, pick out groups of populations, and hover for details. Populations still alive after 2000 generations are drawn as open circles.</p>
+    <p>Each point is one of 710 populations sampled from the published design and simulated with QTLSim. Populations that persisted for 2000 generations after the optimum started to move are shown as open circles; colours denote the number of loci.</p>
   </div>
   <div class="explorer">
     <div class="explorer-controls">
@@ -193,19 +169,27 @@
       <p class="ex-count" id="ex-count"></p>
     </div>
     <figure class="stage explorer-stage">
-      <svg id="ex-chart" role="img" aria-label="The reruns, one point per population"></svg>
+      <svg id="ex-chart" role="img" aria-label="The simulated populations, one point per population"></svg>
       <div class="tip" id="ex-tip" hidden></div>
     </figure>
   </div>
   <div class="prose">
-    <p class="cta">Run a population yourself, in your browser: <a href="https://ecorecipes.github.io/qtsim-web/">QTSim Explorer</a> runs QTSim ported to Rust and compiled to WebAssembly, and prints the C program's output byte for byte.</p>
+    <p class="cta">Individual populations can be simulated in the browser with <a href="https://ecorecipes.github.io/qtsim-web/">QTSim Explorer</a>, which reproduces the output of the original simulation program exactly.</p>
   </div>
 </section>
 
-<!-- ------------------------------------------------------------ sources -->
-<section class="prose sources" id="sources">
-  <h2>Sources and methods</h2>
-  <p>Everything here is computed by <code>story/build_data.jl</code> in <a href="https://github.com/ecorecipes/QTLSim.jl">QTLSim.jl</a> from the runs stored with the package's vignettes: <a href="../tutorials/09_replicating_pagel_2025/">replicating Pagel, Gardner and Meade</a> (the recomputation, the 710 reruns and the survivors), <a href="../tutorials/11_demography_in_the_papers_populations/">demography in the paper's populations</a> (density regulation), and the comparison of crossover models with the published runs (<code>validate/published_sweep.jl</code>). The paper's own numbers come from its results tables, which come with its code and data, not with this package; only their summaries are shown here. QTSim is by Andrew Meade (QTLSim 1.0, © 2023, GPL-3.0-or-later); QTLSim.jl is GPL-3.0-or-later.</p>
+<!-- ------------------------------------------------------------ methods -->
+<section class="prose" id="methods">
+  <h2>Methods</h2>
+  <p>The published populations fall into eight strata of about 15,000, defined by the number of loci and the mean number of crossover points per gamete. Within each stratum, every population drew its own phenotypic variance, heritability, mutational input, strength of selection and rate of change. Each population was simulated for 10,000 generations under stabilising selection, after which the optimum moved until the population went extinct or 240,000 generations had passed.</p>
+  <div class="strata" id="strata"></div>
+  <div class="table-wrap"><table class="data" id="params-table"><caption>Parameters across all published populations: 5th, 50th and 95th percentiles</caption></table></div>
+  <p>The summary statistics reported in the paper were recomputed from its table of results for each population. All of them are reproduced, including the adjustment for mutational input, which uses the maximum-likelihood gamma distribution fitted to the mutation scalars of all populations, and the critical rate, which follows Bürger and Lynch (1995) with a factor of 2 and the variance <em>V</em><sub>λ</sub> = <em>V</em><sub>s</sub> + σ<sub>g</sub>² + <em>V</em><sub>s</sub>/2<em>N</em><sub>e</sub> in place of the <em>V</em><sub>s</sub> + σ<sub>g</sub>² of the printed equation.</p>
+  <div class="table-wrap"><table class="data" id="paper-table"><caption>Summary statistics as reported in the paper and recomputed from its table of results (median, quartiles)</caption></table></div>
+  <p>We then simulated a stratified random sample of 710 of the published populations with QTLSim.jl, an independent implementation of the model, using the published parameters and different random numbers; each simulation stopped 2000 generations after the optimum started to move, and those still alive were continued to 240,000 generations. Compared with the original simulations of the same populations, the genetic variance before the move differed by a factor of <span data-v="agreement.vg.0" data-f="f3">0.990</span> (95% interval <span data-v="agreement.vg.1" data-f="f3">0.973</span>–<span data-v="agreement.vg.2" data-f="f3">1.007</span>) and the time to extinction by <span data-v="agreement.time.0" data-f="f3">0.999</span> (<span data-v="agreement.time.1" data-f="f3">0.992</span>–<span data-v="agreement.time.2" data-f="f3">1.006</span>). Of the 41 populations that persisted in the original simulations, <span data-v="survivors.both" data-f="int">40</span> persisted again, and no population persisted only in the new simulations.</p>
+  <div class="table-wrap"><table class="data" id="survivors-table"><caption>Statistics of the persisting populations (median, quartiles)</caption></table></div>
+  <div class="table-wrap"><table class="data" id="summary-table"><caption>Principal results, from the paper, its table of results, the original simulations of the sample and the new simulations (medians; for the samples, times truncated at 2000 generations and strata weighted equally)</caption></table></div>
+  <p>The comparison of crossover models used 589 published inputs (<code>validate/published_sweep.jl</code>), and the comparison of demographic models the same 710 populations (vignette 11). All numbers on this page are computed by <code>story/build_data.jl</code> in <a href="https://github.com/ecorecipes/QTLSim.jl">QTLSim.jl</a> from the simulations stored with the vignettes on <a href="../tutorials/09_replicating_pagel_2025/">replicating the paper</a> and on <a href="../tutorials/11_demography_in_the_papers_populations/">demography</a>. The paper's table of results is distributed with its code and data rather than with this package, and only summaries of it are shown. QTSim is by Andrew Meade (QTLSim 1.0, © 2023, GPL-3.0-or-later).</p>
 </section>
 
 </main>
