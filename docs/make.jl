@@ -53,4 +53,15 @@ makedocs(;
                                 size_threshold_ignore=["api.md"]),
          pages=pages)
 
+# The illustrated walk-through of the reproduction (story/, a static page reading
+# story/data/story.json, which story/build_data.jl writes) is published with the
+# documentation, at story/.
+let src = joinpath(@__DIR__, "..", "story"), dst = joinpath(@__DIR__, "build", "story")
+    mkpath(joinpath(dst, "data"))
+    for f in ("index.html", "story.css", "story.js")
+        cp(joinpath(src, f), joinpath(dst, f); force=true)
+    end
+    cp(joinpath(src, "data", "story.json"), joinpath(dst, "data", "story.json"); force=true)
+end
+
 "--no-deploy" in ARGS || deploydocs(; repo="github.com/ecorecipes/QTLSim.jl.git", devbranch="main")
