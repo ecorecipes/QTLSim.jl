@@ -1,4 +1,4 @@
-# QTLSim.jl
+# QTLSim.jl: QTSim in Julia
 
 [![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://ecorecipes.github.io/QTLSim.jl/dev/)
 

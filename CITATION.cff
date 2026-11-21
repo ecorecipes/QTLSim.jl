@@ -21,6 +21,10 @@ abstract: >-
   moment equations, and with density regulation, fecundity selection,
   fluctuating optima, metapopulations and several traits.
 keywords:
+  - QTSim
+  - QTLSim
+  - Pagel Gardner Meade 2025
+  - sustainable rate of adaptation
   - quantitative genetics
   - simulation
   - moving optimum

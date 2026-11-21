@@ -1,4 +1,4 @@
-# QTLSim.jl
+# QTLSim.jl: QTSim in Julia
 
 QTLSim.jl is a Julia port of QTSim, the simulation behind Pagel, Gardner and Meade,
 *Quantitative-genetic analysis of directional adaptation suggests low maximum
