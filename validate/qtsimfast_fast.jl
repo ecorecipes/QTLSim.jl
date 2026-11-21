@@ -11,8 +11,10 @@
 using HypothesisTests, Statistics, Printf, Dates, CairoMakie
 
 const HERE = @__DIR__
-const BIN = abspath(get(ARGS, 1, joinpath(HERE, "..", "reference", "QTSimFast", "build", "QTSimFast")))
-const EX = joinpath(HERE, "..", "reference", "QTSimFast", "examples")
+# two layouts: QTLSim.jl's validate/, or the hand-over package's validation/ (beside fast/)
+const QF = isdir(joinpath(HERE, "..", "fast", "src")) ? joinpath(HERE, "..") : joinpath(HERE, "..", "reference", "QTSimFast")
+const BIN = abspath(get(ARGS, 1, joinpath(QF, isdir(joinpath(QF, "fast")) ? "fast" : ".", "build", "QTSimFast")))
+const EX = joinpath(QF, "examples")
 isfile(BIN) || error("no binary at $BIN")
 
 # ------------------------------------------------------------------ scenarios
@@ -122,7 +124,7 @@ end
 logio = open(joinpath(HERE, "qtsimfast_fast$(SFX).log"), "w")
 say(x...) = (println(x...); println(logio, x...); flush(logio))
 say("QTSimFast fast modes against the exact mode (criteria: validate/qtsimfast_fast_criteria.md)", RUN == 2 ? ", run 2 (addendum 1)" : "")
-say("started ", now(), "; binary ", BIN, "; ", Threads.nthreads(), " threads")
+say("started ", now(), "; binary ", relpath(BIN, joinpath(HERE, "..")), "; ", Threads.nthreads(), " threads")
 
 results = Dict{String,Any}()
 csv = open(joinpath(HERE, "qtsimfast_fast_runs$(SFX).csv"), "w")

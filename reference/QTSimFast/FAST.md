@@ -68,7 +68,8 @@ validation below). It does not give QTSim's run.
 
 ## Validation
 
-`validate/qtsimfast_fast.jl` in QTLSim.jl, with criteria committed before any comparison
+`validate/qtsimfast_fast.jl` in QTLSim.jl (in the hand-over package: `validation/`, with
+the criteria, both logs and the plots), with criteria committed before any comparison
 (`validate/qtsimfast_fast_criteria.md`): seven scenarios (the single-locus protocol;
 100, 1000 and 5000 loci at equilibrium; a haploid design; a move to extinction; a move
 near the survival threshold), 1000 runs per program (500 at 5000 loci), 31 summary

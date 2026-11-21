@@ -71,6 +71,7 @@ arm64 only; written for Linux and x86-64 too, but not yet run there (run `make c
 | `test_parity.sh`, `PARITY_FULL.txt` | the parity matrix (`quick`, `full`) and the result of the full run: 13,915 comparisons, all identical |
 | `bench.sh`, `bench_results.md`, `bench_results.csv`, `bench_runs.csv` | the benchmark and its results (quiet machine, 20 November 2026, after the revision; the first version's is kept in `REPORT.md`, section 1) |
 | `FAST.md`, `bench_fast.sh`, `bench_fast.md`, `bench_fast_runs.csv` | the fast modes (`QTSIM_FAST`), not bit-identical: what they change, their validation, their timings |
+| `validation/` | the fast modes' statistical comparison with the exact program: pre-specified criteria, the script (Julia; needs HypothesisTests and CairoMakie), both runs' logs and eCDF plots |
 | `REPORT.md`, `PROOFS.md` | see above; `PROOFS.html` and `PROOFS.pdf` are `PROOFS.md` rendered (`formal/render.sh PROOFS`) |
 | `formal/QTSimFast.lean` | the Lean 4 model and proofs (needs only Mathlib) |
 | `formal/QTSimFastShadows.lean` | alignment checks: consequences, second formalizations, concrete instances, counterexamples for non-exact algorithms |
