@@ -282,6 +282,15 @@ clang 21, GSL 2.8):
 An earlier version of the code passed the same matrix (6233 of 6233) before the cases
 with no loci, no individuals and no generations were added.
 
+## Faster, not bit-identical: `QTSIM_FAST`
+
+`QTSIM_FAST=1` or `2` (off by default) trades bit parity for speed: level 1 sums genotypes
+from cached block sums (its output was still identical to QTSim's in every case tested),
+level 2 also draws from independent xoshiro256++ streams per individual, in parallel, and
+is equal to QTSim in distribution (pre-specified comparison in QTLSim.jl's
+`validate/qtsimfast_fast*`). Against the original, level 2 is 3.6–36× faster on one thread
+and 7–83× on four (100 to 5000 loci; `bench_fast.md`). See [`FAST.md`](FAST.md).
+
 ## Report, proofs, package
 
 - [`REPORT.md`](REPORT.md): the technical report (each optimisation, why the output

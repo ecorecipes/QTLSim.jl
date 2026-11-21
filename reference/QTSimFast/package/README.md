@@ -26,6 +26,11 @@ one thread now makes the random draws and another builds the genomes, which roug
 halves the wall time of a run at 100 to 1000 loci with two to four threads (benchmark in
 `REPORT.md`, section 1; threads cost processor time, and one thread remains the default).
 
+**Faster still, without bit parity** (off by default): `QTSIM_FAST=1` (output still
+identical to QTSim's in every case tested) and `QTSIM_FAST=2` (equal in distribution;
+3.6 to 36 times as fast as the original on one thread, 7 to 83 times on four). See
+`FAST.md` and `bench_fast.md`.
+
 ## Quick start
 
 ```sh
@@ -65,6 +70,7 @@ arm64 only; written for Linux and x86-64 too, but not yet run there (run `make c
 | `demo_parity.sh`, `PARITY_DEMO.txt` | the parity demonstration and a transcript of it |
 | `test_parity.sh`, `PARITY_FULL.txt` | the parity matrix (`quick`, `full`) and the result of the full run: 13,915 comparisons, all identical |
 | `bench.sh`, `bench_results.md`, `bench_results.csv`, `bench_runs.csv` | the benchmark and its results (quiet machine, 20 November 2026, after the revision; the first version's is kept in `REPORT.md`, section 1) |
+| `FAST.md`, `bench_fast.sh`, `bench_fast.md`, `bench_fast_runs.csv` | the fast modes (`QTSIM_FAST`), not bit-identical: what they change, their validation, their timings |
 | `REPORT.md`, `PROOFS.md` | see above; `PROOFS.html` and `PROOFS.pdf` are `PROOFS.md` rendered (`formal/render.sh PROOFS`) |
 | `formal/QTSimFast.lean` | the Lean 4 model and proofs (needs only Mathlib) |
 | `formal/QTSimFastShadows.lean` | alignment checks: consequences, second formalizations, concrete instances, counterexamples for non-exact algorithms |

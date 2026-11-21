@@ -71,6 +71,18 @@ All notable changes to QTLSim.jl are recorded here. The format follows
 
 ### Added
 
+- **QTSimFast's fast modes, `QTSIM_FAST=1` and `2`, off by default** (2026-11-20;
+  reference/QTSimFast/FAST.md). They give up bit parity: level 1 sums genotypes from a cached sum
+  per block (QTSim's draws in QTSim's order; output still identical to QTSim's in every case
+  tested: the full parity matrix, 13,915 of 13,915, and 6500 of 6500 runs twice); level 2 also
+  draws from independent xoshiro256++ streams per individual and generation, in parallel, with
+  ziggurat normals, inversion Poisson, Lemire integers and one-pass output statistics, and its
+  output does not depend on the number of threads. Pre-specified comparison
+  (validate/qtsimfast_fast_criteria.md, one addendum before run 2; validate/qtsimfast_fast.jl):
+  31 summary statistics in 7 scenarios, eCDFs by Kolmogorov–Smirnov tests, Holm-corrected; level 2
+  passes both runs (no rejection; smallest p 0.048, 0.026), thread invariance 700 of 700.
+  Speed against the original (reference/QTSimFast/bench_fast.md, quiet machine): level 2 3.6–36×
+  on one thread and 7–83× on four, for 100 to 5000 loci. The exact mode is unchanged.
 - **QTSimFast, a faster copy of QTSim with the same output bit for bit** (reference/QTSimFast; the
   package and its defaults are unchanged, and `find_qtsim()` never returns it: the original in
   reference/QTSim stays the reference). A modified version of QTSim's C source (GPL-3.0-or-later,

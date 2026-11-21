@@ -98,7 +98,22 @@ outputs. Results (2026-11-20, `validate/qtsimfast_fast.log`, plots in
 
 ## Speed
 
-See `bench_results.md` (the `QTSIM_FAST` columns), measured on a quiet machine.
+`./bench_fast.sh` times the original, the exact mode and both fast modes on `bench.sh`'s
+inputs (one published input per stratum, 12,000 generations, median of three seeds);
+results in `bench_fast.md`, every run in `bench_fast_runs.csv`. On a quiet machine
+(2026-11-20, Apple M3 Pro, load 1.9–2.7), wall time, speed-up against the original QTSim
+(the range over the two crossover means of each locus count):
+
+| loci | exact, 1 thread | exact, 4 threads | level 1 | level 2, 1 thread | level 2, 4 threads |
+|:--|:--|:--|:--|:--|:--|
+| 100 | 2.6× | 4.3–4.7× | 2.8× | 3.6–3.8× | 7.0–7.6× |
+| 500 | 4.9–5.1× | 11–12× | 6.3–6.7× | 8.2–8.4× | 16× |
+| 1000 | 7.3–7.5× | 17× | 11–12× | 14–15× | 30× |
+| 5000 | 12× | 27–28× | 28–30× | 34–36× | 80–83× |
+
+Level 2 on four threads also uses less processor time than the exact mode on four (at
+5000 loci 7.5 CPU-seconds against 25; the original 153). Exact and level-1 outputs were
+identical to the original's in all 72 runs of the benchmark.
 
 ## When to use which
 
