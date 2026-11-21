@@ -13,7 +13,7 @@ offspring receive Poisson numbers of Gaussian mutations. The paper used it to es
 how fast a population can track a steadily changing environment before it goes extinct:
 about 3% of a phenotypic standard deviation per generation.
 
-**[How fast can a population adapt? A reproduction, step by step](https://ecorecipes.github.io/QTLSim.jl/story/)**:
+**[How fast can a population adapt? A reproduction, step by step](https://ecorecipes.github.io/QTLSim.jl/dev/story/)**:
 an illustrated walk through the model, the paper's numbers recomputed from its results
 table, 710 of its populations rerun with QTLSim, and what changes the answer.
 
